@@ -1,6 +1,6 @@
 // Task Service - จัดการงานและปฏิทิน
 
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { Task, Group, User } from '@/models';
 import { Task as TaskType, CalendarEvent } from '@/types';
@@ -55,7 +55,7 @@ export class TaskService {
 
       // เพิ่มผู้รับผิดชอบ
       if (data.assigneeIds.length > 0) {
-        const assignees = await this.userRepository.findByIds(data.assigneeIds);
+        const assignees = await this.userRepository.findBy({ id: In(data.assigneeIds) });
         savedTask.assignedUsers = assignees;
         await this.taskRepository.save(savedTask);
       }
@@ -64,7 +64,10 @@ export class TaskService {
       try {
         const group = await this.groupRepository.findOneBy({ id: data.groupId });
         if (group?.settings.googleCalendarId) {
-          await this.googleService.syncTaskToCalendar(savedTask as any, group.settings.googleCalendarId);
+          const eventId = await this.googleService.syncTaskToCalendar(savedTask, group.settings.googleCalendarId);
+          // อัปเดต task ด้วย eventId
+          savedTask.googleEventId = eventId;
+          await this.taskRepository.save(savedTask);
         }
       } catch (error) {
         console.warn('⚠️ Failed to sync task to Google Calendar:', error);
@@ -93,7 +96,7 @@ export class TaskService {
 
       // อัปเดตใน Google Calendar
       try {
-        await this.googleService.updateTaskInCalendar(task as any, updates);
+        await this.googleService.updateTaskInCalendar(task, updates);
       } catch (error) {
         console.warn('⚠️ Failed to update task in Google Calendar:', error);
       }
@@ -159,7 +162,7 @@ export class TaskService {
 
       // อัปเดตใน Google Calendar
       try {
-        await this.googleService.updateTaskInCalendar(task as any, { 
+        await this.googleService.updateTaskInCalendar(task, { 
           status: 'completed',
           completedAt: task.completedAt 
         });

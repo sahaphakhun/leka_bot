@@ -1,18 +1,16 @@
 // Google Service - รวมบริการต่างๆ ของ Google
 
 import { GoogleCalendarService } from './GoogleCalendarService';
-import { TaskService } from './TaskService';
 import { UserService } from './UserService';
 import { Task, Group, User } from '@/types';
+import { Task as TaskEntity } from '@/models';
 
 export class GoogleService {
   private calendarService: GoogleCalendarService;
-  private taskService: TaskService;
   private userService: UserService;
 
   constructor() {
     this.calendarService = new GoogleCalendarService();
-    this.taskService = new TaskService();
     this.userService = new UserService();
   }
 
@@ -41,7 +39,7 @@ export class GoogleService {
   /**
    * ซิงค์งานไปยัง Google Calendar
    */
-  public async syncTaskToCalendar(task: Task, groupCalendarId: string): Promise<string> {
+  public async syncTaskToCalendar(task: Task | TaskEntity, groupCalendarId: string): Promise<string> {
     try {
       if (!groupCalendarId) {
         throw new Error('Group calendar not configured');
@@ -50,9 +48,7 @@ export class GoogleService {
       // สร้าง Event ใน Calendar
       const eventId = await this.calendarService.createTaskEvent(task, groupCalendarId);
       
-      // อัปเดต task ด้วย eventId
-      await this.taskService.updateTask(task.id, { googleEventId: eventId });
-
+      // คืนค่า eventId เพื่อให้ TaskService update เอง (หลีกเลี่ยง circular dependency)
       return eventId;
 
     } catch (error) {
@@ -64,7 +60,7 @@ export class GoogleService {
   /**
    * อัปเดตงานใน Calendar
    */
-  public async updateTaskInCalendar(task: Task, updates: Partial<Task>): Promise<void> {
+  public async updateTaskInCalendar(task: Task | TaskEntity, updates: Partial<Task>): Promise<void> {
     try {
       if (!task.googleEventId) {
         console.warn('⚠️ Task has no Google Event ID, skipping calendar update');
@@ -92,7 +88,7 @@ export class GoogleService {
   /**
    * ลบงานจาก Calendar
    */
-  public async removeTaskFromCalendar(task: Task): Promise<void> {
+  public async removeTaskFromCalendar(task: Task | TaskEntity): Promise<void> {
     try {
       if (!task.googleEventId) {
         return;
@@ -192,24 +188,23 @@ export class GoogleService {
 
   /**
    * ซิงค์งานทั้งหมดของกลุ่มไปยัง Calendar
+   * หมายเหตุ: Method นี้ต้องถูกเรียกจาก TaskService เพื่อหลีกเลี่ยง circular dependency
    */
-  public async syncAllGroupTasks(groupId: string): Promise<number> {
+  public async syncTaskListToCalendar(
+    tasks: TaskEntity[], 
+    groupCalendarId: string
+  ): Promise<number> {
     try {
-      const group = await this.userService.findGroupByLineId(groupId);
-      if (!group?.settings.googleCalendarId) {
+      if (!groupCalendarId) {
         throw new Error('Group calendar not configured');
       }
-
-      const { tasks } = await this.taskService.getGroupTasks(group.id, {
-        status: 'pending' // ซิงค์เฉพาะงานที่ยังไม่เสร็จ
-      });
 
       let syncedCount = 0;
 
       for (const task of tasks) {
         try {
           if (!task.googleEventId) {
-            await this.syncTaskToCalendar(task, group.settings.googleCalendarId);
+            const eventId = await this.syncTaskToCalendar(task, groupCalendarId);
             syncedCount++;
           }
         } catch (error) {
@@ -221,7 +216,7 @@ export class GoogleService {
       return syncedCount;
 
     } catch (error) {
-      console.error('❌ Error syncing all group tasks:', error);
+      console.error('❌ Error syncing task list to calendar:', error);
       throw error;
     }
   }

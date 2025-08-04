@@ -56,10 +56,10 @@ export class User {
   displayName: string;
 
   @Column({ nullable: true })
-  realName: string;
+  realName?: string;
 
   @Column({ nullable: true, unique: true })
-  email: string;
+  email?: string;
 
   @Column({ default: 'Asia/Bangkok' })
   timezone: string;
@@ -124,7 +124,7 @@ export class Task {
   title: string;
 
   @Column('text', { nullable: true })
-  description: string;
+  description?: string;
 
   @Column({ 
     type: 'enum', 
@@ -144,13 +144,13 @@ export class Task {
   tags: string[];
 
   @Column({ nullable: true })
-  startTime: Date;
+  startTime?: Date;
 
   @Column()
   dueTime: Date;
 
   @Column({ nullable: true })
-  completedAt: Date;
+  completedAt?: Date;
 
   @Column()
   createdBy: string;
@@ -159,14 +159,14 @@ export class Task {
   remindersSent: {
     type: string;
     sentAt: Date;
-    channels: string[];
+    channels: ('line' | 'email')[];
   }[];
 
   @Column('text', { array: true, default: '{}' })
-  customReminders: string[];
+  customReminders?: string[];
 
   @Column({ nullable: true })
-  googleEventId: string;
+  googleEventId?: string;
 
   @CreateDateColumn()
   createdAt: Date;

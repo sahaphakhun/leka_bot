@@ -93,11 +93,11 @@ export class CronService {
         const timeDiff = dueTime.diff(now);
 
         // ตรวจสอบว่าถึงเวลาส่งการเตือนหรือไม่
-        const reminderIntervals = task.customReminders?.length > 0 
-          ? task.customReminders 
+                const reminderIntervals = (task.customReminders && task.customReminders.length > 0)
+          ? task.customReminders
           : config.app.defaultReminders;
 
-        for (const interval of reminderIntervals) {
+        for (const interval of reminderIntervals || []) {
           const reminderTime = this.parseReminderInterval(interval);
           const shouldSendAt = dueTime.clone().subtract(reminderTime.amount, reminderTime.unit);
           

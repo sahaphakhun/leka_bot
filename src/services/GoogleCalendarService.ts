@@ -3,6 +3,7 @@
 import { google, calendar_v3 } from 'googleapis';
 import { config } from '@/utils/config';
 import { Task, GoogleCalendarEvent } from '@/types';
+import { Task as TaskEntity } from '@/models';
 import moment from 'moment-timezone';
 
 export class GoogleCalendarService {
@@ -84,7 +85,7 @@ export class GoogleCalendarService {
   /**
    * สร้าง Event จากงาน
    */
-  public async createTaskEvent(task: Task, calendarId: string): Promise<string> {
+  public async createTaskEvent(task: Task | TaskEntity, calendarId: string): Promise<string> {
     try {
       const event: GoogleCalendarEvent = {
         summary: task.title,
@@ -99,10 +100,7 @@ export class GoogleCalendarService {
           dateTime: moment(task.dueTime).toISOString(),
           timeZone: 'Asia/Bangkok'
         },
-        attendees: task.assignees?.map(assigneeId => ({
-          email: `user-${assigneeId}@temp.local`, // จะต้องแทนที่ด้วยอีเมลจริง
-          displayName: `ผู้ใช้ ${assigneeId}`
-        })) || [],
+        attendees: this.getTaskAttendees(task),
         reminders: {
           useDefault: false,
           overrides: this.convertRemindersToCalendar(task.customReminders || ['P1D', 'PT3H'])
@@ -297,7 +295,7 @@ export class GoogleCalendarService {
   /**
    * จัดรูปแบบคำอธิบาย Event
    */
-  private formatEventDescription(task: Task): string {
+  private formatEventDescription(task: Task | TaskEntity): string {
     let description = '';
     
     if (task.description) {
@@ -308,7 +306,7 @@ export class GoogleCalendarService {
     description += `⚡ ระดับ: ${this.getPriorityText(task.priority)}\n`;
 
     if (task.tags && task.tags.length > 0) {
-      description += `🏷️ แท็ก: ${task.tags.map(tag => `#${tag}`).join(' ')}\n`;
+      description += `🏷️ แท็ก: ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n`;
     }
 
     description += `\n📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard`;
@@ -365,6 +363,29 @@ export class GoogleCalendarService {
       high: 'สูง'
     };
     return priorityMap[priority] || priority;
+  }
+
+  /**
+   * แปลง Task เป็น attendees สำหรับ Google Calendar
+   */
+  private getTaskAttendees(task: Task | TaskEntity): any[] {
+    // ถ้าเป็น interface (มี assignees)
+    if ('assignees' in task && task.assignees) {
+      return task.assignees.map(assigneeId => ({
+        email: `user-${assigneeId}@temp.local`, // จะต้องแทนที่ด้วยอีเมลจริง
+        displayName: `ผู้ใช้ ${assigneeId}`
+      }));
+    }
+    
+    // ถ้าเป็น entity (มี assignedUsers)
+    if ('assignedUsers' in task && task.assignedUsers) {
+      return task.assignedUsers.map((user: any) => ({
+        email: user.email || `user-${user.id}@temp.local`,
+        displayName: user.displayName || user.realName || `ผู้ใช้ ${user.id}`
+      }));
+    }
+    
+    return [];
   }
 
   /**

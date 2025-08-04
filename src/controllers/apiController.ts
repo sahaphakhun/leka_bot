@@ -5,9 +5,10 @@ import { TaskService } from '@/services/TaskService';
 import { UserService } from '@/services/UserService';
 import { FileService } from '@/services/FileService';
 import { KPIService } from '@/services/KPIService';
-import { authMiddleware } from '@/middleware/auth';
+import { authenticate } from '@/middleware/auth';
 import { validateRequest } from '@/middleware/validation';
 import { ApiResponse, PaginatedResponse } from '@/types';
+import { taskEntityToInterface } from '@/types/adapters';
 
 export const apiRouter = Router();
 
@@ -84,9 +85,23 @@ class ApiController {
       const { groupId } = req.params;
       const taskData = req.body;
 
+      // ตรวจสอบ required fields
+      const requiredFields = ['title', 'assigneeIds', 'createdBy', 'dueTime'];
+      for (const field of requiredFields) {
+        if (!taskData[field]) {
+          res.status(400).json({
+            success: false,
+            error: `Missing required field: ${field}`
+          });
+          return;
+        }
+      }
+
       const task = await this.taskService.createTask({
         ...taskData,
-        groupId
+        groupId,
+        dueTime: new Date(taskData.dueTime),
+        startTime: taskData.startTime ? new Date(taskData.startTime) : undefined
       });
 
       const response: ApiResponse<any> = {
@@ -141,11 +156,14 @@ class ApiController {
       const { taskId } = req.params;
       const { userId } = req.body;
 
-      const task = await this.taskService.completeTask(taskId, userId);
+      const taskEntity = await this.taskService.completeTask(taskId, userId);
 
-      // บันทึก KPI
-      const completionType = this.kpiService.calculateCompletionType(task);
-      await this.kpiService.recordTaskCompletion(task, completionType);
+      // บันทึก KPI ใช้ entity โดยตรง
+      const completionType = this.kpiService.calculateCompletionType(taskEntity);
+      await this.kpiService.recordTaskCompletion(taskEntity, completionType);
+      
+      // แปลง entity เป็น interface สำหรับ response
+      const task = taskEntityToInterface(taskEntity);
 
       const response: ApiResponse<any> = {
         success: true,

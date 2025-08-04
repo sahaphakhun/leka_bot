@@ -4,6 +4,7 @@ import { Repository } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { KPIRecord, Task, User, Group } from '@/models';
 import { Leaderboard } from '@/types';
+import { Task as TaskEntity } from '@/models';
 import { config } from '@/utils/config';
 import moment from 'moment-timezone';
 
@@ -24,7 +25,7 @@ export class KPIService {
    * บันทึกการทำงานเสร็จ
    */
   public async recordTaskCompletion(
-    task: Task, 
+    task: Task | TaskEntity, 
     completionType: 'early' | 'ontime' | 'late' | 'overtime'
   ): Promise<KPIRecord> {
     try {
@@ -67,7 +68,7 @@ export class KPIService {
   /**
    * คำนวณประเภทการทำงานเสร็จ
    */
-  public calculateCompletionType(task: Task): 'early' | 'ontime' | 'late' | 'overtime' {
+  public calculateCompletionType(task: Task | TaskEntity): 'early' | 'ontime' | 'late' | 'overtime' {
     const dueTime = moment(task.dueTime);
     const completedTime = moment(task.completedAt);
     const diffHours = completedTime.diff(dueTime, 'hours');

@@ -527,7 +527,16 @@ ${setupUrl}
     tags: string[];
     reminders?: string[];
   } {
-    const result = {
+    const result: {
+      title?: string;
+      description?: string;
+      assignees: string[];
+      dueTime?: Date;
+      startTime?: Date;
+      priority: 'low' | 'medium' | 'high';
+      tags: string[];
+      reminders?: string[];
+    } = {
       assignees: mentions,
       priority: 'medium' as const,
       tags: [] as string[]
@@ -585,7 +594,7 @@ ${setupUrl}
   /**
    * แปลงข้อความเป็นวันเวลา
    */
-  private parseDateTime(dateStr: string): Date | null {
+  private parseDateTime(dateStr: string): Date | undefined {
     try {
       const now = moment().tz(config.app.defaultTimezone);
       
@@ -638,10 +647,10 @@ ${setupUrl}
         }
       }
 
-      return null;
+      return undefined;
     } catch (error) {
       console.error('❌ Error parsing date:', error);
-      return null;
+      return undefined;
     }
   }
 
