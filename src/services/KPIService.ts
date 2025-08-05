@@ -177,27 +177,21 @@ export class KPIService {
       const weekEnd = moment().endOf('week').toDate();
 
       // งานทั้งหมดในสัปดาห์
-      const totalTasks = await this.taskRepository.count({
-        where: {
-          groupId,
-          createdAt: {
-            $gte: weekStart,
-            $lte: weekEnd
-          } as any
-        }
-      });
+      const totalTasks = await this.taskRepository
+        .createQueryBuilder('task')
+        .where('task.groupId = :groupId', { groupId })
+        .andWhere('task.createdAt >= :weekStart', { weekStart })
+        .andWhere('task.createdAt <= :weekEnd', { weekEnd })
+        .getCount();
 
       // งานที่เสร็จ
-      const completedTasks = await this.taskRepository.count({
-        where: {
-          groupId,
-          status: 'completed',
-          completedAt: {
-            $gte: weekStart,
-            $lte: weekEnd
-          } as any
-        }
-      });
+      const completedTasks = await this.taskRepository
+        .createQueryBuilder('task')
+        .where('task.groupId = :groupId', { groupId })
+        .andWhere('task.status = :status', { status: 'completed' })
+        .andWhere('task.completedAt >= :weekStart', { weekStart })
+        .andWhere('task.completedAt <= :weekEnd', { weekEnd })
+        .getCount();
 
       // งานที่ค้าง
       const pendingTasks = await this.taskRepository.count({
