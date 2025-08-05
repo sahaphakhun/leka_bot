@@ -596,10 +596,14 @@ ${dashboardUrl}
     // แยกวันเวลา - รองรับรูปแบบ "เริ่ม ... ถึง ..." และ "due ..."
     
     // ลองหา pattern "เริ่ม ... ถึง ..." ก่อน
-    const startEndMatch = text.match(/(?:เริ่ม|start)\s+([^ถึง]+?)(?:\s+(?:ถึง|to|until)\s+(.+?))?(?:\s|$)/i);
+    const startEndPattern = /(?:เริ่ม|start)\s+([\d\/\-\s:]+?)\s+(?:ถึง|to|until)\s+([\d\/\-\s:]+?)(?:\s|$)/i;
+    const startEndMatch = text.match(startEndPattern);
+    
     if (startEndMatch) {
       const startTimeStr = startEndMatch[1]?.trim();
       const endTimeStr = startEndMatch[2]?.trim();
+      
+      console.log('🔍 Found start-end pattern:', { startTimeStr, endTimeStr });
       
       if (startTimeStr) {
         result.startTime = this.parseDateTime(startTimeStr);
@@ -611,11 +615,22 @@ ${dashboardUrl}
         console.log('🕕 Parsed end time:', endTimeStr, '→', result.dueTime);
       }
     } else {
+      console.log('❌ No start-end pattern found, looking for due only');
+      
       // ถ้าไม่มี pattern "เริ่ม ... ถึง ..." ให้ลองหา "due" หรือ "ถึง" อย่างเดียว
-      const dueMatch = text.match(/(?:due|ถึง|กำหนด)\s+(.+?)(?:\s|$)/i);
+      const duePattern = /(?:due|ถึง|กำหนด)\s+([\d\/\-\s:]+?)(?:\s|$)/i;
+      const dueMatch = text.match(duePattern);
       if (dueMatch) {
         result.dueTime = this.parseDateTime(dueMatch[1]);
         console.log('📅 Parsed due time:', dueMatch[1], '→', result.dueTime);
+      }
+      
+      // ลองหาแค่ "เริ่ม" อย่างเดียว
+      const startOnlyPattern = /(?:เริ่ม|start)\s+([\d\/\-\s:]+?)(?:\s+[^\d]|$)/i;
+      const startOnlyMatch = text.match(startOnlyPattern);
+      if (startOnlyMatch) {
+        result.startTime = this.parseDateTime(startOnlyMatch[1]);
+        console.log('🕐 Parsed start time only:', startOnlyMatch[1], '→', result.startTime);
       }
     }
 
@@ -672,6 +687,7 @@ ${dashboardUrl}
    */
   private parseDateTime(dateStr: string): Date | undefined {
     try {
+      console.log('📅 Parsing datetime:', dateStr);
       const now = moment().tz(config.app.defaultTimezone);
       
       // รูปแบบต่างๆ ที่รองรับ
@@ -713,18 +729,26 @@ ${dashboardUrl}
       // ลองแปลงตามรูปแบบต่างๆ
       for (const format of formats) {
         const parsed = moment(dateStr, format, true);
+        console.log(`  Testing format "${format}":`, parsed.isValid() ? 'Valid' : 'Invalid');
+        
         if (parsed.isValid()) {
+          console.log(`  ✅ Successfully parsed with format "${format}"`);
+          
           // ถ้าไม่มีปี ใช้ปีปัจจุบัน
           if (!format.includes('Y')) {
             parsed.year(now.year());
+            console.log(`  Added current year: ${now.year()}`);
           }
           
           // ถ้าไม่มีเวลา ใช้ 09:00
           if (!format.includes('H')) {
             parsed.hour(9).minute(0);
+            console.log(`  Added default time: 09:00`);
           }
 
-          return parsed.toDate();
+          const result = parsed.toDate();
+          console.log(`  Final result: ${result}`);
+          return result;
         }
       }
 
