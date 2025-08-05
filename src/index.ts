@@ -1,20 +1,21 @@
-// Entry Point สำหรับ Leka Bot Application
+// เลขาบอท - LINE Group Secretary Bot
+// Main Entry Point
 
-import express from 'express';
+import 'module-alias/register';
+import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
-import { config, validateConfig } from '@/utils/config';
-import { initializeDatabase, closeDatabase } from '@/utils/database';
-import { LineService } from '@/services/LineService';
-import { CronService } from '@/services/CronService';
+import path from 'path';
+import { config, validateConfig } from './utils/config';
+import { initializeDatabase, closeDatabase } from './utils/database';
+import { webhookRouter } from './controllers/webhookController';
+import { apiRouter } from './controllers/apiController';
+import { dashboardRouter } from './controllers/dashboardController';
+import { LineService } from './services/LineService';
+import { CronService } from './services/CronService';
 
-// Import Routes
-import { webhookRouter } from '@/controllers/webhookController';
-import { apiRouter } from '@/controllers/apiController';
-import { dashboardRouter } from '@/controllers/dashboardController';
-
-class LekaBot {
-  private app: express.Application;
+class Server {
+  private app: Application;
   private lineService: LineService;
   private cronService: CronService;
 
@@ -22,38 +23,51 @@ class LekaBot {
     this.app = express();
     this.lineService = new LineService();
     this.cronService = new CronService();
+    
+    this.configureMiddleware();
+    this.configureRoutes();
+    this.setupErrorHandling();
   }
 
-  private setupMiddleware(): void {
+  private configureMiddleware(): void {
     // Security middleware
     this.app.use(helmet());
-    
-    // CORS configuration
-    this.app.use(cors({
-      origin: process.env.NODE_ENV === 'production' 
-        ? [config.baseUrl, /\.railway\.app$/] 
-        : true,
-      credentials: true,
-    }));
+    this.app.use(cors());
 
     // Body parsing middleware
-    this.app.use('/webhook', express.raw({ type: 'application/json' }));
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
 
-    // Static file serving
-    this.app.use('/uploads', express.static('uploads'));
-    this.app.use('/dashboard', express.static('dashboard/dist'));
+    // สำหรับ LINE Webhook - ต้องเป็น raw สำหรับ signature validation
+    this.app.use('/webhook', express.raw({ type: 'application/json' }));
+
+    // Static files สำหรับ dashboard และ uploads
+    this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+    this.app.use('/dashboard/assets', express.static(path.join(__dirname, '../dashboard')));
   }
 
-  private setupRoutes(): void {
+  private configureRoutes(): void {
     // Health check
-    this.app.get('/health', (req, res) => {
-      res.json({ 
-        status: 'ok', 
+    this.app.get('/health', (req: Request, res: Response) => {
+      res.json({
+        status: 'OK',
         timestamp: new Date().toISOString(),
-        version: '1.0.0',
+        version: process.env.npm_package_version || '1.0.0',
         environment: config.nodeEnv
+      });
+    });
+
+    // Main routes
+    this.app.get('/', (req: Request, res: Response) => {
+      res.json({
+        message: '🤖 เลขาบอท LINE Group Secretary',
+        status: 'Running',
+        endpoints: {
+          health: '/health',
+          webhook: '/webhook',
+          api: '/api',
+          dashboard: '/dashboard'
+        }
       });
     });
 
@@ -63,117 +77,106 @@ class LekaBot {
     // API Routes
     this.app.use('/api', apiRouter);
 
-    // Dashboard Routes  
+    // Dashboard Routes
     this.app.use('/dashboard', dashboardRouter);
 
-    // Default route - redirect to dashboard
-    this.app.get('/', (req, res) => {
-      res.redirect('/dashboard');
-    });
-
     // 404 handler
-    this.app.use('*', (req, res) => {
-      res.status(404).json({ 
+    this.app.use('*', (req: Request, res: Response) => {
+      res.status(404).json({
         error: 'Not Found',
-        message: 'The requested resource was not found.'
+        message: `Route ${req.originalUrl} not found`,
+        availableRoutes: ['/', '/health', '/webhook', '/api', '/dashboard']
       });
     });
   }
 
-  private setupErrorHandler(): void {
+  private setupErrorHandling(): void {
     // Global error handler
-    this.app.use((err: Error, req: express.Request, res: express.Response, next: express.NextFunction) => {
-      console.error('❌ Unhandled error:', err);
+    this.app.use((error: Error, req: Request, res: Response, next: any) => {
+      console.error('❌ Global error handler:', error);
       
-      if (res.headersSent) {
-        return next(err);
-      }
-
       res.status(500).json({
         error: 'Internal Server Error',
-        message: config.nodeEnv === 'development' ? err.message : 'Something went wrong'
+        message: config.nodeEnv === 'development' ? error.message : 'Something went wrong',
+        ...(config.nodeEnv === 'development' && { stack: error.stack })
       });
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', this.gracefulShutdown.bind(this));
+    process.on('SIGINT', this.gracefulShutdown.bind(this));
+
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (error: Error) => {
+      console.error('❌ Uncaught Exception:', error);
+      this.gracefulShutdown();
+    });
+
+    process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+      console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
     });
   }
 
-  private setupGracefulShutdown(): void {
-    const shutdown = async (signal: string) => {
-      console.log(`\n🔄 Received ${signal}. Starting graceful shutdown...`);
+  private async gracefulShutdown(): Promise<void> {
+    console.log('🔄 Starting graceful shutdown...');
+    try {
+      // Stop cron jobs
+      this.cronService.stop();
       
-      try {
-        // Stop cron jobs
-        this.cronService.stop();
-        console.log('✅ Cron jobs stopped');
-
-        // Close database connection
-        await closeDatabase();
-        
-        // Close server
-        process.exit(0);
-      } catch (error) {
-        console.error('❌ Error during shutdown:', error);
-        process.exit(1);
-      }
-    };
-
-    process.on('SIGTERM', () => shutdown('SIGTERM'));
-    process.on('SIGINT', () => shutdown('SIGINT'));
-    
-    // Handle uncaught exceptions
-    process.on('uncaughtException', (error) => {
-      console.error('❌ Uncaught Exception:', error);
+      // Close database connections
+      await closeDatabase();
+      
+      console.log('✅ Graceful shutdown completed');
+      process.exit(0);
+    } catch (error) {
+      console.error('❌ Error during shutdown:', error);
       process.exit(1);
-    });
-
-    process.on('unhandledRejection', (reason, promise) => {
-      console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
-      process.exit(1);
-    });
+    }
   }
 
   public async start(): Promise<void> {
     try {
       // Validate configuration
       validateConfig();
+      console.log('✅ Configuration validated');
 
       // Initialize database
       await initializeDatabase();
+      console.log('✅ Database connected');
 
-      // Setup Express application
-      this.setupMiddleware();
-      this.setupRoutes();
-      this.setupErrorHandler();
-      this.setupGracefulShutdown();
-
-      // Initialize services
+      // Initialize LINE service
       await this.lineService.initialize();
-      console.log('✅ LINE Bot service initialized');
+      console.log('✅ LINE service initialized');
 
       // Start cron jobs
       this.cronService.start();
       console.log('✅ Cron jobs started');
 
       // Start server
-      const server = this.app.listen(config.port, () => {
-        console.log(`🚀 Leka Bot is running on port ${config.port}`);
-        console.log(`🌐 Environment: ${config.nodeEnv}`);
+      const port = config.port;
+      this.app.listen(port, () => {
+        console.log('');
+        console.log('🚀 เลขาบอท Started Successfully!');
+        console.log('====================================');
+        console.log(`📡 Server running on port: ${port}`);
+        console.log(`🌐 Base URL: ${config.baseUrl}`);
+        console.log(`🔧 Environment: ${config.nodeEnv}`);
         console.log(`📱 LINE Bot ready to receive webhooks`);
         console.log(`📊 Dashboard available at: ${config.baseUrl}/dashboard`);
+        console.log('====================================');
+        console.log('');
       });
 
-      // Set server timeout for long-running requests
-      server.timeout = 30000; // 30 seconds
-
     } catch (error) {
-      console.error('❌ Failed to start Leka Bot:', error);
+      console.error('❌ Failed to start server:', error);
       process.exit(1);
     }
   }
 }
 
-// Start the application
-const lekaBot = new LekaBot();
-lekaBot.start().catch(error => {
+// Start the server
+const server = new Server();
+server.start().catch((error) => {
   console.error('❌ Fatal error:', error);
   process.exit(1);
 });
