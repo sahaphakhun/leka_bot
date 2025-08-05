@@ -57,21 +57,14 @@ export class LineService {
       if (textMessage.mention && textMessage.mention.mentionees) {
         console.log('📱 Found mentions:', textMessage.mention.mentionees);
         
-        // ถ้า botUserId มีการตั้งค่า ให้เช็คแบบเฉพาะเจาะจง
-        if (config.line.botUserId) {
-          const botMentions = textMessage.mention.mentionees.filter((mention: any) => 
-            mention.userId === config.line.botUserId
-          );
-          
-          if (botMentions.length > 0) {
-            isMentioned = true;
-            console.log('✅ Bot mentioned via LINE mention');
-          }
-        } else {
-          // ถ้าไม่มี botUserId ให้ถือว่ามี mention แล้วเป็นการ mention บอท
-          // (ปลอดภัยกว่าเพราะ mention ใน LINE จะมีแค่เมื่อแท็กจริงๆ)
+        // ตรวจสอบว่าบอทถูกแท็กหรือไม่ผ่าน isSelf property
+        const botMentions = textMessage.mention.mentionees.filter((mention: any) => 
+          mention.isSelf
+        );
+        
+        if (botMentions.length > 0) {
           isMentioned = true;
-          console.log('✅ Bot mentioned (no botUserId configured)');
+          console.log('✅ Bot mentioned via LINE mention');
         }
         
         // เก็บ mentions ของผู้ใช้อื่น
