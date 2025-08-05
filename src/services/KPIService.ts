@@ -212,17 +212,14 @@ export class KPIService {
       const topPerformer = leaderboard.length > 0 ? leaderboard[0].displayName : 'ไม่มีข้อมูล';
 
       // เวลาเฉลี่ยในการทำงาน (ชั่วโมง)
-      const completedTasksWithTime = await this.taskRepository.find({
-        where: {
-          groupId,
-          status: 'completed',
-          completedAt: {
-            $gte: weekStart,
-            $lte: weekEnd
-          } as any
-        },
-        select: ['dueTime', 'completedAt']
-      });
+      const completedTasksWithTime = await this.taskRepository
+        .createQueryBuilder('task')
+        .select(['task.dueTime', 'task.completedAt'])
+        .where('task.groupId = :groupId', { groupId })
+        .andWhere('task.status = :status', { status: 'completed' })
+        .andWhere('task.completedAt >= :weekStart', { weekStart })
+        .andWhere('task.completedAt <= :weekEnd', { weekEnd })
+        .getMany();
 
       let avgCompletionTime = 0;
       if (completedTasksWithTime.length > 0) {
