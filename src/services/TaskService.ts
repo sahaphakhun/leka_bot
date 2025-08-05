@@ -23,6 +23,9 @@ export class TaskService {
 
   /**
    * สร้างงานใหม่
+   * @param data.groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
+   * @param data.assigneeIds - LINE User IDs (เช่น ["Uc92411a226e4d4c9866adef05068bdf1"])
+   * @param data.createdBy - LINE User ID (เช่น "Uc92411a226e4d4c9866adef05068bdf1")
    */
   public async createTask(data: {
     groupId: string;
@@ -37,13 +40,25 @@ export class TaskService {
     customReminders?: string[];
   }): Promise<Task> {
     try {
+      // ค้นหา Group entity จาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId: data.groupId });
+      if (!group) {
+        throw new Error(`Group not found for LINE ID: ${data.groupId}`);
+      }
+
+      // ค้นหา Creator User entity จาก LINE User ID
+      const creator = await this.userRepository.findOneBy({ lineUserId: data.createdBy });
+      if (!creator) {
+        throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
+      }
+
       const task = this.taskRepository.create({
-        groupId: data.groupId,
+        groupId: group.id,
         title: data.title,
         description: data.description,
         dueTime: data.dueTime,
         startTime: data.startTime,
-        createdBy: data.createdBy,
+        createdBy: creator.id,
         priority: data.priority || 'medium',
         tags: data.tags || [],
         customReminders: data.customReminders,
@@ -55,15 +70,25 @@ export class TaskService {
 
       // เพิ่มผู้รับผิดชอบ
       if (data.assigneeIds.length > 0) {
-        const assignees = await this.userRepository.findBy({ id: In(data.assigneeIds) });
+        const assignees = await this.userRepository.find({
+          where: {
+            lineUserId: In(data.assigneeIds)
+          }
+        });
+        
+        if (assignees.length !== data.assigneeIds.length) {
+          const foundIds = assignees.map(u => u.lineUserId);
+          const missingIds = data.assigneeIds.filter(id => !foundIds.includes(id));
+          console.warn(`⚠️ Some assignees not found: ${missingIds.join(', ')}`);
+        }
+
         savedTask.assignedUsers = assignees;
         await this.taskRepository.save(savedTask);
       }
 
       // ซิงค์ไปยัง Google Calendar
       try {
-        const group = await this.groupRepository.findOneBy({ id: data.groupId });
-        if (group?.settings.googleCalendarId) {
+        if (group.settings.googleCalendarId) {
           const eventId = await this.googleService.syncTaskToCalendar(savedTask, group.settings.googleCalendarId);
           // อัปเดต task ด้วย eventId
           savedTask.googleEventId = eventId;
@@ -180,6 +205,8 @@ export class TaskService {
 
   /**
    * ดึงงานในกลุ่ม
+   * @param groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
+   * @param options.assigneeId - LINE User ID (เช่น "Uc92411a226e4d4c9866adef05068bdf1")
    */
   public async getGroupTasks(
     groupId: string, 
@@ -194,18 +221,31 @@ export class TaskService {
     } = {}
   ): Promise<{ tasks: Task[]; total: number }> {
     try {
+      // ค้นหา Group entity จาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      if (!group) {
+        throw new Error(`Group not found for LINE ID: ${groupId}`);
+      }
+
       const queryBuilder = this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.createdByUser', 'creator')
         .leftJoinAndSelect('task.attachedFiles', 'file')
-        .where('task.groupId = :groupId', { groupId });
+        .where('task.groupId = :groupId', { groupId: group.id });
 
       if (options.status) {
         queryBuilder.andWhere('task.status = :status', { status: options.status });
       }
 
       if (options.assigneeId) {
-        queryBuilder.andWhere('assignee.id = :assigneeId', { assigneeId: options.assigneeId });
+        // แปลง LINE User ID เป็น internal UUID
+        const assignee = await this.userRepository.findOneBy({ lineUserId: options.assigneeId });
+        if (assignee) {
+          queryBuilder.andWhere('assignee.id = :assigneeId', { assigneeId: assignee.id });
+        } else {
+          // ถ้าไม่เจอ user จะไม่มี tasks ใดๆ
+          queryBuilder.andWhere('1 = 0'); // Force empty result
+        }
       }
 
       if (options.tags && options.tags.length > 0) {

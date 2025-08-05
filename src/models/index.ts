@@ -97,7 +97,7 @@ export class GroupMember {
   @Column()
   userId: string;
 
-  @Column({ type: 'enum', enum: ['admin', 'member'], default: 'member' })
+  @Column({ type: 'enum', enum: ['admin', 'member'], default: 'admin' })
   role: 'admin' | 'member';
 
   @CreateDateColumn()

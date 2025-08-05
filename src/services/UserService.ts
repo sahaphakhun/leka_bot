@@ -189,7 +189,7 @@ export class UserService {
   public async addGroupMember(
     groupId: string, 
     userId: string, 
-    role: 'admin' | 'member' = 'member'
+    role: 'admin' | 'member' = 'admin'
   ): Promise<GroupMember> {
     try {
       const membership = this.groupMemberRepository.create({
@@ -241,11 +241,18 @@ export class UserService {
 
   /**
    * ดึงสมาชิกในกลุ่ม
+   * @param groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
    */
   public async getGroupMembers(groupId: string): Promise<Array<User & { role: string }>> {
     try {
+      // ค้นหา Group entity จาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      if (!group) {
+        throw new Error(`Group not found for LINE ID: ${groupId}`);
+      }
+
       const members = await this.groupMemberRepository.find({
-        where: { groupId },
+        where: { groupId: group.id },
         relations: ['user'],
         order: { joinedAt: 'ASC' }
       });
@@ -262,11 +269,18 @@ export class UserService {
 
   /**
    * ดึงกลุ่มที่ผู้ใช้เป็นสมาชิก
+   * @param userId - LINE User ID (เช่น "Uc92411a226e4d4c9866adef05068bdf1")  
    */
   public async getUserGroups(userId: string): Promise<Array<Group & { role: string }>> {
     try {
+      // ค้นหา User entity จาก LINE User ID
+      const user = await this.userRepository.findOneBy({ lineUserId: userId });
+      if (!user) {
+        throw new Error(`User not found for LINE ID: ${userId}`);
+      }
+
       const memberships = await this.groupMemberRepository.find({
-        where: { userId },
+        where: { userId: user.id },
         relations: ['group'],
         order: { joinedAt: 'ASC' }
       });
@@ -283,12 +297,29 @@ export class UserService {
 
   /**
    * ตรวจสอบสิทธิ์ admin ในกลุ่ม
+   * @param userId - LINE User ID (เช่น "Uc92411a226e4d4c9866adef05068bdf1")
+   * @param groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
    */
   public async isGroupAdmin(userId: string, groupId: string): Promise<boolean> {
     try {
+      // ค้นหา User entity จาก LINE User ID
+      const user = await this.userRepository.findOneBy({ lineUserId: userId });
+      if (!user) {
+        console.log(`⚠️ User not found for LINE ID: ${userId}`);
+        return false;
+      }
+
+      // ค้นหา Group entity จาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      if (!group) {
+        console.log(`⚠️ Group not found for LINE ID: ${groupId}`);
+        return false;
+      }
+
+      // ตรวจสอบสมาชิกภาพแบบ admin ด้วย internal UUIDs
       const membership = await this.groupMemberRepository.findOneBy({
-        userId,
-        groupId,
+        userId: user.id,
+        groupId: group.id,
         role: 'admin'
       });
 
@@ -321,6 +352,7 @@ export class UserService {
 
   /**
    * สถิติกลุ่ม
+   * @param groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
    */
   public async getGroupStats(groupId: string): Promise<{
     totalMembers: number;
@@ -329,12 +361,18 @@ export class UserService {
     joinedThisMonth: number;
   }> {
     try {
+      // ค้นหา Group entity จาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      if (!group) {
+        throw new Error(`Group not found for LINE ID: ${groupId}`);
+      }
+
       const totalMembers = await this.groupMemberRepository.count({
-        where: { groupId }
+        where: { groupId: group.id }
       });
 
       const memberships = await this.groupMemberRepository.find({
-        where: { groupId },
+        where: { groupId: group.id },
         relations: ['user']
       });
 
