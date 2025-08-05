@@ -287,8 +287,9 @@ class ApiController {
 
       // ถ้ามี groupId ให้ตรวจสอบว่าไฟล์เป็นของกลุ่มนั้นจริง
       if (groupId) {
-        const fileInfo = await this.fileService.getFileInfo(fileId);
-        if (!fileInfo || fileInfo.groupId !== groupId) {
+        // ตรวจสอบว่าไฟล์อยู่ในกลุ่มที่ระบุหรือไม่ผ่าน FileService
+        const isAuthorized = await this.fileService.isFileInGroup(fileId, groupId);
+        if (!isAuthorized) {
           res.status(403).json({ 
             success: false, 
             error: 'Access denied to file' 
@@ -326,8 +327,9 @@ class ApiController {
 
       // ถ้ามี groupId ให้ตรวจสอบว่าไฟล์เป็นของกลุ่มนั้นจริง
       if (groupId) {
-        const fileInfo = await this.fileService.getFileInfo(fileId);
-        if (!fileInfo || fileInfo.groupId !== groupId) {
+        // ตรวจสอบว่าไฟล์อยู่ในกลุ่มที่ระบุหรือไม่ผ่าน FileService
+        const isAuthorized = await this.fileService.isFileInGroup(fileId, groupId);
+        if (!isAuthorized) {
           res.status(403).json({ 
             success: false, 
             error: 'Access denied to file' 

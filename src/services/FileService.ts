@@ -232,6 +232,19 @@ export class FileService {
   }
 
   /**
+   * ดึงข้อมูลไฟล์
+   */
+  public async getFileInfo(fileId: string): Promise<File | null> {
+    try {
+      const file = await this.fileRepository.findOneBy({ id: fileId });
+      return file;
+    } catch (error) {
+      console.error('❌ Error getting file info:', error);
+      throw error;
+    }
+  }
+
+  /**
    * ดาวน์โหลดไฟล์
    */
   public async getFileContent(fileId: string): Promise<{
@@ -357,6 +370,23 @@ export class FileService {
     } catch (error) {
       console.error('❌ Error cleaning up old files:', error);
       throw error;
+    }
+  }
+
+  /**
+   * ตรวจสอบว่าไฟล์อยู่ในกลุ่มที่ระบุหรือไม่
+   */  
+  public async isFileInGroup(fileId: string, groupId: string): Promise<boolean> {
+    try {
+      const file = await this.fileRepository.findOne({
+        where: { id: fileId, groupId },
+        select: ['id'] // ดึงเฉพาะ id เพื่อประหยัด memory
+      });
+      
+      return !!file;
+    } catch (error) {
+      console.error('❌ Error checking file in group:', error);
+      return false;
     }
   }
 

@@ -67,11 +67,9 @@ export class LineService {
           console.log('✅ Bot mentioned via LINE mention');
         }
         
-        // เก็บ mentions ของผู้ใช้อื่น
+        // เก็บ mentions ของผู้ใช้อื่น (ไม่ใช่บอท)
         textMessage.mention.mentionees.forEach((mention: any) => {
-          if (config.line.botUserId && mention.userId !== config.line.botUserId) {
-            mentions.push(mention.userId);
-          } else if (!config.line.botUserId && !mention.isSelf) {
+          if (!mention.isSelf) {
             mentions.push(mention.userId);
           }
         });
@@ -101,17 +99,35 @@ export class LineService {
     console.log('🤖 Processing bot command');
     
     // แยก mentions เพิ่มเติมจากข้อความ (กรณีที่พิมพ์ @username ธรรมดา)
-    const mentionRegex = /@(\w+)/g;
-    let match;
-    while ((match = mentionRegex.exec(cleanText)) !== null) {
-      if (match[1] !== 'เลขา') { // ไม่รวมการ mention บอท
-        mentions.push(match[1]);
+    const additionalMentionRegex = /@(\w+|me)/g;
+    let additionalMatch;
+    const additionalMentions: string[] = [];
+    
+    // Reset regex lastIndex
+    additionalMentionRegex.lastIndex = 0;
+    
+    while ((additionalMatch = additionalMentionRegex.exec(cleanText)) !== null) {
+      const mentionText = additionalMatch[1];
+      if (mentionText !== 'เลขา') { // ไม่รวมการ mention บอท
+        // ถ้าเป็น @me ให้ใช้ userId ของผู้ส่งข้อความ
+        if (mentionText === 'me') {
+          additionalMentions.push(event.source.userId!);
+        } else {
+          // สำหรับ @username ธรรมดา เก็บไว้เป็น displayName (จะแปลงภายหลัง)
+          additionalMentions.push(mentionText);
+        }
       }
     }
+    
+    // รวม mentions จาก LINE mention และ text mention
+    mentions.push(...additionalMentions);
 
-    // ลบ mentions ออกจากข้อความ
-    cleanText = cleanText.replace(mentionRegex, '').trim();
+    // ลบ mentions ออกจากข้อความ (ใช้ regex ใหม่เพื่อไม่ให้มีปัญหา lastIndex)
+    cleanText = cleanText.replace(/@(\w+|me)/g, '').trim();
     cleanText = cleanText.replace(/@เลขา/g, '').trim();
+    
+    // ลบช่องว่างเกินออก
+    cleanText = cleanText.replace(/\s+/g, ' ').trim();
 
     // แยกคำสั่งและ arguments
     const parts = cleanText.split(' ').filter(part => part.length > 0);
