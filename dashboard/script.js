@@ -140,6 +140,50 @@ class Dashboard {
     this.isLoading = false;
   }
 
+  showNoGroupMessage() {
+    this.hideLoading();
+    const mainContent = document.querySelector('.main-content');
+    mainContent.innerHTML = `
+      <div class="error-container">
+        <div class="error-message">
+          <i class="fas fa-users" style="font-size: 64px; color: #ddd; margin-bottom: 20px;"></i>
+          <h2>ไม่มีข้อมูลกลุ่ม</h2>
+          <p>กรุณาเข้าใช้ Dashboard ผ่านคำสั่งบอทในกลุ่ม LINE</p>
+          <div class="setup-instructions">
+            <h3>วิธีใช้งาน:</h3>
+            <ol>
+              <li>เข้าไปในกลุ่ม LINE ที่ต้องการใช้งาน</li>
+              <li>แท็กบอท พิมพ์ <strong>/setup</strong></li>
+              <li>คลิกลิงก์ที่บอทส่งให้</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
+  showGroupNotFoundMessage() {
+    this.hideLoading();
+    const mainContent = document.querySelector('.main-content');
+    mainContent.innerHTML = `
+      <div class="error-container">
+        <div class="error-message">
+          <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #f39c12; margin-bottom: 20px;"></i>
+          <h2>ไม่พบข้อมูลกลุ่ม</h2>
+          <p>กลุ่มที่ระบุไม่มีอยู่ในระบบ หรือบอทยังไม่ได้เข้าร่วมกลุ่มนี้</p>
+          <div class="setup-instructions">
+            <h3>แก้ไขปัญหา:</h3>
+            <ol>
+              <li>ตรวจสอบว่าบอทอยู่ในกลุ่ม LINE แล้ว</li>
+              <li>ใช้คำสั่ง <strong>แท็กบอท /setup</strong> ในกลุ่มอีกครั้ง</li>
+              <li>ติดต่อผู้ดูแลระบบหากปัญหายังไม่หาย</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+
   showToast(message, type = 'info') {
     const container = document.getElementById('toastContainer');
     const toast = document.createElement('div');
@@ -336,6 +380,12 @@ class Dashboard {
     this.showLoading();
     
     try {
+      // ตรวจสอบว่ามี groupId หรือไม่
+      if (this.currentGroupId === 'default') {
+        this.showNoGroupMessage();
+        return;
+      }
+
       // Load group info
       const groupResponse = await this.apiRequest(`/groups/${this.currentGroupId}`);
       document.getElementById('currentGroupName').textContent = groupResponse.data.name;
@@ -345,7 +395,12 @@ class Dashboard {
       
     } catch (error) {
       console.error('Failed to load initial data:', error);
-      this.showToast('ไม่สามารถโหลดข้อมูลได้', 'error');
+      
+      if (error.message.includes('404')) {
+        this.showGroupNotFoundMessage();
+      } else {
+        this.showToast('ไม่สามารถโหลดข้อมูลได้', 'error');
+      }
     } finally {
       this.hideLoading();
     }

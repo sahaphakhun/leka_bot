@@ -14,6 +14,7 @@ export const config = {
   line: {
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
     channelSecret: process.env.LINE_CHANNEL_SECRET!,
+    botUserId: process.env.LINE_BOT_USER_ID, // Optional - บอท user ID สำหรับตรวจจับ mention
     liffId: process.env.LINE_LIFF_ID, // Optional แล้ว
     loginChannelId: process.env.LINE_LOGIN_CHANNEL_ID,
     loginChannelSecret: process.env.LINE_LOGIN_CHANNEL_SECRET,

@@ -45,42 +45,100 @@ export class LineService {
   public parseCommand(text: string, event: MessageEvent): BotCommand | null {
     let cleanText = text.trim();
     let isMentioned = false;
+    const mentions: string[] = [];
 
-    // ตรวจสอบและจัดการ mention แบบต่างๆ
+    console.log('🔍 Parsing command:', { text, eventType: event.message.type });
+
+    // ตรวจสอบการ mention ใน LINE จริงๆ
+    if (event.message.type === 'text') {
+      const textMessage = event.message as any;
+      
+      // เช็คจาก mention structure ของ LINE
+      if (textMessage.mention && textMessage.mention.mentionees) {
+        console.log('📱 Found mentions:', textMessage.mention.mentionees);
+        
+        // ถ้า botUserId มีการตั้งค่า ให้เช็คแบบเฉพาะเจาะจง
+        if (config.line.botUserId) {
+          const botMentions = textMessage.mention.mentionees.filter((mention: any) => 
+            mention.userId === config.line.botUserId
+          );
+          
+          if (botMentions.length > 0) {
+            isMentioned = true;
+            console.log('✅ Bot mentioned via LINE mention');
+          }
+        } else {
+          // ถ้าไม่มี botUserId ให้ถือว่ามี mention แล้วเป็นการ mention บอท
+          // (ปลอดภัยกว่าเพราะ mention ใน LINE จะมีแค่เมื่อแท็กจริงๆ)
+          isMentioned = true;
+          console.log('✅ Bot mentioned (no botUserId configured)');
+        }
+        
+        // เก็บ mentions ของผู้ใช้อื่น
+        textMessage.mention.mentionees.forEach((mention: any) => {
+          if (config.line.botUserId && mention.userId !== config.line.botUserId) {
+            mentions.push(mention.userId);
+          } else if (!config.line.botUserId && !mention.isSelf) {
+            mentions.push(mention.userId);
+          }
+        });
+      }
+    }
+
+    // ตรวจสอบการ mention แบบพิมพ์ธรรมดา @เลขา
     const botMention = '@เลขา';
     if (text.includes(botMention)) {
-      // พิมพ์ @เลขา ธรรมดา
       cleanText = text.replace(botMention, '').trim();
       isMentioned = true;
-    } else if (text.startsWith('/') || this.isValidBotCommand(text)) {
-      // แท็กบอทจริงๆ ใน LINE (ข้อความเริ่มด้วย / หรือเป็นคำสั่งที่รู้จัก)
+      console.log('✅ Bot mentioned via @เลขา');
+    }
+
+    // ตรวจสอบคำสั่งที่เริ่มด้วย / หรือเป็นคำสั่งที่รู้จัก
+    if (!isMentioned && (text.startsWith('/') || this.isValidBotCommand(text))) {
       isMentioned = true;
+      console.log('✅ Bot command detected:', text.substring(0, 20));
     }
 
     // ถ้าไม่ใช่การเรียกบอท ให้ return null
     if (!isMentioned) {
+      console.log('❌ Not a bot command, ignoring');
       return null;
     }
     
-    // แยก mentions ของผู้ใช้อื่น
+    console.log('🤖 Processing bot command');
+    
+    // แยก mentions เพิ่มเติมจากข้อความ (กรณีที่พิมพ์ @username ธรรมดา)
     const mentionRegex = /@(\w+)/g;
-    const mentions: string[] = [];
     let match;
     while ((match = mentionRegex.exec(cleanText)) !== null) {
-      mentions.push(match[1]);
+      if (match[1] !== 'เลขา') { // ไม่รวมการ mention บอท
+        mentions.push(match[1]);
+      }
     }
 
     // ลบ mentions ออกจากข้อความ
     cleanText = cleanText.replace(mentionRegex, '').trim();
+    cleanText = cleanText.replace(/@เลขา/g, '').trim();
 
     // แยกคำสั่งและ arguments
     const parts = cleanText.split(' ').filter(part => part.length > 0);
     if (parts.length === 0) {
-      return null;
+      // ถ้าไม่มีคำสั่ง แต่มีการ mention บอท ให้ตอบคำแนะนำ
+      console.log('📋 No command found, showing help');
+      return {
+        command: 'help',
+        args: [],
+        mentions,
+        groupId: event.source.type === 'group' ? event.source.groupId! : '',
+        userId: event.source.userId!,
+        originalText: text
+      };
     }
 
     const command = parts[0].toLowerCase();
     const args = parts.slice(1);
+
+    console.log('✅ Command parsed:', { command, args, mentions });
 
     return {
       command,

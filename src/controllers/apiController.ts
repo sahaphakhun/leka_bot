@@ -188,13 +188,30 @@ class ApiController {
   public async getCalendarEvents(req: Request, res: Response): Promise<void> {
     try {
       const { groupId } = req.params;
-      const { startDate, endDate } = req.query;
+      const { startDate, endDate, month, year } = req.query;
 
-      const events = await this.taskService.getCalendarEvents(
-        groupId,
-        new Date(startDate as string),
-        new Date(endDate as string)
-      );
+      let start: Date;
+      let end: Date;
+
+      // รองรับทั้ง startDate/endDate และ month/year
+      if (month && year) {
+        // Dashboard format
+        const monthNum = parseInt(month as string);
+        const yearNum = parseInt(year as string);
+        start = new Date(yearNum, monthNum - 1, 1); // เดือนเริ่มจาก 0
+        end = new Date(yearNum, monthNum, 0, 23, 59, 59); // วันสุดท้ายของเดือน
+      } else if (startDate && endDate) {
+        // API format
+        start = new Date(startDate as string);
+        end = new Date(endDate as string);
+      } else {
+        // Default: current month
+        const now = new Date();
+        start = new Date(now.getFullYear(), now.getMonth(), 1);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
+      }
+
+      const events = await this.taskService.getCalendarEvents(groupId, start, end);
 
       const response: ApiResponse<any> = {
         success: true,
@@ -380,6 +397,47 @@ class ApiController {
   }
 
   /**
+   * GET /api/groups/:groupId - ดึงข้อมูลกลุ่ม
+   */
+  public async getGroup(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+
+      const group = await this.userService.findGroupByLineId(groupId);
+      
+      if (!group) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'Group not found' 
+        });
+        return;
+      }
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          id: group.id,
+          lineGroupId: group.lineGroupId,
+          name: group.name,
+          timezone: group.timezone,
+          settings: group.settings,
+          createdAt: group.createdAt,
+          updatedAt: group.updatedAt
+        }
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      console.error('❌ Error getting group:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get group info' 
+      });
+    }
+  }
+
+  /**
    * GET /api/groups/:groupId/stats - ดึงสถิติกลุ่ม
    */
   public async getGroupStats(req: Request, res: Response): Promise<void> {
@@ -518,21 +576,37 @@ class ApiController {
 const apiController = new ApiController();
 
 // Routes setup
-apiRouter.get('/tasks/:groupId', apiController.getTasks.bind(apiController));
-apiRouter.post('/tasks/:groupId', apiController.createTask.bind(apiController));
+
+// Group-based routes (ตรงกับ frontend)
+apiRouter.get('/groups/:groupId', apiController.getGroup.bind(apiController));
+apiRouter.get('/groups/:groupId/members', apiController.getGroupMembers.bind(apiController));
+apiRouter.get('/groups/:groupId/stats', apiController.getGroupStats.bind(apiController));
+apiRouter.get('/groups/:groupId/tasks', apiController.getTasks.bind(apiController));
+apiRouter.post('/groups/:groupId/tasks', apiController.createTask.bind(apiController));
+apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
+apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
+apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
+
+// Task-specific routes
 apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));
 apiRouter.post('/tasks/:taskId/complete', apiController.completeTask.bind(apiController));
 
-apiRouter.get('/calendar/:groupId', apiController.getCalendarEvents.bind(apiController));
-
-apiRouter.get('/files/:groupId', apiController.getFiles.bind(apiController));
+// File-specific routes  
 apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));
 apiRouter.get('/files/:fileId/preview', apiController.previewFile.bind(apiController));
 apiRouter.post('/files/:fileId/tags', apiController.addFileTags.bind(apiController));
 
-apiRouter.get('/groups/:groupId/members', apiController.getGroupMembers.bind(apiController));
-apiRouter.get('/groups/:groupId/stats', apiController.getGroupStats.bind(apiController));
+// Group-specific file routes (สำหรับ dashboard)
+apiRouter.get('/groups/:groupId/files/:fileId/download', apiController.downloadFile.bind(apiController));
+apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFile.bind(apiController));
 
-apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiController));
+// User and export routes
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));
 apiRouter.get('/export/kpi/:groupId', apiController.exportKPI.bind(apiController));
+
+// Legacy routes (รองรับ backward compatibility)
+apiRouter.get('/tasks/:groupId', apiController.getTasks.bind(apiController));
+apiRouter.post('/tasks/:groupId', apiController.createTask.bind(apiController));
+apiRouter.get('/calendar/:groupId', apiController.getCalendarEvents.bind(apiController));
+apiRouter.get('/files/:groupId', apiController.getFiles.bind(apiController));
+apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiController));
