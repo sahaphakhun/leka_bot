@@ -332,22 +332,46 @@ ${dashboardUrl}
    */
   private async parseAndCreateTask(command: BotCommand, text: string): Promise<string | any> {
     try {
+      console.log('🔍 Parsing task from text:', text);
+      console.log('👥 Mentions:', command.mentions);
+      
       const parsed = this.parseTaskFromText(text, command.mentions);
       
+      console.log('📝 Parsed result:', {
+        title: parsed.title,
+        dueTime: parsed.dueTime,
+        startTime: parsed.startTime,
+        assignees: parsed.assignees,
+        priority: parsed.priority,
+        tags: parsed.tags
+      });
+      
       if (!parsed.title) {
-        return 'ไม่สามารถแยกวิเคราะห์ชื่องานได้\nตัวอย่าง: @เลขา เพิ่มงาน "ประชุมลูกค้า" @บอล due 25/12 14:00';
+        console.log('❌ No title found');
+        return 'ไม่สามารถแยกวิเคราะห์ชื่องานได้\nตัวอย่าง: แท็กบอท เพิ่มงาน "ประชุมลูกค้า" @บอล @me due 25/12 14:00';
       }
 
       if (!parsed.dueTime) {
-        return 'ไม่สามารถแยกวิเคราะห์วันเวลากำหนดส่งได้\nกรุณาระบุวันเวลาด้วยค่ะ';
+        console.log('❌ No due time found');
+        return `ไม่สามารถแยกวิเคราะห์วันเวลากำหนดส่งได้
+        
+ตัวอย่างที่ถูกต้อง:
+• แท็กบอท เพิ่มงาน "ชื่องาน" @me due 25/12 14:00
+• แท็กบอท เพิ่มงาน "ชื่องาน" @me เริ่ม 20/12 09:00 ถึง 25/12 17:00
+
+ข้อความที่ได้รับ: "${text}"
+วิเคราะห์ได้: title="${parsed.title}", startTime="${parsed.startTime}", dueTime="${parsed.dueTime}"`;
       }
 
       // แปลง mentions เป็น user IDs
       const assigneeIds = await this.resolveAssignees(command.groupId, parsed.assignees);
       
       if (assigneeIds.length === 0) {
-        return 'ไม่พบผู้รับผิดชอบที่ระบุ กรุณาแท็กสมาชิกในกลุ่มค่ะ';
+        console.log('❌ No assignees found');
+        return 'ไม่พบผู้รับผิดชอบที่ระบุ กรุณาแท็กสมาชิกในกลุ่มหรือใช้ @me ค่ะ';
       }
+
+      console.log('👥 Resolved assignee IDs:', assigneeIds);
 
       // สร้างงาน
       const task = await this.taskService.createTask({
@@ -362,6 +386,8 @@ ${dashboardUrl}
         tags: parsed.tags,
         customReminders: parsed.reminders
       });
+
+      console.log('✅ Task created:', task.id);
 
       // สร้าง Flex Message
       const flexMessage = this.lineService.createTaskFlexMessage({
