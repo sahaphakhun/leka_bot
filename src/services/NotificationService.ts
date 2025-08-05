@@ -121,15 +121,35 @@ ${task.description ? `📝 ${task.description}\n` : ''}📅 กำหนดส�
 👥 ผู้รับผิดชอบ: ${assignees.map((u: any) => `@${u.displayName}`).join(' ')}
 
 ${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}
-📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard`;
+📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
 
-      // ส่งใน LINE
+      // ส่งใน LINE Group
       const userIds = assignees.map((user: any) => user.lineUserId);
       await this.lineService.sendNotificationWithMention(
         group.lineGroupId,
         userIds,
         message
       );
+
+      // ส่งการแจ้งเตือนในแชทส่วนตัวให้ผู้รับผิดชอบแต่ละคน
+      const privateMessage = `📋 คุณได้รับมอบหมายงานใหม่!
+
+**${task.title}**
+${task.description ? `📝 ${task.description}\n` : ''}📅 กำหนดส่ง: ${dueDate}
+👤 สร้างโดย: ${creator?.displayName || 'ไม่ทราบ'}
+🏠 กลุ่ม: ${group.name}
+
+${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}
+📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
+
+      // ส่งข้อความส่วนตัวให้ผู้รับผิดชอบแต่ละคน
+      for (const assignee of assignees) {
+        try {
+          await this.lineService.pushMessage(assignee.lineUserId, privateMessage);
+        } catch (error) {
+          console.warn(`⚠️ Failed to send private notification to ${assignee.displayName}:`, error);
+        }
+      }
 
       // ส่งอีเมล
       const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
