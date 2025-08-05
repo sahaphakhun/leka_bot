@@ -7,18 +7,21 @@ import { Task as TaskType, CalendarEvent } from '@/types';
 import moment from 'moment-timezone';
 import { config } from '@/utils/config';
 import { GoogleService } from './GoogleService';
+import { NotificationService } from './NotificationService';
 
 export class TaskService {
   private taskRepository: Repository<Task>;
   private groupRepository: Repository<Group>;
   private userRepository: Repository<User>;
   private googleService: GoogleService;
+  private notificationService: NotificationService;
 
   constructor() {
     this.taskRepository = AppDataSource.getRepository(Task);
     this.groupRepository = AppDataSource.getRepository(Group);
     this.userRepository = AppDataSource.getRepository(User);
     this.googleService = new GoogleService();
+    this.notificationService = new NotificationService();
   }
 
   /**
@@ -121,6 +124,15 @@ export class TaskService {
         where: { id: savedTask.id },
         relations: ['assignedUsers', 'createdByUser', 'group']
       });
+
+      // ส่งการแจ้งเตือนงานใหม่
+      try {
+        if (taskWithRelations) {
+          await this.notificationService.sendTaskCreatedNotification(taskWithRelations);
+        }
+      } catch (error) {
+        console.warn('⚠️ Failed to send task created notification:', error);
+      }
 
       return taskWithRelations || savedTask;
 
