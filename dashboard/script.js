@@ -229,6 +229,8 @@ class Dashboard {
 
   async apiRequest(endpoint, options = {}) {
     try {
+      console.log('API Request:', `${this.apiBase}/api${endpoint}`);
+      
       const response = await fetch(`${this.apiBase}/api${endpoint}`, {
         headers: {
           'Content-Type': 'application/json',
@@ -237,14 +239,35 @@ class Dashboard {
         ...options
       });
 
+      console.log('API Response status:', response.status, response.statusText);
+
       if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        
+        // พยายามดึง error message จาก response body
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMessage = errorData.error;
+          }
+        } catch (parseError) {
+          // ถ้า parse JSON ไม่ได้ ใช้ statusText
+        }
+        
+        throw new Error(errorMessage);
       }
 
-      return await response.json();
+      const data = await response.json();
+      console.log('API Response data:', data);
+      return data;
     } catch (error) {
       console.error('API Request Error:', error);
-      this.showToast(`เกิดข้อผิดพลาด: ${error.message}`, 'error');
+      
+      // ไม่แสดง toast สำหรับ error บางประเภท
+      if (!error.message.includes('404') && !error.message.includes('Group not found')) {
+        this.showToast(`เกิดข้อผิดพลาด: ${error.message}`, 'error');
+      }
+      
       throw error;
     }
   }
@@ -381,25 +404,37 @@ class Dashboard {
     
     try {
       // ตรวจสอบว่ามี groupId หรือไม่
-      if (this.currentGroupId === 'default') {
+      if (this.currentGroupId === 'default' || !this.currentGroupId) {
         this.showNoGroupMessage();
         return;
       }
 
+      console.log('Loading data for group:', this.currentGroupId);
+
       // Load group info
       const groupResponse = await this.apiRequest(`/groups/${this.currentGroupId}`);
-      document.getElementById('currentGroupName').textContent = groupResponse.data.name;
       
-      // Load current view data
-      this.loadViewData(this.currentView);
+      if (groupResponse.success && groupResponse.data) {
+        const groupName = groupResponse.data.name || 'ไม่ทราบชื่อกลุ่ม';
+        document.getElementById('currentGroupName').textContent = groupName;
+        console.log('Group loaded:', groupName);
+        
+        // Load current view data
+        this.loadViewData(this.currentView);
+      } else {
+        console.error('Invalid group response:', groupResponse);
+        this.showGroupNotFoundMessage();
+      }
       
     } catch (error) {
       console.error('Failed to load initial data:', error);
       
-      if (error.message.includes('404')) {
+      if (error.message.includes('404') || error.message.includes('Group not found')) {
         this.showGroupNotFoundMessage();
+      } else if (error.message.includes('500')) {
+        this.showToast('เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่อีกครั้ง', 'error');
       } else {
-        this.showToast('ไม่สามารถโหลดข้อมูลได้', 'error');
+        this.showToast('ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
       }
     } finally {
       this.hideLoading();
@@ -767,6 +802,51 @@ class Dashboard {
   // ==================== 
   // Helper Functions
   // ==================== 
+
+  showNoGroupMessage() {
+    this.hideLoading();
+    const container = document.getElementById('dashboardView');
+    if (container) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 3rem; background: white; border-radius: 12px; margin: 2rem;">
+          <h2 style="color: #666;">🤖 เลขาบอท Dashboard</h2>
+          <p style="margin: 1rem 0; color: #888;">กรุณาระบุ Group ID ใน URL</p>
+          <p style="font-size: 0.9rem; color: #999;">
+            ตัวอย่าง: /dashboard?groupId=<strong>GROUP_ID</strong>
+          </p>
+          <div style="margin-top: 2rem;">
+            <p style="color: #666;">วิธีหา Group ID:</p>
+            <ol style="text-align: left; display: inline-block; color: #777;">
+              <li>แท็กบอทในกลุ่ม LINE</li>
+              <li>พิมพ์คำสั่ง "/setup"</li>
+              <li>บอทจะส่งลิงก์ Dashboard พร้อม Group ID</li>
+            </ol>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  showGroupNotFoundMessage() {
+    this.hideLoading();
+    const container = document.getElementById('dashboardView');
+    if (container) {
+      container.innerHTML = `
+        <div style="text-align: center; padding: 3rem; background: white; border-radius: 12px; margin: 2rem;">
+          <h2 style="color: #e74c3c;">❌ ไม่พบกลุ่ม</h2>
+          <p style="margin: 1rem 0; color: #888;">ไม่พบกลุ่มที่มี ID: <code>${this.currentGroupId}</code></p>
+          <div style="margin-top: 2rem;">
+            <p style="color: #666;">กรุณาตรวจสอบ:</p>
+            <ul style="text-align: left; display: inline-block; color: #777;">
+              <li>Group ID ถูกต้องหรือไม่</li>
+              <li>บอทถูกเพิ่มในกลุ่มแล้วหรือยัง</li>
+              <li>ได้ใช้คำสั่ง /setup ในกลุ่มแล้วหรือยัง</li>
+            </ul>
+          </div>
+        </div>
+      `;
+    }
+  }
 
   getStatusText(status) {
     const statusMap = {

@@ -430,16 +430,31 @@ class ApiController {
   public async getGroup(req: Request, res: Response): Promise<void> {
     try {
       const { groupId } = req.params;
+      
+      console.log('🔍 Looking for group with ID:', groupId);
+
+      // ตรวจสอบว่า groupId ไม่ใช่ 'default' หรือ empty
+      if (!groupId || groupId === 'default' || groupId === 'undefined' || groupId === 'null') {
+        console.log('❌ Invalid group ID provided:', groupId);
+        res.status(400).json({ 
+          success: false, 
+          error: 'Invalid group ID provided' 
+        });
+        return;
+      }
 
       const group = await this.userService.findGroupByLineId(groupId);
       
       if (!group) {
+        console.log('❌ Group not found for ID:', groupId);
         res.status(404).json({ 
           success: false, 
           error: 'Group not found' 
         });
         return;
       }
+
+      console.log('✅ Group found:', { id: group.id, name: group.name });
 
       const response: ApiResponse<any> = {
         success: true,
@@ -471,12 +486,25 @@ class ApiController {
   public async getGroupStats(req: Request, res: Response): Promise<void> {
     try {
       const { groupId } = req.params;
+      
+      console.log('📊 Loading stats for group:', groupId);
 
+      // ตรวจสอบว่ากลุ่มมีอยู่จริง
+      const group = await this.userService.findGroupByLineId(groupId);
+      if (!group) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'Group not found' 
+        });
+        return;
+      }
+
+      // ใช้ Promise.allSettled เพื่อไม่ให้ error หนึ่งส่วนทำให้ทั้งหมดล้มเหลว
       const [
-        memberStats,
-        weeklyStats,
-        fileStats
-      ] = await Promise.all([
+        memberStatsResult,
+        weeklyStatsResult,
+        fileStatsResult
+      ] = await Promise.allSettled([
         this.userService.getGroupStats(groupId),
         this.kpiService.getWeeklyStats(groupId),
         this.fileService.getGroupFileStats(groupId)
@@ -485,9 +513,9 @@ class ApiController {
       const response: ApiResponse<any> = {
         success: true,
         data: {
-          members: memberStats,
-          weekly: weeklyStats,
-          files: fileStats
+          members: memberStatsResult.status === 'fulfilled' ? memberStatsResult.value : null,
+          weekly: weeklyStatsResult.status === 'fulfilled' ? weeklyStatsResult.value : null,
+          files: fileStatsResult.status === 'fulfilled' ? fileStatsResult.value : null
         }
       };
 
