@@ -279,10 +279,23 @@ class ApiController {
 
   /**
    * GET /api/files/:fileId/download - ดาวน์โหลดไฟล์
+   * GET /api/groups/:groupId/files/:fileId/download - ดาวน์โหลดไฟล์ (พร้อมตรวจสอบ group)
    */
   public async downloadFile(req: Request, res: Response): Promise<void> {
     try {
-      const { fileId } = req.params;
+      const { fileId, groupId } = req.params;
+
+      // ถ้ามี groupId ให้ตรวจสอบว่าไฟล์เป็นของกลุ่มนั้นจริง
+      if (groupId) {
+        const fileInfo = await this.fileService.getFileInfo(fileId);
+        if (!fileInfo || fileInfo.groupId !== groupId) {
+          res.status(403).json({ 
+            success: false, 
+            error: 'Access denied to file' 
+          });
+          return;
+        }
+      }
 
       const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
 
