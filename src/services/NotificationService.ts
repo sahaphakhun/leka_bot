@@ -200,7 +200,7 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
 `;
       });
 
-      message += `\n📊 ดูรายงานฉบับเต็มที่: ${config.baseUrl}/dashboard/leaderboard`;
+      message += `\n📊 ดูรายงานฉบับเต็มที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`;
 
       await this.lineService.pushMessage(group.lineGroupId, message);
 

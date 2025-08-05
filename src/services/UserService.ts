@@ -281,18 +281,12 @@ export class UserService {
 
   /**
    * ดึงกลุ่มที่ผู้ใช้เป็นสมาชิก
-   * @param userId - LINE User ID (เช่น "Uc92411a226e4d4c9866adef05068bdf1")  
+   * @param userId - Database User ID (UUID)
    */
   public async getUserGroups(userId: string): Promise<Array<Group & { role: string }>> {
     try {
-      // ค้นหา User entity จาก LINE User ID
-      const user = await this.userRepository.findOneBy({ lineUserId: userId });
-      if (!user) {
-        throw new Error(`User not found for LINE ID: ${userId}`);
-      }
-
       const memberships = await this.groupMemberRepository.find({
-        where: { userId: user.id },
+        where: { userId },
         relations: ['group'],
         order: { joinedAt: 'ASC' }
       });

@@ -116,7 +116,13 @@ export class TaskService {
         console.warn('⚠️ Failed to sync task to Google Calendar:', error);
       }
 
-      return savedTask;
+      // โหลด task พร้อม relations เพื่อ return ข้อมูลครบถ้วน
+      const taskWithRelations = await this.taskRepository.findOne({
+        where: { id: savedTask.id },
+        relations: ['assignedUsers', 'createdByUser', 'group']
+      });
+
+      return taskWithRelations || savedTask;
 
     } catch (error) {
       console.error('❌ Error creating task:', error);
