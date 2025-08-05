@@ -10,6 +10,7 @@
     "db:init": "tsx src/scripts/initDatabase.ts",
     "db:sync": "npm run build && node -r ./register-paths.js dist/scripts/initDatabase.js",
     "db:test": "tsx src/scripts/testDatabase.ts",
+    "db:migrate-admin": "tsx src/scripts/updateAllMembersToAdmin.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
