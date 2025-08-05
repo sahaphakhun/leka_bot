@@ -43,6 +43,8 @@ class Server {
 
     // Static files สำหรับ dashboard และ uploads
     this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+    
+    // Dashboard static assets (CSS, JS, images)  
     this.app.use('/dashboard/assets', express.static(path.join(__dirname, '../dashboard')));
   }
 
@@ -77,7 +79,7 @@ class Server {
     // API Routes
     this.app.use('/api', apiRouter);
 
-    // Dashboard Routes
+    // Dashboard Routes (ต้องมาหลัง static files)
     this.app.use('/dashboard', dashboardRouter);
 
     // 404 handler

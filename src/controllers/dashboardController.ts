@@ -30,7 +30,7 @@ class DashboardController {
   public async mainDashboard(req: Request, res: Response): Promise<void> {
     try {
       // ส่งไฟล์ static HTML
-      const dashboardPath = path.join(__dirname, '../../dashboard/dist/index.html');
+      const dashboardPath = path.join(__dirname, '../../dashboard/index.html');
       res.sendFile(dashboardPath);
     } catch (error) {
       console.error('❌ Error serving dashboard:', error);

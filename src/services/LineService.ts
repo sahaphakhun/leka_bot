@@ -2,7 +2,7 @@
 
 import { Client, WebhookEvent, MessageEvent, TextMessage, FlexMessage } from '@line/bot-sdk';
 import { config } from '@/utils/config';
-import { BotCommand, LineWebhookEvent } from '@/types';
+import { BotCommand } from '@/types';
 
 export class LineService {
   private client: Client;
@@ -43,14 +43,24 @@ export class LineService {
    * แยกวิเคราะห์ข้อความเป็นคำสั่ง
    */
   public parseCommand(text: string, event: MessageEvent): BotCommand | null {
-    // ตรวจสอบว่าเป็นการแท็กบอทหรือไม่
+    let cleanText = text.trim();
+    let isMentioned = false;
+
+    // ตรวจสอบและจัดการ mention แบบต่างๆ
     const botMention = '@เลขา';
-    if (!text.includes(botMention)) {
-      return null;
+    if (text.includes(botMention)) {
+      // พิมพ์ @เลขา ธรรมดา
+      cleanText = text.replace(botMention, '').trim();
+      isMentioned = true;
+    } else if (text.startsWith('/') || this.isValidBotCommand(text)) {
+      // แท็กบอทจริงๆ ใน LINE (ข้อความเริ่มด้วย / หรือเป็นคำสั่งที่รู้จัก)
+      isMentioned = true;
     }
 
-    // ลบ mention ออกและทำความสะอาด
-    let cleanText = text.replace(botMention, '').trim();
+    // ถ้าไม่ใช่การเรียกบอท ให้ return null
+    if (!isMentioned) {
+      return null;
+    }
     
     // แยก mentions ของผู้ใช้อื่น
     const mentionRegex = /@(\w+)/g;
@@ -80,6 +90,32 @@ export class LineService {
       userId: event.source.userId!,
       originalText: text
     };
+  }
+
+  /**
+   * ตรวจสอบว่าข้อความเป็นคำสั่งบอทหรือไม่
+   */
+  private isValidBotCommand(text: string): boolean {
+    const trimmedText = text.trim().toLowerCase();
+    
+    // คำสั่งที่เริ่มด้วย /
+    if (trimmedText.startsWith('/')) {
+      return true;
+    }
+    
+    // คำสั่งภาษาไทยธรรมชาติ
+    const thaiCommands = [
+      'เพิ่มงาน', 'ใส่งาน', 'สร้างงาน', 'งานใหม่',
+      'ดูงาน', 'รายการงาน', 'งานทั้งหมด',
+      'ลบงาน', 'เอางานออก', 'ยกเลิกงาน',
+      'แก้งาน', 'แก้ไขงาน', 'เปลี่ยนงาน',
+      'เสร็จงาน', 'งานเสร็จ', 'ปิดงาน',
+      'ดูไฟล์', 'รายการไฟล์', 'ไฟล์ทั้งหมด',
+      'ตั้งค่า', 'setup', 'config',
+      'ช่วยเหลือ', 'help', 'คำสั่ง'
+    ];
+    
+    return thaiCommands.some(cmd => trimmedText.startsWith(cmd));
   }
 
   /**
