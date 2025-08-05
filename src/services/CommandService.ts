@@ -555,15 +555,30 @@ ${dashboardUrl}
       result.tags = tagMatches.map(tag => tag.substring(1));
     }
 
-    // แยกวันเวลา
-    const dueMatch = text.match(/(?:due|ถึง|กำหนด)\s+(.+?)(?:\s|$)/i);
-    if (dueMatch) {
-      result.dueTime = this.parseDateTime(dueMatch[1]);
-    }
-
-    const startMatch = text.match(/(?:เริ่ม|start)\s+(.+?)(?:\s+(?:ถึง|due|to))/i);
-    if (startMatch) {
-      result.startTime = this.parseDateTime(startMatch[1]);
+    // แยกวันเวลา - รองรับรูปแบบ "เริ่ม ... ถึง ..." และ "due ..."
+    
+    // ลองหา pattern "เริ่ม ... ถึง ..." ก่อน
+    const startEndMatch = text.match(/(?:เริ่ม|start)\s+([^ถึง]+?)(?:\s+(?:ถึง|to|until)\s+(.+?))?(?:\s|$)/i);
+    if (startEndMatch) {
+      const startTimeStr = startEndMatch[1]?.trim();
+      const endTimeStr = startEndMatch[2]?.trim();
+      
+      if (startTimeStr) {
+        result.startTime = this.parseDateTime(startTimeStr);
+        console.log('🕐 Parsed start time:', startTimeStr, '→', result.startTime);
+      }
+      
+      if (endTimeStr) {
+        result.dueTime = this.parseDateTime(endTimeStr);
+        console.log('🕕 Parsed end time:', endTimeStr, '→', result.dueTime);
+      }
+    } else {
+      // ถ้าไม่มี pattern "เริ่ม ... ถึง ..." ให้ลองหา "due" หรือ "ถึง" อย่างเดียว
+      const dueMatch = text.match(/(?:due|ถึง|กำหนด)\s+(.+?)(?:\s|$)/i);
+      if (dueMatch) {
+        result.dueTime = this.parseDateTime(dueMatch[1]);
+        console.log('📅 Parsed due time:', dueMatch[1], '→', result.dueTime);
+      }
     }
 
     // แยกระดับความสำคัญ
@@ -626,9 +641,14 @@ ${dashboardUrl}
         'DD/MM/YYYY HH:mm',
         'DD/MM HH:mm',
         'DD/MM/YY HH:mm',
-        'YYYY-MM-DD HH:mm',
-        'DD-MM-YYYY HH:mm',
+        'DD/MM/YYYY',
         'DD/MM',
+        'YYYY-MM-DD HH:mm',
+        'YYYY-MM-DD',
+        'DD-MM-YYYY HH:mm',
+        'DD-MM-YYYY',
+        'DD-MM HH:mm',
+        'DD-MM',
         'HH:mm'
       ];
 

@@ -57,19 +57,36 @@ export class LineService {
       if (textMessage.mention && textMessage.mention.mentionees) {
         console.log('📱 Found mentions:', textMessage.mention.mentionees);
         
-        // ตรวจสอบว่าบอทถูกแท็กหรือไม่ผ่าน isSelf property
-        const botMentions = textMessage.mention.mentionees.filter((mention: any) => 
-          mention.isSelf
-        );
+        // ตรวจสอบว่าบอทถูกแท็กหรือไม่
+        const botMentions = textMessage.mention.mentionees.filter((mention: any) => {
+          // ตรวจสอบหลายเงื่อนไข
+          return mention.isSelf || 
+                 (config.line.botUserId && mention.userId === config.line.botUserId) ||
+                 mention.type === 'bot';
+        });
         
         if (botMentions.length > 0) {
           isMentioned = true;
-          console.log('✅ Bot mentioned via LINE mention');
+          console.log('✅ Bot mentioned via LINE mention (isSelf or botUserId match)');
+          
+          // ลบ mention text ของบอทออกจากข้อความ
+          botMentions.forEach((botMention: any) => {
+            // หา display name ของบอทใน mention และลบออก
+            const mentionStartIndex = botMention.index || 0;
+            const mentionLength = botMention.length || 0;
+            if (mentionStartIndex >= 0 && mentionLength > 0) {
+              const beforeMention = cleanText.substring(0, mentionStartIndex);
+              const afterMention = cleanText.substring(mentionStartIndex + mentionLength);
+              cleanText = (beforeMention + afterMention).trim();
+            }
+          });
         }
         
         // เก็บ mentions ของผู้ใช้อื่น (ไม่ใช่บอท)
         textMessage.mention.mentionees.forEach((mention: any) => {
-          if (!mention.isSelf) {
+          if (!mention.isSelf && 
+              !(config.line.botUserId && mention.userId === config.line.botUserId) &&
+              mention.type !== 'bot') {
             mentions.push(mention.userId);
           }
         });
