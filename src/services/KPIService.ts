@@ -194,20 +194,18 @@ export class KPIService {
         .getCount();
 
       // งานที่ค้าง
-      const pendingTasks = await this.taskRepository.count({
-        where: {
-          groupId,
-          status: 'pending'
-        }
-      });
+      const pendingTasks = await this.taskRepository
+        .createQueryBuilder('task')
+        .where('task.groupId = :groupId', { groupId })
+        .andWhere('task.status = :status', { status: 'pending' })
+        .getCount();
 
       // งานที่เกินกำหนด
-      const overdueTasks = await this.taskRepository.count({
-        where: {
-          groupId,
-          status: 'overdue'
-        }
-      });
+      const overdueTasks = await this.taskRepository
+        .createQueryBuilder('task')
+        .where('task.groupId = :groupId', { groupId })
+        .andWhere('task.status = :status', { status: 'overdue' })
+        .getCount();
 
       // ผู้ทำงานดีที่สุด
       const leaderboard = await this.getGroupLeaderboard(groupId, 'weekly');
