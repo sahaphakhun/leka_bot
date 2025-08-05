@@ -144,7 +144,7 @@ export class EmailService {
   /**
    * ส่งอีเมลสรุปรายสัปดาห์
    */
-  public async sendWeeklyReport(user: User, groupName: string, stats: any, tasks: any[]): Promise<void> {
+  public async sendWeeklyReport(user: User, groupName: string, groupId: string, stats: any, tasks: any[]): Promise<void> {
     try {
       // ตรวจสอบว่า Email feature เปิดใช้งานหรือไม่
       if (!features.emailNotifications) {
@@ -157,7 +157,7 @@ export class EmailService {
         return;
       }
 
-      const template = this.createWeeklyReportTemplate(user, groupName, stats, tasks);
+      const template = this.createWeeklyReportTemplate(user, groupName, groupId, stats, tasks);
       
       await this.transporter.sendMail({
         from: `"เลขาบอท" <${config.email.smtpUser}>`,
@@ -182,7 +182,8 @@ export class EmailService {
    */
   private createTaskReminderTemplate(user: User, task: any, reminderType: string): EmailTemplate {
     const dueTime = moment(task.dueTime).format('DD/MM/YYYY HH:mm');
-    const dashboardUrl = `${config.baseUrl}/dashboard`;
+    const groupId = task.group?.lineGroupId || task.groupId;
+    const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
     
     let reminderText = '';
     switch (reminderType) {
@@ -288,7 +289,8 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
    */
   private createTaskCreatedTemplate(user: User, task: any): EmailTemplate {
     const dueTime = moment(task.dueTime).format('DD/MM/YYYY HH:mm');
-    const dashboardUrl = `${config.baseUrl}/dashboard`;
+    const groupId = task.group?.lineGroupId || task.groupId;
+    const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
     const creatorName = task.createdByUser?.displayName || 'ไม่ทราบ';
 
     const subject = `📋 งานใหม่ - ${task.title}`;
@@ -375,7 +377,8 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
    */
   private createOverdueTemplate(user: User, task: any, overdueHours: number): EmailTemplate {
     const dueTime = moment(task.dueTime).format('DD/MM/YYYY HH:mm');
-    const dashboardUrl = `${config.baseUrl}/dashboard`;
+    const groupId = task.group?.lineGroupId || task.groupId;
+    const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
 
     const subject = `⚠️ งานเกินกำหนด - ${task.title}`;
     
@@ -447,10 +450,10 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
   /**
    * สร้างเทมเพลตรายงานรายสัปดาห์
    */
-  private createWeeklyReportTemplate(user: User, groupName: string, stats: any, tasks: any[]): EmailTemplate {
+  private createWeeklyReportTemplate(user: User, groupName: string, groupId: string, stats: any, tasks: any[]): EmailTemplate {
     const weekStart = moment().startOf('week').format('DD/MM');
     const weekEnd = moment().endOf('week').format('DD/MM');
-    const dashboardUrl = `${config.baseUrl}/dashboard`;
+    const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
 
     const subject = `📊 รายงานประจำสัปดาห์ - ${groupName} (${weekStart}-${weekEnd})`;
     

@@ -216,7 +216,7 @@ ${dashboardUrl}
       response += '\n';
     });
 
-    response += `📊 ดูทั้งหมดได้ที่: ${config.baseUrl}/dashboard`;
+    response += `📊 ดูทั้งหมดได้ที่: ${config.baseUrl}/dashboard?groupId=${command.groupId}`;
 
     return response;
   }
@@ -466,7 +466,7 @@ ${dashboardUrl}
       response += '\n';
     });
 
-    response += `📊 ดูทั้งหมดได้ที่: ${config.baseUrl}/dashboard/files`;
+    response += `📊 ดูทั้งหมดได้ที่: ${config.baseUrl}/dashboard?groupId=${command.groupId}#files`;
 
     return response;
   }
@@ -732,14 +732,18 @@ ${dashboardUrl}
           const timeMatch = dateStr.match(/(\d{1,2}):(\d{2})/);
           if (timeMatch) {
             date.hour(parseInt(timeMatch[1])).minute(parseInt(timeMatch[2]));
+          } else {
+            // ถ้าไม่มีเวลาระบุ ใช้ 09:00
+            date.hour(9).minute(0);
           }
+          console.log(`  Special date result: ${date.toDate()} (${config.app.defaultTimezone})`);
           return date.toDate();
         }
       }
 
       // ลองแปลงตามรูปแบบต่างๆ
       for (const format of formats) {
-        const parsed = moment(dateStr, format, true);
+        const parsed = moment.tz(dateStr, format, config.app.defaultTimezone);
         console.log(`  Testing format "${format}":`, parsed.isValid() ? 'Valid' : 'Invalid');
         
         if (parsed.isValid()) {
@@ -758,7 +762,7 @@ ${dashboardUrl}
           }
 
           const result = parsed.toDate();
-          console.log(`  Final result: ${result}`);
+          console.log(`  Final result: ${result} (${config.app.defaultTimezone})`);
           return result;
         }
       }
