@@ -39,8 +39,8 @@ async function testDatabase() {
       
       // Expected tables
       const expectedTables = ['users', 'groups', 'tasks', 'files', 'kpi_records', 'task_assignees', 'group_members'];
-      const missingTables = expectedTables.filter(table => !tableNames.includes(table));
-      const extraTables = tableNames.filter(table => !expectedTables.includes(table) && !table.startsWith('typeorm_'));
+      const missingTables = expectedTables.filter((table: string) => !tableNames.includes(table));
+      const extraTables = tableNames.filter((table: string) => !expectedTables.includes(table) && !table.startsWith('typeorm_'));
       
       if (missingTables.length > 0) {
         console.log('⚠️  [TEST] Missing tables:', missingTables);
