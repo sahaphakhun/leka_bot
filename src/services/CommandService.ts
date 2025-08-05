@@ -373,6 +373,17 @@ ${dashboardUrl}
 
       console.log('👥 Resolved assignee IDs:', assigneeIds);
 
+      // ดึง display names ของผู้รับผิดชอบ
+      const assigneeNames: string[] = [];
+      for (const assigneeId of assigneeIds) {
+        const user = await this.userService.findById(assigneeId);
+        if (user) {
+          assigneeNames.push(user.displayName);
+        }
+      }
+
+      console.log('👥 Assignee display names:', assigneeNames);
+
       // สร้างงาน
       const task = await this.taskService.createTask({
         groupId: command.groupId,
@@ -395,7 +406,7 @@ ${dashboardUrl}
         title: task.title,
         description: task.description,
         dueTime: task.dueTime,
-        assignees: assigneeIds, // จะใส่ชื่อจริงภายหลัง
+        assignees: assigneeNames, // ใช้ display names แทน user IDs
         status: task.status,
         priority: task.priority,
         tags: task.tags

@@ -70,14 +70,32 @@ export class TaskService {
 
       // เพิ่มผู้รับผิดชอบ
       if (data.assigneeIds.length > 0) {
-        const assignees = await this.userRepository.find({
-          where: {
-            lineUserId: In(data.assigneeIds)
-          }
-        });
+        // ตรวจสอบว่า assigneeIds เป็น database user IDs หรือ LINE user IDs
+        let assignees: User[];
+        
+        // ถ้า ID ขึ้นต้นด้วย 'U' จะเป็น LINE user ID, ถ้าไม่ใช่จะเป็น database user ID
+        const isLineUserIds = data.assigneeIds.some(id => id.startsWith('U'));
+        
+        if (isLineUserIds) {
+          // ค้นหาจาก LINE user IDs
+          assignees = await this.userRepository.find({
+            where: {
+              lineUserId: In(data.assigneeIds)
+            }
+          });
+        } else {
+          // ค้นหาจาก database user IDs
+          assignees = await this.userRepository.find({
+            where: {
+              id: In(data.assigneeIds)
+            }
+          });
+        }
         
         if (assignees.length !== data.assigneeIds.length) {
-          const foundIds = assignees.map(u => u.lineUserId);
+          const foundIds = isLineUserIds 
+            ? assignees.map(u => u.lineUserId)
+            : assignees.map(u => u.id);
           const missingIds = data.assigneeIds.filter(id => !foundIds.includes(id));
           console.warn(`⚠️ Some assignees not found: ${missingIds.join(', ')}`);
         }

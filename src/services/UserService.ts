@@ -58,6 +58,18 @@ export class UserService {
   }
 
   /**
+   * ค้นหาผู้ใช้จาก ID
+   */
+  public async findById(userId: string): Promise<User | null> {
+    try {
+      return await this.userRepository.findOneBy({ id: userId });
+    } catch (error) {
+      console.error('❌ Error finding user by ID:', error);
+      throw error;
+    }
+  }
+
+  /**
    * อัปเดตข้อมูลผู้ใช้
    */
   public async updateUser(userId: string, updates: Partial<User>): Promise<User> {

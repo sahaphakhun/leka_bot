@@ -92,22 +92,8 @@ export class KPIService {
     period: 'weekly' | 'monthly' | 'all' = 'weekly'
   ): Promise<Leaderboard[]> {
     try {
-      let dateFilter: any = {};
-      
-      switch (period) {
-        case 'weekly':
-          const weekStart = moment().startOf('week').toDate();
-          dateFilter = { weekOf: weekStart };
-          break;
-        case 'monthly':
-          const monthStart = moment().startOf('month').toDate();
-          dateFilter = { monthOf: monthStart };
-          break;
-        // 'all' ไม่ต้องกรอง
-      }
-
-      // Query คะแนนรวม
-      const results = await this.kpiRepository
+      // สร้าง query builder
+      let queryBuilder = this.kpiRepository
         .createQueryBuilder('kpi')
         .select([
           'kpi.userId as userId',
@@ -120,8 +106,23 @@ export class KPIService {
           'COUNT(*) as tasksCompleted'
         ])
         .leftJoin(User, 'user', 'user.id = kpi.userId')
-        .where('kpi.groupId = :groupId', { groupId })
-        .andWhere(dateFilter)
+        .where('kpi.groupId = :groupId', { groupId });
+
+      // เพิ่ม date filter ตาม period
+      switch (period) {
+        case 'weekly':
+          const weekStart = moment().startOf('week').toDate();
+          queryBuilder = queryBuilder.andWhere('kpi.weekOf = :weekStart', { weekStart });
+          break;
+        case 'monthly':
+          const monthStart = moment().startOf('month').toDate();
+          queryBuilder = queryBuilder.andWhere('kpi.monthOf = :monthStart', { monthStart });
+          break;
+        // 'all' ไม่ต้องกรอง
+      }
+
+      // Execute query
+      const results = await queryBuilder
         .groupBy('kpi.userId, user.displayName')
         .orderBy('totalPoints', 'DESC')
         .getRawMany();
