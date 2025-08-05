@@ -9,15 +9,19 @@ export class EmailService {
   private transporter: nodemailer.Transporter;
 
   constructor() {
-    this.transporter = nodemailer.createTransport({
-      host: config.email.smtpHost,
-      port: config.email.smtpPort,
-      secure: config.email.smtpPort === 465,
-      auth: {
-        user: config.email.smtpUser,
-        pass: config.email.smtpPass,
-      },
-    });
+    if (features.emailNotifications) {
+      this.transporter = nodemailer.createTransport({
+        host: config.email.smtpHost,
+        port: config.email.smtpPort,
+        secure: config.email.smtpPort === 465,
+        auth: {
+          user: config.email.smtpUser,
+          pass: config.email.smtpPass,
+        },
+      });
+    } else {
+      console.log('ℹ️ Email notifications disabled - SMTP credentials not provided');
+    }
   }
 
   /**
@@ -39,6 +43,17 @@ export class EmailService {
    */
   public async sendTaskReminder(user: User, task: any, reminderType: string): Promise<void> {
     try {
+      // ตรวจสอบว่า Email feature เปิดใช้งานหรือไม่
+      if (!features.emailNotifications) {
+        console.log('ℹ️ Email notifications disabled - skipping reminder email');
+        return;
+      }
+
+      if (!this.transporter) {
+        console.log('⚠️ Email transporter not initialized');
+        return;
+      }
+
       const template = this.createTaskReminderTemplate(user, task, reminderType);
       
       await this.transporter.sendMail({
@@ -62,6 +77,17 @@ export class EmailService {
    */
   public async sendTaskCreatedNotification(user: User, task: any): Promise<void> {
     try {
+      // ตรวจสอบว่า Email feature เปิดใช้งานหรือไม่
+      if (!features.emailNotifications) {
+        console.log('ℹ️ Email notifications disabled - skipping task created email');
+        return;
+      }
+
+      if (!this.transporter) {
+        console.log('⚠️ Email transporter not initialized');
+        return;
+      }
+
       const template = this.createTaskCreatedTemplate(user, task);
       
       await this.transporter.sendMail({
@@ -85,6 +111,17 @@ export class EmailService {
    */
   public async sendOverdueNotification(user: User, task: any, overdueHours: number): Promise<void> {
     try {
+      // ตรวจสอบว่า Email feature เปิดใช้งานหรือไม่
+      if (!features.emailNotifications) {
+        console.log('ℹ️ Email notifications disabled - skipping overdue notification');
+        return;
+      }
+
+      if (!this.transporter) {
+        console.log('⚠️ Email transporter not initialized');
+        return;
+      }
+
       const template = this.createOverdueTemplate(user, task, overdueHours);
       
       await this.transporter.sendMail({
@@ -109,6 +146,17 @@ export class EmailService {
    */
   public async sendWeeklyReport(user: User, groupName: string, stats: any, tasks: any[]): Promise<void> {
     try {
+      // ตรวจสอบว่า Email feature เปิดใช้งานหรือไม่
+      if (!features.emailNotifications) {
+        console.log('ℹ️ Email notifications disabled - skipping weekly report');
+        return;
+      }
+
+      if (!this.transporter) {
+        console.log('⚠️ Email transporter not initialized');
+        return;
+      }
+
       const template = this.createWeeklyReportTemplate(user, groupName, stats, tasks);
       
       await this.transporter.sendMail({

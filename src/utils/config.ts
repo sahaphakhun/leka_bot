@@ -95,10 +95,30 @@ export const validateConfig = (): void => {
   const missing = requiredEnvVars.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
-    console.error('❌ Missing required environment variables:');
-    missing.forEach(key => console.error(`  - ${key}`));
+    console.error('❌ Missing required environment variables:', missing);
     process.exit(1);
+  }
+
+  // Check optional features
+  const missingOptional = optionalEnvVars.filter(key => !process.env[key]);
+  if (missingOptional.length > 0) {
+    console.log('⚠️  Optional features disabled due to missing variables:', missingOptional);
+    console.log('ℹ️  The bot will work but some features will be unavailable:');
+    
+    if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
+      console.log('   - Google Calendar integration disabled');
+    }
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
+      console.log('   - Email notifications disabled');
+    }
   }
   
   console.log('✅ Configuration validated successfully');
+};
+
+// Feature flags based on environment variables
+export const features = {
+  googleCalendar: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+  emailNotifications: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
+  liff: !!process.env.LINE_LIFF_ID,
 };
