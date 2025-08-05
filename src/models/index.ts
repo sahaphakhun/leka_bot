@@ -7,13 +7,13 @@ export class Group {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', unique: true })
   lineGroupId: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   name: string;
 
-  @Column({ default: 'Asia/Bangkok' })
+  @Column({ type: 'varchar', default: 'Asia/Bangkok' })
   timezone: string;
 
   @Column('jsonb', { default: {} })
@@ -49,22 +49,22 @@ export class User {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ unique: true })
+  @Column({ type: 'varchar', unique: true })
   lineUserId: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   displayName: string;
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   realName?: string;
 
-  @Column({ nullable: true, unique: true })
+  @Column({ type: 'varchar', nullable: true, unique: true })
   email?: string;
 
-  @Column({ default: 'Asia/Bangkok' })
+  @Column({ type: 'varchar', default: 'Asia/Bangkok' })
   timezone: string;
 
-  @Column({ default: false })
+  @Column({ type: 'boolean', default: false })
   isVerified: boolean;
 
   @CreateDateColumn()
@@ -165,7 +165,7 @@ export class Task {
   @Column('text', { array: true, default: '{}' })
   customReminders?: string[];
 
-  @Column({ nullable: true })
+  @Column({ type: 'varchar', nullable: true })
   googleEventId?: string;
 
   @CreateDateColumn()
@@ -210,22 +210,22 @@ export class File {
   @Column()
   groupId: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   originalName: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   fileName: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   mimeType: string;
 
-  @Column()
+  @Column({ type: 'int' })
   size: number;
 
-  @Column()
+  @Column({ type: 'varchar' })
   path: string;
 
-  @Column()
+  @Column({ type: 'varchar' })
   uploadedBy: string;
 
   @Column('text', { array: true, default: '{}' })

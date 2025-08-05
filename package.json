@@ -7,6 +7,8 @@
     "dev": "tsx watch src/index.ts",
     "build": "node build.js",
     "start": "node -r ./register-paths.js dist/index.js",
+    "db:init": "tsx src/scripts/initDatabase.ts",
+    "db:sync": "npm run build && node -r ./register-paths.js dist/scripts/initDatabase.js",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
