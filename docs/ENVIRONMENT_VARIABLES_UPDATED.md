@@ -30,7 +30,7 @@ LINE_LOGIN_CHANNEL_SECRET=your_login_channel_secret
 # Server
 PORT=3000
 NODE_ENV=development
-BASE_URL=http://localhost:3000
+BASE_URL=https://lekabot-production.up.railway.app
 
 # Database
 DATABASE_URL=postgresql://user:pass@host:port/db

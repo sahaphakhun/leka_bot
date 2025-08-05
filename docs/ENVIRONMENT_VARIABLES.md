@@ -9,7 +9,7 @@
 ```bash
 PORT=3000                    # พอร์ตที่เซิร์ฟเวอร์จะรัน (Railway จะกำหนดให้อัตโนมัติ)
 NODE_ENV=development         # สภาพแวดล้อม (development/production)
-BASE_URL=http://localhost:3000  # URL หลักของแอปพลิเคชัน
+BASE_URL=https://lekabot-production.up.railway.app  # URL หลักของแอปพลิเคชัน
 ```
 
 ## 📱 **LINE Configuration (Required)**
@@ -46,7 +46,7 @@ DB_NAME=leka_bot
 ```bash
 GOOGLE_CLIENT_ID=your_google_client_id.apps.googleusercontent.com
 GOOGLE_CLIENT_SECRET=your_google_client_secret
-GOOGLE_REDIRECT_URI=http://localhost:3000/auth/google/callback
+GOOGLE_REDIRECT_URI=https://lekabot-production.up.railway.app/auth/google/callback
 
 # Service Account Key (Optional - สำหรับ Calendar API)
 GOOGLE_SERVICE_ACCOUNT_KEY={"type":"service_account","project_id":"..."}
@@ -112,7 +112,7 @@ DEFAULT_TIMEZONE=Asia/Bangkok
 # คัดลอกจาก env template ข้างบน
 PORT=3000
 NODE_ENV=development
-BASE_URL=http://localhost:3000
+BASE_URL=http://localhost:3000  # สำหรับ local development
 LINE_CHANNEL_ACCESS_TOKEN=...
 # ... ใส่ค่าต่างๆ
 ```
