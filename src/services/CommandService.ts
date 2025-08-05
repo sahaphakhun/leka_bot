@@ -554,6 +554,8 @@ ${dashboardUrl}
     tags: string[];
     reminders?: string[];
   } {
+    console.log('🔍 parseTaskFromText input:', { text, mentions });
+    
     const result: {
       title?: string;
       description?: string;
@@ -573,6 +575,16 @@ ${dashboardUrl}
     const titleMatch = text.match(/["'"](.*?)["'"]/);
     if (titleMatch) {
       result.title = titleMatch[1];
+      console.log('📝 Title found:', result.title);
+    } else {
+      console.log('❌ No title found in quotes');
+      
+      // ลองหาชื่องานแบบอื่น - หลังคำว่า "เพิ่มงาน" หรือ "add" แต่ก่อนการ mention
+      const altTitleMatch = text.match(/(?:เพิ่มงาน|add)\s+([^@]+?)(?:\s+@|\s+เริ่ม|\s+due|\s+ถึง|$)/i);
+      if (altTitleMatch) {
+        result.title = altTitleMatch[1].trim().replace(/^["']|["']$/g, '');
+        console.log('📝 Alternative title found:', result.title);
+      }
     }
 
     // แยกแท็ก
