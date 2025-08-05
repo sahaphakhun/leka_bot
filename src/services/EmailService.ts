@@ -1,7 +1,7 @@
 // Email Service - จัดการการส่งอีเมล
 
 import nodemailer from 'nodemailer';
-import { config } from '@/utils/config';
+import { config, features } from '@/utils/config';
 import { EmailTemplate, User, Task } from '@/types';
 import moment from 'moment-timezone';
 

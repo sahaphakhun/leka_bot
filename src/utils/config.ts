@@ -14,7 +14,9 @@ export const config = {
   line: {
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
     channelSecret: process.env.LINE_CHANNEL_SECRET!,
-    liffId: process.env.LINE_LIFF_ID!,
+    liffId: process.env.LINE_LIFF_ID, // Optional แล้ว
+    loginChannelId: process.env.LINE_LOGIN_CHANNEL_ID,
+    loginChannelSecret: process.env.LINE_LOGIN_CHANNEL_SECRET,
   },
   
   // Database Configuration
@@ -74,14 +76,19 @@ export const config = {
 };
 
 // Validation
+// Required variables (Core functionality only)
 const requiredEnvVars = [
   'LINE_CHANNEL_ACCESS_TOKEN',
   'LINE_CHANNEL_SECRET',
-  'LINE_LIFF_ID',
-  'GOOGLE_CLIENT_ID',
-  'GOOGLE_CLIENT_SECRET',
-  'SMTP_USER',
-  'SMTP_PASS',
+];
+
+// Optional variables (Features can be disabled if missing)
+const optionalEnvVars = [
+  'GOOGLE_CLIENT_ID',        // Google Calendar integration
+  'GOOGLE_CLIENT_SECRET',    // Google Calendar integration
+  'SMTP_USER',              // Email notifications
+  'SMTP_PASS',              // Email notifications
+  'LINE_LIFF_ID',           // LIFF (deprecated)
 ];
 
 export const validateConfig = (): void => {
