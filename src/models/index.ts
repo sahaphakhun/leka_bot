@@ -363,8 +363,8 @@ export class RecurringTask {
   @Column('text', { array: true, default: '{}' })
   tags: string[];
 
-  @Column({ type: 'enum', enum: ['weekly', 'monthly'] })
-  recurrence: 'weekly' | 'monthly';
+  @Column({ type: 'enum', enum: ['weekly', 'monthly', 'quarterly'] })
+  recurrence: 'weekly' | 'monthly' | 'quarterly';
 
   // สำหรับ weekly: 0-6 (อาทิตย์=0)
   @Column({ type: 'smallint', nullable: true })

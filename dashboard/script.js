@@ -103,6 +103,10 @@ class Dashboard {
       this.closeModal('addTaskModal');
     });
 
+    // Success modal buttons
+    document.getElementById('successModalClose')?.addEventListener('click', () => this.closeModal('successModal'));
+    document.getElementById('stayHereBtn')?.addEventListener('click', () => this.closeModal('successModal'));
+
     // Forms
     document.getElementById('addTaskForm').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -463,6 +467,9 @@ class Dashboard {
       
       this.showToast('เพิ่มงานใหม่สำเร็จ', 'success');
       this.closeModal('addTaskModal');
+      // เปิด success modal เพื่อให้ผู้ใช้กดกลับไป LINE ได้
+      document.getElementById('successMessage').textContent = 'บอทจะแจ้งในกลุ่ม LINE เพื่อยืนยันการสร้างงาน';
+      document.getElementById('successModal').classList.add('active');
       this.refreshCurrentView();
       
       return response.data;
@@ -839,6 +846,14 @@ class Dashboard {
     if (reviewerSelect) {
       reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>' +
         members.map(member => `<option value="${member.id}">${member.displayName}</option>`).join('');
+
+      // ตั้งค่า default ผู้ตรวจงาน = ผู้สร้างงาน (current user)
+      if (this.currentUserId) {
+        const hasCurrent = Array.from(reviewerSelect.options).some(opt => opt.value === this.currentUserId);
+        if (hasCurrent) {
+          reviewerSelect.value = this.currentUserId;
+        }
+      }
     }
   }
 
@@ -849,6 +864,33 @@ class Dashboard {
   openAddTaskModal() {
     document.getElementById('addTaskModal').classList.add('active');
     this.loadGroupMembers(); // Load members for assignee selection
+
+    // ตั้งค่า UI Recurrence
+    const recurrenceType = document.getElementById('recurrenceType');
+    const cfg = document.getElementById('recurrenceConfig');
+    const weekSel = document.getElementById('weekDaySelect');
+    const domInput = document.getElementById('dayOfMonthInput');
+    const timeInput = document.getElementById('timeOfDayInput');
+    if (recurrenceType && cfg && weekSel && domInput && timeInput && !recurrenceType._bound) {
+      recurrenceType.addEventListener('change', () => {
+        const v = recurrenceType.value;
+        if (v === 'none') {
+          cfg.style.display = 'none';
+          weekSel.style.display = 'none';
+          domInput.style.display = 'none';
+        } else {
+          cfg.style.display = 'block';
+          if (v === 'weekly') {
+            weekSel.style.display = 'block';
+            domInput.style.display = 'none';
+          } else {
+            weekSel.style.display = 'none';
+            domInput.style.display = 'inline-block';
+          }
+        }
+      });
+      recurrenceType._bound = true;
+    }
   }
 
   openTaskModal(taskId) {
@@ -881,10 +923,43 @@ class Dashboard {
       tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()) : [],
       createdBy: this.currentUserId || 'unknown',
       requireAttachment: document.getElementById('requireAttachment').checked,
-      reviewerUserId: document.getElementById('reviewerSelect')?.value || undefined
+      reviewerUserId: document.getElementById('reviewerSelect')?.value || this.currentUserId || undefined
     };
     
-    await this.createTask(taskData);
+    // ถ้าเลือกเป็นงานประจำ ให้สร้าง recurring template แทน
+    const recurrenceType = document.getElementById('recurrenceType')?.value || 'none';
+    if (recurrenceType !== 'none') {
+      try {
+        const payload = {
+          title: taskData.title,
+          description: taskData.description,
+          assigneeLineUserIds: taskData.assigneeIds, // รองรับ LINE IDs ได้ใน backend
+          reviewerLineUserId: taskData.reviewerUserId,
+          requireAttachment: taskData.requireAttachment,
+          priority: taskData.priority,
+          tags: taskData.tags,
+          recurrence: recurrenceType, // 'weekly' | 'monthly' | 'quarterly'
+          weekDay: recurrenceType === 'weekly' ? parseInt(document.getElementById('weekDaySelect').value || '1', 10) : undefined,
+          dayOfMonth: (recurrenceType === 'monthly' || recurrenceType === 'quarterly') ? parseInt(document.getElementById('dayOfMonthInput').value || '1', 10) : undefined,
+          timeOfDay: document.getElementById('timeOfDayInput').value || '09:00',
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          createdBy: this.currentUserId || 'unknown'
+        };
+        await this.apiRequest(`/groups/${this.currentGroupId}/recurring`, {
+          method: 'POST',
+          body: JSON.stringify(payload)
+        });
+        this.showToast('สร้างงานประจำสำเร็จ', 'success');
+        this.closeModal('addTaskModal');
+        document.getElementById('successMessage').textContent = 'ตั้งค่างานประจำสำเร็จ บอทจะสร้างงานตามรอบเวลาในกลุ่ม LINE';
+        document.getElementById('successModal').classList.add('active');
+      } catch (err) {
+        console.error('Failed to create recurring:', err);
+        this.showToast('สร้างงานประจำไม่สำเร็จ', 'error');
+      }
+    } else {
+      await this.createTask(taskData);
+    }
     form.reset();
   }
 

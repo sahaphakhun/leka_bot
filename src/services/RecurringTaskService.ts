@@ -17,7 +17,7 @@ export class RecurringTaskService {
     lineGroupId: string;
     title: string;
     assigneeLineUserIds: string[];
-    recurrence: 'weekly' | 'monthly';
+    recurrence: 'weekly' | 'monthly' | 'quarterly';
     // weekly
     weekDay?: number;
     // monthly
@@ -84,7 +84,7 @@ export class RecurringTaskService {
   }
 
   private calculateNextRunAt(input: {
-    recurrence: 'weekly' | 'monthly';
+    recurrence: 'weekly' | 'monthly' | 'quarterly';
     weekDay?: number;
     dayOfMonth?: number;
     timeOfDay: string;
@@ -97,12 +97,26 @@ export class RecurringTaskService {
       const wd = input.weekDay ?? 1; // default Monday
       next = now.clone().day(wd);
       if (next.isSameOrBefore(now, 'day')) next.add(1, 'week');
-    } else {
+    } else if (input.recurrence === 'monthly') {
       const dom = input.dayOfMonth ?? 1;
       next = now.clone().date(Math.min(dom, now.daysInMonth()));
       if (next.isSameOrBefore(now, 'day')) {
         const nextMonth = now.clone().add(1, 'month');
         next = nextMonth.clone().date(Math.min(dom, nextMonth.daysInMonth()));
+      }
+    } else {
+      // quarterly: ทุกไตรมาส (3 เดือน)
+      const dom = input.dayOfMonth ?? 1;
+      // หาเดือนของไตรมาสถัดไป
+      const currentMonth = now.month(); // 0-11
+      const nextQuarterStartMonth = Math.floor(currentMonth / 3) * 3 + 3; // 0,3,6,9 → +3
+      const base = now.clone().month(nextQuarterStartMonth).date(1);
+      const target = base.clone().date(Math.min(dom, base.daysInMonth()));
+      if (target.isSameOrBefore(now, 'day')) {
+        const base2 = base.clone().add(3, 'months');
+        next = base2.clone().date(Math.min(dom, base2.daysInMonth()));
+      } else {
+        next = target;
       }
     }
     const [h, m] = input.timeOfDay.split(':').map(v => parseInt(v, 10));

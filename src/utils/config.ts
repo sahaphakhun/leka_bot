@@ -58,7 +58,8 @@ export const config = {
     defaultTimezone: process.env.DEFAULT_TIMEZONE || 'Asia/Bangkok',
     
     // Default reminder intervals (in ISO 8601 duration format)
-    defaultReminders: ['P7D', 'P1D', 'PT3H'], // 7 days, 1 day, 3 hours
+    // ปรับตาม requirement: เตือนก่อนถึงกำหนด 1 วัน
+    defaultReminders: ['P1D'],
     
     // KPI Scoring
     kpiScoring: {

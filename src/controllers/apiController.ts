@@ -634,7 +634,7 @@ class ApiController {
         requireAttachment: !!body.requireAttachment,
         priority: body.priority || 'medium',
         tags: body.tags || [],
-        recurrence: body.recurrence,
+        recurrence: body.recurrence, // 'weekly' | 'monthly' | 'quarterly'
         weekDay: body.weekDay,
         dayOfMonth: body.dayOfMonth,
         timeOfDay: body.timeOfDay,

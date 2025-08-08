@@ -399,6 +399,33 @@
                     </div>
                     <div class="form-row">
                         <div class="form-group">
+                            <label for="recurrenceType">ชนิดงาน (ปกติ/ประจำ)</label>
+                            <select id="recurrenceType">
+                                <option value="none">งานปกติ (ครั้งเดียว)</option>
+                                <option value="weekly">งานประจำรายสัปดาห์</option>
+                                <option value="monthly">งานประจำรายเดือน</option>
+                                <option value="quarterly">งานประจำรายไตรมาส</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="recurrenceConfig" style="display:none;">
+                            <label id="recurrenceConfigLabel">ตั้งค่า Recurrence</label>
+                            <div style="display:flex; gap:8px;">
+                                <select id="weekDaySelect" style="display:none;">
+                                    <option value="1">จันทร์</option>
+                                    <option value="2">อังคาร</option>
+                                    <option value="3">พุธ</option>
+                                    <option value="4">พฤหัสบดี</option>
+                                    <option value="5">ศุกร์</option>
+                                    <option value="6">เสาร์</option>
+                                    <option value="0">อาทิตย์</option>
+                                </select>
+                                <input type="number" id="dayOfMonthInput" min="1" max="31" placeholder="วันที่ของเดือน" style="display:none;" />
+                                <input type="time" id="timeOfDayInput" value="09:00" />
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
                             <label for="reviewerSelect">ผู้ตรวจ (ผู้สั่งงาน)</label>
                             <select id="reviewerSelect"></select>
                         </div>
@@ -440,6 +467,25 @@
                         <button type="submit" class="btn btn-primary">เพิ่มงาน</button>
                     </div>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Success Modal -->
+    <div id="successModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>เพิ่มงานสำเร็จ</h3>
+                <button class="modal-close" id="successModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <p id="successMessage">บอทจะแจ้งเตือนในกลุ่ม LINE เพื่อยืนยันการสร้างงาน</p>
+                <div class="form-actions" style="justify-content: flex-end;">
+                    <button type="button" class="btn btn-outline" id="stayHereBtn">อยู่ในหน้านี้</button>
+                    <a class="btn btn-primary" id="goToLineBtn" href="line://nv/chat">กลับไปที่ LINE</a>
+                </div>
             </div>
         </div>
     </div>

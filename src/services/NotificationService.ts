@@ -298,6 +298,10 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
         timeText = 'อีก 3 ชั่วโมง';
         emoji = '⚡';
         break;
+      case 'daily_8am':
+        timeText = 'เตือนความจำตอนเช้า 08:00 น.';
+        emoji = '🌅';
+        break;
       case 'due':
         timeText = 'ถึงเวลาแล้ว';
         emoji = '🚨';

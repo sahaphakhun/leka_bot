@@ -24,9 +24,9 @@ export class CronService {
   public start(): void {
     console.log('🕐 Starting cron jobs...');
 
-    // ตรวจสอบและส่งการเตือนทุก 15 นาที
-    const reminderJob = cron.schedule('*/15 * * * *', async () => {
-      await this.processReminders();
+    // เตือนก่อนถึงกำหนด 1 วัน: รันทุกชั่วโมงเพื่อตรวจช่วง 1 วันก่อน
+    const reminderOneDayJob = cron.schedule('0 * * * *', async () => {
+      await this.processReminders(['P1D']);
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
@@ -65,7 +65,7 @@ export class CronService {
     });
 
     // เก็บ jobs ไว้สำหรับ shutdown
-    this.jobs.set('reminder', reminderJob);
+    this.jobs.set('reminderOneDay', reminderOneDayJob);
     this.jobs.set('overdue', overdueJob);
     this.jobs.set('weeklyReport', weeklyReportJob);
     this.jobs.set('kpiUpdate', kpiUpdateJob);
@@ -92,7 +92,7 @@ export class CronService {
   /**
    * ประมวลผลการเตือนงาน
    */
-  private async processReminders(): Promise<void> {
+  private async processReminders(onlyIntervals?: string[]): Promise<void> {
     try {
       console.log('🔔 Processing task reminders...');
       
@@ -103,17 +103,19 @@ export class CronService {
         const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone);
         const timeDiff = dueTime.diff(now);
 
-        // ตรวจสอบว่าถึงเวลาส่งการเตือนหรือไม่
-                const reminderIntervals = (task.customReminders && task.customReminders.length > 0)
-          ? task.customReminders
-          : config.app.defaultReminders;
+        // เลือกช่วงเตือน
+        const reminderIntervals = onlyIntervals && onlyIntervals.length > 0
+          ? onlyIntervals
+          : ((task.customReminders && task.customReminders.length > 0)
+              ? task.customReminders
+              : config.app.defaultReminders);
 
         for (const interval of reminderIntervals || []) {
           const reminderTime = this.parseReminderInterval(interval);
           const shouldSendAt = dueTime.clone().subtract(reminderTime.amount, reminderTime.unit);
           
-          // ตรวจสอบว่าเวลาผ่านมาแล้วหรือยัง และยังไม่ได้ส่ง
-          if (now.isAfter(shouldSendAt) && now.isBefore(shouldSendAt.clone().add(15, 'minutes'))) {
+          // ตรวจสอบช่วงเวลาที่ควรส่ง (หน้าต่าง 1 ชั่วโมงถ้ารัน hourly)
+          if (now.isAfter(shouldSendAt) && now.isBefore(shouldSendAt.clone().add(60, 'minutes'))) {
             const alreadySent = task.remindersSent.some(
               reminder => reminder.type === interval && 
               moment(reminder.sentAt).isSame(now, 'hour')
@@ -125,15 +127,15 @@ export class CronService {
           }
         }
 
-        // เตือนเมื่อถึงเวลากำหนด
-        if (now.isBetween(dueTime.clone().subtract(5, 'minutes'), dueTime.clone().add(5, 'minutes'))) {
-          const alreadySent = task.remindersSent.some(
-            reminder => reminder.type === 'due' && 
-            moment(reminder.sentAt).isSame(now, 'hour')
+        // เตือนซ้ำทุกเช้า 08:00 น. จนกว่างานจะเสร็จ (สถานะ pending/in_progress/overdue)
+        const eightAmToday = now.clone().hour(8).minute(0).second(0).millisecond(0);
+        const isMorningWindow = now.isBetween(eightAmToday, eightAmToday.clone().add(60, 'minutes'));
+        if (isMorningWindow && ['pending', 'in_progress', 'overdue'].includes((task as any).status)) {
+          const alreadySentMorning = task.remindersSent.some(
+            reminder => reminder.type === 'daily_8am' && moment(reminder.sentAt).isSame(now, 'day')
           );
-
-          if (!alreadySent) {
-            await this.sendTaskReminder(task, 'due');
+          if (!alreadySentMorning) {
+            await this.sendTaskReminder(task, 'daily_8am');
           }
         }
       }
