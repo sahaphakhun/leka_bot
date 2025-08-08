@@ -5,24 +5,30 @@ import { TaskService } from '@/services/TaskService';
 import { UserService } from '@/services/UserService';
 import { FileService } from '@/services/FileService';
 import { KPIService } from '@/services/KPIService';
+import { RecurringTaskService } from '@/services/RecurringTaskService';
+import multer from 'multer';
+import { logger } from '@/utils/logger';
 import { authenticate } from '@/middleware/auth';
 import { validateRequest } from '@/middleware/validation';
 import { ApiResponse, PaginatedResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
 
 export const apiRouter = Router();
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
 
 class ApiController {
   private taskService: TaskService;
   private userService: UserService;
   private fileService: FileService;
   private kpiService: KPIService;
+  private recurringService: RecurringTaskService;
 
   constructor() {
     this.taskService = new TaskService();
     this.userService = new UserService();
     this.fileService = new FileService();
     this.kpiService = new KPIService();
+    this.recurringService = new RecurringTaskService();
   }
 
   // Task Endpoints
@@ -69,7 +75,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting tasks:', error);
+      logger.error('❌ Error getting tasks:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get tasks' 
@@ -115,11 +121,51 @@ class ApiController {
       res.status(201).json(response);
 
     } catch (error) {
-      console.error('❌ Error creating task:', error);
+      logger.error('❌ Error creating task:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to create task' 
       });
+    }
+  }
+
+  /** UI ส่งงาน: อัปโหลดไฟล์ + บันทึก submission */
+  public async submitTask(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId, taskId } = req.params;
+      const { userId, comment } = (req.body || {});
+      const files = (req as any).files as any[];
+
+      if (!userId) {
+        res.status(400).json({ success: false, error: 'Missing userId (LINE User ID)' });
+        return;
+      }
+      if (!files || files.length === 0) {
+        res.status(400).json({ success: false, error: 'No attachments uploaded' });
+        return;
+      }
+
+      // บันทึกไฟล์ทั้งหมด แล้วได้ fileIds
+      const savedFileIds: string[] = [];
+      for (const f of files) {
+        const saved = await this.fileService.saveFile({
+          groupId,
+          uploadedBy: userId,
+          messageId: f.originalname,
+          content: f.buffer,
+          originalName: f.originalname,
+          mimeType: f.mimetype,
+          folderStatus: 'in_progress'
+        });
+        savedFileIds.push(saved.id);
+      }
+
+      // บันทึกเป็นการส่งงาน
+      const task = await this.taskService.recordSubmission(taskId, userId, savedFileIds, comment);
+      res.json({ success: true, data: task, message: 'Submitted successfully' });
+    } catch (error) {
+      logger.error('❌ submitTask error:', error);
+      res.status(500).json({ success: false, error: 'Failed to submit task' });
     }
   }
 
@@ -142,7 +188,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error updating task:', error);
+      logger.error('❌ Error updating task:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to update task' 
@@ -176,7 +222,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error completing task:', error);
+      logger.error('❌ Error completing task:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to complete task' 
@@ -223,7 +269,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting calendar events:', error);
+      logger.error('❌ Error getting calendar events:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get calendar events' 
@@ -271,7 +317,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting files:', error);
+      logger.error('❌ Error getting files:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get files' 
@@ -311,7 +357,7 @@ class ApiController {
       res.send(content);
 
     } catch (error) {
-      console.error('❌ Error downloading file:', error);
+      logger.error('❌ Error downloading file:', error);
       res.status(404).json({ 
         success: false, 
         error: 'File not found' 
@@ -364,7 +410,7 @@ class ApiController {
       res.send(content);
 
     } catch (error) {
-      console.error('❌ Error previewing file:', error);
+      logger.error('❌ Error previewing file:', error);
       res.status(404).json({ 
         success: false, 
         error: 'File not found' 
@@ -391,7 +437,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error adding file tags:', error);
+      logger.error('❌ Error adding file tags:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to add tags' 
@@ -418,7 +464,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting group members:', error);
+      logger.error('❌ Error getting group members:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get group members' 
@@ -433,11 +479,11 @@ class ApiController {
     try {
       const { groupId } = req.params;
       
-      console.log('🔍 Looking for group with ID:', groupId);
+      logger.debug('🔍 Looking for group with ID:', { groupId });
 
       // ตรวจสอบว่า groupId ไม่ใช่ 'default' หรือ empty
       if (!groupId || groupId === 'default' || groupId === 'undefined' || groupId === 'null') {
-        console.log('❌ Invalid group ID provided:', groupId);
+        logger.warn('❌ Invalid group ID provided', { groupId });
         res.status(400).json({ 
           success: false, 
           error: 'Invalid group ID provided' 
@@ -448,7 +494,7 @@ class ApiController {
       const group = await this.userService.findGroupByLineId(groupId);
       
       if (!group) {
-        console.log('❌ Group not found for ID:', groupId);
+        logger.warn('❌ Group not found for ID', { groupId });
         res.status(404).json({ 
           success: false, 
           error: 'Group not found' 
@@ -456,7 +502,7 @@ class ApiController {
         return;
       }
 
-      console.log('✅ Group found:', { id: group.id, name: group.name });
+      logger.info('✅ Group found', { id: group.id, name: group.name });
 
       const response: ApiResponse<any> = {
         success: true,
@@ -474,7 +520,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting group:', error);
+      logger.error('❌ Error getting group:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get group info' 
@@ -489,7 +535,7 @@ class ApiController {
     try {
       const { groupId } = req.params;
       
-      console.log('📊 Loading stats for group:', groupId);
+      logger.debug('📊 Loading stats for group', { groupId });
 
       // ตรวจสอบว่ากลุ่มมีอยู่จริง
       const group = await this.userService.findGroupByLineId(groupId);
@@ -524,7 +570,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting group stats:', error);
+      logger.error('❌ Error getting group stats:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get group stats' 
@@ -555,11 +601,72 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting leaderboard:', error);
+      logger.error('❌ Error getting leaderboard:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get leaderboard' 
       });
+    }
+  }
+
+  // Recurring Task Handlers (UI)
+  public async listRecurring(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const data = await this.recurringService.listByGroup(groupId);
+      res.json({ success: true, data });
+    } catch (error) {
+      logger.error('❌ Error listing recurring:', error);
+      res.status(500).json({ success: false, error: 'Failed to get recurring list' });
+    }
+  }
+
+  public async createRecurring(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const body = req.body || {};
+      const created = await this.recurringService.create({
+        lineGroupId: groupId,
+        title: body.title,
+        description: body.description,
+        assigneeLineUserIds: body.assigneeLineUserIds || [],
+        reviewerLineUserId: body.reviewerLineUserId,
+        requireAttachment: !!body.requireAttachment,
+        priority: body.priority || 'medium',
+        tags: body.tags || [],
+        recurrence: body.recurrence,
+        weekDay: body.weekDay,
+        dayOfMonth: body.dayOfMonth,
+        timeOfDay: body.timeOfDay,
+        timezone: body.timezone,
+        createdByLineUserId: body.createdBy
+      });
+      res.status(201).json({ success: true, data: created });
+    } catch (error) {
+      logger.error('❌ Error creating recurring:', error);
+      res.status(500).json({ success: false, error: 'Failed to create recurring' });
+    }
+  }
+
+  public async updateRecurring(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const updated = await this.recurringService.update(id, req.body || {});
+      res.json({ success: true, data: updated });
+    } catch (error) {
+      logger.error('❌ Error updating recurring:', error);
+      res.status(500).json({ success: false, error: 'Failed to update recurring' });
+    }
+  }
+
+  public async deleteRecurring(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      await this.recurringService.remove(id);
+      res.json({ success: true });
+    } catch (error) {
+      logger.error('❌ Error deleting recurring:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete recurring' });
     }
   }
 
@@ -585,7 +692,7 @@ class ApiController {
       res.json(response);
 
     } catch (error) {
-      console.error('❌ Error getting user stats:', error);
+      logger.error('❌ Error getting user stats:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get user stats' 
@@ -622,7 +729,7 @@ class ApiController {
       }
 
     } catch (error) {
-      console.error('❌ Error exporting KPI:', error);
+      logger.error('❌ Error exporting KPI:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to export KPI data' 
@@ -669,3 +776,15 @@ apiRouter.post('/tasks/:groupId', apiController.createTask.bind(apiController));
 apiRouter.get('/calendar/:groupId', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/files/:groupId', apiController.getFiles.bind(apiController));
 apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiController));
+
+  // Recurring tasks routes (UI management)
+  apiRouter.get('/groups/:groupId/recurring', apiController.listRecurring.bind(apiController));
+  apiRouter.post('/groups/:groupId/recurring', apiController.createRecurring.bind(apiController));
+  apiRouter.put('/recurring/:id', apiController.updateRecurring.bind(apiController));
+  apiRouter.delete('/recurring/:id', apiController.deleteRecurring.bind(apiController));
+
+  // Task submission (UI upload)
+  apiRouter.post('/groups/:groupId/tasks/:taskId/submit', 
+    upload.array('attachments', 10), 
+    apiController.submitTask.bind(apiController)
+  );

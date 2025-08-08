@@ -47,6 +47,40 @@ class Dashboard {
     document.getElementById('addTaskBtn').addEventListener('click', () => {
       this.openAddTaskModal();
     });
+    document.getElementById('submitTaskBtn')?.addEventListener('click', () => {
+      this.populateSubmitTaskSelect();
+      document.getElementById('submitTaskModal').classList.add('active');
+    });
+    document.getElementById('reviewTaskBtn')?.addEventListener('click', () => {
+      this.populateReviewTaskSelect();
+      document.getElementById('reviewTaskModal').classList.add('active');
+    });
+
+    // Submit modal handlers
+    document.getElementById('submitTaskModalClose')?.addEventListener('click', () => {
+      this.closeModal('submitTaskModal');
+    });
+    document.getElementById('cancelSubmitTask')?.addEventListener('click', () => {
+      this.closeModal('submitTaskModal');
+    });
+    document.getElementById('submitTaskForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleSubmitTask();
+    });
+
+    // Review modal handlers
+    document.getElementById('reviewTaskModalClose')?.addEventListener('click', () => {
+      this.closeModal('reviewTaskModal');
+    });
+    document.getElementById('cancelReviewTask')?.addEventListener('click', () => {
+      this.closeModal('reviewTaskModal');
+    });
+    document.getElementById('approveTaskBtn')?.addEventListener('click', () => {
+      this.handleApproveTask();
+    });
+    document.getElementById('rejectTaskBtn')?.addEventListener('click', () => {
+      this.handleRejectTask();
+    });
 
     document.getElementById('taskModalClose').addEventListener('click', () => {
       this.closeModal('taskModal');
@@ -697,6 +731,7 @@ class Dashboard {
   updateMembersList(members) {
     const select = document.getElementById('taskAssignees');
     const filter = document.getElementById('assigneeFilter');
+    const reviewerSelect = document.getElementById('reviewerSelect');
     
     if (select) {
       select.innerHTML = members.map(member => 
@@ -709,6 +744,11 @@ class Dashboard {
         members.map(member => 
           `<option value="${member.id}">${member.displayName}</option>`
         ).join('');
+    }
+
+    if (reviewerSelect) {
+      reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>' +
+        members.map(member => `<option value="${member.id}">${member.displayName}</option>`).join('');
     }
   }
 
@@ -724,7 +764,9 @@ class Dashboard {
   openTaskModal(taskId) {
     // TODO: Load task details and show in modal
     console.log('Opening task modal for:', taskId);
-    this.showToast('ฟีเจอร์นี้จะเปิดใช้งานเร็วๆ นี้', 'info');
+    // เปิด submit modal พร้อมเลือกงานเป็นค่าเริ่มต้น
+    this.populateSubmitTaskSelect(taskId);
+    document.getElementById('submitTaskModal').classList.add('active');
   }
 
   closeModal(modalId) {
@@ -747,12 +789,61 @@ class Dashboard {
       assigneeIds: Array.from(document.getElementById('taskAssignees').selectedOptions)
         .map(option => option.value),
       tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()) : [],
-      createdBy: this.currentUserId || 'unknown'
+      createdBy: this.currentUserId || 'unknown',
+      requireAttachment: document.getElementById('requireAttachment').checked,
+      reviewerUserId: document.getElementById('reviewerSelect')?.value || undefined
     };
     
     await this.createTask(taskData);
     form.reset();
   }
+
+   async handleSubmitTask() {
+     try {
+       const select = document.getElementById('submitTaskId');
+       const taskId = select.value;
+       const comment = document.getElementById('submitComment').value;
+       const filesInput = document.getElementById('submitFiles');
+       const files = filesInput.files;
+       if (!taskId) { this.showToast('กรุณาเลือกงาน', 'error'); return; }
+       if (!files || files.length === 0) { this.showToast('กรุณาเลือกไฟล์', 'error'); return; }
+
+       const formData = new FormData();
+       formData.append('userId', this.currentUserId || 'unknown');
+       formData.append('comment', comment || '');
+       for (let i = 0; i < files.length; i++) {
+         formData.append('attachments', files[i]);
+       }
+
+       const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`, {
+         method: 'POST',
+         body: formData
+       });
+       if (!response.ok) throw new Error('Upload failed');
+       const data = await response.json();
+       if (data.success) {
+         this.showToast('ส่งงานสำเร็จ', 'success');
+         this.closeModal('submitTaskModal');
+         this.refreshCurrentView();
+       } else {
+         this.showToast(data.error || 'ส่งงานไม่สำเร็จ', 'error');
+       }
+     } catch (error) {
+       console.error('submitTask error:', error);
+       this.showToast('ส่งงานไม่สำเร็จ', 'error');
+     }
+   }
+
+   async populateSubmitTaskSelect(selectedTaskId = '') {
+     try {
+       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=pending`);
+       const tasks = response.data || [];
+       const sel = document.getElementById('submitTaskId');
+       sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+     } catch (error) {
+       console.error('populateSubmitTaskSelect error:', error);
+     }
+   }
 
   // ==================== 
   // Event Handlers
@@ -765,6 +856,63 @@ class Dashboard {
     
     // TODO: Implement different calendar view modes
     console.log('Switching to calendar mode:', mode);
+  }
+
+  async populateReviewTaskSelect(selectedTaskId = '') {
+    try {
+      // โหลดงานสถานะ pending หรือ in_progress เพื่อให้ผู้ตรวจเลือก
+      const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=pending`);
+      const response2 = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=in_progress`);
+      const tasks = [...(response.data || []), ...(response2.data || [])];
+      const sel = document.getElementById('reviewTaskId');
+      sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+    } catch (error) {
+      console.error('populateReviewTaskSelect error:', error);
+    }
+  }
+
+  async handleApproveTask() {
+    try {
+      const taskId = document.getElementById('reviewTaskId').value;
+      const res = await this.apiRequest(`/tasks/${taskId}/complete`, {
+        method: 'POST',
+        body: JSON.stringify({ userId: this.currentUserId || 'unknown' })
+      });
+      if (res.success) {
+        this.showToast('อนุมัติงานและปิดงานสำเร็จ', 'success');
+        this.closeModal('reviewTaskModal');
+        this.refreshCurrentView();
+      }
+    } catch (error) {
+      console.error('approve error:', error);
+      this.showToast('อนุมัติงานไม่สำเร็จ', 'error');
+    }
+  }
+
+  async handleRejectTask() {
+    try {
+      const taskId = document.getElementById('reviewTaskId').value;
+      const comment = document.getElementById('reviewComment').value;
+      const newDue = document.getElementById('reviewNewDue').value;
+      if (!newDue) { this.showToast('ระบุกำหนดส่งใหม่', 'error'); return; }
+      const res = await this.apiRequest(`/tasks/${taskId}`, {
+        method: 'PUT',
+        body: JSON.stringify({
+          dueTime: newDue,
+          reviewAction: 'revise',
+          reviewerUserId: this.currentUserId || 'unknown',
+          reviewerComment: comment || ''
+        })
+      });
+      if (res.success) {
+        this.showToast('ตีกลับงานสำเร็จ', 'success');
+        this.closeModal('reviewTaskModal');
+        this.refreshCurrentView();
+      }
+    } catch (error) {
+      console.error('reject error:', error);
+      this.showToast('ตีกลับงานไม่สำเร็จ', 'error');
+    }
   }
 
   switchLeaderboardPeriod(period) {

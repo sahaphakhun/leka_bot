@@ -178,6 +178,28 @@ export class TaskService {
       }
 
       Object.assign(task, updates);
+      // รองรับตีกลับจากผู้ตรวจผ่าน API โดยใช้ฟิลด์ชั่วคราวใน updates
+      const anyUpdates: any = updates as any;
+      if (anyUpdates && anyUpdates.reviewAction === 'revise') {
+        const reviewerId = anyUpdates.reviewerUserId as string | undefined;
+        const reviewerComment = anyUpdates.reviewerComment as string | undefined;
+        const newDueTime = updates.dueTime as Date | undefined;
+        task.workflow = {
+          ...(task.workflow || {}),
+          review: {
+            ...(task.workflow?.review || {}),
+            status: 'rejected',
+            reviewerComment,
+            reviewedAt: new Date()
+          },
+          history: [
+            ...(task.workflow?.history || []),
+            { action: 'reject', byUserId: reviewerId || task.createdBy, at: new Date(), note: reviewerComment },
+            { action: 'revise_due', byUserId: reviewerId || task.createdBy, at: new Date(), note: newDueTime ? newDueTime.toISOString() : undefined }
+          ]
+        } as any;
+        task.status = 'pending';
+      }
       const updatedTask = await this.taskRepository.save(task);
 
       // อัปเดตใน Google Calendar

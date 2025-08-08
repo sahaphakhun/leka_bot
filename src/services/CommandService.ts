@@ -38,6 +38,14 @@ export class CommandService {
         case '/task':
           return await this.handleTaskCommand(command);
 
+        // คำสั่งในแชทสำหรับเวิร์กโฟลว์ตรวจงาน/ส่งงาน ให้ใช้งานได้จากแชททันที
+        case '/submit':
+          return await this.handleSubmitCommand(command);
+        case '/approve':
+          return await this.handleApproveCommand(command);
+        case '/reject':
+          return await this.handleRejectCommand(command);
+
         case '/files':
           return await this.handleFilesCommand(command);
 
@@ -146,6 +154,97 @@ ${dashboardUrl}
 
       default:
         return 'คำสั่งย่อยไม่ถูกต้อง ใช้: list, mine, done, move, add';
+    }
+  }
+
+  /**
+   * ส่งงาน (ผู้รับงานแนบไฟล์ในแชท แล้วพิมพ์ /submit <รหัสงาน หรือ ชื่องาน> [หมายเหตุ]
+   * หมายเหตุ: ระบบจะนำไฟล์ล่าสุดของผู้ใช้ในกลุ่ม (24 ชม.) ไปผูกกับงานโดยอัตโนมัติ
+   */
+  private async handleSubmitCommand(command: BotCommand): Promise<string> {
+    try {
+      const [taskQuery, ...noteParts] = command.args;
+      if (!taskQuery) return 'กรุณาระบุรหัสงานหรือชื่องาน เช่น /submit abc123 รายงานเดือนเม.ย.';
+
+      // ค้นหางานจากรหัสหรือชื่อ
+      const { tasks } = await this.taskService.searchTasks(command.groupId, taskQuery, { limit: 1 });
+      if (tasks.length === 0) return `ไม่พบงาน "${taskQuery}"`; 
+
+      const task = tasks[0];
+
+      // หาไฟล์ที่ผู้ใช้คนนี้เพิ่งส่งในกลุ่มล่าสุด (24 ชม.)
+      const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+      const { files } = await this.fileService.getGroupFiles(command.groupId, {
+        uploadedBy: command.userId,
+        startDate: since,
+        limit: 20
+      } as any);
+
+      if (!files || files.length === 0) {
+        return 'ไม่พบไฟล์ที่คุณส่งใน 24 ชั่วโมงที่ผ่านมา กรุณาส่งไฟล์ในแชทก่อน แล้วพิมพ์ /submit อีกครั้ง';
+      }
+
+      // ใช้ไฟล์ล่าสุด 1-5 ไฟล์
+      const fileIds = files.slice(0, 5).map(f => f.id);
+      const note = noteParts.join(' ');
+
+      await this.taskService.recordSubmission(task.id, command.userId, fileIds, note);
+      return `📥 รับไฟล์ ${fileIds.length} ไฟล์ และบันทึกการส่งงานให้ "${task.title}" แล้วค่ะ\nรอผู้ตรวจยืนยันภายใน 2 วัน`;
+    } catch (error) {
+      console.error('❌ submit error:', error);
+      return 'เกิดข้อผิดพลาดในการส่งงาน กรุณาลองใหม่';
+    }
+  }
+
+  /** ผู้ตรวจอนุมัติงาน */
+  private async handleApproveCommand(command: BotCommand): Promise<string> {
+    try {
+      const [taskQuery] = command.args;
+      if (!taskQuery) return 'ระบุรหัสงานหรือชื่องาน เช่น /approve abc123';
+      const { tasks } = await this.taskService.searchTasks(command.groupId, taskQuery, { limit: 1 });
+      if (tasks.length === 0) return `ไม่พบงาน "${taskQuery}"`;
+      const task = tasks[0];
+
+      try {
+        await this.taskService.completeTask(task.id, command.userId);
+      } catch (err: any) {
+        return `❌ อนุมัติไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`;
+      }
+      return `✅ อนุมัติงาน "${task.title}" สำเร็จ และปิดงานเรียบร้อย`;
+    } catch (error) {
+      console.error('❌ approve error:', error);
+      return 'เกิดข้อผิดพลาดในการอนุมัติงาน';
+    }
+  }
+
+  /** ผู้ตรวจตีกลับงาน + กำหนดวันใหม่ */
+  private async handleRejectCommand(command: BotCommand): Promise<string> {
+    try {
+      if (command.args.length < 2) {
+        return 'รูปแบบไม่ถูกต้อง\nใช้: /reject <รหัสงานหรือชื่องาน> <กำหนดส่งใหม่ เช่น 25/12 14:00> [ความเห็น]';
+      }
+      const [taskQuery, ...rest] = command.args;
+      const newDueText = rest.shift();
+      const comment = rest.join(' ');
+
+      const newDue = this.parseDateTime(newDueText!);
+      if (!newDue) return 'รูปแบบวันเวลาไม่ถูกต้อง เช่น 25/12 14:00';
+
+      const { tasks } = await this.taskService.searchTasks(command.groupId, taskQuery, { limit: 1 });
+      if (tasks.length === 0) return `ไม่พบนงาน "${taskQuery}"`;
+      const task = tasks[0];
+
+      // อัปเดตงานด้วย reviewAction: 'revise'
+      await this.taskService.updateTask(task.id, {
+        dueTime: newDue,
+        // ใส่ฟิลด์พิเศษเพื่อบันทึก workflow
+        ...( { reviewAction: 'revise', reviewerUserId: command.userId, reviewerComment: comment } as any )
+      });
+
+      return `❌ ตีกลับงาน "${task.title}" และกำหนดวันส่งใหม่เป็น ${moment(newDue).format('DD/MM/YYYY HH:mm')} แล้ว`;
+    } catch (error) {
+      console.error('❌ reject error:', error);
+      return 'เกิดข้อผิดพลาดในการตีกลับงาน';
     }
   }
 

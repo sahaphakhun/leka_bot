@@ -86,6 +86,14 @@
                     <i class="fas fa-plus"></i>
                     เพิ่มงานใหม่
                 </button>
+                 <button class="btn btn-outline btn-full" id="submitTaskBtn" style="margin-top:8px;">
+                     <i class="fas fa-paperclip"></i>
+                     ส่งงาน (แนบไฟล์)
+                 </button>
+                 <button class="btn btn-outline btn-full" id="reviewTaskBtn" style="margin-top:8px;">
+                     <i class="fas fa-check-circle"></i>
+                     ตรวจงาน
+                 </button>
             </div>
         </aside>
 
@@ -305,6 +313,71 @@
         </div>
     </div>
 
+    <!-- Submit Task Modal -->
+    <div id="submitTaskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>ส่งงาน</h3>
+                <button class="modal-close" id="submitTaskModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="submitTaskForm">
+                    <div class="form-group">
+                        <label for="submitTaskId">เลือกงาน</label>
+                        <select id="submitTaskId"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="submitComment">หมายเหตุ</label>
+                        <textarea id="submitComment" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="submitFiles">ไฟล์แนบ</label>
+                        <input type="file" id="submitFiles" multiple>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="cancelSubmitTask">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary">ส่งงาน</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Review Task Modal -->
+    <div id="reviewTaskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>ตรวจงาน</h3>
+                <button class="modal-close" id="reviewTaskModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="reviewTaskForm">
+                    <div class="form-group">
+                        <label for="reviewTaskId">เลือกงาน</label>
+                        <select id="reviewTaskId"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="reviewComment">ความเห็น</label>
+                        <textarea id="reviewComment" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="reviewNewDue">กำหนดส่งใหม่ (กรณีตีกลับ)</label>
+                        <input type="datetime-local" id="reviewNewDue">
+                    </div>
+                    <div class="form-actions" style="display:flex; gap:8px;">
+                        <button type="button" class="btn btn-outline" id="cancelReviewTask">ยกเลิก</button>
+                        <button type="button" class="btn btn-primary" id="approveTaskBtn">อนุมัติ</button>
+                        <button type="button" class="btn btn-outline" id="rejectTaskBtn">ตีกลับ</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Add Task Modal -->
     <div id="addTaskModal" class="modal">
         <div class="modal-content">
@@ -316,6 +389,17 @@
             </div>
             <div class="modal-body">
                 <form id="addTaskForm">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label><input type="checkbox" id="requireAttachment"> ต้องแนบไฟล์เมื่อส่งงาน</label>
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="reviewerSelect">ผู้ตรวจ (ผู้สั่งงาน)</label>
+                            <select id="reviewerSelect"></select>
+                        </div>
+                    </div>
                     <div class="form-group">
                         <label for="taskTitle">ชื่องาน *</label>
                         <input type="text" id="taskTitle" name="title" required>
