@@ -6,6 +6,8 @@ import { config } from '@/utils/config';
 import { TaskService } from './TaskService';
 import { NotificationService } from './NotificationService';
 import { KPIService } from './KPIService';
+import { AppDataSource } from '@/utils/database';
+import { RecurringTask } from '@/models';
 
 export class CronService {
   private taskService: TaskService;
@@ -54,11 +56,20 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
+    // ตรวจงานประจำทุกนาที (คำนวณ nextRunAt)
+    const recurringJob = cron.schedule('* * * * *', async () => {
+      await this.processRecurringTasks();
+    }, {
+      scheduled: false,
+      timezone: config.app.defaultTimezone
+    });
+
     // เก็บ jobs ไว้สำหรับ shutdown
     this.jobs.set('reminder', reminderJob);
     this.jobs.set('overdue', overdueJob);
     this.jobs.set('weeklyReport', weeklyReportJob);
     this.jobs.set('kpiUpdate', kpiUpdateJob);
+    this.jobs.set('recurring', recurringJob);
 
     // เริ่มงานทั้งหมด
     this.jobs.forEach((job, name) => {
@@ -152,6 +163,12 @@ export class CronService {
         await this.kpiService.recordTaskCompletion(task, 'late');
       }
 
+      // ตรวจงานที่รอการตรวจเกิน 2 วัน
+      const lateReviews = await this.taskService.getTasksLateForReview();
+      for (const t of lateReviews) {
+        await this.taskService.markLateReview(t.id);
+      }
+
     } catch (error) {
       console.error('❌ Error processing overdue tasks:', error);
     }
@@ -243,5 +260,75 @@ export class CronService {
 
     // Default fallback
     return { amount: 1, unit: 'hours' };
+  }
+
+  /** สร้างงานตามกำหนด (Recurring) */
+  private async processRecurringTasks(): Promise<void> {
+    try {
+      const repo = AppDataSource.getRepository(RecurringTask);
+      const now = moment();
+      const dueTemplates = await repo.find({ where: { active: true } });
+      for (const tmpl of dueTemplates) {
+        if (!tmpl.nextRunAt) continue;
+        const nextRun = moment(tmpl.nextRunAt).tz(tmpl.timezone || config.app.defaultTimezone);
+        if (now.isSameOrAfter(nextRun)) {
+          try {
+            // คำนวณ dueTime ของงานจริง
+            const [h, m] = (tmpl.timeOfDay || '09:00').split(':').map(v => parseInt(v, 10));
+            const dueTime = now.clone().tz(tmpl.timezone || config.app.defaultTimezone).hour(h).minute(m).second(0).millisecond(0).toDate();
+
+            // สร้างงาน
+            await this.taskService.createTask({
+              groupId: tmpl.lineGroupId,
+              title: tmpl.title,
+              description: tmpl.description,
+              assigneeIds: tmpl.assigneeLineUserIds, // LINE User IDs รองรับใน createTask
+              createdBy: tmpl.createdByLineUserId,
+              dueTime,
+              priority: tmpl.priority,
+              tags: tmpl.tags,
+              requireAttachment: tmpl.requireAttachment,
+              reviewerUserId: tmpl.reviewerLineUserId
+            });
+
+            // อัปเดต lastRunAt และ nextRunAt รอบถัดไป
+            tmpl.lastRunAt = now.toDate();
+            tmpl.nextRunAt = this.calculateNextRunAt(tmpl);
+            await repo.save(tmpl);
+          } catch (err) {
+            console.error('❌ Failed to create recurring task:', tmpl.id, err);
+            // อย่างน้อยเลื่อน nextRunAt ไปอนาคตเพื่อไม่ให้ loop ค้าง
+            tmpl.nextRunAt = this.calculateNextRunAt(tmpl);
+            await repo.save(tmpl);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error processing recurring tasks:', error);
+    }
+  }
+
+  private calculateNextRunAt(tmpl: RecurringTask): Date {
+    const tz = tmpl.timezone || config.app.defaultTimezone;
+    const now = moment().tz(tz);
+    let next = moment(tmpl.nextRunAt || now).tz(tz);
+    if (tmpl.recurrence === 'weekly') {
+      // ไปสัปดาห์ถัดไปที่ weekday ที่ระบุ
+      next = now.clone().day(tmpl.weekDay ?? 1);
+      if (next.isSameOrBefore(now, 'day')) {
+        next.add(1, 'week');
+      }
+    } else {
+      // monthly: ไปยัง dayOfMonth ที่ระบุ
+      const dom = tmpl.dayOfMonth ?? 1;
+      next = now.clone().date(Math.min(dom, now.daysInMonth()));
+      if (next.isSameOrBefore(now, 'day')) {
+        const nextMonth = now.clone().add(1, 'month');
+        next = nextMonth.clone().date(Math.min(dom, nextMonth.daysInMonth()));
+      }
+    }
+    const [h, m] = (tmpl.timeOfDay || '09:00').split(':').map(v => parseInt(v, 10));
+    next.hour(h).minute(m).second(0).millisecond(0);
+    return next.toDate();
   }
 }

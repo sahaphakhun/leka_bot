@@ -8,6 +8,8 @@ import moment from 'moment-timezone';
 import { config } from '@/utils/config';
 import { GoogleService } from './GoogleService';
 import { NotificationService } from './NotificationService';
+import { FileService } from './FileService';
+import { LineService } from './LineService';
 
 export class TaskService {
   private taskRepository: Repository<Task>;
@@ -15,6 +17,8 @@ export class TaskService {
   private userRepository: Repository<User>;
   private googleService: GoogleService;
   private notificationService: NotificationService;
+  private fileService: FileService;
+  private lineService: LineService;
 
   constructor() {
     this.taskRepository = AppDataSource.getRepository(Task);
@@ -22,6 +26,8 @@ export class TaskService {
     this.userRepository = AppDataSource.getRepository(User);
     this.googleService = new GoogleService();
     this.notificationService = new NotificationService();
+    this.fileService = new FileService();
+    this.lineService = new LineService();
   }
 
   /**
@@ -41,6 +47,8 @@ export class TaskService {
     priority?: 'low' | 'medium' | 'high';
     tags?: string[];
     customReminders?: string[];
+    requireAttachment?: boolean;
+    reviewerUserId?: string; // ผู้สั่งงาน/ผู้ตรวจ
   }): Promise<Task> {
     try {
       // ค้นหา Group entity จาก LINE Group ID
@@ -55,6 +63,13 @@ export class TaskService {
         throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
       }
 
+      // แปลง reviewerUserId จาก LINE → internal ID ถ้าจำเป็น
+      let reviewerInternalId: string | undefined = data.reviewerUserId;
+      if (reviewerInternalId && reviewerInternalId.startsWith('U')) {
+        const reviewer = await this.userRepository.findOneBy({ lineUserId: reviewerInternalId });
+        reviewerInternalId = reviewer ? reviewer.id : undefined;
+      }
+
       const task = this.taskRepository.create({
         groupId: group.id,
         title: data.title,
@@ -65,7 +80,17 @@ export class TaskService {
         priority: data.priority || 'medium',
         tags: data.tags || [],
         customReminders: data.customReminders,
-        status: 'pending'
+        status: 'pending',
+        requireAttachment: data.requireAttachment ?? false,
+        workflow: {
+          review: reviewerInternalId ? {
+            reviewerUserId: reviewerInternalId,
+            status: 'not_requested'
+          } : undefined,
+          history: [
+            { action: 'create', byUserId: creator.id, at: new Date() }
+          ]
+        }
       });
 
       // บันทึกงาน
@@ -184,6 +209,25 @@ export class TaskService {
       
       if (status === 'completed') {
         task.completedAt = new Date();
+        // ย้ายไฟล์ที่แนบกับงานไปอยู่โฟลเดอร์ completed
+        try {
+          const files = await AppDataSource
+            .getRepository('files')
+            .createQueryBuilder('file' as any)
+            .leftJoin('file.linkedTasks', 'task')
+            .where('task.id = :taskId', { taskId })
+            .getMany() as any[];
+          for (const f of files) {
+            await AppDataSource
+              .createQueryBuilder()
+              .update('files' as any)
+              .set({ folderStatus: 'completed' })
+              .where('id = :id', { id: f.id })
+              .execute();
+          }
+        } catch (err) {
+          console.warn('⚠️ Failed to move files to completed folder:', err);
+        }
       }
 
       return await this.taskRepository.save(task);
@@ -201,7 +245,7 @@ export class TaskService {
     try {
       const task = await this.taskRepository.findOne({
         where: { id: taskId },
-        relations: ['assignedUsers']
+        relations: ['assignedUsers', 'attachedFiles']
       });
 
       if (!task) {
@@ -216,8 +260,29 @@ export class TaskService {
         throw new Error('Unauthorized to complete this task');
       }
 
+      // บังคับต้องแนบไฟล์ถ้าระบุ requireAttachment
+      if (task.requireAttachment) {
+        const hasFile = (task.attachedFiles && task.attachedFiles.length > 0);
+        if (!hasFile) {
+          throw new Error('Attachment required to complete this task');
+        }
+      }
+
       task.status = 'completed';
       task.completedAt = new Date();
+      // อัปเดตเวิร์กโฟลว์
+      task.workflow = {
+        ...(task.workflow || {}),
+        review: {
+          ...(task.workflow?.review || {}),
+          status: 'approved',
+          reviewedAt: new Date()
+        },
+        history: [
+          ...(task.workflow?.history || []),
+          { action: 'approve', byUserId: completedBy, at: new Date() }
+        ]
+      } as any;
 
       const completedTask = await this.taskRepository.save(task);
 
@@ -239,6 +304,111 @@ export class TaskService {
     }
   }
 
+  /** บันทึกการส่งงาน (แนบไฟล์) */
+  public async recordSubmission(
+    taskId: string,
+    submitterLineUserId: string,
+    fileIds: string[],
+    comment?: string
+  ): Promise<Task> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'group', 'attachedFiles']
+      });
+      if (!task) throw new Error('Task not found');
+
+      // แปลง LINE → internal user id
+      const submitter = await this.userRepository.findOneBy({ lineUserId: submitterLineUserId });
+      if (!submitter) throw new Error('Submitter not found');
+
+      // ผูกไฟล์เข้ากับงาน
+      for (const fid of fileIds) {
+        try {
+          await this.fileService.linkFileToTask(fid, task.id);
+        } catch (e) {
+          console.warn('⚠️ linkFileToTask failed:', fid, e);
+        }
+      }
+
+      // อัปเดตเวิร์กโฟลว์
+      const now = new Date();
+      const lateSubmission = task.dueTime < now;
+      const submissions = (task.workflow?.submissions || []).concat({
+        submittedByUserId: submitter.id,
+        submittedAt: now,
+        fileIds,
+        comment,
+        lateSubmission
+      });
+
+      const reviewDue = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+      task.workflow = {
+        ...(task.workflow || {}),
+        submissions,
+        review: {
+          reviewerUserId: task.workflow?.review?.reviewerUserId || task.createdBy,
+          status: 'pending',
+          reviewRequestedAt: now,
+          reviewDueAt: reviewDue,
+          lateReview: false
+        },
+        history: [
+          ...(task.workflow?.history || []),
+          { action: 'submit', byUserId: submitter.id, at: now, note: `files=${fileIds.join(',')}` }
+        ]
+      } as any;
+
+      // สถานะงานเข้าสู่ in_progress
+      if (task.status === 'pending') {
+        task.status = 'in_progress';
+      }
+
+      const saved = await this.taskRepository.save(task);
+      return saved;
+    } catch (error) {
+      console.error('❌ Error recording submission:', error);
+      throw error;
+    }
+  }
+
+  /** ดึงงานที่รอการตรวจและพ้นกำหนด 2 วันแล้ว */
+  public async getTasksLateForReview(): Promise<Task[]> {
+    try {
+      const candidates = await this.taskRepository.createQueryBuilder('task')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress'] })
+        .orderBy('task.updatedAt', 'DESC')
+        .getMany();
+
+      const now = new Date();
+      return candidates.filter(t => {
+        const rv: any = (t as any).workflow?.review;
+        if (!rv) return false;
+        return rv.status === 'pending' && rv.reviewDueAt && new Date(rv.reviewDueAt) < now && !rv.lateReview;
+      });
+    } catch (error) {
+      console.error('❌ Error getting tasks late for review:', error);
+      return [];
+    }
+  }
+
+  /** ทำเครื่องหมายตรวจล่าช้า */
+  public async markLateReview(taskId: string): Promise<void> {
+    try {
+      const task = await this.taskRepository.findOneBy({ id: taskId });
+      if (!task) return;
+      const wf: any = task.workflow || {};
+      if (wf.review) {
+        wf.review.lateReview = true;
+        wf.history = [...(wf.history || []), { action: 'reject', byUserId: wf.review.reviewerUserId || task.createdBy, at: new Date(), note: 'late_review' }];
+        task.workflow = wf;
+        await this.taskRepository.save(task);
+      }
+    } catch (error) {
+      console.error('❌ Error marking late review:', error);
+    }
+  }
   /**
    * ดึงงานในกลุ่ม
    * @param groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
@@ -249,6 +419,7 @@ export class TaskService {
     options: {
       status?: TaskType['status'];
       assigneeId?: string;
+      requireAttachmentOnly?: boolean;
       tags?: string[];
       startDate?: Date;
       endDate?: Date;
@@ -282,6 +453,10 @@ export class TaskService {
           // ถ้าไม่เจอ user จะไม่มี tasks ใดๆ
           queryBuilder.andWhere('1 = 0'); // Force empty result
         }
+      }
+
+      if (options.requireAttachmentOnly) {
+        queryBuilder.andWhere('task.requireAttachment = TRUE');
       }
 
       if (options.tags && options.tags.length > 0) {

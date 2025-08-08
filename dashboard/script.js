@@ -7,6 +7,8 @@ class Dashboard {
   constructor() {
     this.currentView = 'dashboard';
     this.currentGroupId = this.getGroupIdFromUrl();
+    this.currentUserId = this.getUserIdFromUrl();
+    this.initialAction = this.getActionFromUrl();
     this.apiBase = window.location.origin;
     this.isLoading = false;
     
@@ -116,6 +118,16 @@ class Dashboard {
   getGroupIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('groupId') || 'default';
+  }
+
+  getUserIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('userId') || '';
+  }
+
+  getActionFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('action') || '';
   }
 
   debounce(func, wait) {
@@ -421,6 +433,11 @@ class Dashboard {
         
         // Load current view data
         this.loadViewData(this.currentView);
+
+        // ถ้ามาจากการกดปุ่ม "กรอกข้อมูลงาน" ให้เปิด modal เพิ่มงานอัตโนมัติ
+        if (this.initialAction === 'new-task') {
+          this.openAddTaskModal();
+        }
       } else {
         console.error('Invalid group response:', groupResponse);
         this.showGroupNotFoundMessage();
@@ -730,7 +747,7 @@ class Dashboard {
       assigneeIds: Array.from(document.getElementById('taskAssignees').selectedOptions)
         .map(option => option.value),
       tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()) : [],
-      createdBy: 'current-user-id' // TODO: Get from auth
+      createdBy: this.currentUserId || 'unknown'
     };
     
     await this.createTask(taskData);

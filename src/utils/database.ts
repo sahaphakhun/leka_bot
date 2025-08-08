@@ -1,7 +1,7 @@
 // Database Connection และ Configuration
 
 import { DataSource } from 'typeorm';
-import { Group, User, GroupMember, Task, File, KPIRecord } from '@/models';
+import { Group, User, GroupMember, Task, File, KPIRecord, RecurringTask } from '@/models';
 
 // สำหรับ Railway หรือ production environment
 const getDatabaseConfig = () => {
@@ -26,7 +26,7 @@ const getDatabaseConfig = () => {
 export const AppDataSource = new DataSource({
   type: 'postgres',
   ...getDatabaseConfig(),
-  entities: [Group, User, GroupMember, Task, File, KPIRecord],
+  entities: [Group, User, GroupMember, Task, File, KPIRecord, RecurringTask],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
   synchronize: process.env.NODE_ENV === 'development', // ใช้เฉพาะ development

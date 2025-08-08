@@ -130,6 +130,10 @@ class WebhookController {
       // case 'file':
       //   await this.handleFileMessage(event, message as any);
       //   break;
+
+          // เมื่อมีไฟล์แนบ ให้บันทึกเป็นสถานะ in_progress folder
+          await this.handleFileMessage(event, message as any);
+          break;
         
       default:
         console.log('ℹ️ Unhandled message type:', message.type);
@@ -210,7 +214,8 @@ class WebhookController {
         mimeType: message.type === 'image' ? 'image/jpeg' : 
                   message.type === 'video' ? 'video/mp4' :
                   message.type === 'audio' ? 'audio/mpeg' : 
-                  'application/octet-stream'
+                  'application/octet-stream',
+        folderStatus: 'in_progress'
       });
 
       // สร้าง Flex Message สำหรับแสดงตัวเลือก
@@ -293,8 +298,12 @@ class WebhookController {
         case 'complete':
           const taskId = params.get('taskId');
           if (taskId) {
-            await this.taskService.completeTask(taskId, userId);
-            await this.lineService.replyMessage(replyToken, '✅ ปิดงานเรียบร้อยแล้ว');
+            try {
+              await this.taskService.completeTask(taskId, userId);
+              await this.lineService.replyMessage(replyToken, '✅ ปิดงานเรียบร้อยแล้ว');
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถปิดงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
           }
           break;
 

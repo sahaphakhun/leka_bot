@@ -152,6 +152,10 @@ export class Task {
   @Column({ nullable: true })
   completedAt?: Date;
 
+  // บังคับให้ต้องมีไฟล์แนบเมื่อส่งงาน
+  @Column({ type: 'boolean', default: false })
+  requireAttachment: boolean;
+
   @Column()
   createdBy: string;
 
@@ -167,6 +171,33 @@ export class Task {
 
   @Column({ type: 'varchar', nullable: true })
   googleEventId?: string;
+
+  // ข้อมูลเวิร์กโฟลว์การส่งงาน/ตรวจงาน
+  @Column('jsonb', { default: {} })
+  workflow: {
+    submissions?: Array<{
+      submittedByUserId: string; // internal user UUID
+      submittedAt: Date;
+      fileIds: string[];
+      comment?: string;
+      lateSubmission?: boolean;
+    }>;
+    review?: {
+      reviewerUserId: string; // internal user UUID
+      status: 'not_requested' | 'pending' | 'approved' | 'rejected';
+      reviewRequestedAt?: Date;
+      reviewDueAt?: Date; // +2 days หลังส่ง
+      reviewedAt?: Date;
+      reviewerComment?: string;
+      lateReview?: boolean;
+    };
+    history?: Array<{
+      action: 'create' | 'submit' | 'approve' | 'reject' | 'revise_due';
+      byUserId: string;
+      at: Date;
+      note?: string;
+    }>;
+  };
 
   @CreateDateColumn()
   createdAt: Date;
@@ -234,6 +265,10 @@ export class File {
   @Column({ default: false })
   isPublic: boolean;
 
+  // สถานะไฟล์ในเวิร์กโฟลเดอร์: draft/in_progress/completed
+  @Column({ type: 'enum', enum: ['in_progress', 'completed'], default: 'in_progress' })
+  folderStatus: 'in_progress' | 'completed';
+
   @CreateDateColumn()
   uploadedAt: Date;
 
@@ -295,4 +330,73 @@ export class KPIRecord {
   @ManyToOne(() => Task, task => task.kpiRecords)
   @JoinColumn({ name: 'taskId' })
   task: Task;
+}
+
+@Entity('recurring_tasks')
+export class RecurringTask {
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
+
+  @Column({ type: 'varchar' })
+  lineGroupId: string; // ใช้ LINE Group ID เพื่อเรียกใช้ TaskService.createTask ได้เลย
+
+  @Column({ type: 'varchar' })
+  title: string;
+
+  @Column('text', { nullable: true })
+  description?: string;
+
+  // LINE User IDs สำหรับผู้รับผิดชอบ (เริ่มด้วย 'U')
+  @Column('text', { array: true, default: '{}' })
+  assigneeLineUserIds: string[];
+
+  // LINE User ID ของผู้ตรวจ/ผู้สั่งงาน (อาจเว้นว่างได้)
+  @Column({ type: 'varchar', nullable: true })
+  reviewerLineUserId?: string;
+
+  @Column({ type: 'boolean', default: true })
+  requireAttachment: boolean;
+
+  @Column({ type: 'enum', enum: ['low', 'medium', 'high'], default: 'medium' })
+  priority: 'low' | 'medium' | 'high';
+
+  @Column('text', { array: true, default: '{}' })
+  tags: string[];
+
+  @Column({ type: 'enum', enum: ['weekly', 'monthly'] })
+  recurrence: 'weekly' | 'monthly';
+
+  // สำหรับ weekly: 0-6 (อาทิตย์=0)
+  @Column({ type: 'smallint', nullable: true })
+  weekDay?: number;
+
+  // สำหรับ monthly: 1-31 (ถ้าเกินจำนวนวันในเดือน จะเลื่อนไปวันสุดท้าย)
+  @Column({ type: 'smallint', nullable: true })
+  dayOfMonth?: number;
+
+  // เวลาในรูปแบบ 'HH:mm'
+  @Column({ type: 'varchar', default: '09:00' })
+  timeOfDay: string;
+
+  @Column({ type: 'varchar', default: 'Asia/Bangkok' })
+  timezone: string;
+
+  @Column({ type: 'timestamp', nullable: true })
+  lastRunAt?: Date;
+
+  @Column({ type: 'timestamp' })
+  nextRunAt: Date;
+
+  @Column({ type: 'boolean', default: true })
+  active: boolean;
+
+  // เก็บ LINE User ID ของผู้สร้าง template เพื่อ audit
+  @Column({ type: 'varchar' })
+  createdByLineUserId: string;
+
+  @CreateDateColumn()
+  createdAt: Date;
+
+  @UpdateDateColumn()
+  updatedAt: Date;
 }

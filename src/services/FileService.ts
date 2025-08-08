@@ -25,6 +25,7 @@ export class FileService {
     content: Buffer;
     originalName?: string;
     mimeType: string;
+    folderStatus?: 'in_progress' | 'completed';
   }): Promise<File> {
     try {
       // สร้างชื่อไฟล์ที่ไม่ซ้ำ
@@ -53,7 +54,8 @@ export class FileService {
         path: filePath,
         uploadedBy: data.uploadedBy,
         isPublic: false,
-        tags: []
+        tags: [],
+        folderStatus: data.folderStatus || 'in_progress'
       });
 
       return await this.fileRepository.save(fileRecord);

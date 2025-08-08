@@ -324,7 +324,77 @@ ${dashboardUrl}
    * เพิ่มงานจากคำสั่งธรรมชาติ
    */
   private async handleAddTaskCommand(command: BotCommand): Promise<string | any> {
-    return await this.parseAndCreateTask(command, command.originalText);
+    // เปลี่ยนเป็นแสดงการ์ดพร้อมปุ่มไปหน้าเว็บเพิ่มงาน
+    try {
+      const newTaskUrl = `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(command.groupId)}&action=new-task&userId=${encodeURIComponent(command.userId)}`;
+
+      const flexMessage = {
+        type: 'flex',
+        altText: 'เพิ่มงานใหม่ในกลุ่ม',
+        contents: {
+          type: 'bubble',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              {
+                type: 'text',
+                text: 'เพิ่มงานใหม่',
+                weight: 'bold',
+                size: 'lg',
+                color: '#333333'
+              }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: 'กดปุ่มด้านล่างเพื่อเปิดหน้าเว็บกรอกข้อมูลงาน (ชื่องาน กำหนดส่ง ผู้รับผิดชอบ แท็ก ฯลฯ) โดยระบบเลือกกลุ่มให้อัตโนมัติ',
+                wrap: true,
+                size: 'sm',
+                color: '#666666'
+              }
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: 'กรอกข้อมูลงาน',
+                  uri: newTaskUrl
+                }
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: {
+                  type: 'uri',
+                  label: 'เปิด Dashboard กลุ่ม',
+                  uri: `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(command.groupId)}`
+                }
+              }
+            ]
+          }
+        }
+      } as any;
+
+      return flexMessage;
+    } catch (error) {
+      console.error('❌ Error generating add task card:', error);
+      return 'เกิดข้อผิดพลาดในการสร้างการ์ดเพิ่มงาน กรุณาลองใหม่';
+    }
   }
 
   /**

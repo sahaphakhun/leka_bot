@@ -101,7 +101,9 @@ class ApiController {
         ...taskData,
         groupId,
         dueTime: new Date(taskData.dueTime),
-        startTime: taskData.startTime ? new Date(taskData.startTime) : undefined
+        startTime: taskData.startTime ? new Date(taskData.startTime) : undefined,
+        requireAttachment: !!taskData.requireAttachment,
+        reviewerUserId: taskData.reviewerUserId
       });
 
       const response: ApiResponse<any> = {
@@ -642,6 +644,7 @@ apiRouter.post('/groups/:groupId/tasks', apiController.createTask.bind(apiContro
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
+  // TODO: เพิ่ม endpoints สำหรับ recurring tasks ในอนาคต เช่น POST/GET /groups/:groupId/recurring
 
 // Task-specific routes
 apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));
