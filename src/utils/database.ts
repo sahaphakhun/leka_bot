@@ -49,47 +49,56 @@ export const initializeDatabase = async (): Promise<void> => {
     const queryRunner = AppDataSource.createQueryRunner();
     
     try {
-      // เช็คว่าตาราง tasks มีอยู่หรือไม่ (ใช้เป็นตัวแทนตารางหลัก)
-      const tablesResult = await queryRunner.query(`
+      // อ่านรายการตารางทั้งหมดใน schema public
+      const existingTablesResult = await queryRunner.query(`
         SELECT table_name 
         FROM information_schema.tables 
-        WHERE table_schema = 'public' AND table_name = 'tasks'
+        WHERE table_schema = 'public'
       `);
-      
-      const hasTasksTable = tablesResult.length > 0;
-      
-      if (!hasTasksTable) {
-        console.log('🔄 Tables not found, creating database schema...');
-        
-        // สร้างตารางทั้งหมดโดยใช้ synchronize
+
+      const existingTableNames: string[] = existingTablesResult.map((t: any) => t.table_name);
+
+      // กำหนดรายการตารางที่ระบบต้องมี (รวมตารางเชื่อมความสัมพันธ์)
+      const requiredTables = [
+        'users',
+        'groups',
+        'group_members',
+        'tasks',
+        'task_assignees',
+        'task_files',
+        'files',
+        'kpi_records',
+        'recurring_tasks'
+      ];
+
+      const hasAllRequired = requiredTables.every(t => existingTableNames.includes(t));
+
+      if (!hasAllRequired) {
+        const missing = requiredTables.filter(t => !existingTableNames.includes(t));
+        console.log('🔄 Missing tables detected, synchronizing schema...', { missing });
+
+        // สร้าง/อัปเดตสคีมาตาม entities ปัจจุบัน
         await AppDataSource.synchronize();
         console.log('✅ Database schema synchronized successfully');
-        
-        // ตรวจสอบตารางที่ถูกสร้าง
+
+        // ยืนยันอีกครั้งว่าตารางถูกสร้างครบ
         const finalTables = await queryRunner.query(`
           SELECT table_name 
           FROM information_schema.tables 
           WHERE table_schema = 'public'
           ORDER BY table_name
         `);
-        
-        console.log('📋 Created tables:', finalTables.map((t: any) => t.table_name));
-        
-        // ตรวจสอบตารางที่จำเป็น
-        const expectedTables = ['users', 'groups', 'tasks', 'files', 'kpi_records', 'task_assignees', 'group_members'];
-        const createdTableNames = finalTables.map((t: any) => t.table_name);
-        const missingTables = expectedTables.filter(table => !createdTableNames.includes(table));
-        
-        if (missingTables.length > 0) {
-          console.error('❌ Missing required tables:', missingTables);
-          throw new Error(`Failed to create required tables: ${missingTables.join(', ')}`);
+        const finalTableNames = finalTables.map((t: any) => t.table_name);
+        const stillMissing = requiredTables.filter(t => !finalTableNames.includes(t));
+        if (stillMissing.length > 0) {
+          console.error('❌ Missing required tables after synchronize:', stillMissing);
+          throw new Error(`Failed to create required tables: ${stillMissing.join(', ')}`);
         }
-        
         console.log('✅ All required tables created successfully');
       } else {
-        console.log('✅ Database tables already exist');
-        
-        // ใน development ยังคงรัน migrations
+        console.log('✅ All required database tables already exist');
+
+        // ใน development ให้รัน migrations ต่อหากมี
         if (process.env.NODE_ENV === 'development') {
           await AppDataSource.runMigrations();
           console.log('✅ Database migrations completed');

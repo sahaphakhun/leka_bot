@@ -92,6 +92,13 @@ export class KPIService {
     period: 'weekly' | 'monthly' | 'all' = 'weekly'
   ): Promise<Leaderboard[]> {
     try {
+      // รองรับการส่งค่าเป็น LINE Group ID หรือ internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) {
+        internalGroupId = groupByLineId.id;
+      }
+      
       // สร้าง query builder
       let queryBuilder = this.kpiRepository
         .createQueryBuilder('kpi')
@@ -106,7 +113,7 @@ export class KPIService {
           'COUNT(*) as tasksCompleted'
         ])
         .leftJoin(User, 'user', 'user.id = kpi.userId')
-        .where('kpi.groupId = :groupId', { groupId });
+        .where('kpi.groupId = :groupId', { groupId: internalGroupId });
 
       // เพิ่ม date filter ตาม period
       switch (period) {
@@ -135,7 +142,7 @@ export class KPIService {
         const userId = result.userId;
         
         // คำนวณ trend (เปรียบเทียบกับสัปดาห์/เดือนก่อน)
-        const trend = await this.calculateTrend(userId, groupId, period);
+        const trend = await this.calculateTrend(userId, internalGroupId, period);
         
         leaderboard.push({
           userId,
@@ -173,13 +180,20 @@ export class KPIService {
     topPerformer: string;
   }> {
     try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) {
+        internalGroupId = groupByLineId.id;
+      }
+
       const weekStart = moment().startOf('week').toDate();
       const weekEnd = moment().endOf('week').toDate();
 
       // งานทั้งหมดในสัปดาห์
       const totalTasks = await this.taskRepository
         .createQueryBuilder('task')
-        .where('task.groupId = :groupId', { groupId })
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('task.createdAt >= :weekStart', { weekStart })
         .andWhere('task.createdAt <= :weekEnd', { weekEnd })
         .getCount();
@@ -187,7 +201,7 @@ export class KPIService {
       // งานที่เสร็จ
       const completedTasks = await this.taskRepository
         .createQueryBuilder('task')
-        .where('task.groupId = :groupId', { groupId })
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('task.status = :status', { status: 'completed' })
         .andWhere('task.completedAt >= :weekStart', { weekStart })
         .andWhere('task.completedAt <= :weekEnd', { weekEnd })
@@ -196,26 +210,26 @@ export class KPIService {
       // งานที่ค้าง
       const pendingTasks = await this.taskRepository
         .createQueryBuilder('task')
-        .where('task.groupId = :groupId', { groupId })
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('task.status = :status', { status: 'pending' })
         .getCount();
 
       // งานที่เกินกำหนด
       const overdueTasks = await this.taskRepository
         .createQueryBuilder('task')
-        .where('task.groupId = :groupId', { groupId })
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('task.status = :status', { status: 'overdue' })
         .getCount();
 
       // ผู้ทำงานดีที่สุด
-      const leaderboard = await this.getGroupLeaderboard(groupId, 'weekly');
+      const leaderboard = await this.getGroupLeaderboard(internalGroupId, 'weekly');
       const topPerformer = leaderboard.length > 0 ? leaderboard[0].displayName : 'ไม่มีข้อมูล';
 
       // เวลาเฉลี่ยในการทำงาน (ชั่วโมง)
       const completedTasksWithTime = await this.taskRepository
         .createQueryBuilder('task')
         .select(['task.dueTime', 'task.completedAt'])
-        .where('task.groupId = :groupId', { groupId })
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('task.status = :status', { status: 'completed' })
         .andWhere('task.completedAt >= :weekStart', { weekStart })
         .andWhere('task.completedAt <= :weekEnd', { weekEnd })
@@ -263,6 +277,13 @@ export class KPIService {
     avgPointsPerTask: number;
   }> {
     try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) {
+        internalGroupId = groupByLineId.id;
+      }
+
       let dateFilter: any = {};
       
       switch (period) {
@@ -287,12 +308,12 @@ export class KPIService {
           'COUNT(CASE WHEN kpi.type = \'late\' THEN 1 END) as tasksLate'
         ])
         .where('kpi.userId = :userId', { userId })
-        .andWhere('kpi.groupId = :groupId', { groupId })
+        .andWhere('kpi.groupId = :groupId', { groupId: internalGroupId })
         .andWhere(dateFilter)
         .getRawOne();
 
       // หาอันดับ
-      const leaderboard = await this.getGroupLeaderboard(groupId, period);
+      const leaderboard = await this.getGroupLeaderboard(internalGroupId, period);
       const userRank = leaderboard.find(u => u.userId === userId)?.rank || 0;
 
       // งานทั้งหมดที่ได้รับมอบหมาย
@@ -300,7 +321,7 @@ export class KPIService {
         .createQueryBuilder('task')
         .leftJoin('task.assignedUsers', 'user')
         .where('user.id = :userId', { userId })
-        .andWhere('task.groupId = :groupId', { groupId })
+        .andWhere('task.groupId = :groupId', { groupId: internalGroupId })
         .getCount();
 
       const tasksCompleted = parseInt(userStats?.tasksCompleted || '0');
