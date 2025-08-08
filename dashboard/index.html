@@ -23,6 +23,9 @@
     <header class="header">
         <div class="header-container">
             <div class="header-left">
+                <button class="btn-icon mobile-only" id="menuToggle" aria-label="เปิดเมนู">
+                    <i class="fas fa-bars"></i>
+                </button>
                 <h1 class="logo">
                     <i class="fas fa-robot"></i>
                     เลขาบอท
@@ -445,6 +448,26 @@
     <div id="toastContainer" class="toast-container">
         <!-- จะใส่ด้วย JavaScript -->
     </div>
+
+    <!-- Bottom Navigation (Mobile) -->
+    <nav class="bottom-nav">
+        <a href="#dashboard" class="bottom-nav-item active" data-view="dashboard">
+            <i class="fas fa-chart-line"></i>
+            <span>ภาพรวม</span>
+        </a>
+        <a href="#calendar" class="bottom-nav-item" data-view="calendar">
+            <i class="fas fa-calendar-alt"></i>
+            <span>ปฏิทิน</span>
+        </a>
+        <a href="#tasks" class="bottom-nav-item" data-view="tasks">
+            <i class="fas fa-tasks"></i>
+            <span>งาน</span>
+        </a>
+        <a href="#files" class="bottom-nav-item" data-view="files">
+            <i class="fas fa-folder"></i>
+            <span>ไฟล์</span>
+        </a>
+    </nav>
 
     <script src="/dashboard/assets/script.js"></script>
 </body>

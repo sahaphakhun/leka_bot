@@ -35,6 +35,15 @@ class Dashboard {
       });
     });
 
+    // Bottom navigation (mobile)
+    document.querySelectorAll('.bottom-nav-item')?.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const view = e.currentTarget.dataset.view;
+        this.switchView(view);
+      });
+    });
+
     // View mode toggles
     document.querySelectorAll('[data-view-mode]').forEach(btn => {
       btn.addEventListener('click', (e) => {
@@ -98,6 +107,21 @@ class Dashboard {
     document.getElementById('addTaskForm').addEventListener('submit', (e) => {
       e.preventDefault();
       this.handleAddTask();
+    });
+
+    // Files view search & upload
+    document.getElementById('searchFiles')?.addEventListener('input', this.debounce(() => {
+      const value = document.getElementById('searchFiles').value || '';
+      this.loadFiles(value);
+    }, 300));
+
+    document.getElementById('uploadFileBtn')?.addEventListener('click', () => {
+      this.openUploadPicker();
+    });
+
+    // Mobile menu toggle
+    document.getElementById('menuToggle')?.addEventListener('click', () => {
+      document.querySelector('.sidebar')?.classList.toggle('open');
     });
 
     // Filters
@@ -356,6 +380,62 @@ class Dashboard {
     }
   }
 
+  async openUploadPicker() {
+    try {
+      const input = document.createElement('input');
+      input.type = 'file';
+      input.multiple = true;
+      input.accept = '*/*';
+      input.style.display = 'none';
+      document.body.appendChild(input);
+
+      input.addEventListener('change', async () => {
+        const files = input.files;
+        if (!files || files.length === 0) { document.body.removeChild(input); return; }
+
+        const formData = new FormData();
+        formData.append('userId', this.currentUserId || 'unknown');
+        formData.append('comment', 'Uploaded from dashboard');
+        for (let i = 0; i < files.length; i++) formData.append('attachments', files[i]);
+
+        try {
+          const tempTask = await this.createTask({
+            title: `ไฟล์ที่อัปโหลด (${new Date().toLocaleString('th-TH')})`,
+            description: 'อัปโหลดไฟล์เข้าคลัง',
+            dueTime: new Date(Date.now() + 3600e3).toISOString(),
+            priority: 'low',
+            assigneeIds: [],
+            tags: ['upload'],
+            createdBy: this.currentUserId || 'unknown',
+            requireAttachment: false
+          });
+
+          const resp = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${tempTask.id}/submit`, {
+            method: 'POST',
+            body: formData
+          });
+          const data = await resp.json();
+          if (data.success) {
+            this.showToast('อัปโหลดไฟล์สำเร็จ', 'success');
+            this.loadFiles();
+          } else {
+            this.showToast(data.error || 'อัปโหลดไฟล์ไม่สำเร็จ', 'error');
+          }
+        } catch (err) {
+          console.error('Upload error:', err);
+          this.showToast('อัปโหลดไฟล์ไม่สำเร็จ', 'error');
+        } finally {
+          document.body.removeChild(input);
+        }
+      });
+
+      input.click();
+    } catch (error) {
+      console.error('openUploadPicker error:', error);
+      this.showToast('ไม่สามารถเปิดตัวเลือกไฟล์ได้', 'error');
+    }
+  }
+
   async loadLeaderboard(period = 'weekly') {
     try {
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/leaderboard?period=${period}`);
@@ -407,8 +487,18 @@ class Dashboard {
       view.classList.toggle('active', view.id === `${viewName}View`);
     });
 
+    // Sync bottom nav (mobile)
+    document.querySelectorAll('.bottom-nav-item')?.forEach(item => {
+      item.classList.toggle('active', item.dataset.view === viewName);
+    });
+
     this.currentView = viewName;
     this.loadViewData(viewName);
+
+    // Auto-close sidebar on mobile after navigation
+    if (window.innerWidth <= 768) {
+      document.querySelector('.sidebar')?.classList.remove('open');
+    }
   }
 
   loadViewData(viewName) {
@@ -1072,7 +1162,6 @@ class Dashboard {
 let dashboard;
 document.addEventListener('DOMContentLoaded', () => {
   dashboard = new Dashboard();
+  // Expose after init to ensure handlers can access
+  window.dashboard = dashboard;
 });
-
-// Make dashboard available globally for onclick handlers
-window.dashboard = dashboard;

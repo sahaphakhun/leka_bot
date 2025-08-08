@@ -2,7 +2,7 @@
 
 import { Repository } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
-import { File } from '@/models';
+import { File, Group, User } from '@/models';
 import { config } from '@/utils/config';
 import fs from 'fs/promises';
 import path from 'path';
@@ -10,9 +10,13 @@ import crypto from 'crypto';
 
 export class FileService {
   private fileRepository: Repository<File>;
+  private groupRepository: Repository<Group>;
+  private userRepository: Repository<User>;
 
   constructor() {
     this.fileRepository = AppDataSource.getRepository(File);
+    this.groupRepository = AppDataSource.getRepository(Group);
+    this.userRepository = AppDataSource.getRepository(User);
   }
 
   /**
@@ -28,6 +32,30 @@ export class FileService {
     folderStatus?: 'in_progress' | 'completed';
   }): Promise<File> {
     try {
+      // แปลง LINE Group ID → internal UUID (ถ้าเป็น LINE ID)
+      const internalGroupId = await this.resolveInternalGroupId(data.groupId);
+      if (!internalGroupId) {
+        throw new Error(`Group not found for ID: ${data.groupId}`);
+      }
+
+      // แปลง LINE User ID → internal UUID (ถ้ามี record อยู่)
+      let internalUserId: string | null = null;
+      // พยายามหาโดย lineUserId ก่อน
+      const userByLineId = await this.userRepository.findOne({ where: { lineUserId: data.uploadedBy } });
+      if (userByLineId) {
+        internalUserId = userByLineId.id;
+      } else {
+        // ถ้าไม่พบ และค่าเป็น UUID อยู่แล้ว ให้ยอมรับ
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.uploadedBy);
+        if (isUuid) {
+          internalUserId = data.uploadedBy;
+        }
+      }
+
+      if (!internalUserId) {
+        throw new Error(`User not found for uploadedBy: ${data.uploadedBy}`);
+      }
+
       // สร้างชื่อไฟล์ที่ไม่ซ้ำ
       const timestamp = Date.now();
       const random = crypto.randomBytes(8).toString('hex');
@@ -35,6 +63,7 @@ export class FileService {
       const fileName = `${timestamp}_${random}${extension}`;
 
       // สร้างเส้นทางไฟล์
+      // ใช้โฟลเดอร์ตามค่า groupId ที่รับมา (อาจเป็น LINE ID หรือ UUID) เพื่อคงโครงสร้างโฟลเดอร์เดิม
       const groupFolder = path.join(config.storage.uploadPath, data.groupId);
       const filePath = path.join(groupFolder, fileName);
 
@@ -46,13 +75,13 @@ export class FileService {
 
       // สร้าง record ในฐานข้อมูล
       const fileRecord = this.fileRepository.create({
-        groupId: data.groupId,
+        groupId: internalGroupId,
         originalName: data.originalName || `file_${data.messageId}${extension}`,
         fileName,
         mimeType: data.mimeType,
         size: data.content.length,
         path: filePath,
-        uploadedBy: data.uploadedBy,
+        uploadedBy: internalUserId,
         isPublic: false,
         tags: [],
         folderStatus: data.folderStatus || 'in_progress'
@@ -153,10 +182,15 @@ export class FileService {
     } = {}
   ): Promise<{ files: File[]; total: number }> {
     try {
+      const internalGroupId = await this.resolveInternalGroupId(groupId);
+      if (!internalGroupId) {
+        return { files: [], total: 0 };
+      }
+
       const queryBuilder = this.fileRepository.createQueryBuilder('file')
         .leftJoinAndSelect('file.uploadedByUser', 'uploader')
         .leftJoinAndSelect('file.linkedTasks', 'task')
-        .where('file.groupId = :groupId', { groupId });
+        .where('file.groupId = :groupId', { groupId: internalGroupId });
 
       if (options.tags && options.tags.length > 0) {
         queryBuilder.andWhere('file.tags && :tags', { tags: options.tags });
@@ -310,8 +344,13 @@ export class FileService {
     recentFiles: number; // ไฟล์ที่อัปโหลดในสัปดาห์นี้
   }> {
     try {
+      const internalGroupId = await this.resolveInternalGroupId(groupId);
+      if (!internalGroupId) {
+        return { totalFiles: 0, totalSize: 0, fileTypes: {}, recentFiles: 0 };
+      }
+
       const files = await this.fileRepository.find({
-        where: { groupId }
+        where: { groupId: internalGroupId }
       });
 
       const totalFiles = files.length;
@@ -380,8 +419,11 @@ export class FileService {
    */  
   public async isFileInGroup(fileId: string, groupId: string): Promise<boolean> {
     try {
+      const internalGroupId = await this.resolveInternalGroupId(groupId);
+      if (!internalGroupId) return false;
+
       const file = await this.fileRepository.findOne({
-        where: { id: fileId, groupId },
+        where: { id: fileId, groupId: internalGroupId },
         select: ['id'] // ดึงเฉพาะ id เพื่อประหยัด memory
       });
       
@@ -434,5 +476,18 @@ export class FileService {
     };
 
     return mimeToExt[mimeType] || '.bin';
+  }
+
+  /**
+   * แปลง LINE Group ID → internal UUID ถ้าเป็นไปได้
+   */
+  private async resolveInternalGroupId(groupId: string): Promise<string | null> {
+    // ถ้าเป็น UUID แล้ว ให้ส่งกลับทันที
+    const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+    if (isUuid) return groupId;
+
+    // ลองหา group จาก LINE Group ID
+    const group = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+    return group ? group.id : null;
   }
 }

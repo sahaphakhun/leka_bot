@@ -555,7 +555,7 @@ body {
 .calendar-header {
   display: flex;
   align-items: center;
-  justify-content: between;
+  justify-content: space-between;
   margin-bottom: var(--spacing-6);
 }
 
@@ -1072,4 +1072,54 @@ body {
 .setup-instructions strong {
   color: var(--color-primary);
   font-weight: 600;
+}
+
+/* ==================== */
+/* Mobile Enhancements  */
+/* ==================== */
+
+.mobile-only { display: none; }
+.bottom-nav { display: none; }
+
+@media (max-width: 768px) {
+  .mobile-only { display: inline-flex; }
+  .header-left { gap: var(--spacing-3); }
+
+  .bottom-nav {
+    display: flex;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 56px;
+    background: var(--color-white);
+    border-top: 1px solid var(--color-gray-200);
+    display: flex;
+    align-items: center;
+    justify-content: space-around;
+    z-index: 1500;
+  }
+
+  .bottom-nav-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    font-size: 11px;
+    color: var(--color-gray-600);
+    text-decoration: none;
+    width: 25%;
+    height: 100%;
+  }
+
+  .bottom-nav-item i { font-size: 16px; }
+
+  .bottom-nav-item.active,
+  .bottom-nav-item:focus {
+    color: var(--color-primary);
+  }
+
+  /* Add bottom space for content to avoid overlap */
+  .main-content { padding-bottom: calc(var(--spacing-6) + 56px); }
 }
