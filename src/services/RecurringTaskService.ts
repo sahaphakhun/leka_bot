@@ -44,7 +44,7 @@ export class RecurringTaskService {
       requireAttachment: template.requireAttachment ?? true,
       nextRunAt,
       active: template.active ?? true
-    } as any);
+    });
 
     return await this.repo.save(entity);
   }
