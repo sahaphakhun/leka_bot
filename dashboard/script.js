@@ -1,3 +1,67 @@
+// Profile page logic (non-LIFF)
+(function() {
+  const app = document.getElementById('app');
+  if (!app) return;
+
+  const userId = app.getAttribute('data-user-id') || '';
+  const displayName = app.getAttribute('data-display-name') || '';
+  const realName = app.getAttribute('data-real-name') || '';
+  const email = app.getAttribute('data-email') || '';
+  const timezone = app.getAttribute('data-timezone') || 'Asia/Bangkok';
+  const postUrl = app.getAttribute('data-post-url') || '/dashboard/profile';
+
+  document.getElementById('displayName').textContent = displayName || '-';
+  document.getElementById('realName').value = realName || '';
+  document.getElementById('email').value = email || '';
+  document.getElementById('timezone').value = timezone || 'Asia/Bangkok';
+  document.getElementById('emailStatus').innerHTML = email ? `อีเมล: ${email} ✅` : 'อีเมล: ยังไม่ได้ลิงก์ ❌';
+
+  const successEl = document.getElementById('success');
+  const errorEl = document.getElementById('error');
+
+  document.getElementById('profileForm').addEventListener('submit', function(e) {
+    e.preventDefault();
+    successEl.style.display = 'none';
+    errorEl.style.display = 'none';
+
+    const saveButton = document.getElementById('saveButton');
+    saveButton.disabled = true;
+    saveButton.textContent = 'กำลังบันทึก...';
+
+    const payload = {
+      userId: userId,
+      realName: document.getElementById('realName').value,
+      email: document.getElementById('email').value,
+      timezone: document.getElementById('timezone').value
+    };
+
+    fetch(postUrl, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    })
+    .then(r => r.json())
+    .then(data => {
+      if (data && data.success) {
+        successEl.style.display = 'block';
+        document.getElementById('emailStatus').innerHTML = payload.email ? `อีเมล: ${payload.email} ✅` : 'อีเมล: ยังไม่ได้ลิงก์ ❌';
+      } else {
+        errorEl.textContent = 'เกิดข้อผิดพลาด: ' + (data && data.error ? data.error : 'ไม่ทราบสาเหตุ');
+        errorEl.style.display = 'block';
+      }
+    })
+    .catch(err => {
+      console.error(err);
+      errorEl.textContent = 'เกิดข้อผิดพลาดในการบันทึก';
+      errorEl.style.display = 'block';
+    })
+    .finally(() => {
+      saveButton.disabled = false;
+      saveButton.textContent = 'บันทึกข้อมูล';
+    });
+  });
+})();
+
 /**
  * เลขาบอท Dashboard JavaScript
  * ===============================

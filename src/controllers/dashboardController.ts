@@ -207,7 +207,43 @@ class DashboardController {
       const { lineUserId, userId } = req.query as { lineUserId?: string; userId?: string };
 
       if (!lineUserId && !userId) {
-        res.status(400).send('ต้องระบุ lineUserId หรือ userId');
+        // แสดงหน้าแนะนำให้เปิดจาก /whoami และแบบฟอร์ม GET สำหรับกรอก lineUserId
+        const helpHtml = `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>โปรไฟล์ของฉัน - เลขาบอท</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; margin: 0; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 520px; margin: 0 auto; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .title { font-weight: 700; font-size: 20px; color: #333; margin-bottom: 8px; }
+    .desc { color: #555; margin-bottom: 16px; }
+    .hint { font-size: 13px; color: #666; margin-top: 12px; }
+    .form-group { margin-top: 12px; }
+    .label { display: block; margin-bottom: 6px; font-weight: 600; color: #333; }
+    .input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+    .button { margin-top: 10px; width: 100%; padding: 12px; background-color: #0d6efd; color: #fff; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="container">
+    <div class="title">ต้องเปิดจากคำสั่งในแชท</div>
+    <div class="desc">โปรดพิมพ์ <code>@เลขา /whoami</code> ในห้องแชท แล้วกดลิงก์ "เปิดหน้าโปรไฟล์ (เว็บ)" เพื่อเข้าหน้านี้โดยอัตโนมัติ</div>
+    <div class="hint">หรือกรอก LINE User ID ของคุณเพื่อเข้าหน้านี้:</div>
+    <form method="GET" action="/dashboard/profile" class="form-group">
+      <label class="label" for="lineUserId">LINE User ID</label>
+      <input class="input" type="text" id="lineUserId" name="lineUserId" placeholder="เช่น Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+      <button type="submit" class="button">เปิดหน้าโปรไฟล์</button>
+    </form>
+  </div>
+</body>
+</html>`;
+        res.status(200).send(helpHtml);
         return;
       }
 
@@ -592,16 +628,19 @@ class DashboardController {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
   <style> body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; } </style>
-  <script>window.__USER_ID__='${data.user.id}';</script>
-  <script>window.__DISPLAY_NAME__='${(data.user.displayName || '').replace(/'/g, "&#39;")}';</script>
-  <script>window.__REAL_NAME__='${(data.user.realName || '').replace(/'/g, "&#39;")}';</script>
-  <script>window.__EMAIL__='${(data.user.email || '').replace(/'/g, "&#39;")}';</script>
-  <script>window.__TIMEZONE__='${(data.user.timezone || 'Asia/Bangkok').replace(/'/g, "&#39;")}';</script>
-  <script>window.__IS_VERIFIED__=${data.user.isVerified ? 'true' : 'false'};</script>
-  <script>window.__POST_URL__='${config.baseUrl}/dashboard/profile';</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <script src="/dashboard/assets/script.js" defer></script>
 </head>
 <body>
-  <div class="container">
+  <div class="container" id="app"
+       data-user-id="${this.escapeAttr(data.user.id)}"
+       data-display-name="${this.escapeAttr(data.user.displayName || '')}"
+       data-real-name="${this.escapeAttr(data.user.realName || '')}"
+       data-email="${this.escapeAttr(data.user.email || '')}"
+       data-timezone="${this.escapeAttr(data.user.timezone || 'Asia/Bangkok')}"
+       data-post-url="${this.escapeAttr(`${config.baseUrl}/dashboard/profile`)}">
     <div class="header">
       <div class="title">โปรไฟล์ของฉัน</div>
       <div class="subtitle">เลขาบอท - ระบบจัดการงานกลุ่ม</div>
@@ -640,61 +679,19 @@ class DashboardController {
     <p style="color:#666; font-size: 13px; margin-top: 14px;">คำแนะนำ: ลิงก์อีเมลเพื่อรับอีเมลแจ้งเตือนเมื่อผู้ดูแลเปิดใช้งาน</p>
   </div>
 
-  <script>
-    // เติมค่าเริ่มต้น
-    document.getElementById('displayName').textContent = window.__DISPLAY_NAME__ || '-';
-    document.getElementById('realName').value = window.__REAL_NAME__ || '';
-    document.getElementById('email').value = window.__EMAIL__ || '';
-    document.getElementById('timezone').value = window.__TIMEZONE__ || 'Asia/Bangkok';
-    document.getElementById('emailStatus').innerHTML = window.__EMAIL__ ? 'อีเมล: ' + window.__EMAIL__ + ' ✅' : 'อีเมล: ยังไม่ได้ลิงก์ ❌';
-
-    const successEl = document.getElementById('success');
-    const errorEl = document.getElementById('error');
-
-    document.getElementById('profileForm').addEventListener('submit', function(e) {
-      e.preventDefault();
-      successEl.style.display = 'none';
-      errorEl.style.display = 'none';
-
-      const saveButton = document.getElementById('saveButton');
-      saveButton.disabled = true;
-      saveButton.textContent = 'กำลังบันทึก...';
-
-      const payload = {
-        userId: window.__USER_ID__,
-        realName: document.getElementById('realName').value,
-        email: document.getElementById('email').value,
-        timezone: document.getElementById('timezone').value
-      };
-
-      fetch(window.__POST_URL__, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload)
-      })
-      .then(r => r.json())
-      .then(data => {
-        if (data && data.success) {
-          successEl.style.display = 'block';
-          document.getElementById('emailStatus').innerHTML = payload.email ? 'อีเมล: ' + payload.email + ' ✅' : 'อีเมล: ยังไม่ได้ลิงก์ ❌';
-        } else {
-          errorEl.textContent = 'เกิดข้อผิดพลาด: ' + (data && data.error ? data.error : 'ไม่ทราบสาเหตุ');
-          errorEl.style.display = 'block';
-        }
-      })
-      .catch(err => {
-        console.error(err);
-        errorEl.textContent = 'เกิดข้อผิดพลาดในการบันทึก';
-        errorEl.style.display = 'block';
-      })
-      .finally(() => {
-        saveButton.disabled = false;
-        saveButton.textContent = 'บันทึกข้อมูล';
-      });
-    });
-  </script>
+  
 </body>
 </html>`;
+  }
+
+  // ป้องกันปัญหาอักขระพิเศษใน HTML attributes
+  private escapeAttr(value: string): string {
+    return String(value)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }
 
