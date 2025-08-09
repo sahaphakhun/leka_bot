@@ -59,12 +59,13 @@ class Dashboard {
       });
     });
 
-    // View mode toggles
-    document.querySelectorAll('[data-view-mode]').forEach(btn => {
+    // View mode toggles (เหลือเฉพาะเดือน)
+    document.querySelectorAll('[data-view-mode]')?.forEach(btn => {
       btn.addEventListener('click', (e) => {
         const target = e.currentTarget || e.target;
         const mode = target && target.dataset ? target.dataset.viewMode : undefined;
-        this.switchCalendarMode(mode);
+        // รองรับเฉพาะ month ณ ตอนนี้
+        if (mode === 'month') this.switchCalendarMode(mode);
       });
     });
 
@@ -515,12 +516,7 @@ class Dashboard {
             exportBtn._bound = true;
           }
         }
-        // จัดการปุ่มแจ้งเตือนที่ยังไม่รองรับ
-        const notifBtn = document.getElementById('notificationBtn');
-        if (notifBtn && !notifBtn._bound) {
-          notifBtn.addEventListener('click', () => this.showToast('การแจ้งเตือนในเว็บจะพร้อมใช้งานเร็วๆ นี้', 'info'));
-          notifBtn._bound = true;
-        }
+        // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
       case 'calendar':
         const now = new Date();

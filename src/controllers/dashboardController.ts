@@ -200,6 +200,80 @@ class DashboardController {
   }
 
   /**
+   * GET /dashboard/profile - หน้าโปรไฟล์แบบเว็บ (ไม่ใช้ LIFF)
+   */
+  public async profileWeb(req: Request, res: Response): Promise<void> {
+    try {
+      const { lineUserId, userId } = req.query as { lineUserId?: string; userId?: string };
+
+      if (!lineUserId && !userId) {
+        res.status(400).send('ต้องระบุ lineUserId หรือ userId');
+        return;
+      }
+
+      // รองรับทั้ง lineUserId และ userId ภายในระบบ
+      const user = lineUserId
+        ? await this.userService.findByLineUserId(lineUserId)
+        : await this.userService.findById(String(userId));
+
+      if (!user) {
+        res.status(404).send('ไม่พบผู้ใช้');
+        return;
+      }
+
+      res.send(this.generateProfileWebHtml({
+        user: {
+          id: user.id,
+          displayName: user.displayName,
+          realName: user.realName,
+          email: user.email,
+          timezone: user.timezone,
+          isVerified: user.isVerified
+        }
+      }));
+    } catch (error) {
+      console.error('❌ Error serving web profile:', error);
+      res.status(500).send('Profile page not available');
+    }
+  }
+
+  /**
+   * POST /dashboard/profile - บันทึกข้อมูลโปรไฟล์ (เว็บ)
+   */
+  public async saveUserProfileWeb(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId, realName, email, timezone } = req.body as {
+        userId: string;
+        realName?: string;
+        email?: string;
+        timezone?: string;
+      };
+
+      const updatedUser = await this.userService.updateUser(userId, {
+        realName,
+        email,
+        timezone
+      });
+
+      // สร้าง JWT token สำหรับการใช้งานต่อบนเว็บถ้าจำเป็น
+      const token = generateToken({
+        lineUserId: updatedUser.lineUserId,
+        displayName: updatedUser.displayName,
+        email: updatedUser.email
+      });
+
+      res.json({
+        success: true,
+        message: 'Profile updated successfully',
+        data: { user: updatedUser, token }
+      });
+    } catch (error) {
+      console.error('❌ Error saving web profile:', error);
+      res.status(500).json({ success: false, error: 'Failed to save profile' });
+    }
+  }
+
+  /**
    * GET /dashboard/group/:groupId - ข้อมูลกลุ่มสำหรับแดชบอร์ด
    */
   public async getGroupDashboard(req: Request, res: Response): Promise<void> {
@@ -487,6 +561,141 @@ class DashboardController {
 </body>
 </html>`;
   }
+
+  /**
+   * สร้าง HTML สำหรับ Profile แบบเว็บ (ไม่ใช้ LIFF)
+   */
+  private generateProfileWebHtml(data: any): string {
+    return `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>โปรไฟล์ของฉัน - เลขาบอท</title>
+  <style>
+    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 20px; background-color: #f5f5f5; }
+    .container { max-width: 440px; margin: 0 auto; background: white; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+    .header { text-align: center; margin-bottom: 20px; }
+    .title { color: #333; font-size: 22px; font-weight: bold; margin-bottom: 6px; }
+    .subtitle { color: #666; font-size: 13px; }
+    .form-group { margin-bottom: 16px; }
+    .label { display: block; margin-bottom: 6px; font-weight: 600; color: #333; }
+    .input { width: 100%; padding: 10px; border: 1px solid #ddd; border-radius: 6px; font-size: 15px; box-sizing: border-box; }
+    .button { width: 100%; padding: 12px; background-color: #0d6efd; color: white; border: none; border-radius: 6px; font-size: 16px; cursor: pointer; }
+    .button:hover { background-color: #0b5ed7; }
+    .info { background-color: #eef6ff; padding: 12px; border-radius: 6px; margin-bottom: 16px; color: #084298; font-size: 14px; }
+    .success { background-color: #e7f7ed; color: #0f5132; padding: 10px; border-radius: 6px; display: none; margin-bottom: 12px; }
+    .error { background-color: #fdecea; color: #842029; padding: 10px; border-radius: 6px; display: none; margin-bottom: 12px; }
+  </style>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+  <style> body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; } </style>
+  <script>window.__USER_ID__='${data.user.id}';</script>
+  <script>window.__DISPLAY_NAME__='${(data.user.displayName || '').replace(/'/g, "&#39;")}';</script>
+  <script>window.__REAL_NAME__='${(data.user.realName || '').replace(/'/g, "&#39;")}';</script>
+  <script>window.__EMAIL__='${(data.user.email || '').replace(/'/g, "&#39;")}';</script>
+  <script>window.__TIMEZONE__='${(data.user.timezone || 'Asia/Bangkok').replace(/'/g, "&#39;")}';</script>
+  <script>window.__IS_VERIFIED__=${data.user.isVerified ? 'true' : 'false'};</script>
+  <script>window.__POST_URL__='${config.baseUrl}/dashboard/profile';</script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">โปรไฟล์ของฉัน</div>
+      <div class="subtitle">เลขาบอท - ระบบจัดการงานกลุ่ม</div>
+    </div>
+    <div class="info">
+      ชื่อ LINE: <strong id="displayName"></strong><br>
+      <span id="emailStatus"></span>
+    </div>
+
+    <div id="success" class="success">✅ บันทึกข้อมูลเรียบร้อย</div>
+    <div id="error" class="error"></div>
+
+    <form id="profileForm">
+      <div class="form-group">
+        <label class="label">ชื่อจริง</label>
+        <input type="text" class="input" id="realName" placeholder="ชื่อ-นามสกุล">
+      </div>
+
+      <div class="form-group">
+        <label class="label">อีเมล (สำหรับรับการแจ้งเตือน)</label>
+        <input type="email" class="input" id="email" placeholder="your@email.com" required>
+      </div>
+
+      <div class="form-group">
+        <label class="label">เขตเวลา</label>
+        <select class="input" id="timezone">
+          <option value="Asia/Bangkok">Asia/Bangkok</option>
+          <option value="Asia/Tokyo">Asia/Tokyo</option>
+          <option value="UTC">UTC</option>
+        </select>
+      </div>
+
+      <button type="submit" class="button" id="saveButton">บันทึกข้อมูล</button>
+    </form>
+
+    <p style="color:#666; font-size: 13px; margin-top: 14px;">คำแนะนำ: ลิงก์อีเมลเพื่อรับอีเมลแจ้งเตือนเมื่อผู้ดูแลเปิดใช้งาน</p>
+  </div>
+
+  <script>
+    // เติมค่าเริ่มต้น
+    document.getElementById('displayName').textContent = window.__DISPLAY_NAME__ || '-';
+    document.getElementById('realName').value = window.__REAL_NAME__ || '';
+    document.getElementById('email').value = window.__EMAIL__ || '';
+    document.getElementById('timezone').value = window.__TIMEZONE__ || 'Asia/Bangkok';
+    document.getElementById('emailStatus').innerHTML = window.__EMAIL__ ? 'อีเมล: ' + window.__EMAIL__ + ' ✅' : 'อีเมล: ยังไม่ได้ลิงก์ ❌';
+
+    const successEl = document.getElementById('success');
+    const errorEl = document.getElementById('error');
+
+    document.getElementById('profileForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+      successEl.style.display = 'none';
+      errorEl.style.display = 'none';
+
+      const saveButton = document.getElementById('saveButton');
+      saveButton.disabled = true;
+      saveButton.textContent = 'กำลังบันทึก...';
+
+      const payload = {
+        userId: window.__USER_ID__,
+        realName: document.getElementById('realName').value,
+        email: document.getElementById('email').value,
+        timezone: document.getElementById('timezone').value
+      };
+
+      fetch(window.__POST_URL__, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(r => r.json())
+      .then(data => {
+        if (data && data.success) {
+          successEl.style.display = 'block';
+          document.getElementById('emailStatus').innerHTML = payload.email ? 'อีเมล: ' + payload.email + ' ✅' : 'อีเมล: ยังไม่ได้ลิงก์ ❌';
+        } else {
+          errorEl.textContent = 'เกิดข้อผิดพลาด: ' + (data && data.error ? data.error : 'ไม่ทราบสาเหตุ');
+          errorEl.style.display = 'block';
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        errorEl.textContent = 'เกิดข้อผิดพลาดในการบันทึก';
+        errorEl.style.display = 'block';
+      })
+      .finally(() => {
+        saveButton.disabled = false;
+        saveButton.textContent = 'บันทึกข้อมูล';
+      });
+    });
+  </script>
+</body>
+</html>`;
+  }
 }
 
 const dashboardController = new DashboardController();
@@ -498,3 +707,6 @@ dashboardRouter.post('/liff/setup', dashboardController.saveGroupSettings.bind(d
 dashboardRouter.get('/liff/profile', dashboardController.profileLiff.bind(dashboardController));
 dashboardRouter.post('/liff/profile', dashboardController.saveUserProfile.bind(dashboardController));
 dashboardRouter.get('/group/:groupId', dashboardController.getGroupDashboard.bind(dashboardController));
+// Web (non-LIFF) profile endpoints
+dashboardRouter.get('/profile', dashboardController.profileWeb.bind(dashboardController));
+dashboardRouter.post('/profile', dashboardController.saveUserProfileWeb.bind(dashboardController));
