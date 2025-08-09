@@ -266,6 +266,24 @@ export class FileService {
   }
 
   /**
+   * กรองรายการไฟล์ให้เหลือเฉพาะไฟล์ที่ยังอยู่จริงบนดิสก์
+   */
+  public async filterExistingFiles(files: File[]): Promise<File[]> {
+    const existing: File[] = [];
+    for (const file of files) {
+      try {
+        if (file.path) {
+          await fs.access(file.path);
+          existing.push(file);
+        }
+      } catch {
+        // skip missing file
+      }
+    }
+    return existing;
+  }
+
+  /**
    * ดึงไฟล์ที่ผูกกับงาน
    */
   public async getTaskFiles(taskId: string): Promise<File[]> {

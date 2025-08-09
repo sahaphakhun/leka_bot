@@ -307,6 +307,36 @@ class WebhookController {
           }
           break;
 
+        case 'submit_confirm': {
+          const taskId = params.get('taskId')!;
+          const fileIdsParam = params.get('fileIds') || '';
+          const note = params.get('note') || '';
+          const fileIds = fileIdsParam ? fileIdsParam.split(',').filter(Boolean) : [];
+          try {
+            const task = await this.taskService.recordSubmission(taskId, userId, fileIds, note);
+            await this.lineService.replyMessage(replyToken, `📥 บันทึกการส่งงานให้ "${task.title}" แล้วค่ะ`);
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'submit_nofile': {
+          const taskId = params.get('taskId')!;
+          const note = params.get('note') || '';
+          try {
+            const task = await this.taskService.recordSubmission(taskId, userId, [], note);
+            await this.lineService.replyMessage(replyToken, `📥 บันทึกการส่งงาน (ไม่มีไฟล์แนบ) ให้ "${task.title}" แล้วค่ะ`);
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'submit_cancel':
+          await this.lineService.replyMessage(replyToken, 'ยกเลิกการส่งงานแล้ว');
+          break;
+
         case 'approve_task': {
           const taskId2 = params.get('taskId');
           if (taskId2) {

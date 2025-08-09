@@ -181,16 +181,76 @@ ${dashboardUrl}
         limit: 20
       } as any);
 
-      if (!files || files.length === 0) {
-        return 'ไม่พบไฟล์ที่คุณส่งใน 24 ชั่วโมงที่ผ่านมา กรุณาส่งไฟล์ในแชทก่อน แล้วพิมพ์ /submit อีกครั้ง';
-      }
-
-      // ใช้ไฟล์ล่าสุด 1-5 ไฟล์
-      const fileIds = files.slice(0, 5).map(f => f.id);
+      // กรองเฉพาะไฟล์ที่ยังอยู่จริงบนดิสก์
+      const existingFiles = await this.fileService.filterExistingFiles(files || []);
+      const topFiles = existingFiles.slice(0, 5);
+      const fileIds = topFiles.map(f => f.id);
       const note = noteParts.join(' ');
 
-      await this.taskService.recordSubmission(task.id, command.userId, fileIds, note);
-      return `📥 รับไฟล์ ${fileIds.length} ไฟล์ และบันทึกการส่งงานให้ "${task.title}" แล้วค่ะ\nรอผู้ตรวจยืนยันภายใน 2 วัน`;
+      // สร้าง Flex Message เพื่อยืนยันการแนบไฟล์
+      const fileListContents = topFiles.length > 0
+        ? topFiles.map(f => ({ type: 'text', text: `• ${f.originalName}`, size: 'sm', wrap: true }))
+        : [{ type: 'text', text: 'ไม่มีไฟล์ที่จะถูกแนบ', size: 'sm', color: '#888888' }];
+
+      const confirmFlex = {
+        type: 'flex',
+        altText: 'ยืนยันการส่งงาน',
+        contents: {
+          type: 'bubble',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: 'ยืนยันการส่งงาน', weight: 'bold', size: 'lg', color: '#333333' },
+              { type: 'text', text: task.title, size: 'sm', color: '#666666', wrap: true }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              { type: 'text', text: 'ไฟล์ที่จะถูกแนบ:', weight: 'bold', size: 'sm', color: '#333333' },
+              ...fileListContents
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                height: 'sm',
+                action: {
+                  type: 'postback',
+                  label: topFiles.length > 0 ? `ยืนยันแนบ (${topFiles.length})` : 'ยืนยันส่ง',
+                  data: `action=submit_confirm&taskId=${encodeURIComponent(task.id)}&fileIds=${encodeURIComponent(fileIds.join(','))}&note=${encodeURIComponent(note)}`
+                }
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: {
+                  type: 'postback',
+                  label: 'ส่งโดยไม่แนบไฟล์',
+                  data: `action=submit_nofile&taskId=${encodeURIComponent(task.id)}&note=${encodeURIComponent(note)}`
+                }
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: { type: 'postback', label: 'ยกเลิก', data: 'action=submit_cancel' }
+              }
+            ]
+          }
+        }
+      } as any;
+
+      return confirmFlex;
     } catch (error) {
       console.error('❌ submit error:', error);
       return 'เกิดข้อผิดพลาดในการส่งงาน กรุณาลองใหม่';
