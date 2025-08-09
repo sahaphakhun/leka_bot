@@ -303,10 +303,15 @@ export class FileService {
     const existing: File[] = [];
     for (const file of files) {
       try {
-        if (file.path) {
-          await fs.access(file.path);
+        if (!file.path) continue;
+        // ถ้าเป็น URL (เช่น Cloudinary) ให้ถือว่ายังใช้งานได้
+        if (/^https?:\/\//i.test(file.path)) {
           existing.push(file);
+          continue;
         }
+        // กรณี local file
+        await fs.access(file.path);
+        existing.push(file);
       } catch {
         // skip missing file
       }
@@ -386,11 +391,26 @@ export class FileService {
         throw new Error('File not found');
       }
 
-      // ลบไฟล์จากระบบ
+      // ลบไฟล์จากระบบจัดเก็บ
       try {
-        await fs.unlink(file.path);
+        if (file.path && /^https?:\/\//i.test(file.path) && config.cloudinary.cloudName) {
+          // Cloudinary
+          const resourceType = file.mimeType.startsWith('video/') || file.mimeType.startsWith('audio/')
+            ? 'video'
+            : file.mimeType.startsWith('application/')
+              ? 'raw'
+              : 'image';
+          await cloudinary.uploader.destroy(file.fileName, { resource_type: resourceType as any });
+        } else if (file.path) {
+          // Local
+          try {
+            await fs.unlink(file.path);
+          } catch (err) {
+            console.warn('⚠️ Could not delete physical file:', err);
+          }
+        }
       } catch (error) {
-        console.warn('⚠️ Could not delete physical file:', error);
+        console.warn('⚠️ Error deleting from storage:', error);
       }
 
       // ลบ record จากฐานข้อมูล
