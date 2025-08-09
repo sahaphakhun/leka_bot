@@ -88,6 +88,8 @@ export class FileService {
           mimeType: data.mimeType,
           size: uploadRes.bytes || data.content.length,
           path: uploadRes.secure_url, // เก็บเป็น URL
+          storageProvider: 'cloudinary',
+          storageKey: uploadRes.public_id,
           uploadedBy: internalUserId,
           isPublic: false,
           tags: [],
@@ -400,7 +402,8 @@ export class FileService {
             : file.mimeType.startsWith('application/')
               ? 'raw'
               : 'image';
-          await cloudinary.uploader.destroy(file.fileName, { resource_type: resourceType as any });
+          const publicId = file.storageKey || file.fileName;
+          await cloudinary.uploader.destroy(publicId, { resource_type: resourceType as any });
         } else if (file.path) {
           // Local
           try {

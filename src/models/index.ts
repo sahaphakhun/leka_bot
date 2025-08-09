@@ -259,6 +259,14 @@ export class File {
   @Column({ type: 'varchar' })
   path: string;
 
+  // ผู้ให้บริการจัดเก็บไฟล์: 'local' | 'cloudinary' (optional)
+  @Column({ type: 'varchar', nullable: true })
+  storageProvider?: string;
+
+  // สำหรับ Cloudinary: เก็บ public_id เพื่อใช้ลบไฟล์จาก Cloudinary ได้แม่นยำ
+  @Column({ type: 'varchar', nullable: true })
+  storageKey?: string;
+
   @Column({ type: 'varchar' })
   uploadedBy: string;
 
