@@ -23,6 +23,21 @@ class Dashboard {
     this.bindEvents();
     this.loadInitialData();
     this.hideLoading();
+
+    // เมื่อไม่มี userId ให้ปิดปุ่ม action ที่ต้องการตัวตน
+    if (!this.currentUserId) {
+      const needUserButtons = ['addTaskBtn', 'submitTaskBtn', 'reviewTaskBtn'];
+      needUserButtons.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.setAttribute('disabled', 'true');
+          el.classList.add('disabled');
+          el.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
+        }
+      });
+      const hint = document.getElementById('actionHint');
+      if (hint) hint.style.display = 'block';
+    }
   }
 
   bindEvents() {
@@ -47,7 +62,8 @@ class Dashboard {
     // View mode toggles
     document.querySelectorAll('[data-view-mode]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const mode = e.target.dataset.viewMode;
+        const target = e.currentTarget || e.target;
+        const mode = target && target.dataset ? target.dataset.viewMode : undefined;
         this.switchCalendarMode(mode);
       });
     });
@@ -158,7 +174,8 @@ class Dashboard {
     // Period toggles for leaderboard
     document.querySelectorAll('[data-period]').forEach(btn => {
       btn.addEventListener('click', (e) => {
-        const period = e.target.dataset.period;
+        const target = e.currentTarget || e.target;
+        const period = target && target.dataset ? target.dataset.period : undefined;
         this.switchLeaderboardPeriod(period);
       });
     });
@@ -214,27 +231,7 @@ class Dashboard {
     this.isLoading = false;
   }
 
-  showNoGroupMessage() {
-    this.hideLoading();
-    const mainContent = document.querySelector('.main-content');
-    mainContent.innerHTML = `
-      <div class="error-container">
-        <div class="error-message">
-          <i class="fas fa-users" style="font-size: 64px; color: #ddd; margin-bottom: 20px;"></i>
-          <h2>ไม่มีข้อมูลกลุ่ม</h2>
-          <p>กรุณาเข้าใช้ Dashboard ผ่านคำสั่งบอทในกลุ่ม LINE</p>
-          <div class="setup-instructions">
-            <h3>วิธีใช้งาน:</h3>
-            <ol>
-              <li>เข้าไปในกลุ่ม LINE ที่ต้องการใช้งาน</li>
-              <li>แท็กบอท พิมพ์ <strong>/setup</strong></li>
-              <li>คลิกลิงก์ที่บอทส่งให้</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    `;
-  }
+  // (คงไว้ฟังก์ชัน showNoGroupMessage เวอร์ชันเดียวด้านล่าง เพื่อหลีกเลี่ยงโค้ดซ้ำ)
 
   showGroupNotFoundMessage() {
     this.hideLoading();
@@ -357,9 +354,14 @@ class Dashboard {
 
   async loadTasks(filters = {}) {
     try {
-      const queryParams = new URLSearchParams(filters).toString();
+      // เก็บ filters ล่าสุดไว้สำหรับ pagination
+      this._lastTaskFilters = { ...(this._lastTaskFilters || {}), ...(filters || {}) };
+
+      const queryParams = new URLSearchParams(this._lastTaskFilters).toString();
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?${queryParams}`);
-      this.updateTasksList(response.data, response.pagination);
+      // เก็บ cache งานไว้ใช้เปิด modal โดยไม่ต้องพึ่งพา search param ฝั่ง API
+      this._taskCache = response.data || [];
+      this.updateTasksList(this._taskCache, response.pagination);
     } catch (error) {
       console.error('Failed to load tasks:', error);
     }
@@ -459,6 +461,10 @@ class Dashboard {
       document.getElementById('successMessage').textContent = 'บอทจะแจ้งในกลุ่ม LINE เพื่อยืนยันการสร้างงาน';
       document.getElementById('successModal').classList.add('active');
       this.refreshCurrentView();
+      // อัปเดต cache
+      try {
+        this._taskCache = Array.from(new Map([...(this._taskCache||[]), response.data].map(t => [t.id, t])).values());
+      } catch {}
       
       return response.data;
     } catch (error) {
@@ -508,6 +514,12 @@ class Dashboard {
             exportBtn.addEventListener('click', () => this.exportReports('csv'));
             exportBtn._bound = true;
           }
+        }
+        // จัดการปุ่มแจ้งเตือนที่ยังไม่รองรับ
+        const notifBtn = document.getElementById('notificationBtn');
+        if (notifBtn && !notifBtn._bound) {
+          notifBtn.addEventListener('click', () => this.showToast('การแจ้งเตือนในเว็บจะพร้อมใช้งานเร็วๆ นี้', 'info'));
+          notifBtn._bound = true;
         }
         break;
       case 'calendar':
@@ -590,7 +602,10 @@ class Dashboard {
   async loadUpcomingTasks() {
     try {
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?limit=5&status=pending`);
-      this.updateUpcomingTasks(response.data);
+      // อัปเดต cache ด้วยรายการล่าสุดบางส่วน เพื่อให้เปิด modal ได้แม้ยังไม่กดเข้า view Tasks
+      const latest = response.data || [];
+      this._taskCache = Array.from(new Map([...(this._taskCache||[]), ...latest].map(t => [t.id, t])).values());
+      this.updateUpcomingTasks(latest);
     } catch (error) {
       console.error('Failed to load upcoming tasks:', error);
     }
@@ -1088,29 +1103,27 @@ class Dashboard {
   }
 
   openTaskModal(taskId) {
-    // โหลดรายละเอียดงานแล้วแสดงใน modal แทนการเปิด submit โดยตรง
-    this.apiRequest(`/groups/${this.currentGroupId}/tasks?search=${encodeURIComponent(taskId)}&limit=1`)
-      .then(resp => {
-        const task = (resp.data || [])[0];
-        const body = document.getElementById('taskModalBody');
-        if (!task || !body) { this.showToast('ไม่พบข้อมูลงาน', 'error'); return; }
-        const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
-        const tags = (task.tags || []).map(t => `#${t}`).join(' ');
-        body.innerHTML = `
-          <div style="display:grid; gap:8px;">
-            <div><strong>ชื่องาน:</strong> ${task.title}</div>
-            <div><strong>รายละเอียด:</strong> ${task.description || '-'}</div>
-            <div><strong>กำหนดส่ง:</strong> ${this.formatDateTime(task.dueTime)}</div>
-            <div><strong>ผู้รับผิดชอบ:</strong> ${assignees}</div>
-            ${tags ? `<div><strong>แท็ก:</strong> ${tags}</div>` : ''}
-            <div style="display:flex; gap:8px; margin-top:8px;">
-              <button class="btn btn-primary" onclick="dashboard.openSubmitModal('${task.id}')"><i class='fas fa-paperclip'></i> ส่งงาน</button>
-            </div>
-          </div>`;
-        document.getElementById('taskModalTitle').textContent = 'รายละเอียดงาน';
-        document.getElementById('taskModal').classList.add('active');
-      })
-      .catch(() => this.showToast('โหลดข้อมูลงานไม่สำเร็จ', 'error'));
+    // ใช้ cache จาก loadTasks ล่าสุด เพื่อไม่ต้องพึ่ง API search ที่ฝั่ง backend ยังไม่รองรับ
+    const findInCache = () => (this._taskCache || []).find(t => t.id === taskId);
+    const task = findInCache();
+    const body = document.getElementById('taskModalBody');
+    if (!task) { this.showToast('ไม่พบข้อมูลงาน', 'error'); return; }
+    if (!body) { return; }
+    const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
+    const tags = (task.tags || []).map(t => `#${t}`).join(' ');
+    body.innerHTML = `
+      <div style="display:grid; gap:8px;">
+        <div><strong>ชื่องาน:</strong> ${task.title}</div>
+        <div><strong>รายละเอียด:</strong> ${task.description || '-'}</div>
+        <div><strong>กำหนดส่ง:</strong> ${this.formatDateTime(task.dueTime)}</div>
+        <div><strong>ผู้รับผิดชอบ:</strong> ${assignees}</div>
+        ${tags ? `<div><strong>แท็ก:</strong> ${tags}</div>` : ''}
+        <div style="display:flex; gap:8px; margin-top:8px;">
+          <button class="btn btn-primary" onclick="dashboard.openSubmitModal('${task.id}')"><i class='fas fa-paperclip'></i> ส่งงาน</button>
+        </div>
+      </div>`;
+    document.getElementById('taskModalTitle').textContent = 'รายละเอียดงาน';
+    document.getElementById('taskModal').classList.add('active');
   }
 
   openSubmitModal(taskId) {
@@ -1247,6 +1260,8 @@ class Dashboard {
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=pending`);
       const response2 = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=in_progress`);
       const tasks = [...(response.data || []), ...(response2.data || [])];
+      // อัปเดต cache รวมนอกเหนือจาก list หลัก เพื่อให้ openTaskModal ใช้ได้กว้างขึ้น
+      this._taskCache = Array.from(new Map([...(this._taskCache||[]), ...tasks].map(t => [t.id, t])).values());
       const sel = document.getElementById('reviewTaskId');
       sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
     } catch (error) {
@@ -1278,10 +1293,12 @@ class Dashboard {
       const comment = document.getElementById('reviewComment').value;
       const newDue = document.getElementById('reviewNewDue').value;
       if (!newDue) { this.showToast('ระบุกำหนดส่งใหม่', 'error'); return; }
+      // ส่ง ISO string เพื่อลด edge case timezone
+      const isoDue = new Date(newDue).toISOString();
       const res = await this.apiRequest(`/tasks/${taskId}`, {
         method: 'PUT',
         body: JSON.stringify({
-          dueTime: newDue,
+          dueTime: isoDue,
           reviewAction: 'revise',
           reviewerUserId: this.currentUserId || 'unknown',
           reviewerComment: comment || ''
@@ -1353,9 +1370,24 @@ class Dashboard {
     const filters = {};
     if (status) filters.status = status;
     if (assignee) filters.assignee = assignee; // ส่ง lineUserId
+    // UI จะกรองภายหลังด้วย cache ถ้า backend ไม่รองรับ search; ส่งไปเพื่ออนาคตแต่ไม่พึ่งพา
     if (search) filters.search = search;
     
-    this.loadTasks(filters);
+    this.loadTasks(filters).then(() => {
+      // ถ้ามี search และ backend ไม่รองรับ ให้กรองในฝั่ง UI จาก cache
+      if (search && Array.isArray(this._taskCache)) {
+        const lowered = (search || '').toLowerCase();
+        const filtered = this._taskCache.filter(t => {
+          return (
+            (t.title || '').toLowerCase().includes(lowered) ||
+            (t.description || '').toLowerCase().includes(lowered) ||
+            (t.tags || []).some(tag => String(tag).toLowerCase().includes(lowered)) ||
+            String(t.id || '').toLowerCase().startsWith(lowered)
+          );
+        });
+        this.updateTasksList(filtered);
+      }
+    });
   }
 
   async downloadFile(fileId) {
@@ -1382,47 +1414,48 @@ class Dashboard {
 
   showNoGroupMessage() {
     this.hideLoading();
-    const container = document.getElementById('dashboardView');
-    if (container) {
-      container.innerHTML = `
-        <div style="text-align: center; padding: 3rem; background: white; border-radius: 12px; margin: 2rem;">
-          <h2 style="color: #666;">🤖 เลขาบอท Dashboard</h2>
-          <p style="margin: 1rem 0; color: #888;">กรุณาระบุ Group ID ใน URL</p>
-          <p style="font-size: 0.9rem; color: #999;">
-            ตัวอย่าง: /dashboard?groupId=<strong>GROUP_ID</strong>
-          </p>
-          <div style="margin-top: 2rem;">
-            <p style="color: #666;">วิธีหา Group ID:</p>
-            <ol style="text-align: left; display: inline-block; color: #777;">
-              <li>แท็กบอทในกลุ่ม LINE</li>
-              <li>พิมพ์คำสั่ง "/setup"</li>
-              <li>บอทจะส่งลิงก์ Dashboard พร้อม Group ID</li>
+    const main = document.querySelector('.main-content');
+    if (!main) return;
+    main.innerHTML = `
+      <div class="error-container">
+        <div class="error-message">
+          <i class="fas fa-users" style="font-size: 64px; color: #ddd; margin-bottom: 20px;"></i>
+          <h2>ไม่มีข้อมูลกลุ่ม</h2>
+          <p>กรุณาเข้าใช้ Dashboard ผ่านคำสั่งบอทในกลุ่ม LINE</p>
+          <div class="setup-instructions">
+            <h3>วิธีใช้งาน:</h3>
+            <ol>
+              <li>เข้าไปในกลุ่ม LINE ที่ต้องการใช้งาน</li>
+              <li>แท็กบอท พิมพ์ <strong>/setup</strong></li>
+              <li>คลิกลิงก์ที่บอทส่งให้</li>
             </ol>
           </div>
         </div>
-      `;
-    }
+      </div>
+    `;
   }
 
   showGroupNotFoundMessage() {
     this.hideLoading();
-    const container = document.getElementById('dashboardView');
-    if (container) {
-      container.innerHTML = `
-        <div style="text-align: center; padding: 3rem; background: white; border-radius: 12px; margin: 2rem;">
-          <h2 style="color: #e74c3c;">❌ ไม่พบกลุ่ม</h2>
-          <p style="margin: 1rem 0; color: #888;">ไม่พบกลุ่มที่มี ID: <code>${this.currentGroupId}</code></p>
-          <div style="margin-top: 2rem;">
-            <p style="color: #666;">กรุณาตรวจสอบ:</p>
-            <ul style="text-align: left; display: inline-block; color: #777;">
-              <li>Group ID ถูกต้องหรือไม่</li>
-              <li>บอทถูกเพิ่มในกลุ่มแล้วหรือยัง</li>
-              <li>ได้ใช้คำสั่ง /setup ในกลุ่มแล้วหรือยัง</li>
-            </ul>
+    const main = document.querySelector('.main-content');
+    if (!main) return;
+    main.innerHTML = `
+      <div class="error-container">
+        <div class="error-message">
+          <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #f39c12; margin-bottom: 20px;"></i>
+          <h2>ไม่พบข้อมูลกลุ่ม</h2>
+          <p>กลุ่มที่ระบุไม่มีอยู่ในระบบ หรือบอทยังไม่ได้เข้าร่วมกลุ่มนี้</p>
+          <div class="setup-instructions">
+            <h3>แก้ไขปัญหา:</h3>
+            <ol>
+              <li>ตรวจสอบว่าบอทอยู่ในกลุ่ม LINE แล้ว</li>
+              <li>ใช้คำสั่ง <strong>แท็กบอท /setup</strong> ในกลุ่มอีกครั้ง</li>
+              <li>ติดต่อผู้ดูแลระบบหากปัญหายังไม่หาย</li>
+            </ol>
           </div>
         </div>
-      `;
-    }
+      </div>
+    `;
   }
 
   getStatusText(status) {
@@ -1464,7 +1497,8 @@ class Dashboard {
     
     // Previous button
     if (pagination.page > 1) {
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({page: ${pagination.page - 1}})">ก่อนหน้า</button>`;
+      const prev = new URLSearchParams({ ...(this._lastTaskFilters || {}), page: String(pagination.page - 1) }).toString();
+      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks(Object.fromEntries(new URLSearchParams('${prev}')))">ก่อนหน้า</button>`;
     }
     
     // Page info
@@ -1472,7 +1506,8 @@ class Dashboard {
     
     // Next button
     if (pagination.page < pagination.totalPages) {
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({page: ${pagination.page + 1}})">ถัดไป</button>`;
+      const next = new URLSearchParams({ ...(this._lastTaskFilters || {}), page: String(pagination.page + 1) }).toString();
+      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks(Object.fromEntries(new URLSearchParams('${next}')))">ถัดไป</button>`;
     }
     
     paginationHTML += '</div>';

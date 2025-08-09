@@ -6,7 +6,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
-import { config, validateConfig } from './utils/config';
+import { config, validateConfig, features } from './utils/config';
 import { initializeDatabase, closeDatabase } from './utils/database';
 import { webhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
@@ -34,12 +34,19 @@ class Server {
     this.app.use(helmet());
     this.app.use(cors());
 
-    // Body parsing middleware
-    this.app.use(express.json({ limit: '10mb' }));
-    this.app.use(express.urlencoded({ extended: true }));
-
     // สำหรับ LINE Webhook - ต้องเป็น raw สำหรับ signature validation และไม่ชนกับ body-parser JSON
+    // วางไว้ก่อน body parsers อื่นๆ เพื่อกันการ parse ซ้ำ
     this.app.use('/webhook', express.raw({ type: '*/*' }));
+
+    // Body parsing middleware (เว้นเส้นทาง /webhook ไว้)
+    this.app.use((req, res, next) => {
+      if (req.path.startsWith('/webhook')) {
+        return next();
+      }
+      return express.json({ limit: '10mb' })(req, res, () => {
+        return express.urlencoded({ extended: true })(req, res, next);
+      });
+    });
 
     // Static files สำหรับ dashboard และ uploads
     this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -73,8 +80,15 @@ class Server {
       });
     });
 
-    // LINE Webhook
-    this.app.use('/webhook', webhookRouter);
+    // LINE Webhook (mount เฉพาะเมื่อเปิดใช้ LINE integration)
+    if (features.lineEnabled) {
+      this.app.use('/webhook', webhookRouter);
+    } else {
+      // ให้ตอบกลับอย่างสุภาพเมื่อมีการเรียก /webhook ในโหมด Dashboard-only
+      this.app.post('/webhook', (req: Request, res: Response) => {
+        res.status(503).json({ error: 'LINE integration disabled (Dashboard-only mode)' });
+      });
+    }
 
     // API Routes
     this.app.use('/api', apiRouter);
@@ -146,13 +160,15 @@ class Server {
       await initializeDatabase();
       console.log('✅ Database connected');
 
-      // Initialize LINE service
-      await this.lineService.initialize();
-      console.log('✅ LINE service initialized');
-
-      // Start cron jobs
-      this.cronService.start();
-      console.log('✅ Cron jobs started');
+      // Initialize LINE service และ Cron jobs (เฉพาะเมื่อเปิดใช้ LINE integration)
+      if (features.lineEnabled) {
+        await this.lineService.initialize();
+        console.log('✅ LINE service initialized');
+        this.cronService.start();
+        console.log('✅ Cron jobs started');
+      } else {
+        console.log('⚠️  Starting in Dashboard-only mode (LINE integration disabled)');
+      }
 
       // Start server
       const port = config.port;

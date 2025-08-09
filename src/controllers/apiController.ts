@@ -175,7 +175,17 @@ class ApiController {
   public async updateTask(req: Request, res: Response): Promise<void> {
     try {
       const { taskId } = req.params;
-      const updates = req.body;
+      const updates = req.body as any;
+
+      // แปลงชนิดวันที่จาก string -> Date เพื่อความเข้ากันได้กับ TypeORM/Service
+      if (updates) {
+        if (typeof updates.dueTime === 'string') {
+          updates.dueTime = new Date(updates.dueTime);
+        }
+        if (typeof updates.startTime === 'string') {
+          updates.startTime = new Date(updates.startTime);
+        }
+      }
 
       const task = await this.taskService.updateTask(taskId, updates);
 
