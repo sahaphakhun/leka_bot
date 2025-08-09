@@ -187,6 +187,24 @@ export class FileService {
         return { files: [], total: 0 };
       }
 
+      // แปลง uploadedBy (LINE User ID → internal UUID) หากระบุมา
+      let internalUploadedBy: string | undefined;
+      if (options.uploadedBy) {
+        const uploadedBy = options.uploadedBy;
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(uploadedBy);
+        if (isUuid) {
+          internalUploadedBy = uploadedBy;
+        } else if (uploadedBy.startsWith('U')) {
+          const user = await this.userRepository.findOne({ where: { lineUserId: uploadedBy } });
+          if (!user) {
+            return { files: [], total: 0 };
+          }
+          internalUploadedBy = user.id;
+        } else {
+          return { files: [], total: 0 };
+        }
+      }
+
       const queryBuilder = this.fileRepository.createQueryBuilder('file')
         .leftJoinAndSelect('file.uploadedByUser', 'uploader')
         .leftJoinAndSelect('file.linkedTasks', 'task')
@@ -202,10 +220,8 @@ export class FileService {
         });
       }
 
-      if (options.uploadedBy) {
-        queryBuilder.andWhere('file.uploadedBy = :uploadedBy', { 
-          uploadedBy: options.uploadedBy 
-        });
+      if (internalUploadedBy) {
+        queryBuilder.andWhere('file.uploadedBy = :uploadedBy', { uploadedBy: internalUploadedBy });
       }
 
       if (options.startDate) {

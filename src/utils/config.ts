@@ -9,6 +9,7 @@ export const config = {
   port: parseInt(process.env.PORT || '3000'),
   nodeEnv: process.env.NODE_ENV || 'development',
   baseUrl: process.env.BASE_URL || 'https://lekabot-production.up.railway.app',
+  allowDashboardOnly: process.env.ALLOW_DASHBOARD_ONLY === 'true' || (process.env.NODE_ENV !== 'production'),
   
   // LINE Configuration
   line: {
@@ -97,8 +98,12 @@ export const validateConfig = (): void => {
   const missing = requiredEnvVars.filter(key => !process.env[key]);
   
   if (missing.length > 0) {
-    console.error('❌ Missing required environment variables:', missing);
-    process.exit(1);
+    if (config.allowDashboardOnly) {
+      console.log('⚠️  Missing LINE env vars, starting in Dashboard-only mode:', missing);
+    } else {
+      console.error('❌ Missing required environment variables:', missing);
+      process.exit(1);
+    }
   }
 
   // Check optional features
@@ -120,6 +125,7 @@ export const validateConfig = (): void => {
 
 // Feature flags based on environment variables
 export const features = {
+  lineEnabled: !!(process.env.LINE_CHANNEL_ACCESS_TOKEN && process.env.LINE_CHANNEL_SECRET),
   googleCalendar: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
   emailNotifications: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
   liff: !!process.env.LINE_LIFF_ID,
