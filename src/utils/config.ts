@@ -8,7 +8,7 @@ export const config = {
   // Server Configuration
   port: parseInt(process.env.PORT || '3000'),
   nodeEnv: process.env.NODE_ENV || 'development',
-  baseUrl: process.env.BASE_URL || 'https://lekabot-production.up.railway.app',
+  baseUrl: process.env.BASE_URL || (process.env.NODE_ENV === 'production' ? 'https://lekabot-production.up.railway.app' : `http://localhost:${process.env.PORT || '3000'}`),
   allowDashboardOnly: process.env.ALLOW_DASHBOARD_ONLY === 'true' || (process.env.NODE_ENV !== 'production'),
   
   // LINE Configuration

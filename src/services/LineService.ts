@@ -3,6 +3,7 @@
 import { Client, WebhookEvent, MessageEvent, TextMessage, FlexMessage } from '@line/bot-sdk';
 import { config } from '@/utils/config';
 import { BotCommand } from '@/types';
+import { createHmac, timingSafeEqual } from 'crypto';
 
 export class LineService {
   private client: Client;
@@ -30,9 +31,19 @@ export class LineService {
    */
   public validateSignature(body: string, signature: string): boolean {
     try {
-      // Note: validateSignature is not available in this version of @line/bot-sdk
-      // For now, we'll implement basic validation
-      return signature.length > 0;
+      if (!signature || !config.line.channelSecret) return false;
+      const mac = createHmac('sha256', config.line.channelSecret);
+      mac.update(body);
+      const expected = mac.digest('base64');
+      // ใช้ timingSafeEqual เมื่อความยาวเท่ากัน
+      if (expected.length === signature.length) {
+        try {
+          return timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
+        } catch {
+          return expected === signature;
+        }
+      }
+      return expected === signature;
     } catch (error) {
       console.error('❌ Signature validation failed:', error);
       return false;

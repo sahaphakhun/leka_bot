@@ -6,7 +6,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
-import { config, validateConfig, features } from './utils/config';
+import { config, validateConfig } from './utils/config';
 import { initializeDatabase, closeDatabase } from './utils/database';
 import { webhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
@@ -38,8 +38,8 @@ class Server {
     this.app.use(express.json({ limit: '10mb' }));
     this.app.use(express.urlencoded({ extended: true }));
 
-    // สำหรับ LINE Webhook - ต้องเป็น raw สำหรับ signature validation
-    this.app.use('/webhook', express.raw({ type: 'application/json' }));
+    // สำหรับ LINE Webhook - ต้องเป็น raw สำหรับ signature validation และไม่ชนกับ body-parser JSON
+    this.app.use('/webhook', express.raw({ type: '*/*' }));
 
     // Static files สำหรับ dashboard และ uploads
     this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
@@ -146,13 +146,9 @@ class Server {
       await initializeDatabase();
       console.log('✅ Database connected');
 
-      // Initialize LINE service (only when LINE env is available)
-      if (features.lineEnabled) {
-        await this.lineService.initialize();
-        console.log('✅ LINE service initialized');
-      } else {
-        console.log('⚠️ LINE env missing; running in Dashboard-only mode');
-      }
+      // Initialize LINE service
+      await this.lineService.initialize();
+      console.log('✅ LINE service initialized');
 
       // Start cron jobs
       this.cronService.start();

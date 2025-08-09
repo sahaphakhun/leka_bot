@@ -37,15 +37,17 @@ class WebhookController {
         return;
       }
 
-      const body = JSON.stringify(req.body);
+      // parse raw body (express.raw) → text → validate signature → JSON.parse
+      const rawBodyBuffer = (req as any).body as Buffer;
+      const body = rawBodyBuffer ? rawBodyBuffer.toString('utf8') : JSON.stringify(req.body || {});
       
       // ตรวจสอบ signature
       if (!this.lineService.validateSignature(body, signature)) {
         res.status(401).json({ error: 'Invalid signature' });
         return;
       }
-
-      const events: WebhookEvent[] = req.body.events || [];
+      const parsed = body ? JSON.parse(body) : {};
+      const events: WebhookEvent[] = parsed.events || [];
       
       // ประมวลผล events แบบ parallel
       await Promise.all(events.map(event => this.processEvent(event)));

@@ -11,11 +11,6 @@ class Dashboard {
     this.initialAction = this.getActionFromUrl();
     this.apiBase = window.location.origin;
     this.isLoading = false;
-    // Persisted states
-    const now = new Date();
-    this.currentMonth = now.getMonth() + 1;
-    this.currentYear = now.getFullYear();
-    this.taskFilters = {};
     
     this.init();
   }
@@ -54,19 +49,6 @@ class Dashboard {
       btn.addEventListener('click', (e) => {
         const mode = e.target.dataset.viewMode;
         this.switchCalendarMode(mode);
-      });
-    });
-
-    // Section links (e.g., "ดูทั้งหมด")
-    document.querySelectorAll('.section-link').forEach(link => {
-      link.addEventListener('click', (e) => {
-        e.preventDefault();
-        const href = e.currentTarget.getAttribute('href') || '';
-        if (href.includes('#tasks')) this.switchView('tasks');
-        else if (href.includes('#leaderboard')) this.switchView('leaderboard');
-        else if (href.includes('#calendar')) this.switchView('calendar');
-        else if (href.includes('#files')) this.switchView('files');
-        else this.switchView('dashboard');
       });
     });
 
@@ -162,16 +144,6 @@ class Dashboard {
     // Refresh
     document.getElementById('refreshBtn')?.addEventListener('click', () => {
       this.refreshCurrentView();
-    });
-
-    // Export button on overview
-    document.getElementById('exportBtn')?.addEventListener('click', () => {
-      this.exportCurrentWeekCsv();
-    });
-
-    // Notification button placeholder
-    document.getElementById('notificationBtn')?.addEventListener('click', () => {
-      this.showToast('ฟีเจอร์การแจ้งเตือนกำลังพัฒนา', 'info');
     });
 
     // Calendar navigation
@@ -377,7 +349,7 @@ class Dashboard {
   async loadStats() {
     try {
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/stats`);
-      this.updateStats(response.data?.weekly || {});
+      this.updateStats(response.data);
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
@@ -414,10 +386,6 @@ class Dashboard {
 
   async openUploadPicker() {
     try {
-      if (!this.currentUserId) {
-        this.showToast('กรุณาเปิดลิงก์ Dashboard ผ่าน @เลขา /setup เพื่อยืนยันตัวตน', 'error');
-        return;
-      }
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
@@ -431,22 +399,10 @@ class Dashboard {
 
         const formData = new FormData();
         formData.append('userId', this.currentUserId || 'unknown');
-        formData.append('comment', 'Uploaded from dashboard');
         for (let i = 0; i < files.length; i++) formData.append('attachments', files[i]);
 
         try {
-          const tempTask = await this.createTask({
-            title: `ไฟล์ที่อัปโหลด (${new Date().toLocaleString('th-TH')})`,
-            description: 'อัปโหลดไฟล์เข้าคลัง',
-            dueTime: new Date(Date.now() + 3600e3).toISOString(),
-            priority: 'low',
-            assigneeIds: [],
-            tags: ['upload'],
-            createdBy: this.currentUserId || 'unknown',
-            requireAttachment: false
-          });
-
-          const resp = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${tempTask.id}/submit`, {
+          const resp = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/upload`, {
             method: 'POST',
             body: formData
           });
@@ -546,9 +502,17 @@ class Dashboard {
         this.loadStats();
         this.loadUpcomingTasks();
         this.loadMiniLeaderboard();
+        {
+          const exportBtn = document.getElementById('exportBtn');
+          if (exportBtn && !exportBtn._bound) {
+            exportBtn.addEventListener('click', () => this.exportReports('csv'));
+            exportBtn._bound = true;
+          }
+        }
         break;
       case 'calendar':
-        this.loadCalendarEvents(this.currentMonth, this.currentYear);
+        const now = new Date();
+        this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
         break;
       case 'tasks':
         this.loadTasks();
@@ -655,10 +619,6 @@ class Dashboard {
     const runBtn = document.getElementById('runReportBtn');
     const exportExcelBtn = document.getElementById('exportExcelBtn');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
-    if (exportPdfBtn) {
-      // ซ่อนปุ่ม PDF ชั่วคราว เพราะยังไม่มีการสร้าง PDF จริง
-      exportPdfBtn.style.display = 'none';
-    }
 
     // toggle custom period inputs
     const toggleCustom = () => {
@@ -671,7 +631,9 @@ class Dashboard {
 
     runBtn.addEventListener('click', () => this.runReports());
     exportExcelBtn.addEventListener('click', () => this.exportReports('csv'));
-    exportPdfBtn.addEventListener('click', () => this.exportReports('json'));
+    if (exportPdfBtn) {
+      exportPdfBtn.style.display = 'none';
+    }
 
     // load recipients UI
     this.renderReportRecipients();
@@ -837,10 +799,11 @@ class Dashboard {
   }
 
   updateStats(stats) {
-    document.getElementById('totalTasks').textContent = stats.totalTasks || 0;
-    document.getElementById('pendingTasks').textContent = stats.pendingTasks || 0;
-    document.getElementById('completedTasks').textContent = stats.completedTasks || 0;
-    document.getElementById('overdueTasks').textContent = stats.overdueTasks || 0;
+    const weekly = (stats && stats.weekly) || {};
+    document.getElementById('totalTasks').textContent = weekly.totalTasks || 0;
+    document.getElementById('pendingTasks').textContent = weekly.pendingTasks || 0;
+    document.getElementById('completedTasks').textContent = weekly.completedTasks || 0;
+    document.getElementById('overdueTasks').textContent = weekly.overdueTasks || 0;
   }
 
   updateUpcomingTasks(tasks) {
@@ -858,8 +821,8 @@ class Dashboard {
           <div class="task-title">${task.title}</div>
           <div class="task-meta">
             <span><i class="fas fa-clock"></i> ครบกำหนด ${this.formatDateTime(task.dueTime)}</span>
-            ${task.assignees && task.assignees.length > 0 ? 
-              `<span><i class="fas fa-user"></i> ${task.assignees.length} คน</span>` : ''
+            ${task.assignedUsers && task.assignedUsers.length > 0 ? 
+              `<span><i class=\"fas fa-user\"></i> ${task.assignedUsers.length} คน</span>` : ''
             }
           </div>
         </div>
@@ -886,7 +849,7 @@ class Dashboard {
           <div style="font-size: 0.875rem; color: #6b7280;">${user.totalPoints} คะแนน</div>
         </div>
         <div class="score" style="font-weight: 600; color: #10b981;">
-          ${user.completedTasks} งาน
+          ${(user.tasksCompleted ?? user.completedTasks) || 0} งาน
         </div>
       </div>
     `).join('');
@@ -907,8 +870,8 @@ class Dashboard {
           <div class="task-title">${task.title}</div>
           <div class="task-meta">
             <span><i class="fas fa-clock"></i> ${this.formatDateTime(task.dueTime)}</span>
-            ${task.assignees && task.assignees.length > 0 ? 
-              `<span><i class="fas fa-user"></i> ${task.assignees.length} คน</span>` : ''
+            ${task.assignedUsers && task.assignedUsers.length > 0 ? 
+              `<span><i class=\"fas fa-user\"></i> ${task.assignedUsers.length} คน</span>` : ''
             }
             ${task.tags && task.tags.length > 0 ? 
               `<span><i class="fas fa-tag"></i> ${task.tags.join(', ')}</span>` : ''
@@ -964,9 +927,13 @@ class Dashboard {
     
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = isCurrentMonth && today.getDate() === day;
-      const dayEvents = events.filter(event => {
-        const eventDate = new Date(event.dueTime);
-        return eventDate.getDate() === day;
+    const dayEvents = events.filter(event => {
+        const eventDate = new Date(event.end || event.dueTime || event.start);
+        return (
+          eventDate.getFullYear() === year &&
+          (eventDate.getMonth() + 1) === month &&
+          eventDate.getDate() === day
+        );
       });
       
       calendarHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" onclick="dashboard.onCalendarDayClick(${year}, ${month}, ${day})">
@@ -1037,7 +1004,7 @@ class Dashboard {
         <div class="user-info" style="flex: 1;">
           <div style="font-weight: 600; font-size: 1.125rem;">${user.displayName}</div>
           <div style="color: #6b7280; margin-top: 4px;">
-            เสร็จ ${user.completedTasks} งาน • คะแนน ${user.totalPoints}
+            เสร็จ ${(user.tasksCompleted ?? user.completedTasks) || 0} งาน • คะแนน ${user.totalPoints}
           </div>
         </div>
         <div class="user-stats" style="text-align: right;">
@@ -1056,12 +1023,14 @@ class Dashboard {
     const reviewerSelect = document.getElementById('reviewerSelect');
     
     if (select) {
+      // ใช้ lineUserId สำหรับการสร้างงานแบบ recurring และความเข้ากันได้กับ backend
       select.innerHTML = members.map(member => 
         `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`
       ).join('');
     }
     
     if (filter) {
+      // ส่งค่าเป็น lineUserId ให้ backend แปลงเป็น internal id ถูกต้อง
       filter.innerHTML = '<option value="">ผู้รับผิดชอบทั้งหมด</option>' + 
         members.map(member => 
           `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`
@@ -1119,7 +1088,34 @@ class Dashboard {
   }
 
   openTaskModal(taskId) {
-    this.loadTaskDetail(taskId);
+    // โหลดรายละเอียดงานแล้วแสดงใน modal แทนการเปิด submit โดยตรง
+    this.apiRequest(`/groups/${this.currentGroupId}/tasks?search=${encodeURIComponent(taskId)}&limit=1`)
+      .then(resp => {
+        const task = (resp.data || [])[0];
+        const body = document.getElementById('taskModalBody');
+        if (!task || !body) { this.showToast('ไม่พบข้อมูลงาน', 'error'); return; }
+        const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
+        const tags = (task.tags || []).map(t => `#${t}`).join(' ');
+        body.innerHTML = `
+          <div style="display:grid; gap:8px;">
+            <div><strong>ชื่องาน:</strong> ${task.title}</div>
+            <div><strong>รายละเอียด:</strong> ${task.description || '-'}</div>
+            <div><strong>กำหนดส่ง:</strong> ${this.formatDateTime(task.dueTime)}</div>
+            <div><strong>ผู้รับผิดชอบ:</strong> ${assignees}</div>
+            ${tags ? `<div><strong>แท็ก:</strong> ${tags}</div>` : ''}
+            <div style="display:flex; gap:8px; margin-top:8px;">
+              <button class="btn btn-primary" onclick="dashboard.openSubmitModal('${task.id}')"><i class='fas fa-paperclip'></i> ส่งงาน</button>
+            </div>
+          </div>`;
+        document.getElementById('taskModalTitle').textContent = 'รายละเอียดงาน';
+        document.getElementById('taskModal').classList.add('active');
+      })
+      .catch(() => this.showToast('โหลดข้อมูลงานไม่สำเร็จ', 'error'));
+  }
+
+  openSubmitModal(taskId) {
+    this.populateSubmitTaskSelect(taskId);
+    document.getElementById('submitTaskModal').classList.add('active');
   }
 
   closeModal(modalId) {
@@ -1131,10 +1127,6 @@ class Dashboard {
   // ==================== 
 
   async handleAddTask() {
-    if (!this.currentUserId) {
-      this.showToast('กรุณาเปิดลิงก์ Dashboard ผ่าน @เลขา /setup เพื่อยืนยันตัวตน', 'error');
-      return;
-    }
     const form = document.getElementById('addTaskForm');
     const formData = new FormData(form);
     
@@ -1190,10 +1182,6 @@ class Dashboard {
 
    async handleSubmitTask() {
      try {
-       if (!this.currentUserId) {
-         this.showToast('กรุณาเปิดลิงก์ Dashboard ผ่าน @เลขา /setup เพื่อยืนยันตัวตน', 'error');
-         return;
-       }
        const select = document.getElementById('submitTaskId');
        const taskId = select.value;
        const comment = document.getElementById('submitComment').value;
@@ -1248,8 +1236,9 @@ class Dashboard {
       btn.classList.toggle('active', btn.dataset.viewMode === mode);
     });
     
-    // TODO: Implement different calendar view modes
-    console.log('Switching to calendar mode:', mode);
+    // โหมดยังเป็น placeholder แสดงผลเดือนเป็นหลัก (พร้อมไว้ต่อยอด)
+    const now = new Date();
+    this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
   }
 
   async populateReviewTaskSelect(selectedTaskId = '') {
@@ -1318,30 +1307,42 @@ class Dashboard {
   }
 
   navigateCalendar(direction) {
-    try {
-      let m = this.currentMonth + direction;
-      let y = this.currentYear;
-      if (m < 1) { m = 12; y -= 1; }
-      if (m > 12) { m = 1; y += 1; }
-      this.currentMonth = m;
-      this.currentYear = y;
-      this.loadCalendarEvents(m, y);
-    } catch (e) {
-      console.error('navigateCalendar error:', e);
-    }
+    const header = document.getElementById('currentMonth').textContent || '';
+    const parts = header.split(' ');
+    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+    const currentMonthIdx = months.indexOf(parts[0]);
+    const currentYear = parseInt(parts[1]) || new Date().getFullYear();
+    let m = currentMonthIdx + 1 + direction;
+    let y = currentYear;
+    if (m < 1) { m = 12; y -= 1; }
+    if (m > 12) { m = 1; y += 1; }
+    this.loadCalendarEvents(m, y);
   }
 
   onCalendarDayClick(year, month, day) {
-    try {
-      this.openAddTaskModal();
-      const dt = new Date(year, month - 1, day, 9, 0, 0);
-      const pad = (n) => `${n}`.padStart(2, '0');
-      const val = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-      const dueInput = document.getElementById('taskDueDate');
-      if (dueInput) dueInput.value = val;
-    } catch (e) {
-      console.error('onCalendarDayClick error:', e);
-    }
+    // กรองงานของวันนั้น แล้วเปิด modal รายการย่อ
+    this.apiRequest(`/groups/${this.currentGroupId}/calendar?month=${month}&year=${year}`)
+      .then(resp => {
+        const events = (resp.data || []).filter(ev => {
+          const d = new Date(ev.end || ev.dueTime || ev.start);
+          return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === day;
+        });
+        const body = document.getElementById('taskModalBody');
+        if (!body) return;
+        if (events.length === 0) { this.showToast('ไม่มีงานในวันนี้', 'info'); return; }
+        body.innerHTML = events.map(ev => `
+          <div class="task-item" onclick="dashboard.openTaskModal('${ev.id}')">
+            <div class="task-priority ${ev.priority}"></div>
+            <div class="task-content">
+              <div class="task-title">${ev.title}</div>
+              <div class="task-meta"><span><i class='fas fa-clock'></i> ${this.formatDateTime(ev.end || ev.dueTime)}</span></div>
+            </div>
+            <div class="task-status ${ev.status}">${this.getStatusText(ev.status)}</div>
+          </div>`).join('');
+        document.getElementById('taskModalTitle').textContent = `งานวันที่ ${day}/${month}/${year}`;
+        document.getElementById('taskModal').classList.add('active');
+      })
+      .catch(() => this.showToast('โหลดข้อมูลวันไม่สำเร็จ', 'error'));
   }
 
   filterTasks() {
@@ -1351,11 +1352,10 @@ class Dashboard {
     
     const filters = {};
     if (status) filters.status = status;
-    if (assignee) filters.assignee = assignee;
+    if (assignee) filters.assignee = assignee; // ส่ง lineUserId
     if (search) filters.search = search;
     
-    this.taskFilters = { ...this.taskFilters, ...filters, page: 1 };
-    this.loadTasks(this.taskFilters);
+    this.loadTasks(filters);
   }
 
   async downloadFile(fileId) {
@@ -1464,7 +1464,7 @@ class Dashboard {
     
     // Previous button
     if (pagination.page > 1) {
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({...dashboard.taskFilters, page: ${pagination.page - 1}})">ก่อนหน้า</button>`;
+      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({page: ${pagination.page - 1}})">ก่อนหน้า</button>`;
     }
     
     // Page info
@@ -1472,52 +1472,11 @@ class Dashboard {
     
     // Next button
     if (pagination.page < pagination.totalPages) {
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({...dashboard.taskFilters, page: ${pagination.page + 1}})">ถัดไป</button>`;
+      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({page: ${pagination.page + 1}})">ถัดไป</button>`;
     }
     
     paginationHTML += '</div>';
     container.innerHTML = paginationHTML;
-  }
-
-  // Export current week CSV from overview
-  exportCurrentWeekCsv() {
-    try {
-      const d = new Date();
-      const day = d.getDay();
-      const diffToMonday = (day === 0 ? 6 : day - 1);
-      const s = new Date(d); s.setDate(d.getDate()-diffToMonday); s.setHours(0,0,0,0);
-      const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
-      const url = `${this.apiBase}/api/groups/${this.currentGroupId}/reports/export?startDate=${encodeURIComponent(s.toISOString())}&endDate=${encodeURIComponent(e.toISOString())}&format=csv`;
-      window.open(url, '_blank');
-    } catch (err) {
-      console.error('exportCurrentWeekCsv error:', err);
-      this.showToast('ส่งออกไม่สำเร็จ', 'error');
-    }
-  }
-
-  async loadTaskDetail(taskId) {
-    try {
-      const resp = await this.apiRequest(`/groups/${this.currentGroupId}/tasks/${taskId}`);
-      const t = resp?.data;
-      if (!t) { this.showToast('ไม่พบบันทึกงาน', 'error'); return; }
-      const el = document.getElementById('taskModalBody');
-      const files = (t.attachedFiles || []).map(f => `<li><a href="${this.apiBase}/api/groups/${this.currentGroupId}/files/${f.id}/download" target="_blank">${f.originalName}</a></li>`).join('');
-      const assignees = (t.assignedUsers || []).map(u => u.displayName).join(', ');
-      el.innerHTML = `
-        <div>
-          <div style="margin-bottom:8px;"><strong>ชื่องาน:</strong> ${t.title}</div>
-          ${t.description ? `<div style="margin-bottom:8px;"><strong>รายละเอียด:</strong> ${t.description}</div>` : ''}
-          <div style="margin-bottom:8px;"><strong>ผู้รับผิดชอบ:</strong> ${assignees || '-'}</div>
-          <div style="margin-bottom:8px;"><strong>กำหนดส่ง:</strong> ${this.formatDateTime(t.dueTime)}</div>
-          <div style="margin-bottom:8px;"><strong>สถานะ:</strong> ${this.getStatusText(t.status)}</div>
-          ${(t.tags && t.tags.length) ? `<div style="margin-bottom:8px;"><strong>แท็ก:</strong> ${t.tags.join(', ')}</div>` : ''}
-          <div><strong>ไฟล์แนบ:</strong><ul>${files || '<li>-</li>'}</ul></div>
-        </div>`;
-      document.getElementById('taskModal').classList.add('active');
-    } catch (err) {
-      console.error('loadTaskDetail error:', err);
-      this.showToast('โหลดรายละเอียดงานไม่สำเร็จ', 'error');
-    }
   }
 }
 

@@ -46,34 +46,20 @@ class ApiController {
         startDate, 
         endDate, 
         page = 1, 
-        limit = 20,
-        search
+        limit = 20 
       } = req.query;
 
-      // ถ้ามี search ให้ใช้ service สำหรับค้นหา แทนที่จะกรองธรรมดา
-      let tasks: any[] = [];
-      let total = 0;
-      if (typeof search === 'string' && search.trim().length > 0) {
-        const result = await this.taskService.searchTasks(groupId, search as string, {
-          limit: parseInt(limit as string),
-          offset: (parseInt(page as string) - 1) * parseInt(limit as string)
-        });
-        tasks = result.tasks;
-        total = result.total;
-      } else {
-        const options = {
-          status: status as any,
-          assigneeId: assignee as string,
-          tags: tags ? (tags as string).split(',') : undefined,
-          startDate: startDate ? new Date(startDate as string) : undefined,
-          endDate: endDate ? new Date(endDate as string) : undefined,
-          limit: parseInt(limit as string),
-          offset: (parseInt(page as string) - 1) * parseInt(limit as string)
-        };
-        const result = await this.taskService.getGroupTasks(groupId, options);
-        tasks = result.tasks;
-        total = result.total;
-      }
+      const options = {
+        status: status as any,
+        assigneeId: assignee as string,
+        tags: tags ? (tags as string).split(',') : undefined,
+        startDate: startDate ? new Date(startDate as string) : undefined,
+        endDate: endDate ? new Date(endDate as string) : undefined,
+        limit: parseInt(limit as string),
+        offset: (parseInt(page as string) - 1) * parseInt(limit as string)
+      };
+
+      const { tasks, total } = await this.taskService.getGroupTasks(groupId, options);
 
       const response: PaginatedResponse<any> = {
         success: true,
@@ -303,6 +289,7 @@ class ApiController {
         tags, 
         mimeType, 
         search, 
+        uploadedBy,
         page = 1, 
         limit = 20 
       } = req.query;
@@ -311,6 +298,7 @@ class ApiController {
         tags: tags ? (tags as string).split(',') : undefined,
         mimeType: mimeType as string,
         search: search as string,
+        uploadedBy: uploadedBy as string,
         limit: parseInt(limit as string),
         offset: (parseInt(page as string) - 1) * parseInt(limit as string)
       };
@@ -429,6 +417,53 @@ class ApiController {
         success: false, 
         error: 'File not found' 
       });
+    }
+  }
+
+  /**
+   * POST /api/groups/:groupId/files/upload - อัปโหลดไฟล์เข้าคลังไฟล์ของกลุ่มโดยตรง
+   * form-data fields: userId (LINE User ID), comment (optional), tags (comma-separated, optional)
+   */
+  public async uploadFiles(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { userId, tags } = (req.body || {}) as any;
+      const files = (req as any).files as any[];
+
+      if (!userId) {
+        res.status(400).json({ success: false, error: 'Missing userId (LINE User ID)' });
+        return;
+      }
+      if (!files || files.length === 0) {
+        res.status(400).json({ success: false, error: 'No files provided' });
+        return;
+      }
+
+      const tagsArray: string[] = Array.isArray(tags)
+        ? tags
+        : (typeof tags === 'string' && tags.length > 0 ? tags.split(',').map((t: string) => t.trim()).filter(Boolean) : []);
+
+      const saved: any[] = [];
+      for (const f of files) {
+        const savedFile = await this.fileService.saveFile({
+          groupId,
+          uploadedBy: userId,
+          messageId: f.originalname,
+          content: f.buffer,
+          originalName: f.originalname,
+          mimeType: f.mimetype,
+          folderStatus: 'in_progress'
+        });
+        if (tagsArray.length > 0) {
+          try { await this.fileService.addFileTags(savedFile.id, tagsArray); } catch {}
+        }
+        saved.push(savedFile);
+      }
+
+      res.status(201).json({ success: true, data: saved, message: 'Files uploaded successfully' });
+    } catch (error) {
+      logger.error('❌ Error uploading files:', error);
+      res.status(500).json({ success: false, error: 'Failed to upload files' });
     }
   }
 
@@ -834,30 +869,6 @@ class ApiController {
       });
     }
   }
-
-  /** ดึงรายละเอียดงานเดี่ยว (รวม relations) */
-  public async getTaskById(req: Request, res: Response): Promise<void> {
-    try {
-      const { taskId, groupId } = req.params as any;
-      const task = await this.taskService.getTaskByIdWithRelations(taskId);
-      if (!task) {
-        res.status(404).json({ success: false, error: 'Task not found' });
-        return;
-      }
-      // ถ้ามี groupId ใน path ให้ตรวจว่างานอยู่ในกลุ่มนั้นจริง
-      if (groupId) {
-        const isInGroup = task.group?.lineGroupId === groupId || task.groupId === groupId;
-        if (!isInGroup) {
-          res.status(403).json({ success: false, error: 'Access denied to task' });
-          return;
-        }
-      }
-      res.json({ success: true, data: task });
-    } catch (error) {
-      logger.error('❌ Error getting task by id:', error);
-      res.status(500).json({ success: false, error: 'Failed to get task' });
-    }
-  }
 }
 
 const apiController = new ApiController();
@@ -870,7 +881,6 @@ apiRouter.get('/groups/:groupId/members', apiController.getGroupMembers.bind(api
 apiRouter.get('/groups/:groupId/stats', apiController.getGroupStats.bind(apiController));
 apiRouter.get('/groups/:groupId/tasks', apiController.getTasks.bind(apiController));
 apiRouter.post('/groups/:groupId/tasks', apiController.createTask.bind(apiController));
-apiRouter.get('/groups/:groupId/tasks/:taskId', apiController.getTaskById.bind(apiController));
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
@@ -884,7 +894,6 @@ apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(
 // Task-specific routes
 apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));
 apiRouter.post('/tasks/:taskId/complete', apiController.completeTask.bind(apiController));
-apiRouter.get('/tasks/:taskId', apiController.getTaskById.bind(apiController));
 
 // File-specific routes  
 apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));
@@ -898,6 +907,19 @@ apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFil
 // User and export routes
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));
 apiRouter.get('/export/kpi/:groupId', apiController.exportKPI.bind(apiController));
+
+// New helper route: fetch single task detail by ID (for dashboard modal)
+apiRouter.get('/task/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const svc = new TaskService();
+    // Reuse search by id
+    const result = await svc.searchTasks('', taskId, { limit: 1 });
+    res.json({ success: true, data: result.tasks[0] || null });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to get task' });
+  }
+});
 
 // Legacy routes (รองรับ backward compatibility)
 apiRouter.get('/tasks/:groupId', apiController.getTasks.bind(apiController));
@@ -916,4 +938,10 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   apiRouter.post('/groups/:groupId/tasks/:taskId/submit', 
     upload.array('attachments', 10), 
     apiController.submitTask.bind(apiController)
+  );
+
+  // Direct file upload to group vault
+  apiRouter.post('/groups/:groupId/files/upload',
+    upload.array('attachments', 10),
+    apiController.uploadFiles.bind(apiController)
   );
