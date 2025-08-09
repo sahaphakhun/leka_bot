@@ -21,6 +21,166 @@ export class KPIService {
     this.groupRepository = AppDataSource.getRepository(Group);
   }
 
+  /** สรุปรายงานตามช่วงเวลา: กลุ่ม/บุคคล */
+  public async getReportSummary(
+    groupId: string,
+    options: {
+      startDate?: Date;
+      endDate?: Date;
+      period?: 'weekly' | 'monthly';
+      userId?: string; // internal user UUID (ถ้าเป็น LINE ID ให้แปลงก่อนใน controller)
+    } = {}
+  ): Promise<{
+    periodStart: Date;
+    periodEnd: Date;
+    totals: {
+      completed: number;
+      early: number;
+      ontime: number;
+      late: number;
+      overtime: number;
+      rejected: number;
+      completionRate: number;
+    };
+  }> {
+    try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) internalGroupId = groupByLineId.id;
+
+      const now = moment();
+      const periodStart = options.startDate
+        ? moment(options.startDate)
+        : options.period === 'monthly' ? now.clone().startOf('month') : now.clone().startOf('week');
+      const periodEnd = options.endDate
+        ? moment(options.endDate)
+        : options.period === 'monthly' ? now.clone().endOf('month') : now.clone().endOf('week');
+
+      // KPI จากการปิดงาน
+      let kpiQB = this.kpiRepository
+        .createQueryBuilder('kpi')
+        .select([
+          'COUNT(*) as completed',
+          "COUNT(CASE WHEN kpi.type = 'early' THEN 1 END) as early",
+          "COUNT(CASE WHEN kpi.type = 'ontime' THEN 1 END) as ontime",
+          "COUNT(CASE WHEN kpi.type = 'late' THEN 1 END) as late",
+          "COUNT(CASE WHEN kpi.type = 'overtime' THEN 1 END) as overtime",
+        ])
+        .where('kpi.groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('kpi.eventDate BETWEEN :start AND :end', { start: periodStart.toDate(), end: periodEnd.toDate() });
+
+      if (options.userId) {
+        kpiQB = kpiQB.andWhere('kpi.userId = :userId', { userId: options.userId });
+      }
+
+      const kpiRow: any = await kpiQB.getRawOne();
+      const completed = parseInt(kpiRow?.completed || '0');
+      const early = parseInt(kpiRow?.early || '0');
+      const ontime = parseInt(kpiRow?.ontime || '0');
+      const late = parseInt(kpiRow?.late || '0');
+      const overtime = parseInt(kpiRow?.overtime || '0');
+
+      // งานทั้งหมดที่ได้รับมอบ (เพื่อคิด completionRate)
+      let taskAssignedQB = this.taskRepository
+        .createQueryBuilder('task')
+        .leftJoin('task.assignedUsers', 'assignee')
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('task.createdAt BETWEEN :start AND :end', { start: periodStart.toDate(), end: periodEnd.toDate() });
+      if (options.userId) {
+        taskAssignedQB = taskAssignedQB.andWhere('assignee.id = :uid', { uid: options.userId });
+      }
+      const totalAssigned = await taskAssignedQB.getCount();
+      const completionRate = totalAssigned > 0 ? Math.round((completed / totalAssigned) * 1000) / 10 : 0;
+
+      // นับจำนวนการตีกลับ (reject) จาก task.workflow.history ในช่วงเวลา
+      // หมายเหตุ: ใช้วิธีโหลดเฉพาะงานที่อัพเดตในช่วงนี้ เพื่อลดภาระ
+      let tasksQB = this.taskRepository
+        .createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('task.updatedAt BETWEEN :start AND :end', { start: periodStart.toDate(), end: periodEnd.toDate() });
+      if (options.userId) {
+        tasksQB = tasksQB.andWhere('assignee.id = :uid', { uid: options.userId });
+      }
+      const tasks = await tasksQB.getMany();
+      let rejected = 0;
+      for (const t of tasks as any[]) {
+        const hist = (t.workflow?.history || []) as Array<{ action: string; at?: Date }>;
+        if (!hist || hist.length === 0) continue;
+        for (const h of hist) {
+          if (h.action === 'reject' && h.at) {
+            const at = moment(h.at);
+            if (at.isBetween(periodStart, periodEnd, undefined, '[]')) {
+              rejected++;
+            }
+          }
+        }
+      }
+
+      return {
+        periodStart: periodStart.toDate(),
+        periodEnd: periodEnd.toDate(),
+        totals: { completed, early, ontime, late, overtime, rejected, completionRate }
+      };
+    } catch (error) {
+      console.error('❌ Error building report summary:', error);
+      throw error;
+    }
+  }
+
+  /** รายงานแยกตามบุคคลในกลุ่ม */
+  public async getReportByUsers(
+    groupId: string,
+    options: { startDate?: Date; endDate?: Date; period?: 'weekly' | 'monthly' } = {}
+  ): Promise<Array<{ userId: string; displayName: string; completed: number; early: number; ontime: number; late: number; overtime: number }>> {
+    try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) internalGroupId = groupByLineId.id;
+
+      const now = moment();
+      const periodStart = options.startDate
+        ? moment(options.startDate)
+        : options.period === 'monthly' ? now.clone().startOf('month') : now.clone().startOf('week');
+      const periodEnd = options.endDate
+        ? moment(options.endDate)
+        : options.period === 'monthly' ? now.clone().endOf('month') : now.clone().endOf('week');
+
+      const rows = await this.kpiRepository
+        .createQueryBuilder('kpi')
+        .select([
+          'kpi.userId as userId',
+          'user.displayName as displayName',
+          'COUNT(*) as completed',
+          "COUNT(CASE WHEN kpi.type = 'early' THEN 1 END) as early",
+          "COUNT(CASE WHEN kpi.type = 'ontime' THEN 1 END) as ontime",
+          "COUNT(CASE WHEN kpi.type = 'late' THEN 1 END) as late",
+          "COUNT(CASE WHEN kpi.type = 'overtime' THEN 1 END) as overtime"
+        ])
+        .leftJoin(User, 'user', 'user.id = kpi.userId')
+        .where('kpi.groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('kpi.eventDate BETWEEN :start AND :end', { start: periodStart.toDate(), end: periodEnd.toDate() })
+        .groupBy('kpi.userId, user.displayName')
+        .orderBy('completed', 'DESC')
+        .getRawMany();
+
+      return rows.map((r: any) => ({
+        userId: r.userId,
+        displayName: r.displayName,
+        completed: parseInt(r.completed || '0'),
+        early: parseInt(r.early || '0'),
+        ontime: parseInt(r.ontime || '0'),
+        late: parseInt(r.late || '0'),
+        overtime: parseInt(r.overtime || '0')
+      }));
+    } catch (error) {
+      console.error('❌ Error getting report by users:', error);
+      throw error;
+    }
+  }
+
   /**
    * บันทึกการทำงานเสร็จ
    */

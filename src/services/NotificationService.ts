@@ -188,6 +188,117 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
     }
   }
 
+  /** แจ้งผู้ตรวจให้ตรวจงานภายใน 2 วัน พร้อมสรุปไฟล์/ลิงก์ */
+  public async sendReviewRequest(
+    task: any,
+    reviewerLineUserId: string,
+    details: { submitterDisplayName?: string; fileCount?: number; links?: string[] }
+  ): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const dueText = task.workflow?.review?.reviewDueAt
+        ? moment(task.workflow.review.reviewDueAt).format('DD/MM/YYYY HH:mm')
+        : moment(task.dueTime).format('DD/MM/YYYY HH:mm');
+
+      const linksText = (details.links && details.links.length > 0)
+        ? `\n🔗 ลิงก์: \n${details.links.map((l: string) => `• ${l}`).join('\n')}`
+        : '';
+
+      const messageToReviewer = `📝 มีการส่งงานรอตรวจ
+
+📋 ${task.title}
+${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDisplayName}\n` : ''}${typeof details.fileCount === 'number' ? `📎 ไฟล์: ${details.fileCount} รายการ\n` : ''}📅 กำหนดตรวจภายใน: ${dueText}${linksText}
+
+ตอบในแชทกลุ่ม: /approve ${task.id.substring(0, 8)} หรือ /reject ${task.id.substring(0, 8)} <วันเวลาใหม่> [เหตุผล]`;
+
+      // แจ้งแบบส่วนตัวไปยังผู้ตรวจ
+      await this.lineService.pushMessage(reviewerLineUserId, messageToReviewer);
+
+      // แจ้งในกลุ่มด้วย Flex (พร้อมปุ่ม ผ่าน/ไม่ผ่าน)
+      const shortId = (task.id || '').substring(0, 8) || '';
+      const flex: any = {
+        type: 'flex',
+        altText: 'งานรอตรวจ',
+        contents: {
+          type: 'bubble',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [
+              { type: 'text', text: 'รอตรวจงาน', weight: 'bold', color: '#333333', size: 'lg' },
+              { type: 'text', text: task.title, size: 'sm', color: '#666666', wrap: true }
+            ]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              ...(details.submitterDisplayName ? [{ type: 'text', text: `ผู้ส่ง: ${details.submitterDisplayName}`, size: 'sm' }] : []),
+              ...(typeof details.fileCount === 'number' ? [{ type: 'text', text: `ไฟล์: ${details.fileCount} รายการ`, size: 'sm' }] : []),
+              { type: 'text', text: `ตรวจภายใน: ${dueText}`, size: 'sm' },
+              ...(details.links && details.links.length > 0
+                ? [{ type: 'text', text: `ลิงก์: ${details.links.join(' ')}`, size: 'sm', wrap: true }]
+                : [])
+            ]
+          },
+          footer: {
+            type: 'box',
+            layout: 'horizontal',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'button',
+                style: 'primary',
+                height: 'sm',
+                action: { type: 'postback', label: 'ผ่าน', data: `action=approve_task&taskId=${task.id}` }
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                action: { type: 'message', label: 'ไม่ผ่าน', text: `/reject ${shortId} 2d [โปรดใส่เหตุผล]` }
+              },
+              {
+                type: 'button',
+                style: 'link',
+                height: 'sm',
+                action: { type: 'uri', label: 'ดูงาน', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+              }
+            ]
+          }
+        }
+      };
+      await this.lineService.pushMessage(group.lineGroupId, flex);
+
+    } catch (error) {
+      console.error('❌ Error sending review request:', error);
+      throw error;
+    }
+  }
+
+  /** แจ้งว่าถูกตีกลับ พร้อมกำหนดส่งใหม่ */
+  public async sendTaskRejectedNotification(task: any, newDueTime: Date, reviewerDisplayName?: string): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const message = `❌ งานถูกตีกลับเพื่อแก้ไข
+
+📋 ${task.title}
+${reviewerDisplayName ? `👤 ผู้ตรวจ: ${reviewerDisplayName}\n` : ''}📅 กำหนดส่งใหม่: ${moment(newDueTime).format('DD/MM/YYYY HH:mm')}
+
+โปรดแก้ไขและส่งใหม่ โดยพิมพ์ /submit ${task.id.substring(0, 8)} [หมายเหตุ] หลังแนบไฟล์/ลิงก์`;
+
+      await this.lineService.pushMessage(group.lineGroupId, message);
+
+    } catch (error) {
+      console.error('❌ Error sending task rejected notification:', error);
+    }
+  }
+
   /**
    * ส่งรายงานรายสัปดาห์
    */
@@ -202,22 +313,26 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
       const weekStart = moment().startOf('week').format('DD/MM');
       const weekEnd = moment().endOf('week').format('DD/MM');
 
-      let message = `📊 รายงานประจำสัปดาห์ (${weekStart} - ${weekEnd})
+      // จัดรูปแบบอันดับทุกคน พร้อมเหรียญ 1-3
+      const medalFor = (rank: number) => {
+        if (rank === 1) return '🥇';
+        if (rank === 2) return '🥈';
+        if (rank === 3) return '🥉';
+        return `${rank}️⃣`;
+      };
 
-📈 **สถิติกลุ่ม**
-✅ งานที่เสร็จ: ${stats.completedTasks}
-⏳ งานค้าง: ${stats.pendingTasks}
-⚠️ งานเกินกำหนด: ${stats.overdueTasks}
+      let message = `📊 รายงานประจำสัปดาห์ (${weekStart} - ${weekEnd})\n\n` +
+        `📈 **สถิติกลุ่ม**\n` +
+        `✅ งานที่เสร็จ: ${stats.completedTasks}\n` +
+        `⏳ งานค้าง: ${stats.pendingTasks}\n` +
+        `⚠️ งานเกินกำหนด: ${stats.overdueTasks}\n\n` +
+        `🏆 **จัดลำดับพนักงานคนขยัน (สัปดาห์นี้)**\n`;
 
-🏆 **อันดับผู้ทำงาน (Top 5)**
-`;
-
-      leaderboard.slice(0, 5).forEach((user, index) => {
-        const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
+      leaderboard.forEach((user, index) => {
+        const rank = index + 1;
+        const medal = medalFor(rank);
         const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
-        
-        message += `${medal} ${user.displayName} - ${user.weeklyPoints} คะแนน ${trend}
-`;
+        message += `${medal} ${user.displayName} — ${user.weeklyPoints} คะแนน ${trend}\n`;
       });
 
       message += `\n📊 ดูรายงานฉบับเต็มที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`;

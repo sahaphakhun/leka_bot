@@ -172,7 +172,10 @@ export class TaskService {
    */
   public async updateTask(taskId: string, updates: Partial<TaskType>): Promise<Task> {
     try {
-      const task = await this.taskRepository.findOneBy({ id: taskId });
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'group', 'createdByUser']
+      });
       if (!task) {
         throw new Error('Task not found');
       }
@@ -207,6 +210,26 @@ export class TaskService {
         await this.googleService.updateTaskInCalendar(task, updates);
       } catch (error) {
         console.warn('⚠️ Failed to update task in Google Calendar:', error);
+      }
+
+      // แจ้งเตือนเมื่อผู้ตรวจตีกลับงานและมีการกำหนดวันใหม่
+      try {
+        const anyUpdates: any = updates as any;
+        if (anyUpdates && anyUpdates.reviewAction === 'revise') {
+          const reviewerId = anyUpdates.reviewerUserId as string | undefined;
+          let reviewerDisplayName: string | undefined;
+          if (reviewerId) {
+            const reviewer = reviewerId.startsWith('U')
+              ? await this.userRepository.findOneBy({ lineUserId: reviewerId })
+              : await this.userRepository.findOneBy({ id: reviewerId });
+            reviewerDisplayName = reviewer?.displayName;
+          }
+          if (updates.dueTime) {
+            await this.notificationService.sendTaskRejectedNotification(updatedTask as any, updates.dueTime, reviewerDisplayName);
+          }
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to send task rejected notification:', err);
       }
 
       return updatedTask;
@@ -287,18 +310,29 @@ export class TaskService {
     try {
       const task = await this.taskRepository.findOne({
         where: { id: taskId },
-        relations: ['assignedUsers', 'attachedFiles']
+        relations: ['assignedUsers', 'attachedFiles', 'group']
       });
 
       if (!task) {
         throw new Error('Task not found');
       }
 
-      // ตรวจสอบสิทธิ์
-      const isAssignee = task.assignedUsers.some(user => user.id === completedBy);
-      const isCreator = task.createdBy === completedBy;
+      // แปลง LINE User ID → internal user id หากส่งมาเป็น LINE ID
+      let completedByInternalId = completedBy;
+      if (completedByInternalId && completedByInternalId.startsWith('U')) {
+        const user = await this.userRepository.findOneBy({ lineUserId: completedByInternalId });
+        if (!user) {
+          throw new Error('CompletedBy user not found');
+        }
+        completedByInternalId = user.id;
+      }
 
-      if (!isAssignee && !isCreator) {
+      // ตรวจสอบสิทธิ์ (ผู้รับผิดชอบ, ผู้สร้าง, ผู้ตรวจ)
+      const isAssignee = task.assignedUsers.some(user => user.id === completedByInternalId);
+      const isCreator = task.createdBy === completedByInternalId;
+      const isReviewer = (task.workflow as any)?.review?.reviewerUserId === completedByInternalId;
+
+      if (!isAssignee && !isCreator && !isReviewer) {
         throw new Error('Unauthorized to complete this task');
       }
 
@@ -316,13 +350,13 @@ export class TaskService {
       task.workflow = {
         ...(task.workflow || {}),
         review: {
-          ...(task.workflow?.review || {}),
+          ...(task.workflow as any)?.review,
           status: 'approved',
           reviewedAt: new Date()
         },
         history: [
-          ...(task.workflow?.history || []),
-          { action: 'approve', byUserId: completedBy, at: new Date() }
+          ...((task.workflow as any)?.history || []),
+          { action: 'approve', byUserId: completedByInternalId, at: new Date() }
         ]
       } as any;
 
@@ -338,6 +372,16 @@ export class TaskService {
         console.warn('⚠️ Failed to update completed task in Google Calendar:', error);
       }
 
+      // แจ้งเตือนในกลุ่มว่าอนุมัติ/ปิดงานแล้ว และแจ้งผู้ทำรายการ
+      try {
+        const completedByUser = await this.userRepository.findOneBy({ id: completedByInternalId });
+        if (completedByUser) {
+          await this.notificationService.sendTaskCompletedNotification({ ...completedTask, group: task.group } as any, completedByUser as any);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to send task completed notification:', err);
+      }
+
       return completedTask;
 
     } catch (error) {
@@ -351,7 +395,8 @@ export class TaskService {
     taskId: string,
     submitterLineUserId: string,
     fileIds: string[],
-    comment?: string
+    comment?: string,
+    links?: string[]
   ): Promise<Task> {
     try {
       const task = await this.taskRepository.findOne({
@@ -376,11 +421,13 @@ export class TaskService {
       // อัปเดตเวิร์กโฟลว์
       const now = new Date();
       const lateSubmission = task.dueTime < now;
-      const submissions = (task.workflow?.submissions || []).concat({
+      const existingSubmissions = (task.workflow as any)?.submissions || [];
+      const submissions = existingSubmissions.concat({
         submittedByUserId: submitter.id,
         submittedAt: now,
         fileIds,
         comment,
+        links: links || [],
         lateSubmission
       });
 
@@ -407,6 +454,25 @@ export class TaskService {
       }
 
       const saved = await this.taskRepository.save(task);
+
+      // เตรียมลิงก์ไฟล์สำหรับผู้ตรวจ
+      const fileLinks = fileIds.map(fid => this.fileService.generateDownloadUrl(fid));
+
+      // แจ้งผู้ตรวจให้ตรวจภายใน 2 วัน
+      try {
+        const reviewerInternalId = ((saved.workflow as any)?.review?.reviewerUserId) || saved.createdBy;
+        const reviewer = await this.userRepository.findOneBy({ id: reviewerInternalId });
+        if (reviewer) {
+          await this.notificationService.sendReviewRequest(saved as any, reviewer.lineUserId, {
+            submitterDisplayName: submitter.displayName,
+            fileCount: fileIds.length,
+            links: (links && links.length > 0) ? links : fileLinks
+          } as any);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to send review request notification:', err);
+      }
+
       return saved;
     } catch (error) {
       console.error('❌ Error recording submission:', error);
@@ -724,8 +790,13 @@ export class TaskService {
         .leftJoinAndSelect('task.createdByUser', 'creator')
         .where('task.groupId = :groupId', { groupId })
         .andWhere(
-          '(task.title ILIKE :query OR task.description ILIKE :query OR :query = ANY(task.tags))',
-          { query: `%${query}%` }
+          `(
+            task.title ILIKE :query 
+            OR task.description ILIKE :query 
+            OR :query = ANY(task.tags)
+            OR CAST(task.id AS TEXT) ILIKE :idQuery
+          )`,
+          { query: `%${query}%`, idQuery: `${query}%` }
         );
 
       const total = await queryBuilder.getCount();

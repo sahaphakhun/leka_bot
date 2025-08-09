@@ -40,8 +40,8 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
-    // สรุปรายงานรายสัปดาห์ (ศุกร์ 09:00)
-    const weeklyReportJob = cron.schedule('0 9 * * 5', async () => {
+    // สรุปรายงานรายสัปดาห์ (ศุกร์ 13:00)
+    const weeklyReportJob = cron.schedule('0 13 * * 5', async () => {
       await this.sendWeeklyReports();
     }, {
       scheduled: false,
@@ -51,6 +51,7 @@ export class CronService {
     // สรุปรายวัน 08:00 ส่งรายการงานที่ยังไม่เสร็จในแต่ละกลุ่ม
     const dailySummaryJob = cron.schedule('0 8 * * *', async () => {
       await this.sendDailyIncompleteTaskSummaries();
+      await this.sendManagerDailySummaries();
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
@@ -250,6 +251,71 @@ export class CronService {
       }
     } catch (error) {
       console.error('❌ Error sending daily incomplete task summaries:', error);
+    }
+  }
+
+  /** ส่งสรุปสำหรับผู้จัดการทุกเช้า: งานที่ยังไม่ส่ง / ใครล่าช้า / ใครยังไม่ตรวจ */
+  private async sendManagerDailySummaries(): Promise<void> {
+    try {
+      const groups = await this.taskService.getAllActiveGroups();
+      for (const group of groups) {
+        const recipients: string[] = (group.settings as any)?.reportRecipients || [];
+        if (!recipients || recipients.length === 0) continue;
+
+        // ดึงงานค้างทั้งหมดของกลุ่ม
+        const tasks = await this.taskService.getIncompleteTasksOfGroup(group.lineGroupId);
+        if (tasks.length === 0) continue;
+
+        // จัดหมวดหมู่: ยังไม่ส่ง, ล่าช้า, รอตรวจ
+        const notSubmitted: any[] = [];
+        const late: any[] = [];
+        const pendingReview: any[] = [];
+
+        const now = moment();
+        for (const t of tasks as any[]) {
+          const wf = (t.workflow || {}) as any;
+          const hasSubmission = (wf.submissions && wf.submissions.length > 0);
+          if (!hasSubmission) notSubmitted.push(t);
+
+          if (moment(t.dueTime).isBefore(now) && t.status !== 'completed') {
+            late.push(t);
+          }
+
+          const rv = wf.review;
+          if (rv && rv.status === 'pending') {
+            pendingReview.push(t);
+          }
+        }
+
+        const formatTask = (x: any) => {
+          const due = moment(x.dueTime).format('DD/MM HH:mm');
+          const assignees = (x.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
+          return `• ${x.title} (กำหนด ${due}) ${assignees}`;
+        };
+
+        let message = `🗒️ รายงานสรุปประจำวัน (สำหรับผู้จัดการ)\n\n`;
+        if (notSubmitted.length > 0) {
+          message += `ยังไม่ส่ง (${notSubmitted.length})\n` + notSubmitted.slice(0, 10).map(formatTask).join('\n') + '\n\n';
+        }
+        if (late.length > 0) {
+          message += `ล่าช้า (${late.length})\n` + late.slice(0, 10).map(formatTask).join('\n') + '\n\n';
+        }
+        if (pendingReview.length > 0) {
+          message += `รอตรวจ (${pendingReview.length})\n` + pendingReview.slice(0, 10).map(formatTask).join('\n') + '\n\n';
+        }
+        message += `📊 รายละเอียดเพิ่มเติม: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#reports`;
+
+        // ส่งให้ผู้จัดการที่กำหนด (ส่วนตัว)
+        for (const lineUserId of recipients) {
+          try {
+            await (this.notificationService as any).lineService.pushMessage(lineUserId, message);
+          } catch (err) {
+            console.warn('⚠️ Failed to send manager daily summary:', lineUserId, err);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sending manager daily summaries:', error);
     }
   }
 

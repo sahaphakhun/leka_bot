@@ -280,20 +280,77 @@
             <!-- Reports View -->
             <div id="reportsView" class="view">
                 <div class="view-header">
-                    <h2>รายงาน</h2>
+                    <h2>รายงานสำหรับผู้บริหาร</h2>
+                    <div class="view-actions">
+                        <div class="btn-group">
+                            <select id="reportPeriodSelect" class="filter-select">
+                                <option value="weekly" selected>รายสัปดาห์</option>
+                                <option value="monthly">รายเดือน</option>
+                                <option value="custom">กำหนดช่วงเอง</option>
+                            </select>
+                            <input type="date" id="reportStartDate" style="display:none;">
+                            <input type="date" id="reportEndDate" style="display:none;">
+                            <select id="reportUserSelect" class="filter-select">
+                                <option value="">ทุกคนในกลุ่ม</option>
+                            </select>
+                        </div>
+                        <div class="btn-group">
+                            <button class="btn btn-outline" id="runReportBtn"><i class="fas fa-play"></i> แสดงรายงาน</button>
+                            <button class="btn btn-outline" id="exportExcelBtn"><i class="fas fa-file-excel"></i> ส่งออก Excel</button>
+                            <button class="btn btn-outline" id="exportPdfBtn"><i class="fas fa-file-pdf"></i> ส่งออก PDF</button>
+                        </div>
+                    </div>
                 </div>
 
                 <div class="reports-container">
-                    <div class="report-cards">
-                        <div class="report-card">
-                            <h3>รายงานงานค้าง</h3>
-                            <p>งานที่เกินกำหนดและยังไม่เสร็จ</p>
-                            <button class="btn btn-outline">ดาวน์โหลด CSV</button>
+                    <!-- Summary Cards -->
+                    <div class="stats-grid">
+                        <div class="stat-card"><div class="stat-icon bg-green"><i class="fas fa-check"></i></div><div class="stat-content"><div class="stat-number" id="repCompleted">0</div><div class="stat-label">เสร็จแล้ว</div></div></div>
+                        <div class="stat-card"><div class="stat-icon bg-blue"><i class="fas fa-bolt"></i></div><div class="stat-content"><div class="stat-number" id="repEarly">0</div><div class="stat-label">เร็วกว่ากำหนด</div></div></div>
+                        <div class="stat-card"><div class="stat-icon bg-blue"><i class="fas fa-clock"></i></div><div class="stat-content"><div class="stat-number" id="repOntime">0</div><div class="stat-label">ตรงเวลา</div></div></div>
+                        <div class="stat-card"><div class="stat-icon bg-orange"><i class="fas fa-hourglass-half"></i></div><div class="stat-content"><div class="stat-number" id="repLate">0</div><div class="stat-label">ล่าช้า</div></div></div>
+                        <div class="stat-card"><div class="stat-icon bg-red"><i class="fas fa-fire"></i></div><div class="stat-content"><div class="stat-number" id="repOvertime">0</div><div class="stat-label">ค้างนาน</div></div></div>
+                        <div class="stat-card"><div class="stat-icon bg-purple"><i class="fas fa-percentage"></i></div><div class="stat-content"><div class="stat-number" id="repCompletionRate">0%</div><div class="stat-label">อัตราสำเร็จ</div></div></div>
+                    </div>
+
+                    <!-- Charts -->
+                    <div class="dashboard-grid">
+                        <div class="dashboard-section">
+                            <div class="section-header"><h3>สัดส่วนสถานะงาน</h3></div>
+                            <canvas id="repDistChart" height="220"></canvas>
                         </div>
-                        <div class="report-card">
-                            <h3>รายงานผลงาน</h3>
-                            <p>สรุปผลงานรายบุคคลและกลุ่ม</p>
-                            <button class="btn btn-outline">ดาวน์โหลด Excel</button>
+                        <div class="dashboard-section">
+                            <div class="section-header"><h3>ผลงานรายบุคคล</h3></div>
+                            <canvas id="repUserBarChart" height="220"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Users Table -->
+                    <div class="dashboard-section">
+                        <div class="section-header"><h3>สรุปแยกตามบุคคล</h3></div>
+                        <div style="overflow: auto;">
+                            <table style="width:100%; border-collapse: collapse;">
+                                <thead>
+                                    <tr style="text-align:left; border-bottom: 1px solid #eee;">
+                                        <th style="padding:8px;">ผู้ใช้</th>
+                                        <th style="padding:8px;">เสร็จ</th>
+                                        <th style="padding:8px;">เร็ว</th>
+                                        <th style="padding:8px;">ตรงเวลา</th>
+                                        <th style="padding:8px;">ล่าช้า</th>
+                                        <th style="padding:8px;">ค้างนาน</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="repUsersTable"></tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- Manager Recipients -->
+                    <div class="dashboard-section">
+                        <div class="section-header"><h3>ผู้รับรายงานสรุปอัตโนมัติ (ผู้จัดการ)</h3></div>
+                        <div id="reportRecipientsList" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px;"></div>
+                        <div style="margin-top:12px;">
+                            <button class="btn btn-primary" id="saveRecipientsBtn"><i class="fas fa-save"></i> บันทึกผู้รับรายงาน</button>
                         </div>
                     </div>
                 </div>

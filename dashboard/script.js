@@ -529,6 +529,9 @@ class Dashboard {
       case 'leaderboard':
         this.loadLeaderboard();
         break;
+      case 'reports':
+        this.loadGroupMembers().then(() => this.initReportsUI());
+        break;
     }
   }
 
@@ -610,6 +613,193 @@ class Dashboard {
   // ==================== 
   // UI Updates
   // ==================== 
+  // ==================== 
+  // Reports (Executive)
+  // ==================== 
+
+  initReportsUI() {
+    const periodSel = document.getElementById('reportPeriodSelect');
+    const sd = document.getElementById('reportStartDate');
+    const ed = document.getElementById('reportEndDate');
+    const runBtn = document.getElementById('runReportBtn');
+    const exportExcelBtn = document.getElementById('exportExcelBtn');
+    const exportPdfBtn = document.getElementById('exportPdfBtn');
+
+    // toggle custom period inputs
+    const toggleCustom = () => {
+      const isCustom = periodSel.value === 'custom';
+      sd.style.display = isCustom ? 'inline-block' : 'none';
+      ed.style.display = isCustom ? 'inline-block' : 'none';
+    };
+    periodSel.addEventListener('change', toggleCustom);
+    toggleCustom();
+
+    runBtn.addEventListener('click', () => this.runReports());
+    exportExcelBtn.addEventListener('click', () => this.exportReports('csv'));
+    exportPdfBtn.addEventListener('click', () => this.exportReports('json'));
+
+    // load recipients UI
+    this.renderReportRecipients();
+    document.getElementById('saveRecipientsBtn')?.addEventListener('click', () => this.saveReportRecipients());
+  }
+
+  getReportQuery() {
+    const period = document.getElementById('reportPeriodSelect').value;
+    const userId = document.getElementById('reportUserSelect').value;
+    const sd = document.getElementById('reportStartDate').value;
+    const ed = document.getElementById('reportEndDate').value;
+    const q = new URLSearchParams();
+    if (period !== 'custom') q.set('period', period);
+    if (period === 'custom' && sd && ed) {
+      q.set('startDate', sd);
+      q.set('endDate', ed);
+    }
+    if (userId) q.set('userId', userId);
+    return q.toString();
+  }
+
+  async runReports() {
+    try {
+      const q = this.getReportQuery();
+      const summary = await this.apiRequest(`/groups/${this.currentGroupId}/reports/summary?${q}`);
+      const byUsers = await this.apiRequest(`/groups/${this.currentGroupId}/reports/by-users?${q}`);
+      this.updateReportsSummary(summary.data);
+      this.updateReportsUsers(byUsers.data);
+      this.renderReportCharts(summary.data, byUsers.data);
+      this.showToast('แสดงรายงานสำเร็จ', 'success');
+    } catch (err) {
+      console.error('runReports error:', err);
+    }
+  }
+
+  updateReportsSummary(data) {
+    const t = data?.totals || {};
+    document.getElementById('repCompleted').textContent = t.completed || 0;
+    document.getElementById('repEarly').textContent = t.early || 0;
+    document.getElementById('repOntime').textContent = t.ontime || 0;
+    document.getElementById('repLate').textContent = t.late || 0;
+    document.getElementById('repOvertime').textContent = t.overtime || 0;
+    document.getElementById('repCompletionRate').textContent = (t.completionRate || 0) + '%';
+  }
+
+  updateReportsUsers(rows) {
+    const tb = document.getElementById('repUsersTable');
+    if (!rows || rows.length === 0) { tb.innerHTML = '<tr><td colspan="6" style="padding:8px; color:#6b7280;">ไม่มีข้อมูล</td></tr>'; return; }
+    tb.innerHTML = rows.map(r => `
+      <tr style="border-bottom: 1px solid #f0f0f0;">
+        <td style="padding:8px;">${r.displayName}</td>
+        <td style="padding:8px;">${r.completed}</td>
+        <td style="padding:8px;">${r.early}</td>
+        <td style="padding:8px;">${r.ontime}</td>
+        <td style="padding:8px;">${r.late}</td>
+        <td style="padding:8px;">${r.overtime}</td>
+      </tr>
+    `).join('');
+  }
+
+  renderReportCharts(summary, rows) {
+    const distEl = document.getElementById('repDistChart');
+    const barEl = document.getElementById('repUserBarChart');
+    if (!distEl || !barEl) return;
+    const totals = summary?.totals || {};
+    // สร้างกราฟอย่างง่ายด้วย Canvas 2D (placeholder minimal)
+    const drawPie = (el, values, colors) => {
+      const ctx = el.getContext('2d');
+      const sum = values.reduce((a,b)=>a+b,0) || 1;
+      let start = 0;
+      const cx = el.width/2, cy = el.height/2, r = Math.min(cx, cy) - 10;
+      ctx.clearRect(0,0,el.width, el.height);
+      values.forEach((v, i) => {
+        const angle = (v/sum)*Math.PI*2;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, start, start+angle);
+        ctx.closePath();
+        ctx.fillStyle = colors[i] || '#ccc';
+        ctx.fill();
+        start += angle;
+      });
+    };
+    const drawBars = (el, labels, data) => {
+      const ctx = el.getContext('2d');
+      ctx.clearRect(0,0,el.width, el.height);
+      const w = el.width, h = el.height, pad = 24, bw = Math.max(10, (w - pad*2)/Math.max(1, data.length) - 8);
+      const maxV = Math.max(1, Math.max(...data));
+      data.forEach((v, i) => {
+        const x = pad + i*(bw+8);
+        const bh = (v/maxV)*(h - pad*2);
+        const y = h - pad - bh;
+        ctx.fillStyle = '#4f46e5';
+        ctx.fillRect(x, y, bw, bh);
+      });
+    };
+
+    drawPie(distEl, [totals.early||0, totals.ontime||0, totals.late||0, totals.overtime||0], ['#10b981','#3b82f6','#f59e0b','#ef4444']);
+    const labels = rows.map(r=>r.displayName);
+    const data = rows.map(r=>r.completed);
+    drawBars(barEl, labels, data);
+  }
+
+  async exportReports(format='csv') {
+    try {
+      const period = document.getElementById('reportPeriodSelect').value;
+      let startDate = document.getElementById('reportStartDate').value;
+      let endDate = document.getElementById('reportEndDate').value;
+      if (period !== 'custom') {
+        const d = new Date();
+        if (period === 'weekly') {
+          const day = d.getDay();
+          const diffToMonday = (day === 0 ? 6 : day - 1);
+          const s = new Date(d); s.setDate(d.getDate()-diffToMonday); s.setHours(0,0,0,0);
+          const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
+          startDate = s.toISOString(); endDate = e.toISOString();
+        } else {
+          const s = new Date(d.getFullYear(), d.getMonth(), 1);
+          const e = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+          startDate = s.toISOString(); endDate = e.toISOString();
+        }
+      }
+      const url = `${this.apiBase}/api/groups/${this.currentGroupId}/reports/export?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&format=${format}`;
+      window.open(url, '_blank');
+    } catch (error) {
+      console.error('exportReports error:', error);
+      this.showToast('ส่งออกไม่สำเร็จ', 'error');
+    }
+  }
+
+  async renderReportRecipients() {
+    try {
+      const groupResp = await this.apiRequest(`/groups/${this.currentGroupId}`);
+      const membersResp = await this.apiRequest(`/groups/${this.currentGroupId}/members`);
+      const current = groupResp?.data?.settings?.reportRecipients || [];
+      const members = membersResp?.data || [];
+      const wrap = document.getElementById('reportRecipientsList');
+      wrap.innerHTML = members.map(m => {
+        const checked = current.includes(m.lineUserId) ? 'checked' : '';
+        return `<label style="display:flex; gap:8px; align-items:center; background:#fff; border:1px solid #eee; border-radius:8px; padding:8px;">
+          <input type="checkbox" value="${m.lineUserId}" ${checked} />
+          <span>${m.displayName}</span>
+        </label>`;
+      }).join('');
+    } catch (err) {
+      console.error('renderReportRecipients error:', err);
+    }
+  }
+
+  async saveReportRecipients() {
+    try {
+      const wrap = document.getElementById('reportRecipientsList');
+      const selected = Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map((el)=>el.value);
+      await this.apiRequest(`/groups/${this.currentGroupId}/settings/report-recipients`, {
+        method: 'POST',
+        body: JSON.stringify({ recipients: selected })
+      });
+      this.showToast('บันทึกผู้รับรายงานสำเร็จ', 'success');
+    } catch (err) {
+      console.error('saveReportRecipients error:', err);
+      this.showToast('บันทึกผู้รับรายงานไม่สำเร็จ', 'error');
+    }
+  }
 
   updateStats(stats) {
     document.getElementById('totalTasks').textContent = stats.totalTasks || 0;

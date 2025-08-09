@@ -26,6 +26,8 @@ export class Group {
       start: string;
       end: string;
     };
+    // ผู้ที่จะได้รับรายงานสรุปอัตโนมัติ (LINE User IDs)
+    reportRecipients?: string[];
   };
 
   @CreateDateColumn()
@@ -180,6 +182,7 @@ export class Task {
       submittedAt: Date;
       fileIds: string[];
       comment?: string;
+      links?: string[];
       lateSubmission?: boolean;
     }>;
     review?: {

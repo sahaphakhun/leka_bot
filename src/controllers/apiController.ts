@@ -129,25 +129,25 @@ class ApiController {
     }
   }
 
-  /** UI ส่งงาน: อัปโหลดไฟล์ + บันทึก submission */
+  /** UI ส่งงาน: อัปโหลดไฟล์/ลิงก์ + บันทึก submission */
   public async submitTask(req: Request, res: Response): Promise<void> {
     try {
       const { groupId, taskId } = req.params;
-      const { userId, comment } = (req.body || {});
+      const { userId, comment, links } = (req.body || {});
       const files = (req as any).files as any[];
 
       if (!userId) {
         res.status(400).json({ success: false, error: 'Missing userId (LINE User ID)' });
         return;
       }
-      if (!files || files.length === 0) {
-        res.status(400).json({ success: false, error: 'No attachments uploaded' });
+      if ((!files || files.length === 0) && (!links || (Array.isArray(links) && links.length === 0))) {
+        res.status(400).json({ success: false, error: 'No attachments or links provided' });
         return;
       }
 
       // บันทึกไฟล์ทั้งหมด แล้วได้ fileIds
       const savedFileIds: string[] = [];
-      for (const f of files) {
+      for (const f of (files || [])) {
         const saved = await this.fileService.saveFile({
           groupId,
           uploadedBy: userId,
@@ -161,7 +161,7 @@ class ApiController {
       }
 
       // บันทึกเป็นการส่งงาน
-      const task = await this.taskService.recordSubmission(taskId, userId, savedFileIds, comment);
+      const task = await this.taskService.recordSubmission(taskId, userId, savedFileIds, comment, links);
       res.json({ success: true, data: task, message: 'Submitted successfully' });
     } catch (error) {
       logger.error('❌ submitTask error:', error);
@@ -528,6 +528,34 @@ class ApiController {
     }
   }
 
+  /** อัปเดตผู้รับรายงานสรุปอัตโนมัติ (เฉพาะผู้บริหาร/แอดมิน) */
+  public async updateReportRecipients(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { recipients } = req.body || {};
+      if (!Array.isArray(recipients)) {
+        res.status(400).json({ success: false, error: 'Recipients must be an array of LINE User IDs' });
+        return;
+      }
+
+      // โหลด group และบันทึก settings.reportRecipients
+      const group = await this.userService.findGroupByLineId(groupId);
+      if (!group) {
+        res.status(404).json({ success: false, error: 'Group not found' });
+        return;
+      }
+      const updated = await this.userService.updateGroupSettings(group.id, {
+        ...(group.settings || {}),
+        reportRecipients: recipients
+      } as any);
+
+      res.json({ success: true, data: { reportRecipients: (updated.settings as any).reportRecipients || [] } });
+    } catch (error) {
+      logger.error('❌ Error updating report recipients:', error);
+      res.status(500).json({ success: false, error: 'Failed to update report recipients' });
+    }
+  }
+
   /**
    * GET /api/groups/:groupId/stats - ดึงสถิติกลุ่ม
    */
@@ -606,6 +634,62 @@ class ApiController {
         success: false, 
         error: 'Failed to get leaderboard' 
       });
+    }
+  }
+
+  /** Reports summary (ผู้บริหาร) */
+  public async getReportsSummary(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { period = 'weekly', startDate, endDate, userId } = req.query as any;
+      const summary = await this.kpiService.getReportSummary(groupId, {
+        period: period as 'weekly' | 'monthly',
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined,
+        userId
+      });
+      res.json({ success: true, data: summary });
+    } catch (error) {
+      logger.error('❌ Error getting reports summary:', error);
+      res.status(500).json({ success: false, error: 'Failed to get reports summary' });
+    }
+  }
+
+  /** Reports by users (ผู้บริหาร) */
+  public async getReportsByUsers(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { period = 'weekly', startDate, endDate } = req.query as any;
+      const rows = await this.kpiService.getReportByUsers(groupId, {
+        period: period as 'weekly' | 'monthly',
+        startDate: startDate ? new Date(startDate) : undefined,
+        endDate: endDate ? new Date(endDate) : undefined
+      });
+      res.json({ success: true, data: rows });
+    } catch (error) {
+      logger.error('❌ Error getting reports by users:', error);
+      res.status(500).json({ success: false, error: 'Failed to get reports by users' });
+    }
+  }
+
+  /** Export KPI as JSON/CSV (Excel-compatible) */
+  public async exportReports(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { startDate, endDate, format = 'json' } = req.query as any;
+      const data = await this.kpiService.exportKPIData(groupId, new Date(startDate), new Date(endDate));
+      if (format === 'csv') {
+        // แปลงเป็น CSV อย่างง่าย
+        const headers = Object.keys(data[0] || {});
+        const csv = [headers.join(','), ...data.map(row => headers.map(h => JSON.stringify(row[h] ?? '')).join(','))].join('\n');
+        res.set({ 'Content-Type': 'text/csv', 'Content-Disposition': `attachment; filename="kpi-${groupId}.csv"` });
+        res.send(csv);
+        return;
+      }
+      res.json({ success: true, data });
+    } catch (error) {
+      logger.error('❌ Error exporting reports:', error);
+      res.status(500).json({ success: false, error: 'Failed to export reports' });
     }
   }
 
@@ -751,6 +835,11 @@ apiRouter.post('/groups/:groupId/tasks', apiController.createTask.bind(apiContro
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
+  apiRouter.post('/groups/:groupId/settings/report-recipients', apiController.updateReportRecipients.bind(apiController));
+  // Reports routes (ผู้บริหาร)
+  apiRouter.get('/groups/:groupId/reports/summary', apiController.getReportsSummary.bind(apiController));
+  apiRouter.get('/groups/:groupId/reports/by-users', apiController.getReportsByUsers.bind(apiController));
+  apiRouter.get('/groups/:groupId/reports/export', apiController.exportReports.bind(apiController));
   // TODO: เพิ่ม endpoints สำหรับ recurring tasks ในอนาคต เช่น POST/GET /groups/:groupId/recurring
 
 // Task-specific routes

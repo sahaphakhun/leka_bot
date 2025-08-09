@@ -307,6 +307,19 @@ class WebhookController {
           }
           break;
 
+        case 'approve_task': {
+          const taskId2 = params.get('taskId');
+          if (taskId2) {
+            try {
+              await this.taskService.completeTask(taskId2, userId);
+              await this.lineService.replyMessage(replyToken, '✅ อนุมัติและปิดงานเรียบร้อย');
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ อนุมัติไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          }
+          break;
+        }
+
         case 'edit':
           // TODO: ส่งลิงก์ไปยัง LIFF สำหรับแก้ไข
           break;
