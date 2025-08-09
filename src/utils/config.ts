@@ -53,6 +53,14 @@ export const config = {
     maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760'), // 10MB
   },
   
+  // Cloudinary (optional)
+  cloudinary: {
+    cloudName: process.env.CLOUDINARY_CLOUD_NAME,
+    apiKey: process.env.CLOUDINARY_API_KEY,
+    apiSecret: process.env.CLOUDINARY_API_SECRET,
+    uploadFolder: process.env.CLOUDINARY_FOLDER || 'leka-uploads'
+  },
+  
   // Application Settings
   app: {
     jwtSecret: process.env.JWT_SECRET || 'your-secret-key',

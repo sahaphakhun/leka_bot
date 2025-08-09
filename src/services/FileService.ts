@@ -7,6 +7,7 @@ import { config } from '@/utils/config';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
+import { v2 as cloudinary } from 'cloudinary';
 
 export class FileService {
   private fileRepository: Repository<File>;
@@ -17,6 +18,14 @@ export class FileService {
     this.fileRepository = AppDataSource.getRepository(File);
     this.groupRepository = AppDataSource.getRepository(Group);
     this.userRepository = AppDataSource.getRepository(User);
+    // ตั้งค่า Cloudinary ถ้ามีค่า env
+    if (config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret) {
+      cloudinary.config({
+        cloud_name: config.cloudinary.cloudName,
+        api_key: config.cloudinary.apiKey,
+        api_secret: config.cloudinary.apiSecret
+      });
+    }
   }
 
   /**
@@ -56,36 +65,58 @@ export class FileService {
         throw new Error(`User not found for uploadedBy: ${data.uploadedBy}`);
       }
 
-      // สร้างชื่อไฟล์ที่ไม่ซ้ำ
-      const timestamp = Date.now();
-      const random = crypto.randomBytes(8).toString('hex');
-      const extension = this.getFileExtension(data.mimeType, data.originalName);
-      const fileName = `${timestamp}_${random}${extension}`;
+      // อัปโหลดไป Cloudinary ถ้าตั้งค่าพร้อม ใช้ remote storage แทน local
+      let fileRecord;
+      const useCloudinary = !!(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
 
-      // สร้างเส้นทางไฟล์
-      // ใช้โฟลเดอร์ตามค่า groupId ที่รับมา (อาจเป็น LINE ID หรือ UUID) เพื่อคงโครงสร้างโฟลเดอร์เดิม
-      const groupFolder = path.join(config.storage.uploadPath, data.groupId);
-      const filePath = path.join(groupFolder, fileName);
+      if (useCloudinary) {
+        // อัปโหลดจาก buffer ผ่าน data URI (base64)
+        const base64 = data.content.toString('base64');
+        const ext = this.getFileExtension(data.mimeType, data.originalName);
+        const folder = `${config.cloudinary.uploadFolder}/${data.groupId}`;
+        const publicId = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+        const uploadRes = await cloudinary.uploader.upload(`data:${data.mimeType};base64,${base64}` as any, {
+          folder,
+          public_id: publicId,
+          resource_type: 'auto'
+        } as any);
 
-      // สร้างโฟลเดอร์ถ้าไม่มี
-      await fs.mkdir(groupFolder, { recursive: true });
+        fileRecord = this.fileRepository.create({
+          groupId: internalGroupId,
+          originalName: data.originalName || `file_${data.messageId}${ext}`,
+          fileName: uploadRes.public_id,
+          mimeType: data.mimeType,
+          size: uploadRes.bytes || data.content.length,
+          path: uploadRes.secure_url, // เก็บเป็น URL
+          uploadedBy: internalUserId,
+          isPublic: false,
+          tags: [],
+          folderStatus: data.folderStatus || 'in_progress'
+        });
+      } else {
+        // เดิม: บันทึกโลคอล
+        const timestamp = Date.now();
+        const random = crypto.randomBytes(8).toString('hex');
+        const extension = this.getFileExtension(data.mimeType, data.originalName);
+        const fileName = `${timestamp}_${random}${extension}`;
+        const groupFolder = path.join(config.storage.uploadPath, data.groupId);
+        const filePath = path.join(groupFolder, fileName);
+        await fs.mkdir(groupFolder, { recursive: true });
+        await fs.writeFile(filePath, data.content);
 
-      // บันทึกไฟล์
-      await fs.writeFile(filePath, data.content);
-
-      // สร้าง record ในฐานข้อมูล
-      const fileRecord = this.fileRepository.create({
-        groupId: internalGroupId,
-        originalName: data.originalName || `file_${data.messageId}${extension}`,
-        fileName,
-        mimeType: data.mimeType,
-        size: data.content.length,
-        path: filePath,
-        uploadedBy: internalUserId,
-        isPublic: false,
-        tags: [],
-        folderStatus: data.folderStatus || 'in_progress'
-      });
+        fileRecord = this.fileRepository.create({
+          groupId: internalGroupId,
+          originalName: data.originalName || `file_${data.messageId}${extension}`,
+          fileName,
+          mimeType: data.mimeType,
+          size: data.content.length,
+          path: filePath,
+          uploadedBy: internalUserId,
+          isPublic: false,
+          tags: [],
+          folderStatus: data.folderStatus || 'in_progress'
+        });
+      }
 
       return await this.fileRepository.save(fileRecord);
 
@@ -327,14 +358,17 @@ export class FileService {
       if (!file) {
         throw new Error('File not found');
       }
-
-      const content = await fs.readFile(file.path);
-
-      return {
-        content,
-        mimeType: file.mimeType,
-        originalName: file.originalName
-      };
+      // ถ้า path เป็น URL (cloudinary) ให้ดาวน์โหลดจาก URL
+      if (/^https?:\/\//i.test(file.path)) {
+        const res = await fetch(file.path);
+        if (!res.ok) throw new Error('Failed to fetch remote file');
+        const arrayBuf = await res.arrayBuffer();
+        const content = Buffer.from(arrayBuf);
+        return { content, mimeType: file.mimeType, originalName: file.originalName };
+      } else {
+        const content = await fs.readFile(file.path);
+        return { content, mimeType: file.mimeType, originalName: file.originalName };
+      }
 
     } catch (error) {
       console.error('❌ Error getting file content:', error);
