@@ -232,6 +232,16 @@ export class TaskService {
         console.warn('⚠️ Failed to send task rejected notification:', err);
       }
 
+      // แจ้งในกลุ่มเมื่อมีการแก้งาน/อัปเดตข้อมูล (ยกเว้นกรณีตีกลับ ซึ่งมีแจ้งเฉพาะแล้ว)
+      try {
+        const anyUpdates2: any = updates as any;
+        if (!anyUpdates2 || anyUpdates2.reviewAction !== 'revise') {
+          await this.notificationService.sendTaskUpdatedNotification(updatedTask as any, updates as any);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to send task updated notification:', err);
+      }
+
       return updatedTask;
 
     } catch (error) {
@@ -243,7 +253,7 @@ export class TaskService {
   /** ลบงาน พร้อมลบ Event ใน Google Calendar ถ้ามี */
   public async deleteTask(taskId: string): Promise<void> {
     try {
-      const task = await this.taskRepository.findOne({ where: { id: taskId } });
+      const task = await this.taskRepository.findOne({ where: { id: taskId }, relations: ['assignedUsers', 'group'] });
       if (!task) return;
 
       // ลบจาก Google Calendar ถ้ามี event
@@ -254,6 +264,13 @@ export class TaskService {
       }
 
       await this.taskRepository.delete({ id: taskId });
+
+      // แจ้งในกลุ่มว่าลบงานแล้ว
+      try {
+        await this.notificationService.sendTaskDeletedNotification(task as any);
+      } catch (err) {
+        console.warn('⚠️ Failed to send task deleted notification:', err);
+      }
     } catch (error) {
       console.error('❌ Error deleting task:', error);
       throw error;
@@ -471,6 +488,18 @@ export class TaskService {
         }
       } catch (err) {
         console.warn('⚠️ Failed to send review request notification:', err);
+      }
+
+      // แจ้งในกลุ่มว่ามีการส่งงาน
+      try {
+        await this.notificationService.sendTaskSubmittedNotification(
+          { ...saved, group: task.group } as any,
+          submitter.displayName,
+          fileIds.length,
+          links && links.length > 0 ? links : fileLinks
+        );
+      } catch (err) {
+        console.warn('⚠️ Failed to send task submitted notification:', err);
       }
 
       return saved;
