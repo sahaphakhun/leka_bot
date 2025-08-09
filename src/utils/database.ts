@@ -1,6 +1,6 @@
 // Database Connection และ Configuration
 
-import { DataSource } from 'typeorm';
+import { DataSource, QueryRunner } from 'typeorm';
 import { Group, User, GroupMember, Task, File, KPIRecord, RecurringTask } from '@/models';
 
 // สำหรับ Railway หรือ production environment
@@ -104,6 +104,9 @@ export const initializeDatabase = async (): Promise<void> => {
           console.log('✅ Database migrations completed');
         }
       }
+
+      // ตรวจสอบและเพิ่มคอลัมน์ที่จำเป็นซึ่งอาจยังไม่มีอยู่ (เช่นจากการอัปเดตโครงสร้าง)
+      await ensureFilesTableColumns(queryRunner);
       
     } finally {
       await queryRunner.release();
@@ -119,5 +122,42 @@ export const closeDatabase = async (): Promise<void> => {
   if (AppDataSource.isInitialized) {
     await AppDataSource.destroy();
     console.log('✅ Database connection closed');
+  }
+};
+
+/**
+ * ตรวจสอบและเพิ่มคอลัมน์ที่จำเป็นให้ตาราง files หากยังไม่มีอยู่
+ * - "storageProvider" varchar NULL
+ * - "storageKey" varchar NULL
+ */
+const ensureFilesTableColumns = async (queryRunner: QueryRunner): Promise<void> => {
+  try {
+    // อ่านคอลัมน์ที่มีอยู่ของตาราง files
+    const existingColumnsResult = await queryRunner.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'files'
+    `);
+    const existingColumnNames: string[] = existingColumnsResult.map((r: any) => r.column_name);
+
+    const alters: string[] = [];
+    if (!existingColumnNames.includes('storageProvider')) {
+      alters.push('ADD COLUMN "storageProvider" varchar');
+    }
+    if (!existingColumnNames.includes('storageKey')) {
+      alters.push('ADD COLUMN "storageKey" varchar');
+    }
+
+    if (alters.length > 0) {
+      const alterSql = `ALTER TABLE "files" ${alters.join(', ')}`;
+      console.log('🔧 Applying schema update for files:', alterSql);
+      await queryRunner.query(alterSql);
+      console.log('✅ Files table columns ensured');
+    } else {
+      console.log('✅ Files table already has required columns');
+    }
+  } catch (error) {
+    console.error('❌ Failed ensuring files table columns:', error);
+    throw error;
   }
 };
