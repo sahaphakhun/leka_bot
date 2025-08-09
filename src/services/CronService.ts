@@ -40,9 +40,17 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
-    // สรุปรายงานรายสัปดาห์ (จันทร์ 09:00)
-    const weeklyReportJob = cron.schedule('0 9 * * 1', async () => {
+    // สรุปรายงานรายสัปดาห์ (ศุกร์ 09:00)
+    const weeklyReportJob = cron.schedule('0 9 * * 5', async () => {
       await this.sendWeeklyReports();
+    }, {
+      scheduled: false,
+      timezone: config.app.defaultTimezone
+    });
+
+    // สรุปรายวัน 08:00 ส่งรายการงานที่ยังไม่เสร็จในแต่ละกลุ่ม
+    const dailySummaryJob = cron.schedule('0 8 * * *', async () => {
+      await this.sendDailyIncompleteTaskSummaries();
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
@@ -68,6 +76,7 @@ export class CronService {
     this.jobs.set('reminderOneDay', reminderOneDayJob);
     this.jobs.set('overdue', overdueJob);
     this.jobs.set('weeklyReport', weeklyReportJob);
+    this.jobs.set('dailySummary', dailySummaryJob);
     this.jobs.set('kpiUpdate', kpiUpdateJob);
     this.jobs.set('recurring', recurringJob);
 
@@ -110,6 +119,7 @@ export class CronService {
               ? task.customReminders
               : config.app.defaultReminders);
 
+        // เตือนล่วงหน้าตามช่วงเวลา (เช่น 1 วันก่อนครบกำหนด)
         for (const interval of reminderIntervals || []) {
           const reminderTime = this.parseReminderInterval(interval);
           const shouldSendAt = dueTime.clone().subtract(reminderTime.amount, reminderTime.unit);
@@ -127,15 +137,20 @@ export class CronService {
           }
         }
 
-        // เตือนซ้ำทุกเช้า 08:00 น. จนกว่างานจะเสร็จ (สถานะ pending/in_progress/overdue)
-        const eightAmToday = now.clone().hour(8).minute(0).second(0).millisecond(0);
-        const isMorningWindow = now.isBetween(eightAmToday, eightAmToday.clone().add(60, 'minutes'));
-        if (isMorningWindow && ['pending', 'in_progress', 'overdue'].includes((task as any).status)) {
-          const alreadySentMorning = task.remindersSent.some(
-            reminder => reminder.type === 'daily_8am' && moment(reminder.sentAt).isSame(now, 'day')
+        // เตือนซ้ำทุกเช้า 08:00 น. จนกว่างานจะเสร็จ: แยกไปรวมรอบเดียวหลังลูป เพื่อลด O(n^2) และคุมหน้าต่างเวลาให้ตรง
+      }
+
+      // เตือนซ้ำทุกเช้า 08:00 น. สำหรับงานที่ยังไม่เสร็จทั้งหมด
+      const eightAmToday = now.clone().hour(8).minute(0).second(0).millisecond(0);
+      const isMorningWindow = now.isBetween(eightAmToday, eightAmToday.clone().add(60, 'minutes'));
+      if (isMorningWindow) {
+        const morningTasks = await this.taskService.getTasksForDailyMorningReminder();
+        for (const t of morningTasks) {
+          const alreadySentMorning = (t as any).remindersSent?.some(
+            (reminder: any) => reminder.type === 'daily_8am' && moment(reminder.sentAt).isSame(now, 'day')
           );
           if (!alreadySentMorning) {
-            await this.sendTaskReminder(task, 'daily_8am');
+            await this.sendTaskReminder(t, 'daily_8am');
           }
         }
       }
@@ -186,16 +201,55 @@ export class CronService {
       const groups = await this.taskService.getAllActiveGroups();
       
       for (const group of groups) {
-        if (group.settings.enableLeaderboard) {
-          const weeklyStats = await this.kpiService.getWeeklyStats(group.id);
-          const leaderboard = await this.kpiService.getGroupLeaderboard(group.id, 'weekly');
-          
-          await this.notificationService.sendWeeklyReport(group, weeklyStats, leaderboard);
+        if (!group.settings.enableLeaderboard) continue;
+        const weeklyStats = await this.kpiService.getWeeklyStats(group.id);
+        const leaderboard = await this.kpiService.getGroupLeaderboard(group.id, 'weekly');
+        await this.notificationService.sendWeeklyReport(group, weeklyStats, leaderboard);
+        // ส่งให้หัวหน้าทีม (admin) ทางส่วนตัวด้วย
+        try {
+          await (this.notificationService as any).sendWeeklyReportToAdmins(group as any, weeklyStats, leaderboard);
+        } catch (err) {
+          console.warn('⚠️ Failed to send weekly report to admins:', group.id, err);
         }
       }
 
     } catch (error) {
       console.error('❌ Error sending weekly reports:', error);
+    }
+  }
+
+  /** ส่งสรุปรายวัน: งานที่ยังไม่เสร็จในแต่ละกลุ่ม เวลา 08:00 น. */
+  private async sendDailyIncompleteTaskSummaries(): Promise<void> {
+    try {
+      console.log('🗒️ Sending daily incomplete task summaries...');
+
+      const groups = await this.taskService.getAllActiveGroups();
+      for (const group of groups) {
+        // ดึงงานค้างของกลุ่มนี้
+        const tasks = await this.taskService.getIncompleteTasksOfGroup(group.lineGroupId);
+        if (tasks.length === 0) continue;
+
+        // จัดรูปแบบข้อความ
+        const tz = group.timezone || config.app.defaultTimezone;
+        const header = `🗒️ สรุปงานค้างประจำวัน (${moment().tz(tz).format('DD/MM/YYYY')})`;
+        const lines = tasks.map((t, idx) => {
+          const due = moment(t.dueTime).tz(tz).format('DD/MM HH:mm');
+          const assignees = (t as any).assignedUsers?.map((u: any) => `@${u.displayName}`).join(' ') || '-';
+          const statusEmoji = t.status === 'overdue' ? '⚠️' : t.status === 'in_progress' ? '⏳' : '📝';
+          return `${idx + 1}. ${statusEmoji} ${t.title} (กำหนด: ${due}) ${assignees}`;
+        });
+
+        const message = header + "\n\n" + lines.join("\n");
+
+        // ส่งเข้า LINE group
+        try {
+          await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, message);
+        } catch (err) {
+          console.warn('⚠️ Failed to send daily summary to group:', group.lineGroupId, err);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sending daily incomplete task summaries:', error);
     }
   }
 

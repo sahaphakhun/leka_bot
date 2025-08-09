@@ -217,6 +217,26 @@ export class TaskService {
     }
   }
 
+  /** ลบงาน พร้อมลบ Event ใน Google Calendar ถ้ามี */
+  public async deleteTask(taskId: string): Promise<void> {
+    try {
+      const task = await this.taskRepository.findOne({ where: { id: taskId } });
+      if (!task) return;
+
+      // ลบจาก Google Calendar ถ้ามี event
+      try {
+        await this.googleService.removeTaskFromCalendar(task as any);
+      } catch (error) {
+        console.warn('⚠️ Failed to remove task from Google Calendar:', error);
+      }
+
+      await this.taskRepository.delete({ id: taskId });
+    } catch (error) {
+      console.error('❌ Error deleting task:', error);
+      throw error;
+    }
+  }
+
   /**
    * อัปเดตสถานะงาน
    */
@@ -537,6 +557,23 @@ export class TaskService {
   }
 
   /**
+   * ดึงงานทั้งหมดที่ยังไม่เสร็จ เพื่อใช้เตือนซ้ำทุกเช้า (08:00)
+   * รวมสถานะ: pending, in_progress, overdue
+   */
+  public async getTasksForDailyMorningReminder(): Promise<Task[]> {
+    try {
+      return await this.taskRepository.createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue'] })
+        .getMany();
+    } catch (error) {
+      console.error('❌ Error getting tasks for daily morning reminder:', error);
+      throw error;
+    }
+  }
+
+  /**
    * ดึงงานที่เกินกำหนด
    */
   public async getOverdueTasks(): Promise<Task[]> {
@@ -574,6 +611,27 @@ export class TaskService {
 
     } catch (error) {
       console.error('❌ Error getting active tasks:', error);
+      throw error;
+    }
+  }
+
+  /** ดึงงานที่ยังไม่เสร็จของกลุ่ม (pending, in_progress, overdue) โดยระบุ LINE Group ID */
+  public async getIncompleteTasksOfGroup(lineGroupId: string): Promise<Task[]> {
+    try {
+      // หา internal group UUID จาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId });
+      if (!group) {
+        throw new Error(`Group not found for LINE ID: ${lineGroupId}`);
+      }
+      return await this.taskRepository.createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('task.groupId = :gid', { gid: group.id })
+        .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue'] })
+        .orderBy('task.dueTime', 'ASC')
+        .getMany();
+    } catch (error) {
+      console.error('❌ Error getting incomplete tasks of group:', error);
       throw error;
     }
   }

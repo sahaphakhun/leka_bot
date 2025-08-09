@@ -67,7 +67,8 @@ export class GoogleService {
         return;
       }
 
-      const group = await this.userService.findGroupByLineId(task.groupId);
+      // task.groupId เป็น internal UUID ของกลุ่ม
+      const group = await this.userService.findGroupById(task.groupId);
       if (!group?.settings.googleCalendarId) {
         console.warn('⚠️ Group has no calendar configured');
         return;
@@ -94,7 +95,8 @@ export class GoogleService {
         return;
       }
 
-      const group = await this.userService.findGroupByLineId(task.groupId);
+      // task.groupId เป็น internal UUID ของกลุ่ม
+      const group = await this.userService.findGroupById(task.groupId);
       if (!group?.settings.googleCalendarId) {
         return;
       }

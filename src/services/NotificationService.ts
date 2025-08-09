@@ -230,6 +230,50 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
     }
   }
 
+  /** ส่งรายงานรายสัปดาห์ให้ผู้ดูแลกลุ่ม (หัวหน้าทีม) แบบข้อความส่วนตัว */
+  public async sendWeeklyReportToAdmins(
+    group: Group,
+    stats: any,
+    leaderboard: Leaderboard[]
+  ): Promise<void> {
+    try {
+      // ดึงสมาชิกกลุ่มเพื่อหา admin
+      const members = await this.userService.getGroupMembers(group.lineGroupId);
+      const admins = members.filter(m => m.role === 'admin');
+      if (admins.length === 0) return;
+
+      const weekStart = moment().startOf('week').format('DD/MM');
+      const weekEnd = moment().endOf('week').format('DD/MM');
+
+      let message = `📊 รายงานประจำสัปดาห์ (${weekStart} - ${weekEnd})\n\n` +
+        `👥 กลุ่ม: ${group.name}\n\n` +
+        `📈 สถิติกลุ่ม\n` +
+        `✅ งานที่เสร็จ: ${stats.completedTasks}\n` +
+        `⏳ งานค้าง: ${stats.pendingTasks}\n` +
+        `⚠️ งานเกินกำหนด: ${stats.overdueTasks}\n\n` +
+        `🏆 อันดับผู้ทำงาน (Top 5)\n`;
+
+      leaderboard.slice(0, 5).forEach((user, index) => {
+        const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
+        const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
+        message += `${medal} ${user.displayName} - ${user.weeklyPoints} คะแนน ${trend}\n`;
+      });
+
+      message += `\n📊 ดูรายงานฉบับเต็มที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`;
+
+      for (const admin of admins) {
+        try {
+          await this.lineService.pushMessage(admin.lineUserId, message);
+        } catch (err) {
+          console.warn('⚠️ Failed to send weekly report to admin:', admin.displayName, err);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sending weekly report to admins:', error);
+      throw error;
+    }
+  }
+
   /**
    * ส่งการแจ้งเตือนทั่วไป
    */

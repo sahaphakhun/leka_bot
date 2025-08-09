@@ -119,6 +119,16 @@ export class UserService {
     }
   }
 
+  /** ค้นหากลุ่มจาก internal Group ID (UUID) */
+  public async findGroupById(id: string): Promise<Group | null> {
+    try {
+      return await this.groupRepository.findOneBy({ id });
+    } catch (error) {
+      console.error('❌ Error finding group by ID:', error);
+      throw error;
+    }
+  }
+
   /**
    * สร้างกลุ่มใหม่
    */
