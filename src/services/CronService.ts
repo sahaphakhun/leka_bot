@@ -271,13 +271,13 @@ export class CronService {
         const late: any[] = [];
         const pendingReview: any[] = [];
 
-        const now = moment();
+        const now = moment().tz(config.app.defaultTimezone);
         for (const t of tasks as any[]) {
           const wf = (t.workflow || {}) as any;
           const hasSubmission = (wf.submissions && wf.submissions.length > 0);
           if (!hasSubmission) notSubmitted.push(t);
 
-          if (moment(t.dueTime).isBefore(now) && t.status !== 'completed') {
+          if (moment(t.dueTime).tz(config.app.defaultTimezone).isBefore(now) && t.status !== 'completed') {
             late.push(t);
           }
 
@@ -288,7 +288,7 @@ export class CronService {
         }
 
         const formatTask = (x: any) => {
-          const due = moment(x.dueTime).format('DD/MM HH:mm');
+          const due = moment(x.dueTime).tz(config.app.defaultTimezone).format('DD/MM HH:mm');
           const assignees = (x.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
           return `• ${x.title} (กำหนด ${due}) ${assignees}`;
         };

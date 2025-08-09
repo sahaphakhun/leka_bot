@@ -68,12 +68,12 @@ export class NotificationService {
 
       if (!group || assignees.length === 0) return;
 
-      const overdueHours = moment().diff(moment(task.dueTime), 'hours');
+      const overdueHours = moment().tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
       
       const message = `⚠️ งานเกินกำหนด!
 
 📋 **${task.title}**
-📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')}
+📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
 ⏰ เกินมา: ${overdueHours} ชั่วโมง
 
 👥 ผู้รับผิดชอบ: ${assignees.map((u: any) => `@${u.displayName}`).join(' ')}
@@ -111,7 +111,7 @@ export class NotificationService {
 
       if (!group || assignees.length === 0) return;
 
-      const dueDate = moment(task.dueTime).format('DD/MM/YYYY HH:mm');
+      const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
       
       const message = `📋 งานใหม่!
 
@@ -175,8 +175,8 @@ ${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => 
 
 📋 **${task.title}**
 👤 ปิดงานโดย: ${completedBy.displayName}
-📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')}
-🎯 เสร็จเมื่อ: ${moment(task.completedAt).format('DD/MM/YYYY HH:mm')}
+📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
+🎯 เสร็จเมื่อ: ${moment(task.completedAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
 
 ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
 
@@ -203,7 +203,7 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
       if (Array.isArray(changes.tags)) changedFields.push(`แท็ก`);
       if (changes.status) changedFields.push(`สถานะ`);
 
-      const dueText = task.dueTime ? moment(task.dueTime).format('DD/MM/YYYY HH:mm') : '-';
+      const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
       const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
       const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
 
@@ -233,7 +233,7 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
       const group = task.group;
       if (!group) return;
 
-      const dueText = task.dueTime ? moment(task.dueTime).format('DD/MM/YYYY HH:mm') : '-';
+      const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
       const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
       const message = `🗑️ ลบงานแล้ว
 
@@ -260,7 +260,7 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
       if (!group) return;
 
       const linksText = (links && links.length > 0) ? `\n🔗 ลิงก์: \n${links.map(l => `• ${l}`).join('\n')}` : '';
-      const dueText = task.dueTime ? moment(task.dueTime).format('DD/MM/YYYY HH:mm') : '-';
+      const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
       const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
 
       const message = `📎 มีการส่งงาน
@@ -289,8 +289,8 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
       if (!group) return;
 
       const dueText = task.workflow?.review?.reviewDueAt
-        ? moment(task.workflow.review.reviewDueAt).format('DD/MM/YYYY HH:mm')
-        : moment(task.dueTime).format('DD/MM/YYYY HH:mm');
+        ? moment(task.workflow.review.reviewDueAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')
+        : moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
 
       const linksText = (details.links && details.links.length > 0)
         ? `\n🔗 ลิงก์: \n${details.links.map((l: string) => `• ${l}`).join('\n')}`
@@ -301,7 +301,7 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
 📋 ${task.title}
 ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDisplayName}\n` : ''}${typeof details.fileCount === 'number' ? `📎 ไฟล์: ${details.fileCount} รายการ\n` : ''}📅 กำหนดตรวจภายใน: ${dueText}${linksText}
 
-ตอบในแชทกลุ่ม: /approve ${task.id.substring(0, 8)} หรือ /reject ${task.id.substring(0, 8)} <วันเวลาใหม่> [เหตุผล]`;
+ตอบในแชทกลุ่ม: /approve ${task.id.substring(0, 8)} หรือ /reject ${task.id.substring(0, 8)} [เหตุผล]`;
 
       // แจ้งแบบส่วนตัวไปยังผู้ตรวจ
       await this.lineService.pushMessage(reviewerLineUserId, messageToReviewer);
@@ -349,7 +349,7 @@ ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDi
                 type: 'button',
                 style: 'secondary',
                 height: 'sm',
-                action: { type: 'message', label: 'ไม่ผ่าน', text: `/reject ${shortId} 2d [โปรดใส่เหตุผล]` }
+                action: { type: 'message', label: 'ไม่ผ่าน (+1 วัน)', text: `/reject ${shortId} [โปรดใส่เหตุผล]` }
               },
               {
                 type: 'button',
@@ -378,7 +378,7 @@ ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDi
       const message = `❌ งานถูกตีกลับเพื่อแก้ไข
 
 📋 ${task.title}
-${reviewerDisplayName ? `👤 ผู้ตรวจ: ${reviewerDisplayName}\n` : ''}📅 กำหนดส่งใหม่: ${moment(newDueTime).format('DD/MM/YYYY HH:mm')}
+${reviewerDisplayName ? `👤 ผู้ตรวจ: ${reviewerDisplayName}\n` : ''}📅 กำหนดส่งใหม่: ${moment(newDueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
 
 โปรดแก้ไขและส่งใหม่ โดยพิมพ์ /submit ${task.id.substring(0, 8)} [หมายเหตุ] หลังแนบไฟล์/ลิงก์`;
 
@@ -400,8 +400,8 @@ ${reviewerDisplayName ? `👤 ผู้ตรวจ: ${reviewerDisplayName}\n` :
     try {
       if (!group.settings.enableLeaderboard) return;
 
-      const weekStart = moment().startOf('week').format('DD/MM');
-      const weekEnd = moment().endOf('week').format('DD/MM');
+      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
+      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
 
       // จัดรูปแบบอันดับทุกคน พร้อมเหรียญ 1-3
       const medalFor = (rank: number) => {
@@ -447,8 +447,8 @@ ${reviewerDisplayName ? `👤 ผู้ตรวจ: ${reviewerDisplayName}\n` :
       const admins = members.filter(m => m.role === 'admin');
       if (admins.length === 0) return;
 
-      const weekStart = moment().startOf('week').format('DD/MM');
-      const weekEnd = moment().endOf('week').format('DD/MM');
+      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
+      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
 
       let message = `📊 รายงานประจำสัปดาห์ (${weekStart} - ${weekEnd})\n\n` +
         `👥 กลุ่ม: ${group.name}\n\n` +
@@ -582,8 +582,8 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
    * ได้รับอิโมจิสถานะการทำงาน
    */
   private getCompletionStatusEmoji(task: any): string {
-    const dueTime = moment(task.dueTime);
-    const completedTime = moment(task.completedAt);
+    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone);
+    const completedTime = moment(task.completedAt).tz(config.app.defaultTimezone);
     const diff = completedTime.diff(dueTime, 'hours');
 
     if (diff <= -24) return '🎯'; // เสร็จก่อนกำหนด
@@ -595,8 +595,8 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
    * ได้รับข้อความสถานะการทำงาน
    */
   private getCompletionStatusText(task: any): string {
-    const dueTime = moment(task.dueTime);
-    const completedTime = moment(task.completedAt);
+    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone);
+    const completedTime = moment(task.completedAt).tz(config.app.defaultTimezone);
     const diff = completedTime.diff(dueTime, 'hours');
 
     if (diff <= -24) return 'เสร็จก่อนกำหนด - ยอดเยี่ยม! 🎉';

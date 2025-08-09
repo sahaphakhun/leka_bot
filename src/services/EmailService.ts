@@ -181,7 +181,7 @@ export class EmailService {
    * สร้างเทมเพลตอีเมลเตือนงาน
    */
   private createTaskReminderTemplate(user: User, task: any, reminderType: string): EmailTemplate {
-    const dueTime = moment(task.dueTime).format('DD/MM/YYYY HH:mm');
+    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
     const groupId = task.group?.lineGroupId || task.groupId;
     const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
     
@@ -288,7 +288,7 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
    * สร้างเทมเพลตอีเมลงานใหม่
    */
   private createTaskCreatedTemplate(user: User, task: any): EmailTemplate {
-    const dueTime = moment(task.dueTime).format('DD/MM/YYYY HH:mm');
+    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
     const groupId = task.group?.lineGroupId || task.groupId;
     const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
     const creatorName = task.createdByUser?.displayName || 'ไม่ทราบ';
@@ -376,7 +376,7 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
    * สร้างเทมเพลตอีเมลงานเกินกำหนด
    */
   private createOverdueTemplate(user: User, task: any, overdueHours: number): EmailTemplate {
-    const dueTime = moment(task.dueTime).format('DD/MM/YYYY HH:mm');
+    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
     const groupId = task.group?.lineGroupId || task.groupId;
     const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
 
@@ -451,8 +451,8 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
    * สร้างเทมเพลตรายงานรายสัปดาห์
    */
   private createWeeklyReportTemplate(user: User, groupName: string, groupId: string, stats: any, tasks: any[]): EmailTemplate {
-    const weekStart = moment().startOf('week').format('DD/MM');
-    const weekEnd = moment().endOf('week').format('DD/MM');
+    const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
+    const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
     const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
 
     const subject = `📊 รายงานประจำสัปดาห์ - ${groupName} (${weekStart}-${weekEnd})`;
@@ -507,7 +507,7 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
             ${tasks.slice(0, 5).map(task => `
                 <div class="task-item">
                     <strong>${task.title}</strong><br>
-                    กำหนดส่ง: ${moment(task.dueTime).format('DD/MM HH:mm')}
+                    กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM HH:mm')}
                 </div>
             `).join('')}
         </div>

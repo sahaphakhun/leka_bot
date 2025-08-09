@@ -119,7 +119,7 @@ ${dashboardUrl}
 
 ✅ ตรวจงาน
 • /approve <รหัสงาน|ชื่อ> – อนุมัติและปิดงาน
-• /reject <รหัสงาน|ชื่อ> <กำหนดส่งใหม่> [ความเห็น] – ตีกลับงาน + วันส่งใหม่
+• /reject <รหัสงาน|ชื่อ> [ความเห็น] – ตีกลับงาน (เลื่อนกำหนด +1 วันอัตโนมัติ)
 
 📁 ไฟล์
 • /files list – ดูไฟล์ล่าสุด
@@ -281,15 +281,15 @@ ${dashboardUrl}
   /** ผู้ตรวจตีกลับงาน + กำหนดวันใหม่ */
   private async handleRejectCommand(command: BotCommand): Promise<string> {
     try {
-      if (command.args.length < 2) {
-        return 'รูปแบบไม่ถูกต้อง\nใช้: /reject <รหัสงานหรือชื่องาน> <กำหนดส่งใหม่ เช่น 25/12 14:00> [ความเห็น]';
+      if (command.args.length < 1) {
+        return 'รูปแบบไม่ถูกต้อง\nใช้: /reject <รหัสงานหรือชื่องาน> [ความเห็น]';
       }
-      const [taskQuery, ...rest] = command.args;
-      const newDueText = rest.shift();
-      const comment = rest.join(' ');
+      const [taskQuery, ...commentParts] = command.args;
+      const comment = commentParts.join(' ');
 
-      const newDue = this.parseDateTime(newDueText!);
-      if (!newDue) return 'รูปแบบวันเวลาไม่ถูกต้อง เช่น 25/12 14:00';
+      // กฎใหม่: ตีกลับ = เลื่อนกำหนดไป 1 วันจากเวลาปัจจุบัน (เขตเวลาไทย)
+      const tz = config.app.defaultTimezone;
+      const newDue = moment().tz(tz).add(1, 'day').toDate();
 
       const { tasks } = await this.taskService.searchTasks(command.groupId, taskQuery, { limit: 1 });
       if (tasks.length === 0) return `ไม่พบนงาน "${taskQuery}"`;
@@ -302,7 +302,7 @@ ${dashboardUrl}
         ...( { reviewAction: 'revise', reviewerUserId: command.userId, reviewerComment: comment } as any )
       });
 
-      return `❌ ตีกลับงาน "${task.title}" และกำหนดวันส่งใหม่เป็น ${moment(newDue).format('DD/MM/YYYY HH:mm')} แล้ว`;
+      return `❌ ตีกลับงาน "${task.title}" และกำหนดวันส่งใหม่เป็น ${moment(newDue).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')} แล้ว`;
     } catch (error) {
       console.error('❌ reject error:', error);
       return 'เกิดข้อผิดพลาดในการตีกลับงาน';
@@ -324,14 +324,14 @@ ${dashboardUrl}
     switch (filter) {
       case 'today':
       case 'วันนี้':
-        startDate = moment().startOf('day').toDate();
-        endDate = moment().endOf('day').toDate();
+        startDate = moment().tz(config.app.defaultTimezone).startOf('day').toDate();
+        endDate = moment().tz(config.app.defaultTimezone).endOf('day').toDate();
         break;
       
       case 'week':
       case 'สัปดาห์':
-        startDate = moment().startOf('week').toDate();
-        endDate = moment().endOf('week').toDate();
+        startDate = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
+        endDate = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
         break;
       
       case 'pending':
@@ -354,7 +354,7 @@ ${dashboardUrl}
     let response = `📋 รายการงาน (${filter})\n\n`;
     
     tasks.forEach((task, index) => {
-      const dueDate = moment(task.dueTime).format('DD/MM HH:mm');
+      const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM HH:mm');
       const statusIcon = {
         pending: '⏳',
         in_progress: '🔄',
@@ -397,7 +397,7 @@ ${dashboardUrl}
     let response = '📋 งานของฉัน\n\n';
     
     tasks.forEach((task, index) => {
-      const dueDate = moment(task.dueTime).format('DD/MM HH:mm');
+      const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM HH:mm');
       const priority = {
         high: '🔥',
         medium: '📋',
@@ -466,7 +466,7 @@ ${dashboardUrl}
 
     try {
       await this.taskService.updateTask(task.id, { dueTime: newDateTime });
-      const newDateStr = moment(newDateTime).format('DD/MM/YYYY HH:mm');
+      const newDateStr = moment(newDateTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
       return `📅 เลื่อนงาน "${task.title}" ไปวันที่ ${newDateStr} แล้วค่ะ`;
     } catch (error) {
       return 'ไม่สามารถเลื่อนงานได้ กรุณาตรวจสอบสิทธิ์';
@@ -681,7 +681,7 @@ ${dashboardUrl}
     let response = '📁 ไฟล์ล่าสุด (10 ไฟล์)\n\n';
     
     files.forEach((file, index) => {
-      const uploadDate = moment(file.uploadedAt).format('DD/MM HH:mm');
+      const uploadDate = moment(file.uploadedAt).tz(config.app.defaultTimezone).format('DD/MM HH:mm');
       const fileSize = this.formatFileSize(file.size);
       
       response += `${index + 1}. 📄 ${file.originalName}
@@ -722,7 +722,7 @@ ${dashboardUrl}
     let response = `🔍 ผลการค้นหา "${query}"\n\n`;
     
     files.forEach((file, index) => {
-      const uploadDate = moment(file.uploadedAt).format('DD/MM HH:mm');
+      const uploadDate = moment(file.uploadedAt).tz(config.app.defaultTimezone).format('DD/MM HH:mm');
       
       response += `${index + 1}. 📄 ${file.originalName}
 📅 ${uploadDate}

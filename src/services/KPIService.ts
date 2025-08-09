@@ -49,12 +49,12 @@ export class KPIService {
       const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
       if (groupByLineId) internalGroupId = groupByLineId.id;
 
-      const now = moment();
+      const now = moment().tz(config.app.defaultTimezone);
       const periodStart = options.startDate
-        ? moment(options.startDate)
+        ? moment(options.startDate).tz(config.app.defaultTimezone)
         : options.period === 'monthly' ? now.clone().startOf('month') : now.clone().startOf('week');
       const periodEnd = options.endDate
-        ? moment(options.endDate)
+        ? moment(options.endDate).tz(config.app.defaultTimezone)
         : options.period === 'monthly' ? now.clone().endOf('month') : now.clone().endOf('week');
 
       // KPI จากการปิดงาน
@@ -110,7 +110,7 @@ export class KPIService {
         if (!hist || hist.length === 0) continue;
         for (const h of hist) {
           if (h.action === 'reject' && h.at) {
-            const at = moment(h.at);
+            const at = moment(h.at).tz(config.app.defaultTimezone);
             if (at.isBetween(periodStart, periodEnd, undefined, '[]')) {
               rejected++;
             }
@@ -140,12 +140,12 @@ export class KPIService {
       const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
       if (groupByLineId) internalGroupId = groupByLineId.id;
 
-      const now = moment();
+      const now = moment().tz(config.app.defaultTimezone);
       const periodStart = options.startDate
-        ? moment(options.startDate)
+        ? moment(options.startDate).tz(config.app.defaultTimezone)
         : options.period === 'monthly' ? now.clone().startOf('month') : now.clone().startOf('week');
       const periodEnd = options.endDate
-        ? moment(options.endDate)
+        ? moment(options.endDate).tz(config.app.defaultTimezone)
         : options.period === 'monthly' ? now.clone().endOf('month') : now.clone().endOf('week');
 
       const rows = await this.kpiRepository
@@ -193,8 +193,8 @@ export class KPIService {
       const eventDate = new Date();
       
       // คำนวณสัปดาห์และเดือน
-      const weekOf = moment(eventDate).startOf('week').toDate();
-      const monthOf = moment(eventDate).startOf('month').toDate();
+      const weekOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('week').toDate();
+      const monthOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('month').toDate();
 
       // บันทึก KPI สำหรับผู้รับผิดชอบทุกคน
       const records: KPIRecord[] = [];
@@ -229,8 +229,8 @@ export class KPIService {
    * คำนวณประเภทการทำงานเสร็จ
    */
   public calculateCompletionType(task: Task | TaskEntity): 'early' | 'ontime' | 'late' | 'overtime' {
-    const dueTime = moment(task.dueTime);
-    const completedTime = moment(task.completedAt);
+    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone);
+    const completedTime = moment(task.completedAt).tz(config.app.defaultTimezone);
     const diffHours = completedTime.diff(dueTime, 'hours');
 
     if (diffHours <= -24) {
@@ -278,11 +278,11 @@ export class KPIService {
       // เพิ่ม date filter ตาม period
       switch (period) {
         case 'weekly':
-          const weekStart = moment().startOf('week').toDate();
+          const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
           queryBuilder = queryBuilder.andWhere('kpi.weekOf = :weekStart', { weekStart });
           break;
         case 'monthly':
-          const monthStart = moment().startOf('month').toDate();
+          const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
           queryBuilder = queryBuilder.andWhere('kpi.monthOf = :monthStart', { monthStart });
           break;
         // 'all' ไม่ต้องกรอง
@@ -347,8 +347,8 @@ export class KPIService {
         internalGroupId = groupByLineId.id;
       }
 
-      const weekStart = moment().startOf('week').toDate();
-      const weekEnd = moment().endOf('week').toDate();
+      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
+      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
 
       // งานทั้งหมดในสัปดาห์
       const totalTasks = await this.taskRepository
@@ -398,7 +398,7 @@ export class KPIService {
       let avgCompletionTime = 0;
       if (completedTasksWithTime.length > 0) {
         const totalTime = completedTasksWithTime.reduce((sum, task) => {
-          const diff = moment(task.completedAt).diff(moment(task.dueTime), 'hours');
+          const diff = moment(task.completedAt).tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
           return sum + Math.abs(diff);
         }, 0);
         avgCompletionTime = totalTime / completedTasksWithTime.length;
@@ -448,11 +448,11 @@ export class KPIService {
       
       switch (period) {
         case 'weekly':
-          const weekStart = moment().startOf('week').toDate();
+          const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
           dateFilter = { weekOf: weekStart };
           break;
         case 'monthly':
-          const monthStart = moment().startOf('month').toDate();
+          const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
           dateFilter = { monthOf: monthStart };
           break;
       }
@@ -537,7 +537,7 @@ export class KPIService {
    */
   public async cleanupOldRecords(daysToKeep: number = 365): Promise<number> {
     try {
-      const cutoffDate = moment().subtract(daysToKeep, 'days').toDate();
+      const cutoffDate = moment().tz(config.app.defaultTimezone).subtract(daysToKeep, 'days').toDate();
       
       const result = await this.kpiRepository.delete({
         eventDate: {
@@ -575,13 +575,13 @@ export class KPIService {
         .getMany();
 
       return records.map(record => ({
-        วันที่: moment(record.eventDate).format('DD/MM/YYYY'),
+        วันที่: moment(record.eventDate).tz(config.app.defaultTimezone).format('DD/MM/YYYY'),
         ผู้ใช้: record.user.displayName,
         งาน: record.task.title,
         ประเภท: record.type,
         คะแนน: record.points,
-        สัปดาห์: moment(record.weekOf).format('DD/MM/YYYY'),
-        เดือน: moment(record.monthOf).format('MM/YYYY')
+        สัปดาห์: moment(record.weekOf).tz(config.app.defaultTimezone).format('DD/MM/YYYY'),
+        เดือน: moment(record.monthOf).tz(config.app.defaultTimezone).format('MM/YYYY')
       }));
 
     } catch (error) {
@@ -605,8 +605,8 @@ export class KPIService {
 
       // หาคะแนนปัจจุบัน
       const currentPeriod = period === 'weekly' 
-        ? moment().startOf('week').toDate()
-        : moment().startOf('month').toDate();
+        ? moment().tz(config.app.defaultTimezone).startOf('week').toDate()
+        : moment().tz(config.app.defaultTimezone).startOf('month').toDate();
 
       const currentPoints = await this.kpiRepository
         .createQueryBuilder('kpi')
@@ -618,8 +618,8 @@ export class KPIService {
 
       // หาคะแนนช่วงก่อน
       const previousPeriod = period === 'weekly'
-        ? moment().subtract(1, 'week').startOf('week').toDate()
-        : moment().subtract(1, 'month').startOf('month').toDate();
+        ? moment().tz(config.app.defaultTimezone).subtract(1, 'week').startOf('week').toDate()
+        : moment().tz(config.app.defaultTimezone).subtract(1, 'month').startOf('month').toDate();
 
       const previousPoints = await this.kpiRepository
         .createQueryBuilder('kpi')

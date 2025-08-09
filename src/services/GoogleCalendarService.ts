@@ -59,7 +59,7 @@ export class GoogleCalendarService {
   /**
    * สร้าง Calendar ใหม่สำหรับกลุ่ม
    */
-  public async createGroupCalendar(groupName: string, timezone: string = 'Asia/Bangkok'): Promise<string> {
+  public async createGroupCalendar(groupName: string, timezone: string = config.app.defaultTimezone): Promise<string> {
     try {
       const calendar = {
         summary: `เลขาบอท - ${groupName}`,
@@ -94,11 +94,11 @@ export class GoogleCalendarService {
           dateTime: task.startTime 
             ? moment(task.startTime).toISOString()
             : moment(task.dueTime).subtract(1, 'hour').toISOString(),
-          timeZone: 'Asia/Bangkok'
+          timeZone: config.app.defaultTimezone
         },
         end: {
           dateTime: moment(task.dueTime).toISOString(),
-          timeZone: 'Asia/Bangkok'
+          timeZone: config.app.defaultTimezone
         },
         attendees: this.getTaskAttendees(task),
         reminders: {
@@ -146,14 +146,14 @@ export class GoogleCalendarService {
       if (updates.dueTime) {
         event.end = {
           dateTime: moment(updates.dueTime).toISOString(),
-          timeZone: 'Asia/Bangkok'
+          timeZone: config.app.defaultTimezone
         };
       }
 
       if (updates.startTime) {
         event.start = {
           dateTime: moment(updates.startTime).toISOString(),
-          timeZone: 'Asia/Bangkok'
+          timeZone: config.app.defaultTimezone
         };
       }
 
