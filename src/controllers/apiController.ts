@@ -46,20 +46,34 @@ class ApiController {
         startDate, 
         endDate, 
         page = 1, 
-        limit = 20 
+        limit = 20,
+        search
       } = req.query;
 
-      const options = {
-        status: status as any,
-        assigneeId: assignee as string,
-        tags: tags ? (tags as string).split(',') : undefined,
-        startDate: startDate ? new Date(startDate as string) : undefined,
-        endDate: endDate ? new Date(endDate as string) : undefined,
-        limit: parseInt(limit as string),
-        offset: (parseInt(page as string) - 1) * parseInt(limit as string)
-      };
-
-      const { tasks, total } = await this.taskService.getGroupTasks(groupId, options);
+      // ถ้ามี search ให้ใช้ service สำหรับค้นหา แทนที่จะกรองธรรมดา
+      let tasks: any[] = [];
+      let total = 0;
+      if (typeof search === 'string' && search.trim().length > 0) {
+        const result = await this.taskService.searchTasks(groupId, search as string, {
+          limit: parseInt(limit as string),
+          offset: (parseInt(page as string) - 1) * parseInt(limit as string)
+        });
+        tasks = result.tasks;
+        total = result.total;
+      } else {
+        const options = {
+          status: status as any,
+          assigneeId: assignee as string,
+          tags: tags ? (tags as string).split(',') : undefined,
+          startDate: startDate ? new Date(startDate as string) : undefined,
+          endDate: endDate ? new Date(endDate as string) : undefined,
+          limit: parseInt(limit as string),
+          offset: (parseInt(page as string) - 1) * parseInt(limit as string)
+        };
+        const result = await this.taskService.getGroupTasks(groupId, options);
+        tasks = result.tasks;
+        total = result.total;
+      }
 
       const response: PaginatedResponse<any> = {
         success: true,
@@ -820,6 +834,30 @@ class ApiController {
       });
     }
   }
+
+  /** ดึงรายละเอียดงานเดี่ยว (รวม relations) */
+  public async getTaskById(req: Request, res: Response): Promise<void> {
+    try {
+      const { taskId, groupId } = req.params as any;
+      const task = await this.taskService.getTaskByIdWithRelations(taskId);
+      if (!task) {
+        res.status(404).json({ success: false, error: 'Task not found' });
+        return;
+      }
+      // ถ้ามี groupId ใน path ให้ตรวจว่างานอยู่ในกลุ่มนั้นจริง
+      if (groupId) {
+        const isInGroup = task.group?.lineGroupId === groupId || task.groupId === groupId;
+        if (!isInGroup) {
+          res.status(403).json({ success: false, error: 'Access denied to task' });
+          return;
+        }
+      }
+      res.json({ success: true, data: task });
+    } catch (error) {
+      logger.error('❌ Error getting task by id:', error);
+      res.status(500).json({ success: false, error: 'Failed to get task' });
+    }
+  }
 }
 
 const apiController = new ApiController();
@@ -832,6 +870,7 @@ apiRouter.get('/groups/:groupId/members', apiController.getGroupMembers.bind(api
 apiRouter.get('/groups/:groupId/stats', apiController.getGroupStats.bind(apiController));
 apiRouter.get('/groups/:groupId/tasks', apiController.getTasks.bind(apiController));
 apiRouter.post('/groups/:groupId/tasks', apiController.createTask.bind(apiController));
+apiRouter.get('/groups/:groupId/tasks/:taskId', apiController.getTaskById.bind(apiController));
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
@@ -845,6 +884,7 @@ apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(
 // Task-specific routes
 apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));
 apiRouter.post('/tasks/:taskId/complete', apiController.completeTask.bind(apiController));
+apiRouter.get('/tasks/:taskId', apiController.getTaskById.bind(apiController));
 
 // File-specific routes  
 apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));

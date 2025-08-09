@@ -582,13 +582,20 @@ export class TaskService {
       }
 
       if (options.assigneeId) {
-        // แปลง LINE User ID เป็น internal UUID
-        const assignee = await this.userRepository.findOneBy({ lineUserId: options.assigneeId });
-        if (assignee) {
-          queryBuilder.andWhere('assignee.id = :assigneeId', { assigneeId: assignee.id });
+        // รองรับทั้ง LINE User ID และ DB UUID
+        let internalAssigneeId: string | null = null;
+        if (options.assigneeId.startsWith('U')) {
+          const assignee = await this.userRepository.findOneBy({ lineUserId: options.assigneeId });
+          internalAssigneeId = assignee ? assignee.id : null;
         } else {
-          // ถ้าไม่เจอ user จะไม่มี tasks ใดๆ
-          queryBuilder.andWhere('1 = 0'); // Force empty result
+          // ตรวจว่าเป็น UUID หรือไม่ ถ้าใช่ ใช้ตรงๆ
+          const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(options.assigneeId);
+          internalAssigneeId = isUuid ? options.assigneeId : null;
+        }
+        if (internalAssigneeId) {
+          queryBuilder.andWhere('assignee.id = :assigneeId', { assigneeId: internalAssigneeId });
+        } else {
+          queryBuilder.andWhere('1 = 0'); // ไม่มีผลลัพธ์
         }
       }
 
@@ -798,6 +805,20 @@ export class TaskService {
 
     } catch (error) {
       console.error('❌ Error getting calendar events:', error);
+      throw error;
+    }
+  }
+
+  /** ดึงรายละเอียดงานรวม relations สำหรับแสดงผล */
+  public async getTaskByIdWithRelations(taskId: string): Promise<Task | null> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'attachedFiles', 'createdByUser', 'group']
+      });
+      return task;
+    } catch (error) {
+      console.error('❌ Error getting task by id:', error);
       throw error;
     }
   }

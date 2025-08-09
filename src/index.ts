@@ -6,7 +6,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
-import { config, validateConfig } from './utils/config';
+import { config, validateConfig, features } from './utils/config';
 import { initializeDatabase, closeDatabase } from './utils/database';
 import { webhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
@@ -146,9 +146,13 @@ class Server {
       await initializeDatabase();
       console.log('✅ Database connected');
 
-      // Initialize LINE service
-      await this.lineService.initialize();
-      console.log('✅ LINE service initialized');
+      // Initialize LINE service (only when LINE env is available)
+      if (features.lineEnabled) {
+        await this.lineService.initialize();
+        console.log('✅ LINE service initialized');
+      } else {
+        console.log('⚠️ LINE env missing; running in Dashboard-only mode');
+      }
 
       // Start cron jobs
       this.cronService.start();

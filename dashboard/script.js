@@ -11,6 +11,11 @@ class Dashboard {
     this.initialAction = this.getActionFromUrl();
     this.apiBase = window.location.origin;
     this.isLoading = false;
+    // Persisted states
+    const now = new Date();
+    this.currentMonth = now.getMonth() + 1;
+    this.currentYear = now.getFullYear();
+    this.taskFilters = {};
     
     this.init();
   }
@@ -49,6 +54,19 @@ class Dashboard {
       btn.addEventListener('click', (e) => {
         const mode = e.target.dataset.viewMode;
         this.switchCalendarMode(mode);
+      });
+    });
+
+    // Section links (e.g., "ดูทั้งหมด")
+    document.querySelectorAll('.section-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const href = e.currentTarget.getAttribute('href') || '';
+        if (href.includes('#tasks')) this.switchView('tasks');
+        else if (href.includes('#leaderboard')) this.switchView('leaderboard');
+        else if (href.includes('#calendar')) this.switchView('calendar');
+        else if (href.includes('#files')) this.switchView('files');
+        else this.switchView('dashboard');
       });
     });
 
@@ -144,6 +162,16 @@ class Dashboard {
     // Refresh
     document.getElementById('refreshBtn')?.addEventListener('click', () => {
       this.refreshCurrentView();
+    });
+
+    // Export button on overview
+    document.getElementById('exportBtn')?.addEventListener('click', () => {
+      this.exportCurrentWeekCsv();
+    });
+
+    // Notification button placeholder
+    document.getElementById('notificationBtn')?.addEventListener('click', () => {
+      this.showToast('ฟีเจอร์การแจ้งเตือนกำลังพัฒนา', 'info');
     });
 
     // Calendar navigation
@@ -349,7 +377,7 @@ class Dashboard {
   async loadStats() {
     try {
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/stats`);
-      this.updateStats(response.data);
+      this.updateStats(response.data?.weekly || {});
     } catch (error) {
       console.error('Failed to load stats:', error);
     }
@@ -386,6 +414,10 @@ class Dashboard {
 
   async openUploadPicker() {
     try {
+      if (!this.currentUserId) {
+        this.showToast('กรุณาเปิดลิงก์ Dashboard ผ่าน @เลขา /setup เพื่อยืนยันตัวตน', 'error');
+        return;
+      }
       const input = document.createElement('input');
       input.type = 'file';
       input.multiple = true;
@@ -516,8 +548,7 @@ class Dashboard {
         this.loadMiniLeaderboard();
         break;
       case 'calendar':
-        const now = new Date();
-        this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+        this.loadCalendarEvents(this.currentMonth, this.currentYear);
         break;
       case 'tasks':
         this.loadTasks();
@@ -624,6 +655,10 @@ class Dashboard {
     const runBtn = document.getElementById('runReportBtn');
     const exportExcelBtn = document.getElementById('exportExcelBtn');
     const exportPdfBtn = document.getElementById('exportPdfBtn');
+    if (exportPdfBtn) {
+      // ซ่อนปุ่ม PDF ชั่วคราว เพราะยังไม่มีการสร้าง PDF จริง
+      exportPdfBtn.style.display = 'none';
+    }
 
     // toggle custom period inputs
     const toggleCustom = () => {
@@ -1022,20 +1057,20 @@ class Dashboard {
     
     if (select) {
       select.innerHTML = members.map(member => 
-        `<option value="${member.id}">${member.displayName}</option>`
+        `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`
       ).join('');
     }
     
     if (filter) {
       filter.innerHTML = '<option value="">ผู้รับผิดชอบทั้งหมด</option>' + 
         members.map(member => 
-          `<option value="${member.id}">${member.displayName}</option>`
+          `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`
         ).join('');
     }
 
     if (reviewerSelect) {
       reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>' +
-        members.map(member => `<option value="${member.id}">${member.displayName}</option>`).join('');
+        members.map(member => `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`).join('');
 
       // ตั้งค่า default ผู้ตรวจงาน = ผู้สร้างงาน (current user)
       if (this.currentUserId) {
@@ -1084,11 +1119,7 @@ class Dashboard {
   }
 
   openTaskModal(taskId) {
-    // TODO: Load task details and show in modal
-    console.log('Opening task modal for:', taskId);
-    // เปิด submit modal พร้อมเลือกงานเป็นค่าเริ่มต้น
-    this.populateSubmitTaskSelect(taskId);
-    document.getElementById('submitTaskModal').classList.add('active');
+    this.loadTaskDetail(taskId);
   }
 
   closeModal(modalId) {
@@ -1100,6 +1131,10 @@ class Dashboard {
   // ==================== 
 
   async handleAddTask() {
+    if (!this.currentUserId) {
+      this.showToast('กรุณาเปิดลิงก์ Dashboard ผ่าน @เลขา /setup เพื่อยืนยันตัวตน', 'error');
+      return;
+    }
     const form = document.getElementById('addTaskForm');
     const formData = new FormData(form);
     
@@ -1155,6 +1190,10 @@ class Dashboard {
 
    async handleSubmitTask() {
      try {
+       if (!this.currentUserId) {
+         this.showToast('กรุณาเปิดลิงก์ Dashboard ผ่าน @เลขา /setup เพื่อยืนยันตัวตน', 'error');
+         return;
+       }
        const select = document.getElementById('submitTaskId');
        const taskId = select.value;
        const comment = document.getElementById('submitComment').value;
@@ -1279,13 +1318,30 @@ class Dashboard {
   }
 
   navigateCalendar(direction) {
-    // TODO: Implement calendar navigation
-    console.log('Navigate calendar:', direction);
+    try {
+      let m = this.currentMonth + direction;
+      let y = this.currentYear;
+      if (m < 1) { m = 12; y -= 1; }
+      if (m > 12) { m = 1; y += 1; }
+      this.currentMonth = m;
+      this.currentYear = y;
+      this.loadCalendarEvents(m, y);
+    } catch (e) {
+      console.error('navigateCalendar error:', e);
+    }
   }
 
   onCalendarDayClick(year, month, day) {
-    console.log('Calendar day clicked:', year, month, day);
-    // TODO: Show day details or create task
+    try {
+      this.openAddTaskModal();
+      const dt = new Date(year, month - 1, day, 9, 0, 0);
+      const pad = (n) => `${n}`.padStart(2, '0');
+      const val = `${dt.getFullYear()}-${pad(dt.getMonth()+1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
+      const dueInput = document.getElementById('taskDueDate');
+      if (dueInput) dueInput.value = val;
+    } catch (e) {
+      console.error('onCalendarDayClick error:', e);
+    }
   }
 
   filterTasks() {
@@ -1298,7 +1354,8 @@ class Dashboard {
     if (assignee) filters.assignee = assignee;
     if (search) filters.search = search;
     
-    this.loadTasks(filters);
+    this.taskFilters = { ...this.taskFilters, ...filters, page: 1 };
+    this.loadTasks(this.taskFilters);
   }
 
   async downloadFile(fileId) {
@@ -1407,7 +1464,7 @@ class Dashboard {
     
     // Previous button
     if (pagination.page > 1) {
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({page: ${pagination.page - 1}})">ก่อนหน้า</button>`;
+      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({...dashboard.taskFilters, page: ${pagination.page - 1}})">ก่อนหน้า</button>`;
     }
     
     // Page info
@@ -1415,11 +1472,52 @@ class Dashboard {
     
     // Next button
     if (pagination.page < pagination.totalPages) {
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({page: ${pagination.page + 1}})">ถัดไป</button>`;
+      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks({...dashboard.taskFilters, page: ${pagination.page + 1}})">ถัดไป</button>`;
     }
     
     paginationHTML += '</div>';
     container.innerHTML = paginationHTML;
+  }
+
+  // Export current week CSV from overview
+  exportCurrentWeekCsv() {
+    try {
+      const d = new Date();
+      const day = d.getDay();
+      const diffToMonday = (day === 0 ? 6 : day - 1);
+      const s = new Date(d); s.setDate(d.getDate()-diffToMonday); s.setHours(0,0,0,0);
+      const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
+      const url = `${this.apiBase}/api/groups/${this.currentGroupId}/reports/export?startDate=${encodeURIComponent(s.toISOString())}&endDate=${encodeURIComponent(e.toISOString())}&format=csv`;
+      window.open(url, '_blank');
+    } catch (err) {
+      console.error('exportCurrentWeekCsv error:', err);
+      this.showToast('ส่งออกไม่สำเร็จ', 'error');
+    }
+  }
+
+  async loadTaskDetail(taskId) {
+    try {
+      const resp = await this.apiRequest(`/groups/${this.currentGroupId}/tasks/${taskId}`);
+      const t = resp?.data;
+      if (!t) { this.showToast('ไม่พบบันทึกงาน', 'error'); return; }
+      const el = document.getElementById('taskModalBody');
+      const files = (t.attachedFiles || []).map(f => `<li><a href="${this.apiBase}/api/groups/${this.currentGroupId}/files/${f.id}/download" target="_blank">${f.originalName}</a></li>`).join('');
+      const assignees = (t.assignedUsers || []).map(u => u.displayName).join(', ');
+      el.innerHTML = `
+        <div>
+          <div style="margin-bottom:8px;"><strong>ชื่องาน:</strong> ${t.title}</div>
+          ${t.description ? `<div style="margin-bottom:8px;"><strong>รายละเอียด:</strong> ${t.description}</div>` : ''}
+          <div style="margin-bottom:8px;"><strong>ผู้รับผิดชอบ:</strong> ${assignees || '-'}</div>
+          <div style="margin-bottom:8px;"><strong>กำหนดส่ง:</strong> ${this.formatDateTime(t.dueTime)}</div>
+          <div style="margin-bottom:8px;"><strong>สถานะ:</strong> ${this.getStatusText(t.status)}</div>
+          ${(t.tags && t.tags.length) ? `<div style="margin-bottom:8px;"><strong>แท็ก:</strong> ${t.tags.join(', ')}</div>` : ''}
+          <div><strong>ไฟล์แนบ:</strong><ul>${files || '<li>-</li>'}</ul></div>
+        </div>`;
+      document.getElementById('taskModal').classList.add('active');
+    } catch (err) {
+      console.error('loadTaskDetail error:', err);
+      this.showToast('โหลดรายละเอียดงานไม่สำเร็จ', 'error');
+    }
   }
 }
 

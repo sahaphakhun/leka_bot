@@ -973,28 +973,29 @@ ${dashboardUrl}
 
       // ลองแปลงตามรูปแบบต่างๆ
       for (const format of formats) {
-        const parsed = moment.tz(dateStr, format, config.app.defaultTimezone);
-        console.log(`  Testing format "${format}":`, parsed.isValid() ? 'Valid' : 'Invalid');
-        
-        if (parsed.isValid()) {
-          console.log(`  ✅ Successfully parsed with format "${format}"`);
-          
-          // ถ้าไม่มีปี ใช้ปีปัจจุบัน
-          if (!format.includes('Y')) {
-            parsed.year(now.year());
-            console.log(`  Added current year: ${now.year()}`);
-          }
-          
-          // ถ้าไม่มีเวลา ใช้ 09:00
-          if (!format.includes('H')) {
-            parsed.hour(9).minute(0);
-            console.log(`  Added default time: 09:00`);
-          }
+        // ใช้ strict check ป้องกัน string แปลก เช่น "2d" ไป match pattern วันที่
+        const strictOk = moment(dateStr, format, true).isValid();
+        console.log(`  Testing format "${format}":`, strictOk ? 'Valid' : 'Invalid');
+        if (!strictOk) continue;
 
-          const result = parsed.toDate();
-          console.log(`  Final result: ${result} (${config.app.defaultTimezone})`);
-          return result;
+        const parsed = moment.tz(dateStr, format, config.app.defaultTimezone);
+        console.log(`  ✅ Successfully parsed with format "${format}"`);
+        
+        // ถ้าไม่มีปี ใช้ปีปัจจุบัน
+        if (!format.includes('Y')) {
+          parsed.year(now.year());
+          console.log(`  Added current year: ${now.year()}`);
         }
+        
+        // ถ้าไม่มีเวลา ใช้ 09:00
+        if (!format.includes('H')) {
+          parsed.hour(9).minute(0);
+          console.log(`  Added default time: 09:00`);
+        }
+
+        const result = parsed.toDate();
+        console.log(`  Final result: ${result} (${config.app.defaultTimezone})`);
+        return result;
       }
 
       return undefined;
