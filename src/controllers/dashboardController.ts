@@ -204,10 +204,64 @@ class DashboardController {
    */
   public async profileWeb(req: Request, res: Response): Promise<void> {
     try {
-      const { lineUserId, userId } = req.query as { lineUserId?: string; userId?: string };
+      const { lineUserId, userId, groupId } = req.query as { lineUserId?: string; userId?: string; groupId?: string };
 
       if (!lineUserId && !userId) {
-        // แสดงหน้าแนะนำให้เปิดจาก /whoami และแบบฟอร์ม GET สำหรับกรอก lineUserId
+        // ถ้ามี groupId ให้แสดงรายชื่อสมาชิกในกลุ่มให้เลือกแทนการกรอก lineUserId เอง
+        if (groupId) {
+          try {
+            const members = await this.userService.getGroupMembers(groupId);
+            const options = members.map(m => `
+              <option value="${this.escapeAttr(m.lineUserId)}">
+                ${this.escapeAttr(m.displayName)}${m.realName ? ` (${this.escapeAttr(m.realName)})` : ''}
+                ${m.role === 'admin' ? ' • ผู้ดูแล' : ''}
+              </option>
+            `).join('');
+
+            const selectHtml = `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>เลือกผู้ใช้ในกลุ่ม - เลขาบอท</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial; margin: 0; padding: 20px; background: #f5f5f5; }
+    .container { max-width: 520px; margin: 0 auto; background: #fff; border-radius: 10px; padding: 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.06); }
+    .title { font-weight: 700; font-size: 20px; color: #333; margin-bottom: 8px; }
+    .desc { color: #555; margin-bottom: 16px; }
+    .form-group { margin-top: 12px; }
+    .label { display: block; margin-bottom: 6px; font-weight: 600; color: #333; }
+    .select, .button { width: 100%; padding: 12px; font-size: 16px; }
+    .select { border: 1px solid #ddd; border-radius: 6px; background: #fff; }
+    .button { margin-top: 10px; background-color: #0d6efd; color: #fff; border: none; border-radius: 6px; cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="title">เลือกผู้ใช้ในกลุ่ม</div>
+    <div class="desc">โปรดเลือกชื่อผู้ใช้ใน LINE กลุ่มนี้เพื่อเปิดหน้าโปรไฟล์</div>
+    <form method="GET" action="/dashboard/profile" class="form-group">
+      <input type="hidden" name="groupId" value="${this.escapeAttr(groupId)}" />
+      <label class="label" for="lineUserId">สมาชิกในกลุ่ม</label>
+      <select class="select" id="lineUserId" name="lineUserId" required>
+        <option value="" disabled selected>— เลือกสมาชิก —</option>
+        ${options}
+      </select>
+      <button type="submit" class="button">เปิดหน้าโปรไฟล์</button>
+    </form>
+    <p style="color:#666; font-size: 13px; margin-top: 14px;">คำแนะนำ: แนะนำให้เปิดจากลิงก์ในคำสั่ง <code>@เลขา /whoami</code> เพื่อเลือกผู้ใช้ของคุณอัตโนมัติ</p>
+  </div>
+</body>
+</html>`;
+            res.status(200).send(selectHtml);
+            return;
+          } catch (err) {
+            // หากโหลดสมาชิกไม่สำเร็จ ให้ตกกลับไปหน้า manual กรอก groupId/lineUserId
+          }
+        }
+
+        // หน้าแนะนำ + กรอก groupId เพื่อโหลดรายชื่อสมาชิก หากยังไม่มี groupId
         const helpHtml = `
 <!DOCTYPE html>
 <html lang="th">
@@ -234,11 +288,11 @@ class DashboardController {
   <div class="container">
     <div class="title">ต้องเปิดจากคำสั่งในแชท</div>
     <div class="desc">โปรดพิมพ์ <code>@เลขา /whoami</code> ในห้องแชท แล้วกดลิงก์ "เปิดหน้าโปรไฟล์ (เว็บ)" เพื่อเข้าหน้านี้โดยอัตโนมัติ</div>
-    <div class="hint">หรือกรอก LINE User ID ของคุณเพื่อเข้าหน้านี้:</div>
+    <div class="hint">หรือกรอก LINE Group ID (ขึ้นต้นด้วย C...) เพื่อดึงรายชื่อสมาชิกในกลุ่ม แล้วเลือกชื่อของคุณ:</div>
     <form method="GET" action="/dashboard/profile" class="form-group">
-      <label class="label" for="lineUserId">LINE User ID</label>
-      <input class="input" type="text" id="lineUserId" name="lineUserId" placeholder="เช่น Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
-      <button type="submit" class="button">เปิดหน้าโปรไฟล์</button>
+      <label class="label" for="groupId">LINE Group ID</label>
+      <input class="input" type="text" id="groupId" name="groupId" placeholder="เช่น Cxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx">
+      <button type="submit" class="button">โหลดรายชื่อสมาชิก</button>
     </form>
   </div>
 </body>
