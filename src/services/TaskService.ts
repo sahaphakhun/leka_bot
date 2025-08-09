@@ -814,10 +814,23 @@ export class TaskService {
     } = {}
   ): Promise<{ tasks: Task[]; total: number }> {
     try {
+      // รองรับการส่งค่าเป็น LINE Group ID หรือ internal UUID
+      let internalGroupId: string | null = groupId;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      if (!isUuid) {
+        const group = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+        internalGroupId = group ? group.id : null;
+      }
+
+      if (!internalGroupId) {
+        // ถ้าหา group ไม่เจอ ให้คืนค่าว่างแทนที่จะโยน error เพื่อหลีกเลี่ยง 22P02
+        return { tasks: [], total: 0 };
+      }
+
       const queryBuilder = this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.createdByUser', 'creator')
-        .where('task.groupId = :groupId', { groupId })
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere(
           `(
             task.title ILIKE :query 
