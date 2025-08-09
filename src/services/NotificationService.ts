@@ -188,6 +188,96 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
     }
   }
 
+  /** แจ้งว่าแก้งาน/อัปเดตรายละเอียดงาน */
+  public async sendTaskUpdatedNotification(task: any, changes: Record<string, any>): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const changedFields: string[] = [];
+      if (typeof changes.title === 'string') changedFields.push(`ชื่อเรื่อง`);
+      if (typeof changes.description === 'string') changedFields.push(`คำอธิบาย`);
+      if (changes.dueTime) changedFields.push(`กำหนดส่ง`);
+      if (changes.startTime) changedFields.push(`เวลาเริ่ม`);
+      if (changes.priority) changedFields.push(`ความสำคัญ`);
+      if (Array.isArray(changes.tags)) changedFields.push(`แท็ก`);
+      if (changes.status) changedFields.push(`สถานะ`);
+
+      const dueText = task.dueTime ? moment(task.dueTime).format('DD/MM/YYYY HH:mm') : '-';
+      const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
+      const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
+
+      const headerEmoji = changes.status ? (changes.status === 'cancelled' ? '🚫' : '🔄') : '✏️';
+      const changedText = changedFields.length > 0 ? `
+🔧 เปลี่ยนแปลง: ${changedFields.join(', ')}` : '';
+
+      const message = `${headerEmoji} อัปเดตงาน
+
+📋 ${task.title}
+📅 กำหนดส่ง: ${dueText}
+👥 ผู้รับผิดชอบ: ${assigneeNames}${tagsText ? `\n${tagsText}` : ''}${changedText}
+
+📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
+
+      const userIds = (task.assignedUsers || []).map((u: any) => u.lineUserId);
+      await this.lineService.sendNotificationWithMention(group.lineGroupId, userIds, message);
+    } catch (error) {
+      console.error('❌ Error sending task updated notification:', error);
+      throw error;
+    }
+  }
+
+  /** แจ้งว่าลบงานแล้ว */
+  public async sendTaskDeletedNotification(task: any): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const dueText = task.dueTime ? moment(task.dueTime).format('DD/MM/YYYY HH:mm') : '-';
+      const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
+      const message = `🗑️ ลบงานแล้ว
+
+📋 ${task.title}
+📅 กำหนดส่ง: ${dueText}
+👥 ผู้รับผิดชอบ: ${assigneeNames}`;
+
+      await this.lineService.pushMessage(group.lineGroupId, message);
+    } catch (error) {
+      console.error('❌ Error sending task deleted notification:', error);
+      throw error;
+    }
+  }
+
+  /** แจ้งว่ามีการส่งงาน (แนบไฟล์/ลิงก์) */
+  public async sendTaskSubmittedNotification(
+    task: any,
+    submitterDisplayName: string,
+    fileCount: number,
+    links: string[]
+  ): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const linksText = (links && links.length > 0) ? `\n🔗 ลิงก์: \n${links.map(l => `• ${l}`).join('\n')}` : '';
+      const dueText = task.dueTime ? moment(task.dueTime).format('DD/MM/YYYY HH:mm') : '-';
+      const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
+
+      const message = `📎 มีการส่งงาน
+
+📋 ${task.title}
+👤 ผู้ส่ง: ${submitterDisplayName}
+📎 ไฟล์/รายการ: ${fileCount}${linksText}
+📅 กำหนดส่ง: ${dueText}
+👥 ผู้รับผิดชอบ: ${assigneeNames}`;
+
+      await this.lineService.pushMessage(group.lineGroupId, message);
+    } catch (error) {
+      console.error('❌ Error sending task submitted notification:', error);
+      throw error;
+    }
+  }
+
   /** แจ้งผู้ตรวจให้ตรวจงานภายใน 2 วัน พร้อมสรุปไฟล์/ลิงก์ */
   public async sendReviewRequest(
     task: any,
