@@ -6,6 +6,7 @@ import { EmailService } from './EmailService';
 import { Task, Group, User, NotificationPayload, Leaderboard } from '@/types';
 import { config } from '@/utils/config';
 import moment from 'moment-timezone';
+import { FlexMessage } from '@line/bot-sdk';
 
 export class NotificationService {
   private lineService: LineService;
@@ -31,16 +32,11 @@ export class NotificationService {
         return;
       }
 
-      // สร้างข้อความเตือน
-      const message = this.createReminderMessage(task, reminderType);
+      // สร้าง Flex Message สำหรับเตือนงาน
+      const flexMessage = this.createTaskReminderFlexMessage(task, group, reminderType);
       
-      // ส่งในกลุ่ม LINE พร้อม mention
-      const userIds = assignees.map((user: any) => user.lineUserId);
-      await this.lineService.sendNotificationWithMention(
-        group.lineGroupId,
-        userIds,
-        message
-      );
+      // ส่งในกลุ่ม LINE
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
       // ส่งอีเมลให้ผู้ที่มีอีเมล
       const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
@@ -70,23 +66,11 @@ export class NotificationService {
 
       const overdueHours = moment().tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
       
-      const message = `⚠️ งานเกินกำหนด!
-
-📋 **${task.title}**
-📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
-⏰ เกินมา: ${overdueHours} ชั่วโมง
-
-👥 ผู้รับผิดชอบ: ${assignees.map((u: any) => `@${u.displayName}`).join(' ')}
-
-กรุณาดำเนินการให้เสร็จสิ้นโดยเร็วที่สุดค่ะ 🙏`;
+      // สร้าง Flex Message สำหรับงานเกินกำหนด
+      const flexMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
 
       // ส่งใน LINE
-      const userIds = assignees.map((user: any) => user.lineUserId);
-      await this.lineService.sendNotificationWithMention(
-        group.lineGroupId,
-        userIds,
-        message
-      );
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
       // ส่งอีเมล
       const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
@@ -113,23 +97,12 @@ export class NotificationService {
 
       const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
       
-      const message = `📋 งานใหม่!
-
-**${task.title}**
-${task.description ? `📝 ${task.description}\n` : ''}📅 กำหนดส่ง: ${dueDate}
-👤 สร้างโดย: ${creator?.displayName || 'ไม่ทราบ'}
-👥 ผู้รับผิดชอบ: ${assignees.map((u: any) => `@${u.displayName}`).join(' ')}
-
-${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}
-📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
+      // สร้าง Flex Message สำหรับงานใหม่
+      const flexMessage = this.createTaskCreatedFlexMessage(task, group, creator, dueDate);
 
       // ส่งใน LINE Group
       const userIds = assignees.map((user: any) => user.lineUserId);
-      await this.lineService.sendNotificationWithMention(
-        group.lineGroupId,
-        userIds,
-        message
-      );
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
       // ส่งการแจ้งเตือนในแชทส่วนตัวให้ผู้รับผิดชอบแต่ละคน
       const privateMessage = `📋 คุณได้รับมอบหมายงานใหม่!
@@ -171,19 +144,29 @@ ${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => 
       const group = task.group;
       if (!group) return;
 
-      const message = `✅ งานสำเร็จ!
+      // สร้าง Flex Message สำหรับงานสำเร็จ
+      const flexMessage = this.createTaskCompletedFlexMessage(task, group, completedBy);
 
-📋 **${task.title}**
-👤 ปิดงานโดย: ${completedBy.displayName}
-📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
-🎯 เสร็จเมื่อ: ${moment(task.completedAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
-
-${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
-
-      await this.lineService.pushMessage(group.lineGroupId, message);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
     } catch (error) {
       console.error('❌ Error sending task completed notification:', error);
+      throw error;
+    }
+  }
+
+  /** แจ้งว่าลบงานแล้ว */
+  public async sendTaskDeletedNotification(task: any): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      // สร้าง Flex Message สำหรับงานที่ถูกลบ
+      const flexMessage = this.createTaskDeletedFlexMessage(task, group);
+
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+    } catch (error) {
+      console.error('❌ Error sending task deleted notification:', error);
       throw error;
     }
   }
@@ -203,47 +186,12 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
       if (Array.isArray(changes.tags)) changedFields.push(`แท็ก`);
       if (changes.status) changedFields.push(`สถานะ`);
 
-      const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
-      const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
-      const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
+      // สร้าง Flex Message สำหรับงานที่อัปเดต
+      const flexMessage = this.createTaskUpdatedFlexMessage(task, group, changes, changedFields);
 
-      const headerEmoji = changes.status ? (changes.status === 'cancelled' ? '🚫' : '🔄') : '✏️';
-      const changedText = changedFields.length > 0 ? `
-🔧 เปลี่ยนแปลง: ${changedFields.join(', ')}` : '';
-
-      const message = `${headerEmoji} อัปเดตงาน
-
-📋 ${task.title}
-📅 กำหนดส่ง: ${dueText}
-👥 ผู้รับผิดชอบ: ${assigneeNames}${tagsText ? `\n${tagsText}` : ''}${changedText}
-
-📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
-
-      const userIds = (task.assignedUsers || []).map((u: any) => u.lineUserId);
-      await this.lineService.sendNotificationWithMention(group.lineGroupId, userIds, message);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
     } catch (error) {
       console.error('❌ Error sending task updated notification:', error);
-      throw error;
-    }
-  }
-
-  /** แจ้งว่าลบงานแล้ว */
-  public async sendTaskDeletedNotification(task: any): Promise<void> {
-    try {
-      const group = task.group;
-      if (!group) return;
-
-      const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
-      const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
-      const message = `🗑️ ลบงานแล้ว
-
-📋 ${task.title}
-📅 กำหนดส่ง: ${dueText}
-👥 ผู้รับผิดชอบ: ${assigneeNames}`;
-
-      await this.lineService.pushMessage(group.lineGroupId, message);
-    } catch (error) {
-      console.error('❌ Error sending task deleted notification:', error);
       throw error;
     }
   }
@@ -259,19 +207,10 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
       const group = task.group;
       if (!group) return;
 
-      const linksText = (links && links.length > 0) ? `\n🔗 ลิงก์: \n${links.map(l => `• ${l}`).join('\n')}` : '';
-      const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
-      const assigneeNames = (task.assignedUsers || []).map((u: any) => `@${u.displayName}`).join(' ');
+      // สร้าง Flex Message สำหรับงานที่ถูกส่ง
+      const flexMessage = this.createTaskSubmittedFlexMessage(task, group, submitterDisplayName, fileCount, links);
 
-      const message = `📎 มีการส่งงาน
-
-📋 ${task.title}
-👤 ผู้ส่ง: ${submitterDisplayName}
-📎 ไฟล์/รายการ: ${fileCount}${linksText}
-📅 กำหนดส่ง: ${dueText}
-👥 ผู้รับผิดชอบ: ${assigneeNames}`;
-
-      await this.lineService.pushMessage(group.lineGroupId, message);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
     } catch (error) {
       console.error('❌ Error sending task submitted notification:', error);
       throw error;
@@ -292,76 +231,20 @@ ${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`;
         ? moment(task.workflow.review.reviewDueAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')
         : moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
 
-      const linksText = (details.links && details.links.length > 0)
-        ? `\n🔗 ลิงก์: \n${details.links.map((l: string) => `• ${l}`).join('\n')}`
-        : '';
-
       const messageToReviewer = `📝 มีการส่งงานรอตรวจ
 
 📋 ${task.title}
-${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDisplayName}\n` : ''}${typeof details.fileCount === 'number' ? `📎 ไฟล์: ${details.fileCount} รายการ\n` : ''}📅 กำหนดตรวจภายใน: ${dueText}${linksText}
+${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDisplayName}\n` : ''}${typeof details.fileCount === 'number' ? `📎 ไฟล์: ${details.fileCount} รายการ\n` : ''}📅 กำหนดตรวจภายใน: ${dueText}
 
 ตอบในแชทกลุ่ม: /approve ${task.id.substring(0, 8)} หรือ /reject ${task.id.substring(0, 8)} [เหตุผล]`;
 
       // แจ้งแบบส่วนตัวไปยังผู้ตรวจ
       await this.lineService.pushMessage(reviewerLineUserId, messageToReviewer);
 
-      // แจ้งในกลุ่มด้วย Flex (พร้อมปุ่ม ผ่าน/ไม่ผ่าน)
-      const shortId = (task.id || '').substring(0, 8) || '';
-      const flex: any = {
-        type: 'flex',
-        altText: 'งานรอตรวจ',
-        contents: {
-          type: 'bubble',
-          header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              { type: 'text', text: 'รอตรวจงาน', weight: 'bold', color: '#333333', size: 'lg' },
-              { type: 'text', text: task.title, size: 'sm', color: '#666666', wrap: true }
-            ]
-          },
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              ...(details.submitterDisplayName ? [{ type: 'text', text: `ผู้ส่ง: ${details.submitterDisplayName}`, size: 'sm' }] : []),
-              ...(typeof details.fileCount === 'number' ? [{ type: 'text', text: `ไฟล์: ${details.fileCount} รายการ`, size: 'sm' }] : []),
-              { type: 'text', text: `ตรวจภายใน: ${dueText}`, size: 'sm' },
-              ...(details.links && details.links.length > 0
-                ? [{ type: 'text', text: `ลิงก์: ${details.links.join(' ')}`, size: 'sm', wrap: true }]
-                : [])
-            ]
-          },
-          footer: {
-            type: 'box',
-            layout: 'horizontal',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'button',
-                style: 'primary',
-                height: 'sm',
-                action: { type: 'postback', label: 'ผ่าน', data: `action=approve_task&taskId=${task.id}` }
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                height: 'sm',
-                action: { type: 'message', label: 'ไม่ผ่าน (+1 วัน)', text: `/reject ${shortId} [โปรดใส่เหตุผล]` }
-              },
-              {
-                type: 'button',
-                style: 'link',
-                height: 'sm',
-                action: { type: 'uri', label: 'ดูงาน', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
-              }
-            ]
-          }
-        }
-      };
-      await this.lineService.pushMessage(group.lineGroupId, flex);
+      // สร้าง Flex Message สำหรับงานรอตรวจ
+      const flexMessage = this.createReviewRequestFlexMessage(task, group, details, dueText);
+
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
     } catch (error) {
       console.error('❌ Error sending review request:', error);
@@ -375,14 +258,10 @@ ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDi
       const group = task.group;
       if (!group) return;
 
-      const message = `❌ งานถูกตีกลับเพื่อแก้ไข
+      // สร้าง Flex Message สำหรับงานที่ถูกตีกลับ
+      const flexMessage = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName);
 
-📋 ${task.title}
-${reviewerDisplayName ? `👤 ผู้ตรวจ: ${reviewerDisplayName}\n` : ''}📅 กำหนดส่งใหม่: ${moment(newDueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}
-
-โปรดแก้ไขและส่งใหม่ โดยพิมพ์ /submit ${task.id.substring(0, 8)} [หมายเหตุ] หลังแนบไฟล์/ลิงก์`;
-
-      await this.lineService.pushMessage(group.lineGroupId, message);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
     } catch (error) {
       console.error('❌ Error sending task rejected notification:', error);
@@ -602,5 +481,676 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     if (diff <= -24) return 'เสร็จก่อนกำหนด - ยอดเยี่ยม! 🎉';
     if (diff <= 24) return 'เสร็จตรงเวลา - ดีมาก! 👍';
     return `เสร็จช้า ${Math.abs(diff)} ชั่วโมง`;
+  }
+
+  // Helper Methods สำหรับสร้าง Flex Message
+
+  /**
+   * สร้าง Flex Message สำหรับงานใหม่
+   */
+  private createTaskCreatedFlexMessage(task: any, group: any, creator: any, dueDate: string): FlexMessage {
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+    
+    return {
+      type: 'flex',
+      altText: `งานใหม่: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '📋 งานใหม่!', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#4CAF50'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `📅 กำหนดส่ง: ${dueDate}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `👤 สร้างโดย: ${creator?.displayName || 'ไม่ทราบ'}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `👥 ผู้รับผิดชอบ: ${task.assignedUsers.map((u: any) => u.displayName).join(', ')}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            ...(task.description ? [{ type: 'text' as const, text: `📝 ${task.description}`, size: 'sm' as const, color: '#666666', wrap: true }] : []),
+            ...(task.tags && task.tags.length > 0 ? [{ type: 'text' as const, text: `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}`, size: 'sm' as const, color: '#666666' }] : [])
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูรายละเอียด', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'รับงาน', data: `action=accept&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'เสร็จแล้ว', data: `action=complete&taskId=${task.id}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับเตือนงาน
+   */
+  private createTaskReminderFlexMessage(task: any, group: any, reminderType: string): FlexMessage {
+    const reminderInfo = this.createReminderMessage(task, reminderType);
+    const timeText = this.getReminderTimeText(reminderType);
+    const emoji = this.getReminderEmoji(reminderType);
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    return {
+      type: 'flex',
+      altText: `เตือนงาน: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: `${emoji} เตือนงาน - ${timeText}`, weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#FF9800'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `👥 ผู้รับผิดชอบ: ${task.assignedUsers.map((u: any) => u.displayName).join(', ')}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            ...(task.description ? [{ type: 'text' as const, text: `📝 ${task.description}`, size: 'sm' as const, color: '#666666', wrap: true }] : []),
+            ...(task.tags && task.tags.length > 0 ? [{ type: 'text' as const, text: `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}`, size: 'sm' as const, color: '#666666' }] : [])
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูงาน', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'เสร็จแล้ว', data: `action=complete&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ขอขยายเวลา', data: `action=extend&taskId=${task.id}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานเกินกำหนด
+   */
+  private createOverdueTaskFlexMessage(task: any, group: any, overdueHours: number): FlexMessage {
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+    const overdueText = overdueHours >= 24 ? `${Math.floor(overdueHours / 24)} วัน` : `${overdueHours} ชั่วโมง`;
+
+    return {
+      type: 'flex',
+      altText: `งานเกินกำหนด: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '⚠️ งานเกินกำหนด!', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#F44336'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `⏰ เกินมา: ${overdueText}`, size: 'sm' as const, color: '#F44336', weight: 'bold' as const },
+            { type: 'text' as const, text: `👥 ผู้รับผิดชอบ: ${task.assignedUsers.map((u: any) => u.displayName).join(', ')}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            ...(task.description ? [{ type: 'text' as const, text: `📝 ${task.description}`, size: 'sm' as const, color: '#666666', wrap: true }] : [])
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'postback', label: 'เสร็จแล้ว', data: `action=complete&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ขอขยายเวลา', data: `action=extend&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'link',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูงาน', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานสำเร็จ
+   */
+  private createTaskCompletedFlexMessage(task: any, group: any, completedBy: User): FlexMessage {
+    const completionStatus = this.getCompletionStatusEmoji(task);
+    const completionText = this.getCompletionStatusText(task);
+    const completionScore = this.calculateCompletionScore(task);
+    const scoreColor = completionScore >= 90 ? '#4CAF50' : completionScore >= 70 ? '#FF9800' : '#F44336';
+
+    return {
+      type: 'flex',
+      altText: `งานสำเร็จ: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '✅ งานสำเร็จ!', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#4CAF50'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `👤 ปิดงานโดย: ${completedBy.displayName}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `🎯 เสร็จเมื่อ: ${moment(task.completedAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `${completionStatus} ${completionText}`, size: 'sm' as const, color: '#666666', weight: 'bold' as const },
+            {
+              type: 'box',
+              layout: 'horizontal',
+              spacing: 'sm',
+              contents: [
+                { type: 'text' as const, text: 'คะแนน:', size: 'sm' as const, color: '#666666' },
+                { type: 'text' as const, text: `${completionScore}/100`, size: 'sm' as const, color: scoreColor, weight: 'bold' as const }
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูรายละเอียด', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ดูสถิติ', data: `action=stats&taskId=${task.id}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานที่อัปเดต
+   */
+  private createTaskUpdatedFlexMessage(task: any, group: any, changes: Record<string, any>, changedFields: string[]): FlexMessage {
+    const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
+    const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ');
+    const headerEmoji = changes.status ? (changes.status === 'cancelled' ? '🚫' : '🔄') : '✏️';
+    const headerColor = changes.status === 'cancelled' ? '#9E9E9E' : '#2196F3';
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    return {
+      type: 'flex',
+      altText: `อัปเดตงาน: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: `${headerEmoji} อัปเดตงาน`, weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: headerColor
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `📅 กำหนดส่ง: ${dueText}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `👥 ผู้รับผิดชอบ: ${assigneeNames}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            ...(tagsText ? [{ type: 'text' as const, text: tagsText, size: 'sm' as const, color: '#666666' }] : []),
+            ...(changedFields.length > 0 ? [{ type: 'text' as const, text: `🔧 เปลี่ยนแปลง: ${changedFields.join(', ')}`, size: 'sm' as const, color: '#FF9800', weight: 'bold' as const }] : [])
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูรายละเอียด', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ดูประวัติ', data: `action=history&taskId=${task.id}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานที่ถูกลบ
+   */
+  private createTaskDeletedFlexMessage(task: any, group: any): FlexMessage {
+    const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ');
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    return {
+      type: 'flex',
+      altText: `ลบงาน: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '🗑️ ลบงานแล้ว', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#9E9E9E'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `📅 กำหนดส่ง: ${dueText}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `👥 ผู้รับผิดชอบ: ${assigneeNames}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            { type: 'text' as const, text: '⚠️ งานนี้ถูกลบออกจากระบบแล้ว', size: 'sm' as const, color: '#F44336', weight: 'bold' as const }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูประวัติ', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานที่ถูกส่ง
+   */
+  private createTaskSubmittedFlexMessage(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[]): FlexMessage {
+    const linksText = (links && links.length > 0) ? `\n🔗 ลิงก์: \n${links.map(l => `• ${l}`).join('\n')}` : '';
+    const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ');
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    return {
+      type: 'flex',
+      altText: `ส่งงาน: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '📎 มีการส่งงาน', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#9C27B0'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `👤 ผู้ส่ง: ${submitterDisplayName}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `📎 ไฟล์/รายการ: ${fileCount}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `📅 กำหนดส่ง: ${dueText}`, size: 'sm' as const, color: '#333333' },
+            { type: 'text' as const, text: `👥 ผู้รับผิดชอบ: ${assigneeNames}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            ...(links && links.length > 0 ? [{ type: 'text' as const, text: `🔗 ลิงก์: ${links.join(' ')}`, size: 'sm' as const, color: '#666666', wrap: true }] : [])
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ดูไฟล์', data: `action=view_files&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูงาน', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ตรวจสอบ', data: `action=review&taskId=${task.id}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานรอตรวจ
+   */
+  private createReviewRequestFlexMessage(task: any, group: any, details: { submitterDisplayName?: string; fileCount?: number; links?: string[] }, dueText: string): FlexMessage {
+    const shortId = (task.id || '').substring(0, 8) || '';
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    return {
+      type: 'flex',
+      altText: 'งานรอตรวจ',
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '📝 รอตรวจงาน', weight: 'bold', color: '#FFFFFF', size: 'lg' as const },
+            { type: 'text' as const, text: task.title, size: 'sm' as const, color: '#FFFFFF', wrap: true }
+          ],
+          backgroundColor: '#FF9800'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            ...(details.submitterDisplayName ? [{ type: 'text' as const, text: `👤 ผู้ส่ง: ${details.submitterDisplayName}`, size: 'sm' as const, color: '#333333' }] : []),
+            ...(typeof details.fileCount === 'number' ? [{ type: 'text' as const, text: `📎 ไฟล์: ${details.fileCount} รายการ`, size: 'sm' as const, color: '#333333' }] : []),
+            { type: 'text' as const, text: `📅 ตรวจภายใน: ${dueText}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            ...(details.links && details.links.length > 0
+              ? [{ type: 'text' as const, text: `🔗 ลิงก์: ${details.links.join(' ')}`, size: 'sm' as const, color: '#666666', wrap: true }]
+              : [])
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ผ่าน', data: `action=approve_task&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'message', label: 'ไม่ผ่าน (+1 วัน)', text: `/reject ${shortId} [โปรดใส่เหตุผล]` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ดูไฟล์', data: `action=view_files&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'postback', label: 'เพิ่มความคิดเห็น', data: `action=comment&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'link',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูงาน', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานที่ถูกตีกลับ พร้อมกำหนดส่งใหม่
+   */
+  private createTaskRejectedFlexMessage(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): FlexMessage {
+    const shortId = (task.id || '').substring(0, 8) || '';
+    const dueText = moment(newDueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    return {
+      type: 'flex',
+      altText: `งานถูกตีกลับเพื่อแก้ไข`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '❌ งานถูกตีกลับเพื่อแก้ไข', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: task.title, size: 'md' as const, wrap: true, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#F44336'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            { type: 'text' as const, text: `📋 ${task.title}`, size: 'sm' as const, color: '#333333' },
+            ...(reviewerDisplayName ? [{ type: 'text' as const, text: `👤 ผู้ตรวจ: ${reviewerDisplayName}`, size: 'sm' as const, color: '#333333' }] : []),
+            { type: 'text' as const, text: `📅 กำหนดส่งใหม่: ${dueText}`, size: 'sm' as const, color: '#333333' },
+            ...(priorityText ? [{ type: 'text' as const, text: `🎯 ${priorityText}`, size: 'sm' as const, color: priorityColor, weight: 'bold' as const }] : []),
+            { type: 'text' as const, text: `โปรดแก้ไขและส่งใหม่ โดยพิมพ์ /submit ${shortId} [หมายเหตุ] หลังแนบไฟล์/ลิงก์`, size: 'sm' as const, color: '#666666', wrap: true }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'postback', label: 'ส่งใหม่', data: `action=submit&taskId=${task.id}` }
+            },
+            {
+              type: 'button',
+              style: 'secondary',
+              height: 'sm',
+              action: { type: 'message', label: 'ไม่ส่ง', text: `/reject ${shortId} [โปรดใส่เหตุผล]` }
+            },
+            {
+              type: 'button',
+              style: 'link',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูงาน', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * Helper method สำหรับข้อความเตือน
+   */
+  private getReminderTimeText(reminderType: string): string {
+    switch (reminderType) {
+      case 'P7D':
+      case '7d':
+        return 'อีก 7 วัน';
+      case 'P1D':
+      case '1d':
+        return 'พรุ่งนี้';
+      case 'PT3H':
+      case '3h':
+        return 'อีก 3 ชั่วโมง';
+      case 'daily_8am':
+        return 'เตือนความจำตอนเช้า 08:00 น.';
+      case 'due':
+        return 'ถึงเวลาแล้ว';
+      default:
+        return 'เตือนความจำ';
+    }
+  }
+
+  /**
+   * Helper method สำหรับอิโมจิเตือน
+   */
+  private getReminderEmoji(reminderType: string): string {
+    switch (reminderType) {
+      case 'P7D':
+      case '7d':
+        return '📅';
+      case 'P1D':
+      case '1d':
+        return '⏰';
+      case 'PT3H':
+      case '3h':
+        return '⚡';
+      case 'daily_8am':
+        return '🌅';
+      case 'due':
+        return '🚨';
+      default:
+        return '🔔';
+    }
+  }
+
+  /**
+   * Helper method สำหรับสีความสำคัญ
+   */
+  private getPriorityColor(priority: string): string {
+    switch (priority) {
+      case 'high':
+        return '#F44336'; // Red
+      case 'medium':
+        return '#FF9800'; // Orange
+      case 'low':
+        return '#4CAF50'; // Green
+      default:
+        return '#9E9E9E'; // Gray
+    }
+  }
+
+  /**
+   * Helper method สำหรับข้อความความสำคัญ
+   */
+  private getPriorityText(priority: string): string {
+    switch (priority) {
+      case 'high':
+        return 'สูงมาก';
+      case 'medium':
+        return 'ปานกลาง';
+      case 'low':
+        return 'ต่ำ';
+      default:
+        return 'ปกติ';
+    }
+  }
+
+  /**
+   * Helper method สำหรับคำนวณคะแนนการทำงาน
+   */
+  private calculateCompletionScore(task: any): number {
+    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone);
+    const completedTime = moment(task.completedAt).tz(config.app.defaultTimezone);
+    const diff = completedTime.diff(dueTime, 'hours');
+
+    if (diff <= -24) return 100; // เสร็จก่อนกำหนด
+    if (diff <= 24) return 90;  // เสร็จตรงเวลา
+    if (diff <= 48) return 80;  // เสร็จช้าเล็กน้อย
+    if (diff <= 72) return 70;  // เสร็จช้า
+    return 0; // เสร็จช้ามาก
   }
 }
