@@ -57,6 +57,14 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
+    // สรุปงานของผู้ใต้บังคับบัญชาให้หัวหน้างานทุกวันจันทร์ 08:00
+    const supervisorSummaryJob = cron.schedule('0 8 * * 1', async () => {
+      await this.sendSupervisorWeeklySummaries();
+    }, {
+      scheduled: false,
+      timezone: config.app.defaultTimezone
+    });
+
     // อัปเดต KPI และ Leaderboard ทุกเที่ยงคืน
     const kpiUpdateJob = cron.schedule('0 0 * * *', async () => {
       await this.updateKPIRecords();
@@ -78,6 +86,7 @@ export class CronService {
     this.jobs.set('overdue', overdueJob);
     this.jobs.set('weeklyReport', weeklyReportJob);
     this.jobs.set('dailySummary', dailySummaryJob);
+    this.jobs.set('supervisorSummary', supervisorSummaryJob);
     this.jobs.set('kpiUpdate', kpiUpdateJob);
     this.jobs.set('recurring', recurringJob);
 
@@ -230,28 +239,124 @@ export class CronService {
         const tasks = await this.taskService.getIncompleteTasksOfGroup(group.lineGroupId);
         if (tasks.length === 0) continue;
 
-        // จัดรูปแบบข้อความ
+        // จัดรูปแบบข้อความสรุปสำหรับส่งลงกลุ่ม
         const tz = group.timezone || config.app.defaultTimezone;
         const header = `🗒️ สรุปงานค้างประจำวัน (${moment().tz(tz).format('DD/MM/YYYY')})`;
-        const lines = tasks.map((t, idx) => {
-          const due = moment(t.dueTime).tz(tz).format('DD/MM HH:mm');
-          const assignees = (t as any).assignedUsers?.map((u: any) => `@${u.displayName}`).join(' ') || '-';
-          const statusEmoji = t.status === 'overdue' ? '⚠️' : t.status === 'in_progress' ? '⏳' : '📝';
-          return `${idx + 1}. ${statusEmoji} ${t.title} (กำหนด: ${due}) ${assignees}`;
-        });
+        
+        // จัดหมวดหมู่ตามผู้รับผิดชอบ
+        const tasksByAssignee = new Map<string, any[]>();
+        for (const task of tasks) {
+          const assignees = (task as any).assignedUsers || [];
+          if (assignees.length === 0) {
+            // งานที่ไม่มีผู้รับผิดชอบ
+            const unassigned = tasksByAssignee.get('unassigned') || [];
+            unassigned.push(task);
+            tasksByAssignee.set('unassigned', unassigned);
+          } else {
+            // งานที่มีผู้รับผิดชอบ
+            for (const assignee of assignees) {
+              const userTasks = tasksByAssignee.get(assignee.lineUserId) || [];
+              userTasks.push(task);
+              tasksByAssignee.set(assignee.lineUserId, userTasks);
+            }
+          }
+        }
 
-        const message = header + "\n\n" + lines.join("\n");
+        // สร้างข้อความสรุปสำหรับส่งลงกลุ่ม (เฉพาะสรุป ไม่มีรายละเอียดแต่ละงาน)
+        let summaryMessage = header + "\n\n";
+        summaryMessage += `📊 จำนวนงานค้างทั้งหมด: ${tasks.length} งาน\n\n`;
+        
+        // แสดงสรุปตามผู้รับผิดชอบ
+        for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
+          if (assigneeId === 'unassigned') {
+            summaryMessage += `❓ ไม่มีผู้รับผิดชอบ: ${userTasks.length} งาน\n`;
+          } else {
+            const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
+            if (assignee) {
+              summaryMessage += `👤 @${assignee.displayName}: ${userTasks.length} งาน\n`;
+            }
+          }
+        }
 
-        // ส่งเข้า LINE group
+        summaryMessage += `\n💡 ดูรายละเอียดงานแต่ละชิ้นได้จากการ์ดส่วนบุคคลที่ส่งให้แต่ละคน`;
+
+        // ส่งสรุปลงกลุ่ม
         try {
-          await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, message);
+          await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, summaryMessage);
         } catch (err) {
           console.warn('⚠️ Failed to send daily summary to group:', group.lineGroupId, err);
+        }
+
+        // ส่งการ์ดแยกรายบุคคลให้แต่ละคน
+        for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
+          if (assigneeId === 'unassigned') continue; // ข้ามงานที่ไม่มีผู้รับผิดชอบ
+
+          try {
+            // สร้างการ์ดสำหรับแต่ละคน
+            const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
+            if (!assignee) continue;
+
+            const cardMessage = this.createPersonalTaskCard(assignee, userTasks, tz);
+            
+            // ส่งการ์ดให้แต่ละคนทางส่วนตัว
+            await (this.notificationService as any).lineService.pushMessage(assigneeId, cardMessage);
+            
+            console.log(`✅ Sent personal task card to: ${assignee.displayName}`);
+          } catch (err) {
+            console.warn('⚠️ Failed to send personal task card:', assigneeId, err);
+          }
         }
       }
     } catch (error) {
       console.error('❌ Error sending daily incomplete task summaries:', error);
     }
+  }
+
+  /**
+   * สร้างการ์ดงานส่วนบุคคล
+   */
+  private createPersonalTaskCard(assignee: any, tasks: any[], timezone: string): string {
+    const header = `📋 การ์ดงานส่วนบุคคล - ${assignee.displayName}`;
+    const date = moment().tz(timezone).format('DD/MM/YYYY');
+    const subtitle = `🗓️ วันที่ ${date} | 📊 งานค้าง ${tasks.length} งาน`;
+    
+    let message = `${header}\n${subtitle}\n\n`;
+    
+    // จัดหมวดหมู่ตามสถานะ
+    const overdueTasks = tasks.filter(t => t.status === 'overdue');
+    const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
+    const pendingTasks = tasks.filter(t => t.status === 'pending');
+    
+    if (overdueTasks.length > 0) {
+      message += `⚠️ งานเกินกำหนด (${overdueTasks.length})\n`;
+      overdueTasks.forEach((task, idx) => {
+        const due = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
+        message += `${idx + 1}. ${task.title} (กำหนด: ${due})\n`;
+      });
+      message += '\n';
+    }
+    
+    if (inProgressTasks.length > 0) {
+      message += `⏳ งานกำลังดำเนินการ (${inProgressTasks.length})\n`;
+      inProgressTasks.forEach((task, idx) => {
+        const due = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
+        message += `${idx + 1}. ${task.title} (กำหนด: ${due})\n`;
+      });
+      message += '\n';
+    }
+    
+    if (pendingTasks.length > 0) {
+      message += `📝 งานรอดำเนินการ (${pendingTasks.length})\n`;
+      pendingTasks.forEach((task, idx) => {
+        const due = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
+        message += `${idx + 1}. ${task.title} (กำหนด: ${due})\n`;
+      });
+      message += '\n';
+    }
+    
+    message += `💡 ดูรายละเอียดเพิ่มเติมได้ที่ Dashboard ของกลุ่ม`;
+    
+    return message;
   }
 
   /** ส่งสรุปสำหรับผู้จัดการทุกเช้า: งานที่ยังไม่ส่ง / ใครล่าช้า / ใครยังไม่ตรวจ */
@@ -316,6 +421,104 @@ export class CronService {
       }
     } catch (error) {
       console.error('❌ Error sending manager daily summaries:', error);
+    }
+  }
+
+  /**
+   * ส่งสรุปงานของผู้ใต้บังคับบัญชาให้หัวหน้างานทุกวันจันทร์ 08:00
+   */
+  private async sendSupervisorWeeklySummaries(): Promise<void> {
+    try {
+      console.log('📊 Sending supervisor weekly summaries...');
+
+      const groups = await this.taskService.getAllActiveGroups();
+      for (const group of groups) {
+        // ตรวจสอบว่ามีการตั้งค่าผู้บังคับบัญชาหรือไม่
+        const supervisors: string[] = (group.settings as any)?.supervisors || [];
+        if (supervisors.length === 0) {
+          // ส่งข้อความเตือนให้ตั้งค่าผู้บังคับบัญชา
+          const reminderMessage = `⚠️ ระบบยังไม่ได้ตั้งค่าผู้บังคับบัญชา
+
+📊 เพื่อให้ระบบส่งสรุปงานของผู้ใต้บังคับบัญชาให้หัวหน้างานทุกวันจันทร์เวลา 08:00 น.
+
+🔧 กรุณาตั้งค่าผู้บังคับบัญชาด้วยคำสั่ง:
+@เลขา /setup @นายเอ @นายบี
+
+💡 ตัวอย่าง: @เลขา /setup @หัวหน้างาน1 @หัวหน้างาน2`;
+
+          try {
+            await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, reminderMessage);
+            console.log(`⚠️ Sent supervisor setup reminder to group: ${group.name}`);
+          } catch (err) {
+            console.warn('⚠️ Failed to send supervisor setup reminder:', group.lineGroupId, err);
+          }
+          continue;
+        }
+
+        // ดึงงานค้างทั้งหมดของกลุ่ม
+        const tasks = await this.taskService.getIncompleteTasksOfGroup(group.lineGroupId);
+        if (tasks.length === 0) continue;
+
+        // จัดหมวดหมู่งานตามผู้รับผิดชอบ
+        const tasksByAssignee = new Map<string, any[]>();
+        for (const task of tasks) {
+          const assignees = (task as any).assignedUsers || [];
+          if (assignees.length === 0) {
+            const unassigned = tasksByAssignee.get('unassigned') || [];
+            unassigned.push(task);
+            tasksByAssignee.set('unassigned', unassigned);
+          } else {
+            for (const assignee of assignees) {
+              const userTasks = tasksByAssignee.get(assignee.lineUserId) || [];
+              userTasks.push(task);
+              tasksByAssignee.set(assignee.lineUserId, userTasks);
+            }
+          }
+        }
+
+        // สร้างข้อความสรุปสำหรับหัวหน้างาน
+        const tz = group.timezone || config.app.defaultTimezone;
+        const header = `📊 สรุปงานของผู้ใต้บังคับบัญชาประจำสัปดาห์`;
+        const subtitle = `🗓️ วันที่ ${moment().tz(tz).format('DD/MM/YYYY')} | 📋 กลุ่ม: ${group.name}`;
+        
+        let message = `${header}\n${subtitle}\n\n`;
+        message += `📈 สถานะงานค้างทั้งหมด: ${tasks.length} งาน\n\n`;
+
+        // แสดงสรุปตามผู้รับผิดชอบ
+        for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
+          if (assigneeId === 'unassigned') {
+            message += `❓ ไม่มีผู้รับผิดชอบ: ${userTasks.length} งาน\n`;
+          } else {
+            const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
+            if (assignee) {
+              // จัดหมวดหมู่ตามสถานะ
+              const overdue = userTasks.filter(t => t.status === 'overdue').length;
+              const inProgress = userTasks.filter(t => t.status === 'in_progress').length;
+              const pending = userTasks.filter(t => t.status === 'pending').length;
+              
+              message += `👤 @${assignee.displayName}: ${userTasks.length} งาน`;
+              if (overdue > 0) message += ` (⚠️ เกินกำหนด: ${overdue})`;
+              if (inProgress > 0) message += ` (⏳ ดำเนินการ: ${inProgress})`;
+              if (pending > 0) message += ` (📝 รอดำเนินการ: ${pending})`;
+              message += '\n';
+            }
+          }
+        }
+
+        message += `\n📊 รายละเอียดเพิ่มเติม: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#reports`;
+
+        // ส่งให้หัวหน้างานที่กำหนด (ส่วนตัว)
+        for (const supervisorLineUserId of supervisors) {
+          try {
+            await (this.notificationService as any).lineService.pushMessage(supervisorLineUserId, message);
+            console.log(`✅ Sent supervisor summary to: ${supervisorLineUserId}`);
+          } catch (err) {
+            console.warn('⚠️ Failed to send supervisor weekly summary:', supervisorLineUserId, err);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sending supervisor weekly summaries:', error);
     }
   }
 

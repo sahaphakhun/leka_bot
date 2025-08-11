@@ -414,4 +414,16 @@ export class UserService {
       throw error;
     }
   }
+
+  /**
+   * ตรวจสอบว่าผู้ใช้เป็น admin ในกลุ่มหรือไม่
+   */
+  public async isUserAdminInGroup(userId: string, groupId: string): Promise<boolean> {
+    try {
+      return await this.isGroupAdmin(userId, groupId);
+    } catch (error) {
+      console.error('❌ Error checking if user is admin in group:', error);
+      return false;
+    }
+  }
 }

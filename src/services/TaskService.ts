@@ -168,6 +168,36 @@ export class TaskService {
   }
 
   /**
+   * อัปเดตผู้บังคับบัญชาในกลุ่ม
+   */
+  public async updateGroupSupervisors(lineGroupId: string, supervisorLineUserIds: string[]): Promise<boolean> {
+    try {
+      // ค้นหากลุ่มจาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId });
+      if (!group) {
+        console.error('❌ Group not found for LINE ID:', lineGroupId);
+        return false;
+      }
+
+      // อัปเดตการตั้งค่ากลุ่ม
+      const updatedSettings = {
+        ...group.settings,
+        supervisors: supervisorLineUserIds
+      };
+
+      group.settings = updatedSettings;
+      await this.groupRepository.save(group);
+
+      console.log(`✅ Updated supervisors for group ${lineGroupId}:`, supervisorLineUserIds);
+      return true;
+
+    } catch (error) {
+      console.error('❌ Error updating group supervisors:', error);
+      return false;
+    }
+  }
+
+  /**
    * อัปเดตงาน
    */
   public async updateTask(taskId: string, updates: Partial<TaskType>): Promise<Task> {

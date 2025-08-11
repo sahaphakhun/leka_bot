@@ -28,6 +28,8 @@ export class Group {
     };
     // ผู้ที่จะได้รับรายงานสรุปอัตโนมัติ (LINE User IDs)
     reportRecipients?: string[];
+    // ผู้บังคับบัญชาที่จะได้รับสรุปงานของผู้ใต้บังคับบัญชา (LINE User IDs)
+    supervisors?: string[];
   };
 
   @CreateDateColumn()
