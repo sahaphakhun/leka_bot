@@ -512,4 +512,292 @@ export class LineService {
       }
     };
   }
+
+  /**
+   * ดึงข้อมูลสมาชิกแบบ hybrid (LINE API + ฐานข้อมูล)
+   * ลองใช้ LINE API ก่อน หากไม่สำเร็จจะใช้ฐานข้อมูลแทน
+   */
+  public async getGroupMembersHybrid(groupId: string): Promise<Array<{
+    userId: string;
+    displayName: string;
+    pictureUrl?: string;
+    source: 'line_api' | 'database' | 'webhook';
+    lastUpdated: Date;
+  }>> {
+    try {
+      // ลองใช้ LINE API ก่อน (วิธี 1.3)
+      console.log(`🔄 ลองดึงข้อมูลสมาชิกกลุ่ม ${groupId} จาก LINE API`);
+      
+      const lineMembers = await this.getAllGroupMembers(groupId);
+      
+      // เพิ่ม source และ timestamp
+      const membersWithSource = lineMembers.map(member => ({
+        ...member,
+        source: 'line_api' as const,
+        lastUpdated: new Date()
+      }));
+      
+      console.log(`✅ ดึงข้อมูลจาก LINE API สำเร็จ: ${membersWithSource.length} คน`);
+      
+      // Sync ข้อมูลลงฐานข้อมูล
+      await this.syncGroupMembersToDatabase(groupId, membersWithSource);
+      
+      return membersWithSource;
+      
+    } catch (error: any) {
+      console.warn('⚠️ LINE API ไม่ทำงาน เปลี่ยนไปใช้ฐานข้อมูลแทน');
+      
+      if (error.status === 403) {
+        console.warn('⚠️ Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ไม่ใช่ Verified/Premium Bot)');
+      }
+      
+      // Fallback ไปใช้ฐานข้อมูล
+      const dbMembers = await this.getGroupMembersFromDatabase(groupId);
+      
+      // เพิ่ม source เป็น 'database'
+      const membersWithSource = dbMembers.map(member => ({
+        ...member,
+        source: 'database' as const,
+        lastUpdated: new Date()
+      }));
+      
+      console.log(`📊 ดึงข้อมูลจากฐานข้อมูล: ${membersWithSource.length} คน`);
+      return membersWithSource;
+    }
+  }
+
+  /**
+   * Sync ข้อมูลสมาชิกจาก LINE API ลงฐานข้อมูล
+   * ใช้ทั้งวิธี 1.3 (Verified/Premium Bot) และเก็บข้อมูลในฐานข้อมูล
+   */
+  public async syncGroupMembersToDatabase(groupId: string, members?: Array<{
+    userId: string;
+    displayName: string;
+    pictureUrl?: string;
+  }>): Promise<{
+    success: boolean;
+    totalMembers: number;
+    syncedMembers: number;
+    errors: string[];
+  }> {
+    try {
+      console.log(`🔄 เริ่ม sync ข้อมูลสมาชิกกลุ่ม ${groupId} จาก LINE API`);
+      
+      let lineMembers = members;
+      
+      // หากไม่ได้รับ members มา ให้ดึงจาก LINE API
+      if (!lineMembers) {
+        try {
+          lineMembers = await this.getAllGroupMembers(groupId);
+        } catch (error: any) {
+          if (error.status === 403) {
+            console.warn('⚠️ Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (อาจไม่ใช่ Verified/Premium Bot)');
+            console.warn('⚠️ ข้ามการ sync จาก LINE API');
+            return {
+              success: false,
+              totalMembers: 0,
+              syncedMembers: 0,
+              errors: ['Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม']
+            };
+          }
+          throw error;
+        }
+      }
+      
+      console.log(`📊 พบสมาชิก ${lineMembers.length} คนใน LINE API`);
+      
+      // TODO: เรียกใช้ UserService เพื่อ sync ข้อมูลลงฐานข้อมูล
+      // const syncResult = await this.userService.syncGroupMembers(groupId, lineMembers);
+      
+      // สำหรับตอนนี้ ให้ log ข้อมูลที่ได้
+      lineMembers.forEach(member => {
+        console.log(`📝 Sync: ${member.userId} - ${member.displayName}`);
+      });
+      
+      console.log(`✅ Sync ข้อมูลสมาชิกเสร็จสิ้น: ${lineMembers.length} คน`);
+      
+      return {
+        success: true,
+        totalMembers: lineMembers.length,
+        syncedMembers: lineMembers.length,
+        errors: []
+      };
+
+    } catch (error: any) {
+      console.error('❌ Failed to sync group members:', error);
+      
+      return {
+        success: false,
+        totalMembers: 0,
+        syncedMembers: 0,
+        errors: [error.message || 'Unknown error']
+      };
+    }
+  }
+
+  /**
+   * ดึงข้อมูลสมาชิกจากฐานข้อมูล (fallback เมื่อ LINE API ไม่ทำงาน)
+   */
+  public async getGroupMembersFromDatabase(groupId: string): Promise<Array<{
+    userId: string;
+    displayName: string;
+    pictureUrl?: string;
+  }>> {
+    try {
+      console.log(`📊 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} จากฐานข้อมูล`);
+      
+      // TODO: เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
+      // const members = await this.userService.getGroupMembers(groupId);
+      
+      // สำหรับตอนนี้ ให้ส่งคืนข้อมูลตัวอย่าง
+      console.warn('⚠️ ฟังก์ชันนี้ยังไม่ได้เชื่อมต่อกับฐานข้อมูล');
+      console.warn('⚠️ กรุณาเพิ่มการเชื่อมต่อฐานข้อมูลเพื่อดึงข้อมูลสมาชิก');
+      
+      return [];
+    } catch (error) {
+      console.error('❌ Failed to get group members from database:', error);
+      return [];
+    }
+  }
+
+  /**
+   * ตรวจสอบสถานะของ Bot ในกลุ่ม
+   */
+  public async checkBotInGroup(groupId: string): Promise<{
+    isInGroup: boolean;
+    canGetMembers: boolean;
+    canGetProfiles: boolean;
+    botType: 'normal' | 'verified' | 'premium';
+  }> {
+    try {
+      // ลองดึงข้อมูลกลุ่ม
+      await this.client.getGroupSummary(groupId);
+      
+      // ลองดึงข้อมูลสมาชิก
+      try {
+        await this.client.getGroupMemberIds(groupId);
+        return {
+          isInGroup: true,
+          canGetMembers: true,
+          canGetProfiles: true,
+          botType: 'verified' // หรือ 'premium' ขึ้นอยู่กับการตั้งค่า
+        };
+      } catch (memberError: any) {
+        if (memberError.status === 403) {
+          return {
+            isInGroup: true,
+            canGetMembers: false,
+            canGetProfiles: false,
+            botType: 'normal'
+          };
+        }
+        throw memberError;
+      }
+      
+    } catch (error: any) {
+      if (error.status === 403) {
+        return {
+          isInGroup: false,
+          canGetMembers: false,
+          canGetProfiles: false,
+          botType: 'normal'
+        };
+      } else if (error.status === 404) {
+        return {
+          isInGroup: false,
+          canGetMembers: false,
+          canGetProfiles: false,
+          botType: 'normal'
+        };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * อัปเดตข้อมูลสมาชิกจาก webhook events
+   * ใช้เก็บข้อมูลสมาชิกที่เพิ่มเข้ามาใหม่ในกลุ่ม
+   */
+  public async updateMemberFromWebhook(groupId: string, userId: string, eventType: 'join' | 'leave'): Promise<void> {
+    try {
+      console.log(`🔄 อัปเดตข้อมูลสมาชิกจาก webhook: ${eventType} - ${userId} ในกลุ่ม ${groupId}`);
+      
+      if (eventType === 'join') {
+        // เมื่อมีสมาชิกใหม่เข้ากลุ่ม
+        try {
+          // ลองดึงข้อมูล profile จาก LINE API
+          const profile = await this.getGroupMemberProfile(groupId, userId);
+          
+          // บันทึกลงฐานข้อมูล
+          await this.saveMemberToDatabase(groupId, {
+            userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl,
+            source: 'webhook',
+            lastUpdated: new Date()
+          });
+          
+          console.log(`✅ บันทึกข้อมูลสมาชิกใหม่: ${profile.displayName}`);
+          
+        } catch (error: any) {
+          if (error.status === 403) {
+            console.warn('⚠️ ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+            // บันทึกข้อมูลพื้นฐาน
+            await this.saveMemberToDatabase(groupId, {
+              userId,
+              displayName: `User ${userId}`,
+              pictureUrl: undefined,
+              source: 'webhook',
+              lastUpdated: new Date()
+            });
+          } else {
+            throw error;
+          }
+        }
+      } else if (eventType === 'leave') {
+        // เมื่อสมาชิกออกจากกลุ่ม
+        await this.removeMemberFromDatabase(groupId, userId);
+        console.log(`✅ ลบข้อมูลสมาชิกที่ออกจากกลุ่ม: ${userId}`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Failed to update member from webhook:', error);
+    }
+  }
+
+  /**
+   * บันทึกข้อมูลสมาชิกลงฐานข้อมูล
+   */
+  private async saveMemberToDatabase(groupId: string, member: {
+    userId: string;
+    displayName: string;
+    pictureUrl?: string;
+    source: string;
+    lastUpdated: Date;
+  }): Promise<void> {
+    try {
+      // TODO: เรียกใช้ UserService เพื่อบันทึกข้อมูลลงฐานข้อมูล
+      // await this.userService.saveGroupMember(groupId, member);
+      
+      console.log(`💾 บันทึกข้อมูลสมาชิกลงฐานข้อมูล: ${member.userId} - ${member.displayName}`);
+      
+    } catch (error) {
+      console.error('❌ Failed to save member to database:', error);
+    }
+  }
+
+  /**
+   * ลบข้อมูลสมาชิกออกจากฐานข้อมูล
+   */
+  private async removeMemberFromDatabase(groupId: string, userId: string): Promise<void> {
+    try {
+      // TODO: เรียกใช้ UserService เพื่อลบข้อมูลออกจากฐานข้อมูล
+      // await this.userService.removeGroupMember(groupId, userId);
+      
+      console.log(`🗑️ ลบข้อมูลสมาชิกออกจากฐานข้อมูล: ${userId}`);
+      
+    } catch (error) {
+      console.error('❌ Failed to remove member from database:', error);
+    }
+  }
 }

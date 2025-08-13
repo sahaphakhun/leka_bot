@@ -530,29 +530,86 @@ class Dashboard {
 
   async loadGroupMembers() {
     try {
-      // ลองดึงจาก LINE API ก่อน (ข้อมูลอัปเดต)
+      console.log('🔄 เริ่มดึงข้อมูลสมาชิกกลุ่ม...');
+      
+      // ใช้ฟังก์ชัน hybrid ที่ใช้ทั้ง LINE API และฐานข้อมูล
       try {
         const lineResponse = await this.apiRequest(`/line/members/${this.currentGroupId}`);
         if (lineResponse && lineResponse.data && lineResponse.data.length > 0) {
+          console.log(`✅ ดึงข้อมูลจาก LINE API สำเร็จ: ${lineResponse.data.length} คน`);
+          
           // แปลงข้อมูลจาก LINE API ให้เข้ากับ format เดิม
           const formattedMembers = lineResponse.data.map(member => ({
             id: member.userId,
             lineUserId: member.userId,
             displayName: member.displayName,
-            pictureUrl: member.pictureUrl
+            pictureUrl: member.pictureUrl,
+            source: member.source || 'line_api',
+            lastUpdated: member.lastUpdated
           }));
+          
           this.updateMembersList(formattedMembers);
+          
+          // แสดงข้อมูล source ของข้อมูล
+          const sourceInfo = document.getElementById('membersSourceInfo');
+          if (sourceInfo) {
+            const sourceCount = formattedMembers.filter(m => m.source === 'line_api').length;
+            const dbCount = formattedMembers.filter(m => m.source === 'database').length;
+            const webhookCount = formattedMembers.filter(m => m.source === 'webhook').length;
+            
+            let sourceText = '';
+            if (sourceCount > 0) sourceText += `LINE API: ${sourceCount} คน `;
+            if (dbCount > 0) sourceText += `ฐานข้อมูล: ${dbCount} คน `;
+            if (webhookCount > 0) sourceText += `Webhook: ${webhookCount} คน`;
+            
+            sourceInfo.textContent = `แหล่งข้อมูล: ${sourceText}`;
+            sourceInfo.style.display = 'block';
+          }
+          
           return;
         }
       } catch (lineError) {
-        console.warn('Failed to load LINE members, falling back to database:', lineError);
+        console.warn('⚠️ LINE API ไม่ทำงาน เปลี่ยนไปใช้ฐานข้อมูลแทน:', lineError);
+        
+        // แสดงข้อความแจ้งเตือน
+        const sourceInfo = document.getElementById('membersSourceInfo');
+        if (sourceInfo) {
+          sourceInfo.textContent = '⚠️ LINE API ไม่ทำงาน ใช้ข้อมูลจากฐานข้อมูลแทน';
+          sourceInfo.style.display = 'block';
+        }
       }
 
       // Fallback: ดึงจากฐานข้อมูล
+      console.log('📊 ดึงข้อมูลสมาชิกจากฐานข้อมูล...');
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/members`);
-      this.updateMembersList(response.data);
+      
+      if (response && response.data) {
+        // เพิ่ม source เป็น 'database'
+        const formattedMembers = response.data.map(member => ({
+          ...member,
+          source: 'database',
+          lastUpdated: new Date()
+        }));
+        
+        this.updateMembersList(formattedMembers);
+        
+        // แสดงข้อมูล source
+        const sourceInfo = document.getElementById('membersSourceInfo');
+        if (sourceInfo) {
+          sourceInfo.textContent = 'แหล่งข้อมูล: ฐานข้อมูล';
+          sourceInfo.style.display = 'block';
+        }
+      }
+      
     } catch (error) {
-      console.error('Failed to load group members:', error);
+      console.error('❌ Failed to load group members:', error);
+      
+      // แสดงข้อความ error
+      const sourceInfo = document.getElementById('membersSourceInfo');
+      if (sourceInfo) {
+        sourceInfo.textContent = '❌ ไม่สามารถดึงข้อมูลสมาชิกได้';
+        sourceInfo.style.display = 'block';
+      }
     }
   }
 
@@ -577,6 +634,63 @@ class Dashboard {
       console.error('Failed to load LINE members:', error);
       throw error;
     }
+  }
+
+  /**
+   * ตรวจสอบสถานะ Bot ในกลุ่ม
+   */
+  async checkBotStatus() {
+    try {
+      console.log('🔍 ตรวจสอบสถานะ Bot ในกลุ่ม...');
+      
+      const response = await this.apiRequest(`/line/bot-status/${this.currentGroupId}`);
+      if (response && response.data) {
+        const botStatus = response.data;
+        
+        // แสดงสถานะ Bot ในหน้า dashboard
+        this.displayBotStatus(botStatus);
+        
+        return botStatus;
+      }
+    } catch (error) {
+      console.error('❌ Failed to check bot status:', error);
+      
+      // แสดงสถานะ error
+      this.displayBotStatus({
+        isInGroup: false,
+        canGetMembers: false,
+        canGetProfiles: false,
+        botType: 'unknown'
+      });
+    }
+  }
+
+  /**
+   * แสดงสถานะ Bot ในหน้า dashboard
+   */
+  displayBotStatus(botStatus) {
+    const botStatusEl = document.getElementById('botStatusInfo');
+    if (!botStatusEl) return;
+    
+    let statusText = '';
+    let statusClass = '';
+    
+    if (botStatus.isInGroup) {
+      if (botStatus.canGetMembers && botStatus.canGetProfiles) {
+        statusText = `✅ Bot อยู่ในกลุ่มและมีสิทธิ์ครบถ้วน (${botStatus.botType})`;
+        statusClass = 'success';
+      } else {
+        statusText = `⚠️ Bot อยู่ในกลุ่มแต่สิทธิ์จำกัด (${botStatus.botType})`;
+        statusClass = 'warning';
+      }
+    } else {
+      statusText = '❌ Bot ไม่ได้อยู่ในกลุ่ม';
+      statusClass = 'error';
+    }
+    
+    botStatusEl.textContent = statusText;
+    botStatusEl.className = `bot-status ${statusClass}`;
+    botStatusEl.style.display = 'block';
   }
 
   async createTask(taskData) {
@@ -702,6 +816,9 @@ class Dashboard {
         const groupName = groupResponse.data.name || 'ไม่ทราบชื่อกลุ่ม';
         document.getElementById('currentGroupName').textContent = groupName;
         console.log('Group loaded:', groupName);
+        
+        // ตรวจสอบสถานะ Bot ในกลุ่ม
+        await this.checkBotStatus();
         
         // Load current view data
         this.loadViewData(this.currentView);
