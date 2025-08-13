@@ -4,7 +4,7 @@
 
 ### 1. เพิ่มฟังก์ชันใหม่ใน LineService (`src/services/LineService.ts`)
 
-- **`getGroupMemberUserIds(groupId: string)`**: ดึงรายชื่อสมาชิกทั้งหมดในกลุ่มจาก LINE API
+- **`getGroupMemberUserIds(groupId: string)`**: ดึงรายชื่อสมาชิกทั้งหมดในกลุ่มจาก LINE API (ใช้ `getGroupMemberIds`)
 - **`getAllGroupMembers(groupId: string)`**: ดึงข้อมูลสมาชิกทั้งหมดในกลุ่มพร้อมรายละเอียด (displayName, pictureUrl)
 
 ### 2. เพิ่ม endpoint ใหม่ใน API Controller (`src/controllers/apiController.ts`)
@@ -52,12 +52,19 @@ GET /api/line/members/{groupId}
 
 ## หมายเหตุ
 
-- ฟังก์ชันใหม่ใช้ LINE Messaging API: `getGroupMemberUserIds` และ `getGroupMemberProfile`
+- ฟังก์ชันใหม่ใช้ LINE Messaging API: `getGroupMemberIds` และ `getGroupMemberProfile`
+- `getGroupMemberIds` ส่งคืน array ของ userIds โดยตรง
 - ข้อมูลที่ได้จะถูกแปลงให้เข้ากับ format เดิมของระบบ
 - หากไม่สามารถดึงข้อมูลจาก LINE API ได้ ระบบจะแสดง warning และใช้ข้อมูลจากฐานข้อมูลแทน
 
+## การแก้ไขปัญหา
+
+- แก้ไขชื่อฟังก์ชันจาก `getGroupMemberUserIds` เป็น `getGroupMemberIds` ตาม LINE API ที่ถูกต้อง
+- แก้ไขการใช้งาน `result.userIds` เป็น `result` โดยตรง เนื่องจาก `getGroupMemberIds` ส่งคืน array ของ userIds
+
 ## การทดสอบ
 
-1. ตรวจสอบว่า endpoint `/api/line/members/{groupId}` ทำงานได้
-2. ตรวจสอบว่า dashboard แสดงรายชื่อสมาชิกได้ถูกต้อง
-3. ตรวจสอบ fallback system เมื่อ LINE API ไม่ทำงาน
+1. ✅ ตรวจสอบว่า TypeScript build สำเร็จ
+2. ตรวจสอบว่า endpoint `/api/line/members/{groupId}` ทำงานได้
+3. ตรวจสอบว่า dashboard แสดงรายชื่อสมาชิกได้ถูกต้อง
+4. ตรวจสอบ fallback system เมื่อ LINE API ไม่ทำงาน
