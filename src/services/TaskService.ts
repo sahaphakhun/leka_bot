@@ -723,9 +723,20 @@ export class TaskService {
    */
   public async getActiveTasks(groupId: string): Promise<Task[]> {
     try {
+      console.log(`🔍 Looking for group with LINE ID: ${groupId}`);
+      
+      // ค้นหา Group entity จาก LINE Group ID
+      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      if (!group) {
+        console.error(`❌ Group not found for LINE ID: ${groupId}`);
+        throw new Error(`Group not found for LINE ID: ${groupId}`);
+      }
+
+      console.log(`✅ Found group: ${group.id} (${group.name})`);
+
       return await this.taskRepository.find({
         where: {
-          groupId,
+          groupId: group.id,
           status: 'in_progress'
         },
         relations: ['assignedUsers', 'attachedFiles'],

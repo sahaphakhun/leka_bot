@@ -338,6 +338,59 @@ export class LineService {
   }
 
   /**
+   * ดึงรายชื่อสมาชิกทั้งหมดในกลุ่มจาก LINE API
+   */
+  public async getGroupMemberUserIds(groupId: string): Promise<string[]> {
+    try {
+      const result = await this.client.getGroupMemberUserIds(groupId);
+      return result.userIds;
+    } catch (error) {
+      console.error('❌ Failed to get group member user IDs:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ดึงข้อมูลสมาชิกทั้งหมดในกลุ่มพร้อมรายละเอียด
+   */
+  public async getAllGroupMembers(groupId: string): Promise<Array<{
+    userId: string;
+    displayName: string;
+    pictureUrl?: string;
+  }>> {
+    try {
+      // ดึงรายชื่อสมาชิกทั้งหมดในกลุ่ม
+      const userIds = await this.getGroupMemberUserIds(groupId);
+      
+      // ดึงข้อมูลรายละเอียดของแต่ละสมาชิก
+      const memberPromises = userIds.map(async (userId) => {
+        try {
+          const profile = await this.getGroupMemberProfile(groupId, userId);
+          return {
+            userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl
+          };
+        } catch (error) {
+          console.error(`❌ Failed to get profile for user ${userId}:`, error);
+          // ส่งคืนข้อมูลพื้นฐานถ้าไม่สามารถดึงข้อมูลได้
+          return {
+            userId,
+            displayName: `User ${userId}`,
+            pictureUrl: undefined
+          };
+        }
+      });
+
+      const members = await Promise.all(memberPromises);
+      return members;
+    } catch (error) {
+      console.error('❌ Failed to get all group members:', error);
+      throw error;
+    }
+  }
+
+  /**
    * สร้าง Flex Message สำหรับแสดงข้อมูลงาน
    */
   public createTaskFlexMessage(task: {

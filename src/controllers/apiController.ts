@@ -6,6 +6,7 @@ import { UserService } from '@/services/UserService';
 import { FileService } from '@/services/FileService';
 import { KPIService } from '@/services/KPIService';
 import { RecurringTaskService } from '@/services/RecurringTaskService';
+import { LineService } from '@/services/LineService';
 import multer from 'multer';
 import { logger } from '@/utils/logger';
 import { authenticate } from '@/middleware/auth';
@@ -22,6 +23,7 @@ class ApiController {
   private fileService: FileService;
   private kpiService: KPIService;
   private recurringService: RecurringTaskService;
+  private lineService: LineService;
 
   constructor() {
     this.taskService = new TaskService();
@@ -29,6 +31,7 @@ class ApiController {
     this.fileService = new FileService();
     this.kpiService = new KPIService();
     this.recurringService = new RecurringTaskService();
+    this.lineService = new LineService();
   }
 
   // Task Endpoints
@@ -879,6 +882,31 @@ class ApiController {
       });
     }
   }
+
+  /**
+   * GET /api/line/members/:groupId - ดึงรายชื่อสมาชิกจาก LINE API
+   */
+  public async getLineMembers(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+
+      const members = await this.lineService.getAllGroupMembers(groupId);
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: members
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error getting LINE members:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get LINE members' 
+      });
+    }
+  }
 }
 
 const apiController = new ApiController();
@@ -917,6 +945,7 @@ apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFil
 // User and export routes
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));
 apiRouter.get('/export/kpi/:groupId', apiController.exportKPI.bind(apiController));
+apiRouter.get('/line/members/:groupId', apiController.getLineMembers.bind(apiController));
 
 // New helper route: fetch single task detail by ID (for dashboard modal)
 apiRouter.get('/task/:taskId', async (req, res) => {

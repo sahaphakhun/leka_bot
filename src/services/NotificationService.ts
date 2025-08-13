@@ -35,8 +35,20 @@ export class NotificationService {
       // สร้าง Flex Message สำหรับเตือนงาน
       const flexMessage = this.createTaskReminderFlexMessage(task, group, reminderType);
       
-      // ส่งในกลุ่ม LINE
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+      // ส่งในกลุ่ม LINE (เฉพาะข้อความสรุป)
+      const summaryMessage = this.createTaskReminderSummaryMessage(task, group, reminderType);
+      await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
+
+      // ส่งการ์ดงานต่างๆ ของแต่ละงานเข้าไลน์ส่วนตัว
+      for (const assignee of assignees) {
+        try {
+          const personalFlexMessage = this.createPersonalTaskReminderFlexMessage(task, group, assignee, reminderType);
+          await this.lineService.pushMessage(assignee.lineUserId, personalFlexMessage);
+          console.log(`✅ Sent personal task reminder to: ${assignee.displayName}`);
+        } catch (err) {
+          console.warn('⚠️ Failed to send personal task reminder:', assignee.lineUserId, err);
+        }
+      }
 
       // ส่งอีเมลให้ผู้ที่มีอีเมล
       const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
@@ -66,11 +78,20 @@ export class NotificationService {
 
       const overdueHours = moment().tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
       
-      // สร้าง Flex Message สำหรับงานเกินกำหนด
-      const flexMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
+      // สร้างข้อความสรุปสำหรับส่งในกลุ่ม
+      const summaryMessage = this.createOverdueTaskSummaryMessage(task, group, overdueHours);
+      await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
 
-      // ส่งใน LINE
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+      // ส่งการ์ดงานต่างๆ ของแต่ละงานเข้าไลน์ส่วนตัว
+      for (const assignee of assignees) {
+        try {
+          const personalFlexMessage = this.createPersonalOverdueTaskFlexMessage(task, group, assignee, overdueHours);
+          await this.lineService.pushMessage(assignee.lineUserId, personalFlexMessage);
+          console.log(`✅ Sent personal overdue notification to: ${assignee.displayName}`);
+        } catch (err) {
+          console.warn('⚠️ Failed to send personal overdue notification:', assignee.lineUserId, err);
+        }
+      }
 
       // ส่งอีเมล
       const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
@@ -97,34 +118,22 @@ export class NotificationService {
 
       const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
       
-      // สร้าง Flex Message สำหรับงานใหม่
-      const flexMessage = this.createTaskCreatedFlexMessage(task, group, creator, dueDate);
+      // สร้างข้อความสรุปสำหรับส่งในกลุ่ม
+      const summaryMessage = this.createTaskCreatedSummaryMessage(task, group, creator, dueDate);
+      await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
 
-      // ส่งใน LINE Group
-      const userIds = assignees.map((user: any) => user.lineUserId);
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
-
-      // ส่งการแจ้งเตือนในแชทส่วนตัวให้ผู้รับผิดชอบแต่ละคน
-      const privateMessage = `📋 คุณได้รับมอบหมายงานใหม่!
-
-**${task.title}**
-${task.description ? `📝 ${task.description}\n` : ''}📅 กำหนดส่ง: ${dueDate}
-👤 สร้างโดย: ${creator?.displayName || 'ไม่ทราบ'}
-🏠 กลุ่ม: ${group.name}
-
-${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}
-📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
-
-      // ส่งข้อความส่วนตัวให้ผู้รับผิดชอบแต่ละคน
+      // ส่งการ์ดงานต่างๆ ของแต่ละงานเข้าไลน์ส่วนตัว
       for (const assignee of assignees) {
         try {
-          await this.lineService.pushMessage(assignee.lineUserId, privateMessage);
-        } catch (error) {
-          console.warn(`⚠️ Failed to send private notification to ${assignee.displayName}:`, error);
+          const personalFlexMessage = this.createPersonalTaskCreatedFlexMessage(task, group, assignee, creator, dueDate);
+          await this.lineService.pushMessage(assignee.lineUserId, personalFlexMessage);
+          console.log(`✅ Sent personal task created notification to: ${assignee.displayName}`);
+        } catch (err) {
+          console.warn('⚠️ Failed to send personal task created notification:', assignee.lineUserId, err);
         }
       }
 
-      // ส่งอีเมล
+      // ส่งอีเมลให้ผู้ที่มีอีเมล
       const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
       for (const user of emailUsers) {
         await this.emailService.sendTaskCreatedNotification(user, task);
@@ -614,6 +623,131 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
   }
 
   /**
+   * สร้างข้อความสรุปการเตือนงานสำหรับส่งในกลุ่ม
+   */
+  private createTaskReminderSummaryMessage(task: any, group: any, reminderType: string): string {
+    const timeText = this.getReminderTimeText(reminderType);
+    const dueDate = moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    
+    let message = `⏰ ${timeText}\n\n`;
+    message += `📋 ${task.title}\n`;
+    message += `📅 กำหนดส่ง: ${dueDate}\n`;
+    message += `👥 ผู้รับผิดชอบ: ${task.assignedUsers?.map((u: any) => `@${u.displayName}`).join(' ') || 'ไม่ระบุ'}\n`;
+    message += `🏠 กลุ่ม: ${group.name}\n\n`;
+    message += `💡 ดูรายละเอียดการ์ดงานได้จากการแจ้งเตือนส่วนตัวที่ส่งให้แต่ละคน`;
+
+    return message;
+  }
+
+  /**
+   * สร้างการ์ดงานส่วนบุคคลสำหรับการเตือนงาน
+   */
+  private createPersonalTaskReminderFlexMessage(task: any, group: any, assignee: any, reminderType: string): any {
+    const timeText = this.getReminderTimeText(reminderType);
+    const dueDate = moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    
+    const flexContainer: any = {
+      type: 'flex',
+      altText: `การเตือนงาน: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: `⏰ ${timeText}`,
+              weight: 'bold',
+              size: 'lg',
+              color: '#FF6B6B',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `📋 ${task.title}`,
+              weight: 'bold',
+              size: 'md',
+              color: '#333333',
+              flex: 0,
+              wrap: true
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่ง: ${dueDate}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `👤 ผู้รับผิดชอบ: ${assignee.displayName}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `🏠 กลุ่ม: ${group.name}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: '💡 ดูรายละเอียดเพิ่มเติมได้ที่ Dashboard ของกลุ่ม',
+              size: 'xs',
+              color: '#999999',
+              align: 'center',
+              flex: 0
+            }
+          ]
+        }
+      }
+    };
+
+    // เพิ่มรายละเอียดงานถ้ามี
+    if (task.description) {
+      flexContainer.contents.body.contents.splice(3, 0, {
+        type: 'text',
+        text: `📝 ${task.description}`,
+        size: 'sm',
+        color: '#666666',
+        flex: 0,
+        wrap: true,
+        margin: 'sm'
+      });
+    }
+
+    // เพิ่มแท็กถ้ามี
+    if (task.tags && task.tags.length > 0) {
+      flexContainer.contents.body.contents.push({
+        type: 'text',
+        text: `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}`,
+        size: 'sm',
+        color: '#666666',
+        flex: 0,
+        margin: 'sm'
+      });
+    }
+
+    return flexContainer;
+  }
+
+  /**
    * สร้าง Flex Message สำหรับงานเกินกำหนด
    */
   private createOverdueTaskFlexMessage(task: any, group: any, overdueHours: number): FlexMessage {
@@ -674,6 +808,140 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
         }
       }
     };
+  }
+
+  /**
+   * สร้างข้อความสรุปสำหรับงานเกินกำหนดที่ส่งในกลุ่ม
+   */
+  private createOverdueTaskSummaryMessage(task: any, group: any, overdueHours: number): string {
+    const dueDate = moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    const overdueText = overdueHours >= 24 ? `${Math.floor(overdueHours / 24)} วัน` : `${overdueHours} ชั่วโมง`;
+
+    let message = `⚠️ งานเกินกำหนด!\n\n`;
+    message += `📋 ${task.title}\n`;
+    message += `📅 กำหนดส่ง: ${dueDate}\n`;
+    message += `⏰ เกินมา: ${overdueText}\n`;
+    message += `👥 ผู้รับผิดชอบ: ${task.assignedUsers?.map((u: any) => `@${u.displayName}`).join(' ') || 'ไม่ระบุ'}\n`;
+    message += `🏠 กลุ่ม: ${group.name}\n\n`;
+    message += `💡 ดูรายละเอียดการ์ดงานได้จากการแจ้งเตือนส่วนตัวที่ส่งให้แต่ละคน`;
+
+    return message;
+  }
+
+  /**
+   * สร้างการ์ดงานส่วนบุคคลสำหรับงานเกินกำหนดที่ส่งในกลุ่ม
+   */
+  private createPersonalOverdueTaskFlexMessage(task: any, group: any, assignee: any, overdueHours: number): any {
+    const dueDate = moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    const overdueText = overdueHours >= 24 ? `${Math.floor(overdueHours / 24)} วัน` : `${overdueHours} ชั่วโมง`;
+
+    const flexContainer: any = {
+      type: 'flex',
+      altText: `งานเกินกำหนด: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: `⚠️ งานเกินกำหนด!`,
+              weight: 'bold',
+              size: 'lg',
+              color: '#FFFFFF',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `📋 ${task.title}`,
+              weight: 'bold',
+              size: 'md',
+              color: '#333333',
+              flex: 0,
+              wrap: true
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่ง: ${dueDate}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `⏰ เกินมา: ${overdueText}`,
+              size: 'sm',
+              color: '#F44336',
+              weight: 'bold',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `👥 ผู้รับผิดชอบ: ${assignee.displayName}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `🏠 กลุ่ม: ${group.name}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: '💡 ดูรายละเอียดเพิ่มเติมได้ที่ Dashboard ของกลุ่ม',
+              size: 'xs',
+              color: '#999999',
+              align: 'center',
+              flex: 0
+            }
+          ]
+        }
+      }
+    };
+
+    // เพิ่มรายละเอียดงานถ้ามี
+    if (task.description) {
+      flexContainer.contents.body.contents.splice(3, 0, {
+        type: 'text',
+        text: `📝 ${task.description}`,
+        size: 'sm',
+        color: '#666666',
+        flex: 0,
+        wrap: true,
+        margin: 'sm'
+      });
+    }
+
+    // เพิ่มแท็กถ้ามี
+    if (task.tags && task.tags.length > 0) {
+      flexContainer.contents.body.contents.push({
+        type: 'text',
+        text: `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}`,
+        size: 'sm',
+        color: '#666666',
+        flex: 0,
+        margin: 'sm'
+      });
+    }
+
+    return flexContainer;
   }
 
   /**
@@ -1152,5 +1420,132 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     if (diff <= 48) return 80;  // เสร็จช้าเล็กน้อย
     if (diff <= 72) return 70;  // เสร็จช้า
     return 0; // เสร็จช้ามาก
+  }
+
+  /**
+   * สร้างข้อความสรุปสำหรับงานใหม่ที่ส่งในกลุ่ม
+   */
+  private createTaskCreatedSummaryMessage(task: any, group: any, creator: any, dueDate: string): string {
+    const assignees = task.assignedUsers || [];
+    const assigneeNames = assignees.map((u: any) => `@${u.displayName}`).join(' ');
+
+    let message = `📋 งานใหม่!
+
+**${task.title}**
+${task.description ? `📝 ${task.description}\n` : ''}📅 กำหนดส่ง: ${dueDate}
+👤 สร้างโดย: ${creator?.displayName || 'ไม่ทราบ'}
+👥 ผู้รับผิดชอบ: ${assigneeNames}
+
+${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}
+📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
+
+    return message;
+  }
+
+  /**
+   * สร้างการ์ดงานส่วนบุคคลสำหรับงานใหม่ที่ส่งในกลุ่ม
+   */
+  private createPersonalTaskCreatedFlexMessage(task: any, group: any, assignee: any, creator: any, dueDate: string): any {
+    const assigneeNames = assignee.displayName;
+    const creatorName = creator?.displayName || 'ไม่ทราบ';
+
+    const flexContainer: any = {
+      type: 'flex',
+      altText: `งานใหม่: ${task.title}`,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: `📋 ${task.title}`,
+              weight: 'bold',
+              size: 'md',
+              color: '#333333',
+              flex: 0,
+              wrap: true
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่ง: ${dueDate}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `👤 สร้างโดย: ${creatorName}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `👥 ผู้รับผิดชอบ: ${assigneeNames}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: `🏠 กลุ่ม: ${group.name}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: '💡 ดูรายละเอียดเพิ่มเติมได้ที่ Dashboard ของกลุ่ม',
+              size: 'xs',
+              color: '#999999',
+              align: 'center',
+              flex: 0
+            }
+          ]
+        }
+      }
+    };
+
+    // เพิ่มรายละเอียดงานถ้ามี
+    if (task.description) {
+      flexContainer.contents.body.contents.splice(1, 0, {
+        type: 'text',
+        text: `📝 ${task.description}`,
+        size: 'sm',
+        color: '#666666',
+        flex: 0,
+        wrap: true,
+        margin: 'sm'
+      });
+    }
+
+    // เพิ่มแท็กถ้ามี
+    if (task.tags && task.tags.length > 0) {
+      flexContainer.contents.body.contents.push({
+        type: 'text',
+        text: `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}`,
+        size: 'sm',
+        color: '#666666',
+        flex: 0,
+        margin: 'sm'
+      });
+    }
+
+    return flexContainer;
   }
 }

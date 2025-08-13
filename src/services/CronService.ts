@@ -296,14 +296,15 @@ export class CronService {
             const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
             if (!assignee) continue;
 
-            const cardMessage = this.createPersonalTaskCard(assignee, userTasks, tz);
+            // สร้างการ์ดงานต่างๆ ของแต่ละงาน (Flex Message) แทนข้อความธรรมดา
+            const flexMessage = this.createPersonalTaskFlexMessage(assignee, userTasks, tz);
             
             // ส่งการ์ดให้แต่ละคนทางส่วนตัว
-            await (this.notificationService as any).lineService.pushMessage(assigneeId, cardMessage);
+            await (this.notificationService as any).lineService.pushMessage(assigneeId, flexMessage);
             
-            console.log(`✅ Sent personal task card to: ${assignee.displayName}`);
+            console.log(`✅ Sent personal task flex message to: ${assignee.displayName}`);
           } catch (err) {
-            console.warn('⚠️ Failed to send personal task card:', assigneeId, err);
+            console.warn('⚠️ Failed to send personal task flex message:', assigneeId, err);
           }
         }
       }
@@ -313,50 +314,194 @@ export class CronService {
   }
 
   /**
-   * สร้างการ์ดงานส่วนบุคคล
+   * สร้างการ์ดงานส่วนบุคคล (Flex Message)
    */
-  private createPersonalTaskCard(assignee: any, tasks: any[], timezone: string): string {
+  private createPersonalTaskFlexMessage(assignee: any, tasks: any[], timezone: string): any {
     const header = `📋 การ์ดงานส่วนบุคคล - ${assignee.displayName}`;
     const date = moment().tz(timezone).format('DD/MM/YYYY');
     const subtitle = `🗓️ วันที่ ${date} | 📊 งานค้าง ${tasks.length} งาน`;
-    
-    let message = `${header}\n${subtitle}\n\n`;
     
     // จัดหมวดหมู่ตามสถานะ
     const overdueTasks = tasks.filter(t => t.status === 'overdue');
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
     const pendingTasks = tasks.filter(t => t.status === 'pending');
     
+    const flexContainer: any = {
+      type: 'flex',
+      altText: header,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: header,
+              weight: 'bold',
+              size: 'lg',
+              color: '#1DB446',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: subtitle,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            }
+          ]
+        }
+      }
+    };
+
+    // เพิ่มงานเกินกำหนด
     if (overdueTasks.length > 0) {
-      message += `⚠️ งานเกินกำหนด (${overdueTasks.length})\n`;
-      overdueTasks.forEach((task, idx) => {
-        const due = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
-        message += `${idx + 1}. ${task.title} (กำหนด: ${due})\n`;
+      flexContainer.contents.body.contents.push({
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: `⚠️ งานเกินกำหนด (${overdueTasks.length})`,
+            weight: 'bold',
+            size: 'md',
+            color: '#FF4444',
+            flex: 0
+          },
+          ...overdueTasks.map((task, idx) => ({
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            margin: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: `${idx + 1}. ${task.title}`,
+                size: 'sm',
+                color: '#333333',
+                flex: 0,
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: `กำหนด: ${moment(task.dueTime).tz(timezone).format('DD/MM HH:mm')}`,
+                size: 'sm',
+                color: '#FF4444',
+                flex: 0
+              }
+            ]
+          }))
+        ]
       });
-      message += '\n';
     }
-    
+
+    // เพิ่มงานกำลังดำเนินการ
     if (inProgressTasks.length > 0) {
-      message += `⏳ งานกำลังดำเนินการ (${inProgressTasks.length})\n`;
-      inProgressTasks.forEach((task, idx) => {
-        const due = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
-        message += `${idx + 1}. ${task.title} (กำหนด: ${due})\n`;
+      flexContainer.contents.body.contents.push({
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: `⏳ งานกำลังดำเนินการ (${inProgressTasks.length})`,
+            weight: 'bold',
+            size: 'md',
+            color: '#FFAA00',
+            flex: 0
+          },
+          ...inProgressTasks.map((task, idx) => ({
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            margin: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: `${idx + 1}. ${task.title}`,
+                size: 'sm',
+                color: '#333333',
+                flex: 0,
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: `กำหนด: ${moment(task.dueTime).tz(timezone).format('DD/MM HH:mm')}`,
+                size: 'sm',
+                color: '#FFAA00',
+                flex: 0
+              }
+            ]
+          }))
+        ]
       });
-      message += '\n';
     }
-    
+
+    // เพิ่มงานรอดำเนินการ
     if (pendingTasks.length > 0) {
-      message += `📝 งานรอดำเนินการ (${pendingTasks.length})\n`;
-      pendingTasks.forEach((task, idx) => {
-        const due = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
-        message += `${idx + 1}. ${task.title} (กำหนด: ${due})\n`;
+      flexContainer.contents.body.contents.push({
+        type: 'box',
+        layout: 'vertical',
+        spacing: 'sm',
+        contents: [
+          {
+            type: 'text',
+            text: `📝 งานรอดำเนินการ (${pendingTasks.length})`,
+            weight: 'bold',
+            size: 'md',
+            color: '#666666',
+            flex: 0
+          },
+          ...pendingTasks.map((task, idx) => ({
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            margin: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: `${idx + 1}. ${task.title}`,
+                size: 'sm',
+                color: '#333333',
+                flex: 0,
+                wrap: true
+              },
+              {
+                type: 'text',
+                text: `กำหนด: ${moment(task.dueTime).tz(timezone).format('DD/MM HH:mm')}`,
+                size: 'sm',
+                color: '#666666',
+                flex: 0
+              }
+            ]
+          }))
+        ]
       });
-      message += '\n';
     }
-    
-    message += `💡 ดูรายละเอียดเพิ่มเติมได้ที่ Dashboard ของกลุ่ม`;
-    
-    return message;
+
+    // เพิ่ม footer
+    flexContainer.contents.body.contents.push({
+      type: 'separator',
+      margin: 'md'
+    });
+
+    flexContainer.contents.body.contents.push({
+      type: 'text',
+      text: '💡 ดูรายละเอียดเพิ่มเติมได้ที่ Dashboard ของกลุ่ม',
+      size: 'sm',
+      color: '#999999',
+      flex: 0
+    });
+
+    return flexContainer;
   }
 
   /** ส่งสรุปสำหรับผู้จัดการทุกเช้า: งานที่ยังไม่ส่ง / ใครล่าช้า / ใครยังไม่ตรวจ */
@@ -408,7 +553,7 @@ export class CronService {
         if (pendingReview.length > 0) {
           message += `รอตรวจ (${pendingReview.length})\n` + pendingReview.slice(0, 10).map(formatTask).join('\n') + '\n\n';
         }
-        message += `📊 รายละเอียดเพิ่มเติม: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#reports`;
+        message += `�� รายละเอียดเพิ่มเติม: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#reports`;
 
         // ส่งให้ผู้จัดการที่กำหนด (ส่วนตัว)
         for (const lineUserId of recipients) {

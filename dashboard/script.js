@@ -67,6 +67,19 @@
  * ===============================
  */
 
+// เพิ่ม moment-timezone สำหรับการจัดการเวลา
+let moment;
+if (typeof require !== 'undefined') {
+  // Node.js environment
+  moment = require('moment-timezone');
+} else if (typeof window !== 'undefined' && window.moment) {
+  // Browser environment - ใช้ moment ที่โหลดจาก CDN
+  moment = window.moment;
+} else {
+  // Browser environment - ต้องโหลด moment-timezone จาก CDN
+  console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาเพิ่ม script tag ใน HTML');
+}
+
 class Dashboard {
   constructor() {
     this.currentView = 'dashboard';
@@ -75,6 +88,9 @@ class Dashboard {
     this.initialAction = this.getActionFromUrl();
     this.apiBase = window.location.origin;
     this.isLoading = false;
+    
+    // ตั้งค่า timezone เริ่มต้น
+    this.timezone = 'Asia/Bangkok';
     
     this.init();
   }
@@ -342,6 +358,10 @@ class Dashboard {
   }
 
   formatDate(date) {
+    if (moment) {
+      return moment(date).tz(this.timezone).format('DD MMMM YYYY');
+    }
+    // fallback to native Date if moment is not available
     return new Date(date).toLocaleDateString('th-TH', {
       year: 'numeric',
       month: 'long',
@@ -350,6 +370,10 @@ class Dashboard {
   }
 
   formatDateTime(date) {
+    if (moment) {
+      return moment(date).tz(this.timezone).format('DD MMM YYYY HH:mm');
+    }
+    // fallback to native Date if moment is not available
     return new Date(date).toLocaleString('th-TH', {
       year: 'numeric',
       month: 'short',
@@ -506,10 +530,52 @@ class Dashboard {
 
   async loadGroupMembers() {
     try {
+      // ลองดึงจาก LINE API ก่อน (ข้อมูลอัปเดต)
+      try {
+        const lineResponse = await this.apiRequest(`/line/members/${this.currentGroupId}`);
+        if (lineResponse && lineResponse.data && lineResponse.data.length > 0) {
+          // แปลงข้อมูลจาก LINE API ให้เข้ากับ format เดิม
+          const formattedMembers = lineResponse.data.map(member => ({
+            id: member.userId,
+            lineUserId: member.userId,
+            displayName: member.displayName,
+            pictureUrl: member.pictureUrl
+          }));
+          this.updateMembersList(formattedMembers);
+          return;
+        }
+      } catch (lineError) {
+        console.warn('Failed to load LINE members, falling back to database:', lineError);
+      }
+
+      // Fallback: ดึงจากฐานข้อมูล
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/members`);
       this.updateMembersList(response.data);
     } catch (error) {
       console.error('Failed to load group members:', error);
+    }
+  }
+
+  /**
+   * ดึงรายชื่อสมาชิกจาก LINE API โดยตรง
+   */
+  async loadLineMembers() {
+    try {
+      const response = await this.apiRequest(`/line/members/${this.currentGroupId}`);
+      if (response && response.data) {
+        // แปลงข้อมูลจาก LINE API ให้เข้ากับ format เดิม
+        const formattedMembers = response.data.map(member => ({
+          id: member.userId,
+          lineUserId: member.userId,
+          displayName: member.displayName,
+          pictureUrl: member.pictureUrl
+        }));
+        this.updateMembersList(formattedMembers);
+        return formattedMembers;
+      }
+    } catch (error) {
+      console.error('Failed to load LINE members:', error);
+      throw error;
     }
   }
 
@@ -583,8 +649,13 @@ class Dashboard {
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
       case 'calendar':
-        const now = new Date();
-        this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+        if (moment) {
+          const now = moment().tz(this.timezone);
+          this.loadCalendarEvents(now.month() + 1, now.year());
+        } else {
+          const now = new Date();
+          this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+        }
         break;
       case 'tasks':
         this.loadTasks();
@@ -818,17 +889,34 @@ class Dashboard {
       let startDate = document.getElementById('reportStartDate').value;
       let endDate = document.getElementById('reportEndDate').value;
       if (period !== 'custom') {
-        const d = new Date();
-        if (period === 'weekly') {
-          const day = d.getDay();
-          const diffToMonday = (day === 0 ? 6 : day - 1);
-          const s = new Date(d); s.setDate(d.getDate()-diffToMonday); s.setHours(0,0,0,0);
-          const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
-          startDate = s.toISOString(); endDate = e.toISOString();
+        if (moment) {
+          // ใช้ moment-timezone สำหรับการจัดการเวลา
+          const now = moment().tz(this.timezone);
+          if (period === 'weekly') {
+            const startOfWeek = now.clone().startOf('week');
+            const endOfWeek = now.clone().endOf('week');
+            startDate = startOfWeek.toISOString();
+            endDate = endOfWeek.toISOString();
+          } else {
+            const startOfMonth = now.clone().startOf('month');
+            const endOfMonth = now.clone().endOf('month');
+            startDate = startOfMonth.toISOString();
+            endDate = endOfMonth.toISOString();
+          }
         } else {
-          const s = new Date(d.getFullYear(), d.getMonth(), 1);
-          const e = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
-          startDate = s.toISOString(); endDate = e.toISOString();
+          // fallback to native Date
+          const d = new Date();
+          if (period === 'weekly') {
+            const day = d.getDay();
+            const diffToMonday = (day === 0 ? 6 : day - 1);
+            const s = new Date(d); s.setDate(d.getDate()-diffToMonday); s.setHours(0,0,0,0);
+            const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
+            startDate = s.toISOString(); endDate = e.toISOString();
+          } else {
+            const s = new Date(d.getFullYear(), d.getMonth(), 1);
+            const e = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+            startDate = s.toISOString(); endDate = e.toISOString();
+          }
         }
       }
       const url = `${this.apiBase}/api/groups/${this.currentGroupId}/reports/export?startDate=${encodeURIComponent(startDate)}&endDate=${encodeURIComponent(endDate)}&format=${format}`;
@@ -997,17 +1085,27 @@ class Dashboard {
     }
     
     // Current month days
-    const today = new Date();
-    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month - 1;
+    let today;
+    if (moment) {
+      today = moment().tz(this.timezone);
+    } else {
+      today = new Date();
+    }
+    const isCurrentMonth = today.year() === year && today.month() === month - 1;
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = isCurrentMonth && today.getDate() === day;
-    const dayEvents = events.filter(event => {
-        const eventDate = new Date(event.end || event.dueTime || event.start);
+      const isToday = isCurrentMonth && today.date() === day;
+      const dayEvents = events.filter(event => {
+        let eventDate;
+        if (moment) {
+          eventDate = moment(event.end || event.dueTime || event.start).tz(this.timezone);
+        } else {
+          eventDate = new Date(event.end || event.dueTime || event.start);
+        }
         return (
-          eventDate.getFullYear() === year &&
-          (eventDate.getMonth() + 1) === month &&
-          eventDate.getDate() === day
+          eventDate.year() === year &&
+          (eventDate.month() + 1) === month &&
+          eventDate.date() === day
         );
       });
       
@@ -1206,7 +1304,7 @@ class Dashboard {
     const taskData = {
       title: formData.get('title'),
       description: formData.get('description'),
-      dueTime: formData.get('dueDate'),
+      dueTime: this.formatDateForAPI(formData.get('dueDate')),
       priority: formData.get('priority'),
       assigneeIds: Array.from(document.getElementById('taskAssignees').selectedOptions)
         .map(option => option.value),
@@ -1232,7 +1330,7 @@ class Dashboard {
           weekDay: recurrenceType === 'weekly' ? parseInt(document.getElementById('weekDaySelect').value || '1', 10) : undefined,
           dayOfMonth: (recurrenceType === 'monthly' || recurrenceType === 'quarterly') ? parseInt(document.getElementById('dayOfMonthInput').value || '1', 10) : undefined,
           timeOfDay: document.getElementById('timeOfDayInput').value || '09:00',
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          timezone: this.timezone, // ใช้ timezone ที่ตั้งค่าไว้ใน class
           createdBy: this.currentUserId || 'unknown'
         };
         await this.apiRequest(`/groups/${this.currentGroupId}/recurring`, {
@@ -1310,8 +1408,13 @@ class Dashboard {
     });
     
     // โหมดยังเป็น placeholder แสดงผลเดือนเป็นหลัก (พร้อมไว้ต่อยอด)
-    const now = new Date();
-    this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+    if (moment) {
+      const now = moment().tz(this.timezone);
+      this.loadCalendarEvents(now.month() + 1, now.year());
+    } else {
+      const now = new Date();
+      this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+    }
   }
 
   async populateReviewTaskSelect(selectedTaskId = '') {
@@ -1353,8 +1456,8 @@ class Dashboard {
       const comment = document.getElementById('reviewComment').value;
       const newDue = document.getElementById('reviewNewDue').value;
       if (!newDue) { this.showToast('ระบุกำหนดส่งใหม่', 'error'); return; }
-      // ส่ง ISO string เพื่อลด edge case timezone
-      const isoDue = new Date(newDue).toISOString();
+      // ส่ง ISO string เพื่อลด edge case timezone และใช้ moment-timezone
+      const isoDue = this.formatDateForAPI(newDue);
       const res = await this.apiRequest(`/tasks/${taskId}`, {
         method: 'PUT',
         body: JSON.stringify({
@@ -1401,8 +1504,17 @@ class Dashboard {
     this.apiRequest(`/groups/${this.currentGroupId}/calendar?month=${month}&year=${year}`)
       .then(resp => {
         const events = (resp.data || []).filter(ev => {
-          const d = new Date(ev.end || ev.dueTime || ev.start);
-          return d.getFullYear() === year && d.getMonth() + 1 === month && d.getDate() === day;
+          let eventDate;
+          if (moment) {
+            eventDate = moment(ev.end || ev.dueTime || ev.start).tz(this.timezone);
+          } else {
+            eventDate = new Date(ev.end || ev.dueTime || ev.start);
+          }
+          return (
+            eventDate.year() === year &&
+            (eventDate.month() + 1) === month &&
+            eventDate.date() === day
+          );
         });
         const body = document.getElementById('taskModalBody');
         if (!body) return;
@@ -1573,10 +1685,31 @@ class Dashboard {
     paginationHTML += '</div>';
     container.innerHTML = paginationHTML;
   }
+
+  // เพิ่มฟังก์ชันสำหรับการจัดการวันที่ปัจจุบัน
+  getCurrentDate() {
+    if (moment) {
+      return moment().tz(this.timezone);
+    }
+    return new Date();
+  }
+
+  // เพิ่มฟังก์ชันสำหรับการแปลงวันที่ให้เป็น timezone ที่ถูกต้อง
+  formatDateForAPI(date) {
+    if (moment) {
+      return moment(date).tz(this.timezone).toISOString();
+    }
+    return new Date(date).toISOString();
+  }
 }
 
 // Initialize Dashboard
 let dashboard;
+document.addEventListener('DOMContentLoaded', () => {
+  dashboard = new Dashboard();
+  // Expose after init to ensure handlers can access
+  window.dashboard = dashboard;
+});
 document.addEventListener('DOMContentLoaded', () => {
   dashboard = new Dashboard();
   // Expose after init to ensure handlers can access
