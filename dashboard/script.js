@@ -1491,7 +1491,12 @@ class Dashboard {
     const parts = header.split(' ');
     const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
     const currentMonthIdx = months.indexOf(parts[0]);
-    const currentYear = parseInt(parts[1]) || new Date().getFullYear();
+    let currentYear;
+    if (moment) {
+      currentYear = parseInt(parts[1]) || moment().tz(this.timezone).year();
+    } else {
+      currentYear = parseInt(parts[1]) || new Date().getFullYear();
+    }
     let m = currentMonthIdx + 1 + direction;
     let y = currentYear;
     if (m < 1) { m = 12; y -= 1; }
