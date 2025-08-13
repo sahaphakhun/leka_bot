@@ -342,8 +342,8 @@ export class LineService {
    */
   public async getGroupMemberUserIds(groupId: string): Promise<string[]> {
     try {
-      const result = await this.client.getGroupMemberUserIds(groupId);
-      return result.userIds;
+      const result = await this.client.getGroupMemberIds(groupId);
+      return result;
     } catch (error) {
       console.error('❌ Failed to get group member user IDs:', error);
       throw error;
