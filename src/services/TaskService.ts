@@ -49,6 +49,7 @@ export class TaskService {
     customReminders?: string[];
     requireAttachment?: boolean;
     reviewerUserId?: string; // ผู้สั่งงาน/ผู้ตรวจ
+    _tempId?: string; // สำหรับป้องกันการสร้างงานซ้ำ
   }): Promise<Task> {
     try {
       // ค้นหา Group entity จาก LINE Group ID
@@ -63,20 +64,37 @@ export class TaskService {
         throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
       }
 
-      // ตรวจสอบงานซ้ำในระยะเวลา 5 นาทีที่ผ่านมา
-      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      // ตรวจสอบงานซ้ำในระยะเวลา 2 นาทีที่ผ่านมา (ลดเวลาลงเพื่อป้องกันการสร้างซ้ำ)
+      const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
       const existingTask = await this.taskRepository.findOne({
         where: {
           groupId: group.id,
-          title: data.title,
+          title: data.title.trim(), // ใช้ trim เพื่อป้องกันการสร้างซ้ำจากช่องว่าง
           createdBy: creator.id,
-          createdAt: MoreThanOrEqual(fiveMinutesAgo)
+          createdAt: MoreThanOrEqual(twoMinutesAgo)
         }
       });
 
       if (existingTask) {
         console.log(`⚠️ Duplicate task detected: ${data.title} by ${data.createdBy} in group ${data.groupId}`);
         throw new Error('งานนี้ถูกสร้างไปแล้วในระยะเวลาอันสั้น กรุณารอสักครู่ก่อนสร้างงานใหม่');
+      }
+
+      // ตรวจสอบ _tempId ถ้ามี (ป้องกันการสร้างซ้ำจาก frontend)
+      if (data._tempId) {
+        const tempTask = await this.taskRepository.findOne({
+          where: {
+            groupId: group.id,
+            title: data.title.trim(),
+            createdBy: creator.id,
+            createdAt: MoreThanOrEqual(twoMinutesAgo)
+          }
+        });
+        
+        if (tempTask) {
+          console.log(`⚠️ Task with tempId ${data._tempId} already exists`);
+          throw new Error('งานนี้ถูกสร้างไปแล้ว กรุณารอสักครู่ก่อนสร้างงานใหม่');
+        }
       }
 
       // แปลง reviewerUserId จาก LINE → internal ID ถ้าจำเป็น

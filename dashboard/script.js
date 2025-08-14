@@ -226,6 +226,14 @@ class Dashboard {
     // Forms
     document.getElementById('addTaskForm').addEventListener('submit', (e) => {
       e.preventDefault();
+      
+      // ป้องกันการส่งฟอร์มซ้ำ
+      const submitBtn = e.target.querySelector('button[type="submit"]');
+      if (submitBtn && submitBtn.disabled) {
+        console.log('⚠️ Form submission already in progress, ignoring duplicate request');
+        return;
+      }
+      
       this.handleAddTask();
     });
 
@@ -287,6 +295,49 @@ class Dashboard {
           this.closeModal(modal.id);
         }
       });
+    });
+
+    // Event delegation for dynamically created elements
+    document.addEventListener('click', (e) => {
+      const target = e.target.closest('[data-task-id]');
+      if (target) {
+        const taskId = target.dataset.taskId;
+        this.openTaskModal(taskId);
+        return;
+      }
+
+      const fileTarget = e.target.closest('[data-file-id]');
+      if (fileTarget) {
+        const fileId = fileTarget.dataset.fileId;
+        this.downloadFile(fileId);
+        return;
+      }
+
+      const calendarTarget = e.target.closest('[data-year]');
+      if (calendarTarget) {
+        const year = parseInt(calendarTarget.dataset.year);
+        const month = parseInt(calendarTarget.dataset.month);
+        const day = parseInt(calendarTarget.dataset.day);
+        this.onCalendarDayClick(year, month, day);
+        return;
+      }
+
+      const paginationTarget = e.target.closest('[data-pagination]');
+      if (paginationTarget) {
+        const direction = paginationTarget.dataset.pagination;
+        const params = paginationTarget.dataset.params;
+        if (params) {
+          this.loadTasks(Object.fromEntries(new URLSearchParams(params)));
+        }
+        return;
+      }
+
+      const submitTarget = e.target.closest('button[data-task-id]');
+      if (submitTarget && submitTarget.classList.contains('btn-primary')) {
+        const taskId = submitTarget.dataset.taskId;
+        this.openSubmitModal(taskId);
+        return;
+      }
     });
   }
 
@@ -769,6 +820,10 @@ class Dashboard {
     this._isCreatingTask = true;
     
     try {
+      // เพิ่ม unique identifier เพื่อป้องกันการสร้างงานซ้ำ
+      const taskId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      taskData._tempId = taskId;
+      
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks`, {
         method: 'POST',
         body: JSON.stringify(taskData)
@@ -789,11 +844,10 @@ class Dashboard {
     } catch (error) {
       console.error('Failed to create task:', error);
       this.showToast('ไม่สามารถเพิ่มงานได้', 'error');
+      throw error; // Re-throw เพื่อให้ finally block ทำงาน
     } finally {
-      // รีเซ็ตสถานะหลังจากเสร็จสิ้น
-      setTimeout(() => {
-        this._isCreatingTask = false;
-      }, 1000); // รอ 1 วินาทีก่อนให้กดใหม่
+      // รีเซ็ตสถานะทันทีหลังจากเสร็จสิ้น
+      this._isCreatingTask = false;
     }
   }
 
@@ -1225,7 +1279,7 @@ class Dashboard {
     }
 
     container.innerHTML = tasks.map(task => `
-      <div class="task-item" onclick="dashboard.openTaskModal('${task.id}')">
+      <div class="task-item" data-task-id="${task.id}">
         <div class="task-priority ${task.priority}"></div>
         <div class="task-content">
           <div class="task-title">${task.title}</div>
@@ -1274,7 +1328,7 @@ class Dashboard {
     }
 
     container.innerHTML = tasks.map(task => `
-      <div class="task-item" onclick="dashboard.openTaskModal('${task.id}')">
+      <div class="task-item" data-task-id="${task.id}">
         <div class="task-priority ${task.priority}"></div>
         <div class="task-content">
           <div class="task-title">${task.title}</div>
@@ -1366,7 +1420,7 @@ class Dashboard {
           );
         });
       
-      calendarHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" onclick="dashboard.onCalendarDayClick(${year}, ${month}, ${day})">
+              calendarHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" data-year="${year}" data-month="${month}" data-day="${day}">
         <div class="calendar-day-number">${day}</div>
         <div class="calendar-events">
           ${dayEvents.slice(0, 3).map(event => `
@@ -1401,7 +1455,7 @@ class Dashboard {
 
     container.innerHTML = files.map(file => `
       <div class="file-item" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer;"
-           onclick="dashboard.downloadFile('${file.id}')">
+           data-file-id="${file.id}">
         <div class="file-icon" style="text-align: center; margin-bottom: 12px;">
           <i class="fas ${this.getFileIcon(file.mimeType)}" style="font-size: 2rem; color: #6b7280;"></i>
         </div>
@@ -1534,7 +1588,7 @@ class Dashboard {
         <div><strong>ผู้รับผิดชอบ:</strong> ${assignees}</div>
         ${tags ? `<div><strong>แท็ก:</strong> ${tags}</div>` : ''}
         <div style="display:flex; gap:8px; margin-top:8px;">
-          <button class="btn btn-primary" onclick="dashboard.openSubmitModal('${task.id}')"><i class='fas fa-paperclip'></i> ส่งงาน</button>
+          <button class="btn btn-primary" data-task-id="${task.id}"><i class='fas fa-paperclip'></i> ส่งงาน</button>
         </div>
       </div>`;
     document.getElementById('taskModalTitle').textContent = 'รายละเอียดงาน';
@@ -1575,14 +1629,28 @@ class Dashboard {
       const form = document.getElementById('addTaskForm');
       const formData = new FormData(form);
       
+      // ตรวจสอบข้อมูลที่จำเป็น
+      const title = formData.get('title')?.trim();
+      const dueDate = formData.get('dueDate');
+      
+      if (!title) {
+        this.showToast('กรุณากรอกชื่องาน', 'error');
+        return;
+      }
+      
+      if (!dueDate) {
+        this.showToast('กรุณาเลือกวันที่ครบกำหนด', 'error');
+        return;
+      }
+      
       const taskData = {
-        title: formData.get('title'),
-        description: formData.get('description'),
-        dueTime: this.formatDateForAPI(formData.get('dueDate')),
-        priority: formData.get('priority'),
+        title: title,
+        description: formData.get('description')?.trim() || '',
+        dueTime: this.formatDateForAPI(dueDate),
+        priority: formData.get('priority') || 'medium',
         assigneeIds: Array.from(document.getElementById('taskAssignees').selectedOptions)
           .map(option => option.value),
-        tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()) : [],
+        tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag) : [],
         createdBy: this.currentUserId || 'unknown',
         requireAttachment: document.getElementById('requireAttachment').checked,
         reviewerUserId: document.getElementById('reviewerSelect')?.value || this.currentUserId || undefined
@@ -1622,7 +1690,13 @@ class Dashboard {
       } else {
         await this.createTask(taskData);
       }
+      
+      // รีเซ็ตฟอร์มหลังจากสร้างงานสำเร็จ
       form.reset();
+      
+    } catch (error) {
+      console.error('handleAddTask error:', error);
+      this.showToast('เกิดข้อผิดพลาดในการสร้างงาน', 'error');
     } finally {
       // รีเซ็ตสถานะและปุ่ม
       this._isHandlingAddTask = false;
@@ -1823,7 +1897,7 @@ class Dashboard {
         if (!body) return;
         if (events.length === 0) { this.showToast('ไม่มีงานในวันนี้', 'info'); return; }
         body.innerHTML = events.map(ev => `
-          <div class="task-item" onclick="dashboard.openTaskModal('${ev.id}')">
+          <div class="task-item" data-task-id="${ev.id}">
             <div class="task-priority ${ev.priority}"></div>
             <div class="task-content">
               <div class="task-title">${ev.title}</div>
@@ -1973,7 +2047,7 @@ class Dashboard {
     // Previous button
     if (pagination.page > 1) {
       const prev = new URLSearchParams({ ...(this._lastTaskFilters || {}), page: String(pagination.page - 1) }).toString();
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks(Object.fromEntries(new URLSearchParams('${prev}')))">ก่อนหน้า</button>`;
+      paginationHTML += `<button class="btn btn-outline" data-pagination="prev" data-params="${prev}">ก่อนหน้า</button>`;
     }
     
     // Page info
@@ -1982,7 +2056,7 @@ class Dashboard {
     // Next button
     if (pagination.page < pagination.totalPages) {
       const next = new URLSearchParams({ ...(this._lastTaskFilters || {}), page: String(pagination.page + 1) }).toString();
-      paginationHTML += `<button class="btn btn-outline" onclick="dashboard.loadTasks(Object.fromEntries(new URLSearchParams('${next}')))">ถัดไป</button>`;
+      paginationHTML += `<button class="btn btn-outline" data-pagination="next" data-params="${next}">ถัดไป</button>`;
     }
     
     paginationHTML += '</div>';
