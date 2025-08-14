@@ -12,11 +12,13 @@ export class NotificationService {
   private lineService: LineService;
   private userService: UserService;
   private emailService: EmailService;
+  private _sentNotifications: Set<string>;
 
   constructor() {
     this.lineService = new LineService();
     this.userService = new UserService();
     this.emailService = new EmailService();
+    this._sentNotifications = new Set();
   }
 
   /**
@@ -24,22 +26,26 @@ export class NotificationService {
    */
   public async sendTaskReminder(task: any, reminderType: string): Promise<void> {
     try {
-      const assignees = task.assignedUsers || [];
-      const group = task.group;
-
-      if (!group || assignees.length === 0) {
-        console.warn('⚠️ Cannot send reminder: missing group or assignees');
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_reminder_${task.id}_${reminderType}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task reminder notification already sent for task: ${task.id}, type: ${reminderType}`);
         return;
       }
 
-      // สร้าง Flex Message สำหรับเตือนงาน
+      const group = task.group;
+      if (!group) return;
+
+      // สร้าง Flex Message สำหรับการเตือนงาน
       const flexMessage = this.createTaskReminderFlexMessage(task, group, reminderType);
-      
-      // ส่งในกลุ่ม LINE (เฉพาะข้อความสรุป)
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      // สร้างข้อความสรุปสำหรับส่งในกลุ่ม
       const summaryMessage = this.createTaskReminderSummaryMessage(task, group, reminderType);
       await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
 
-      // ส่งการ์ดงานต่างๆ ของแต่ละงานเข้าไลน์ส่วนตัว
+      // ส่งการแจ้งเตือนส่วนตัวให้ผู้รับผิดชอบ
+      const assignees = task.assignedUsers || [];
       for (const assignee of assignees) {
         try {
           const personalFlexMessage = this.createPersonalTaskReminderFlexMessage(task, group, assignee, reminderType);
@@ -50,15 +56,13 @@ export class NotificationService {
         }
       }
 
-      // ส่งอีเมลให้ผู้ที่มีอีเมล
-      const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
-      if (emailUsers.length > 0) {
-        for (const user of emailUsers) {
-          await this.emailService.sendTaskReminder(user, task, reminderType);
-        }
-      }
-
-      console.log(`✅ Sent ${reminderType} reminder for task: ${task.title}`);
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 1 ชั่วโมง (สำหรับการเตือน)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 60 * 60 * 1000);
 
     } catch (error) {
       console.error('❌ Error sending task reminder:', error);
@@ -69,20 +73,30 @@ export class NotificationService {
   /**
    * ส่งการแจ้งเตือนงานเกินกำหนด
    */
-  public async sendOverdueNotification(task: any): Promise<void> {
+  public async sendOverdueNotification(data: { task: any; overdueHours: number }): Promise<void> {
     try {
-      const assignees = task.assignedUsers || [];
-      const group = task.group;
-
-      if (!group || assignees.length === 0) return;
-
-      const overdueHours = moment().tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
+      const { task, overdueHours } = data;
       
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_overdue_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task overdue notification already sent for task: ${task.id}`);
+        return;
+      }
+
+      const group = task.group;
+      if (!group) return;
+
+      // สร้าง Flex Message สำหรับงานเกินกำหนด
+      const flexMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
       // สร้างข้อความสรุปสำหรับส่งในกลุ่ม
       const summaryMessage = this.createOverdueTaskSummaryMessage(task, group, overdueHours);
       await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
 
-      // ส่งการ์ดงานต่างๆ ของแต่ละงานเข้าไลน์ส่วนตัว
+      // ส่งการแจ้งเตือนส่วนตัวให้ผู้รับผิดชอบ
+      const assignees = task.assignedUsers || [];
       for (const assignee of assignees) {
         try {
           const personalFlexMessage = this.createPersonalOverdueTaskFlexMessage(task, group, assignee, overdueHours);
@@ -93,11 +107,13 @@ export class NotificationService {
         }
       }
 
-      // ส่งอีเมล
-      const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
-      for (const user of emailUsers) {
-        await this.emailService.sendOverdueNotification(user, task, overdueHours);
-      }
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 30 นาที (สำหรับการแจ้งเตือนเกินกำหนด)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 30 * 60 * 1000);
 
     } catch (error) {
       console.error('❌ Error sending overdue notification:', error);
@@ -106,10 +122,17 @@ export class NotificationService {
   }
 
   /**
-   * ส่งการแจ้งเตือนงานสร้างใหม่
+   * ส่งการแจ้งเตือนงานใหม่
    */
   public async sendTaskCreatedNotification(task: any): Promise<void> {
     try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_created_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task created notification already sent for task: ${task.id}`);
+        return;
+      }
+
       const assignees = task.assignedUsers || [];
       const group = task.group;
       const creator = task.createdByUser;
@@ -139,6 +162,14 @@ export class NotificationService {
         await this.emailService.sendTaskCreatedNotification(user, task);
       }
 
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 5 นาที
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 5 * 60 * 1000);
+
     } catch (error) {
       console.error('❌ Error sending task created notification:', error);
       throw error;
@@ -150,6 +181,13 @@ export class NotificationService {
    */
   public async sendTaskCompletedNotification(task: any, completedBy: User): Promise<void> {
     try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_completed_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task completed notification already sent for task: ${task.id}`);
+        return;
+      }
+
       const group = task.group;
       if (!group) return;
 
@@ -157,6 +195,14 @@ export class NotificationService {
       const flexMessage = this.createTaskCompletedFlexMessage(task, group, completedBy);
 
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 10 นาที (สำหรับการแจ้งเตือนงานสำเร็จ)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 10 * 60 * 1000);
 
     } catch (error) {
       console.error('❌ Error sending task completed notification:', error);
@@ -167,6 +213,13 @@ export class NotificationService {
   /** แจ้งว่าลบงานแล้ว */
   public async sendTaskDeletedNotification(task: any): Promise<void> {
     try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_deleted_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task deleted notification already sent for task: ${task.id}`);
+        return;
+      }
+
       const group = task.group;
       if (!group) return;
 
@@ -174,6 +227,15 @@ export class NotificationService {
       const flexMessage = this.createTaskDeletedFlexMessage(task, group);
 
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 5 นาที (สำหรับการแจ้งเตือนงานถูกลบ)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 5 * 60 * 1000);
+
     } catch (error) {
       console.error('❌ Error sending task deleted notification:', error);
       throw error;
@@ -183,6 +245,13 @@ export class NotificationService {
   /** แจ้งว่าแก้งาน/อัปเดตรายละเอียดงาน */
   public async sendTaskUpdatedNotification(task: any, changes: Record<string, any>): Promise<void> {
     try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_updated_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task updated notification already sent for task: ${task.id}`);
+        return;
+      }
+
       const group = task.group;
       if (!group) return;
 
@@ -199,6 +268,15 @@ export class NotificationService {
       const flexMessage = this.createTaskUpdatedFlexMessage(task, group, changes, changedFields);
 
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 5 นาที (สำหรับการแจ้งเตือนงานอัปเดต)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 5 * 60 * 1000);
+
     } catch (error) {
       console.error('❌ Error sending task updated notification:', error);
       throw error;
@@ -207,19 +285,35 @@ export class NotificationService {
 
   /** แจ้งว่ามีการส่งงาน (แนบไฟล์/ลิงก์) */
   public async sendTaskSubmittedNotification(
-    task: any,
-    submitterDisplayName: string,
-    fileCount: number,
+    task: any, 
+    submitterDisplayName: string, 
+    fileCount: number, 
     links: string[]
   ): Promise<void> {
     try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_submitted_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task submitted notification already sent for task: ${task.id}`);
+        return;
+      }
+
       const group = task.group;
       if (!group) return;
 
-      // สร้าง Flex Message สำหรับงานที่ถูกส่ง
+      // สร้าง Flex Message สำหรับการส่งงาน
       const flexMessage = this.createTaskSubmittedFlexMessage(task, group, submitterDisplayName, fileCount, links);
 
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 5 นาที (สำหรับการแจ้งเตือนการส่งงาน)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 5 * 60 * 1000);
+
     } catch (error) {
       console.error('❌ Error sending task submitted notification:', error);
       throw error;
@@ -262,18 +356,38 @@ ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDi
   }
 
   /** แจ้งว่าถูกตีกลับ พร้อมกำหนดส่งใหม่ */
-  public async sendTaskRejectedNotification(task: any, newDueTime: Date, reviewerDisplayName?: string): Promise<void> {
+  public async sendTaskRejectedNotification(
+    task: any, 
+    newDueTime: Date, 
+    reviewerDisplayName?: string
+  ): Promise<void> {
     try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_rejected_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task rejected notification already sent for task: ${task.id}`);
+        return;
+      }
+
       const group = task.group;
       if (!group) return;
 
-      // สร้าง Flex Message สำหรับงานที่ถูกตีกลับ
+      // สร้าง Flex Message สำหรับงานที่ถูกปฏิเสธ
       const flexMessage = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName);
 
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 10 นาที (สำหรับการแจ้งเตือนงานถูกปฏิเสธ)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 10 * 60 * 1000);
+
     } catch (error) {
       console.error('❌ Error sending task rejected notification:', error);
+      throw error;
     }
   }
 
@@ -291,31 +405,9 @@ ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDi
       const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
       const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
 
-      // จัดรูปแบบอันดับทุกคน พร้อมเหรียญ 1-3
-      const medalFor = (rank: number) => {
-        if (rank === 1) return '🥇';
-        if (rank === 2) return '🥈';
-        if (rank === 3) return '🥉';
-        return `${rank}️⃣`;
-      };
-
-      let message = `📊 รายงานประจำสัปดาห์ (${weekStart} - ${weekEnd})\n\n` +
-        `📈 **สถิติกลุ่ม**\n` +
-        `✅ งานที่เสร็จ: ${stats.completedTasks}\n` +
-        `⏳ งานค้าง: ${stats.pendingTasks}\n` +
-        `⚠️ งานเกินกำหนด: ${stats.overdueTasks}\n\n` +
-        `🏆 **จัดลำดับพนักงานคนขยัน (สัปดาห์นี้)**\n`;
-
-      leaderboard.forEach((user, index) => {
-        const rank = index + 1;
-        const medal = medalFor(rank);
-        const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
-        message += `${medal} ${user.displayName} — ${user.weeklyPoints} คะแนน ${trend}\n`;
-      });
-
-      message += `\n📊 ดูรายงานฉบับเต็มที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`;
-
-      await this.lineService.pushMessage(group.lineGroupId, message);
+      // สร้าง Flex Message สำหรับรายงานรายสัปดาห์
+      const flexMessage = this.createWeeklyReportFlexMessage(group, stats, leaderboard, weekStart, weekEnd);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
     } catch (error) {
       console.error('❌ Error sending weekly report:', error);
@@ -323,7 +415,7 @@ ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDi
     }
   }
 
-  /** ส่งรายงานรายสัปดาห์ให้ผู้ดูแลกลุ่ม (หัวหน้าทีม) แบบข้อความส่วนตัว */
+  /** ส่งรายงานรายสัปดาห์ให้ผู้ดูแลกลุ่ม (หัวหน้าทีม) แบบการ์ดส่วนตัว */
   public async sendWeeklyReportToAdmins(
     group: Group,
     stats: any,
@@ -338,25 +430,12 @@ ${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDi
       const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
       const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
 
-      let message = `📊 รายงานประจำสัปดาห์ (${weekStart} - ${weekEnd})\n\n` +
-        `👥 กลุ่ม: ${group.name}\n\n` +
-        `📈 สถิติกลุ่ม\n` +
-        `✅ งานที่เสร็จ: ${stats.completedTasks}\n` +
-        `⏳ งานค้าง: ${stats.pendingTasks}\n` +
-        `⚠️ งานเกินกำหนด: ${stats.overdueTasks}\n\n` +
-        `🏆 อันดับผู้ทำงาน (Top 5)\n`;
-
-      leaderboard.slice(0, 5).forEach((user, index) => {
-        const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
-        const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
-        message += `${medal} ${user.displayName} - ${user.weeklyPoints} คะแนน ${trend}\n`;
-      });
-
-      message += `\n📊 ดูรายงานฉบับเต็มที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`;
+      // สร้าง Flex Message สำหรับรายงานรายสัปดาห์ให้ admin
+      const flexMessage = this.createAdminWeeklyReportFlexMessage(group, stats, leaderboard, weekStart, weekEnd);
 
       for (const admin of admins) {
         try {
-          await this.lineService.pushMessage(admin.lineUserId, message);
+          await this.lineService.pushMessage(admin.lineUserId, flexMessage);
         } catch (err) {
           console.warn('⚠️ Failed to send weekly report to admin:', admin.displayName, err);
         }
@@ -1547,5 +1626,225 @@ ${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => 
     }
 
     return flexContainer;
+  }
+
+  /** แจ้งผู้ตรวจว่ามีงานรอการตรวจ */
+  public async sendReviewRequestNotification(
+    task: any, 
+    details: { submitterDisplayName?: string; fileCount?: number; links?: string[] }
+  ): Promise<void> {
+    try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `review_request_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Review request notification already sent for task: ${task.id}`);
+        return;
+      }
+
+      const group = task.group;
+      if (!group) return;
+
+      const dueText = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+      
+      // สร้าง Flex Message สำหรับการขอตรวจงาน
+      const flexMessage = this.createReviewRequestFlexMessage(task, group, details, dueText);
+
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 10 นาที (สำหรับการแจ้งเตือนขอตรวจงาน)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 10 * 60 * 1000);
+
+    } catch (error) {
+      console.error('❌ Error sending review request notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับรายงานรายสัปดาห์
+   */
+  private createWeeklyReportFlexMessage(group: Group, stats: any, leaderboard: Leaderboard[], weekStart: string, weekEnd: string): FlexMessage {
+    // จัดรูปแบบอันดับทุกคน พร้อมเหรียญ 1-3
+    const medalFor = (rank: number) => {
+      if (rank === 1) return '🥇';
+      if (rank === 2) return '🥈';
+      if (rank === 3) return '🥉';
+      return `${rank}️⃣`;
+    };
+
+    const leaderboardContents = leaderboard.slice(0, 10).map((user, index) => {
+      const rank = index + 1;
+      const medal = medalFor(rank);
+      const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
+      
+      return {
+        type: 'box' as const,
+        layout: 'horizontal' as const,
+        spacing: 'sm',
+        contents: [
+          { type: 'text' as const, text: medal, size: 'sm' as const, color: '#666666', flex: 0 },
+          { type: 'text' as const, text: user.displayName, size: 'sm' as const, color: '#333333', flex: 1 },
+          { type: 'text' as const, text: `${user.weeklyPoints} คะแนน`, size: 'sm' as const, color: '#666666', flex: 0 },
+          { type: 'text' as const, text: trend, size: 'sm' as const, color: '#666666', flex: 0 }
+        ]
+      };
+    });
+
+    return {
+      type: 'flex',
+      altText: `รายงานประจำสัปดาห์ (${weekStart} - ${weekEnd})`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '📊 รายงานประจำสัปดาห์', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: `${weekStart} - ${weekEnd}`, size: 'md' as const, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#2196F3'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              contents: [
+                { type: 'text' as const, text: '📈 สถิติกลุ่ม', weight: 'bold', size: 'md' as const, color: '#333333' },
+                { type: 'text' as const, text: `✅ งานที่เสร็จ: ${stats.completedTasks}`, size: 'sm' as const, color: '#4CAF50' },
+                { type: 'text' as const, text: `⏳ งานค้าง: ${stats.pendingTasks}`, size: 'sm' as const, color: '#FF9800' },
+                { type: 'text' as const, text: `⚠️ งานเกินกำหนด: ${stats.overdueTasks}`, size: 'sm' as const, color: '#F44336' }
+              ]
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              contents: [
+                { type: 'text' as const, text: '🏆 อันดับพนักงานคนขยัน', weight: 'bold', size: 'md' as const, color: '#333333' },
+                ...leaderboardContents
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูรายงานฉบับเต็ม', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard` }
+            }
+          ]
+        }
+      }
+    };
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับรายงานรายสัปดาห์ให้ admin
+   */
+  private createAdminWeeklyReportFlexMessage(group: Group, stats: any, leaderboard: Leaderboard[], weekStart: string, weekEnd: string): FlexMessage {
+    const leaderboardContents = leaderboard.slice(0, 5).map((user, index) => {
+      const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
+      const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
+      
+      return {
+        type: 'box' as const,
+        layout: 'horizontal' as const,
+        spacing: 'sm',
+        contents: [
+          { type: 'text' as const, text: medal, size: 'sm' as const, color: '#666666', flex: 0 },
+          { type: 'text' as const, text: user.displayName, size: 'sm' as const, color: '#333333', flex: 1 },
+          { type: 'text' as const, text: `${user.weeklyPoints} คะแนน`, size: 'sm' as const, color: '#666666', flex: 0 },
+          { type: 'text' as const, text: trend, size: 'sm' as const, color: '#666666', flex: 0 }
+        ]
+      };
+    });
+
+    return {
+      type: 'flex',
+      altText: `รายงานประจำสัปดาห์สำหรับผู้จัดการ (${weekStart} - ${weekEnd})`,
+      contents: {
+        type: 'bubble',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            { type: 'text' as const, text: '📊 รายงานประจำสัปดาห์', weight: 'bold', size: 'lg' as const, color: '#FFFFFF' },
+            { type: 'text' as const, text: `${weekStart} - ${weekEnd}`, size: 'md' as const, color: '#FFFFFF' }
+          ],
+          backgroundColor: '#9C27B0'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              contents: [
+                { type: 'text' as const, text: `👥 กลุ่ม: ${group.name}`, weight: 'bold', size: 'md' as const, color: '#333333' }
+              ]
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              contents: [
+                { type: 'text' as const, text: '📈 สถิติกลุ่ม', weight: 'bold', size: 'md' as const, color: '#333333' },
+                { type: 'text' as const, text: `✅ งานที่เสร็จ: ${stats.completedTasks}`, size: 'sm' as const, color: '#4CAF50' },
+                { type: 'text' as const, text: `⏳ งานค้าง: ${stats.pendingTasks}`, size: 'sm' as const, color: '#FF9800' },
+                { type: 'text' as const, text: `⚠️ งานเกินกำหนด: ${stats.overdueTasks}`, size: 'sm' as const, color: '#F44336' }
+              ]
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'box',
+              layout: 'vertical',
+              spacing: 'sm',
+              contents: [
+                { type: 'text' as const, text: '🏆 อันดับผู้ทำงาน (Top 5)', weight: 'bold', size: 'md' as const, color: '#333333' },
+                ...leaderboardContents
+              ]
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดูรายงานฉบับเต็ม', uri: `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard` }
+            }
+          ]
+        }
+      }
+    };
   }
 }

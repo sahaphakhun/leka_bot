@@ -49,6 +49,10 @@ export class CommandService {
         case '/files':
           return await this.handleFilesCommand(command);
 
+        case 'เซฟไฟล์':
+        case '/เซฟไฟล์':
+          return await this.handleSaveFilesCommand(command);
+
         case '/whoami':
           return await this.handleWhoAmICommand(command);
 
@@ -173,6 +177,7 @@ ${supervisorNames}
 • /reject <รหัสงาน|ชื่อ> [ความเห็น] – ตีกลับงาน (เลื่อนกำหนด +1 วันอัตโนมัติ)
 
 📁 ไฟล์
+• เซฟไฟล์ – บันทึกไฟล์ทั้งหมดใน 1 ชั่วโมงล่าสุด
 • /files list – ดูไฟล์ล่าสุด
 • /files search <คำค้น> – ค้นหาไฟล์
 
@@ -699,6 +704,105 @@ ${supervisorNames}
     } catch (error) {
       console.error('❌ Error creating task:', error);
       return 'เกิดข้อผิดพลาดในการสร้างงาน กรุณาลองใหม่';
+    }
+  }
+
+  /**
+   * คำสั่งเซฟไฟล์ - บันทึกไฟล์ทั้งหมดใน 1 ชั่วโมงล่าสุด
+   */
+  private async handleSaveFilesCommand(command: BotCommand): Promise<string | any> {
+    try {
+      const groupId = command.groupId;
+      const userId = command.userId;
+
+      // ดึงไฟล์ที่ส่งในกลุ่มในช่วง 1 ชั่วโมงล่าสุด
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+      
+      // ใช้ FileService เพื่อดึงไฟล์ใน 1 ชั่วโมงล่าสุด
+      const { files } = await this.fileService.getGroupFiles(groupId, { 
+        limit: 50,
+        startDate: oneHourAgo
+      });
+
+      if (files.length === 0) {
+        return 'ไม่พบไฟล์ใหม่ใน 1 ชั่วโมงล่าสุดค่ะ 📁';
+      }
+
+      // สร้าง Flex Message แสดงไฟล์พร้อมปุ่มผูกงาน
+      const flexMessage = {
+        type: 'flex' as const,
+        altText: `พบไฟล์ ${files.length} รายการใน 1 ชั่วโมงล่าสุด`,
+        contents: {
+          type: 'bubble',
+          header: {
+            type: 'box',
+            layout: 'vertical',
+            contents: [{
+              type: 'text',
+              text: `📁 เซฟไฟล์สำเร็จ (${files.length} รายการ)`,
+              weight: 'bold',
+              color: '#00C851',
+              size: 'lg'
+            }, {
+              type: 'text',
+              text: 'ไฟล์ทั้งหมดถูกบันทึกแล้ว สามารถผูกกับงานได้ทันที',
+              size: 'sm',
+              color: '#666666',
+              wrap: true
+            }]
+          },
+          body: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: files.slice(0, 5).map(file => ({
+              type: 'box',
+              layout: 'horizontal',
+              contents: [{
+                type: 'text',
+                text: `📄 ${file.originalName}`,
+                size: 'sm',
+                flex: 1,
+                wrap: true
+              }, {
+                type: 'text',
+                text: this.formatFileSize(file.size),
+                size: 'xs',
+                color: '#666666',
+                align: 'end'
+              }]
+            }))
+          },
+          footer: {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [{
+              type: 'button',
+              style: 'primary',
+              action: {
+                type: 'postback',
+                label: 'ผูกไฟล์กับงาน',
+                data: `action=link_files&fileIds=${files.map(f => f.id).join(',')}`
+              }
+            }, {
+              type: 'button',
+              style: 'secondary',
+              action: {
+                type: 'postback',
+                label: 'ดูไฟล์ทั้งหมด',
+                data: `action=view_saved_files&fileIds=${files.map(f => f.id).join(',')}`
+              }
+            }]
+          }
+        }
+      };
+
+      return flexMessage;
+
+    } catch (error) {
+      console.error('❌ Error in save files command:', error);
+      return 'เกิดข้อผิดพลาดในการเซฟไฟล์ กรุณาลองใหม่อีกครั้ง';
     }
   }
 

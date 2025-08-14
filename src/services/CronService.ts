@@ -184,7 +184,8 @@ export class CronService {
         await this.taskService.updateTaskStatus(task.id, 'overdue');
         
         // ส่งการแจ้งเตือน
-        await this.notificationService.sendOverdueNotification(task);
+        const overdueHours = moment().diff(moment(task.dueTime), 'hours');
+        await this.notificationService.sendOverdueNotification({ task, overdueHours });
         
         // บันทึก KPI (คะแนนลบ)
         await this.kpiService.recordTaskCompletion(task, 'late');
@@ -262,27 +263,12 @@ export class CronService {
           }
         }
 
-        // สร้างข้อความสรุปสำหรับส่งลงกลุ่ม (เฉพาะสรุป ไม่มีรายละเอียดแต่ละงาน)
-        let summaryMessage = header + "\n\n";
-        summaryMessage += `📊 จำนวนงานค้างทั้งหมด: ${tasks.length} งาน\n\n`;
-        
-        // แสดงสรุปตามผู้รับผิดชอบ
-        for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
-          if (assigneeId === 'unassigned') {
-            summaryMessage += `❓ ไม่มีผู้รับผิดชอบ: ${userTasks.length} งาน\n`;
-          } else {
-            const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
-            if (assignee) {
-              summaryMessage += `👤 @${assignee.displayName}: ${userTasks.length} งาน\n`;
-            }
-          }
-        }
-
-        summaryMessage += `\n💡 ดูรายละเอียดงานแต่ละชิ้นได้จากการ์ดส่วนบุคคลที่ส่งให้แต่ละคน`;
+        // สร้าง Flex Message สำหรับสรุปงานประจำวัน
+        const summaryFlexMessage = this.createDailySummaryFlexMessage(group, tasks, tasksByAssignee, tz);
 
         // ส่งสรุปลงกลุ่ม
         try {
-          await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, summaryMessage);
+          await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, summaryFlexMessage);
         } catch (err) {
           console.warn('⚠️ Failed to send daily summary to group:', group.lineGroupId, err);
         }
@@ -357,6 +343,19 @@ export class CronService {
               margin: 'md'
             }
           ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'horizontal',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              height: 'sm',
+              action: { type: 'uri', label: 'ดู Dashboard', uri: `${config.baseUrl}/dashboard?groupId=${tasks[0]?.group?.lineGroupId || ''}` }
+            }
+          ]
         }
       }
     };
@@ -396,6 +395,20 @@ export class CronService {
                 size: 'sm',
                 color: '#FF4444',
                 flex: 0
+              },
+              {
+                type: 'text',
+                text: `กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
+                size: 'sm',
+                color: '#666666',
+                flex: 0
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                margin: 'sm',
+                action: { type: 'postback', label: 'ปิดงาน', data: `action=complete&taskId=${task.id}` }
               }
             ]
           }))
@@ -438,6 +451,20 @@ export class CronService {
                 size: 'sm',
                 color: '#FFAA00',
                 flex: 0
+              },
+              {
+                type: 'text',
+                text: `กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
+                size: 'sm',
+                color: '#666666',
+                flex: 0
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                margin: 'sm',
+                action: { type: 'postback', label: 'ปิดงาน', data: `action=complete&taskId=${task.id}` }
               }
             ]
           }))
@@ -480,6 +507,20 @@ export class CronService {
                 size: 'sm',
                 color: '#666666',
                 flex: 0
+              },
+              {
+                type: 'text',
+                text: `กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
+                size: 'sm',
+                color: '#666666',
+                flex: 0
+              },
+              {
+                type: 'button',
+                style: 'secondary',
+                height: 'sm',
+                margin: 'sm',
+                action: { type: 'postback', label: 'ปิดงาน', data: `action=complete&taskId=${task.id}` }
               }
             ]
           }))
@@ -543,22 +584,13 @@ export class CronService {
           return `• ${x.title} (กำหนด ${due}) ${assignees}`;
         };
 
-        let message = `🗒️ รายงานสรุปประจำวัน (สำหรับผู้จัดการ)\n\n`;
-        if (notSubmitted.length > 0) {
-          message += `ยังไม่ส่ง (${notSubmitted.length})\n` + notSubmitted.slice(0, 10).map(formatTask).join('\n') + '\n\n';
-        }
-        if (late.length > 0) {
-          message += `ล่าช้า (${late.length})\n` + late.slice(0, 10).map(formatTask).join('\n') + '\n\n';
-        }
-        if (pendingReview.length > 0) {
-          message += `รอตรวจ (${pendingReview.length})\n` + pendingReview.slice(0, 10).map(formatTask).join('\n') + '\n\n';
-        }
-        message += `�� รายละเอียดเพิ่มเติม: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#reports`;
+        // สร้าง Flex Message สำหรับรายงานผู้จัดการ
+        const managerFlexMessage = this.createManagerDailySummaryFlexMessage(group, notSubmitted, late, pendingReview);
 
         // ส่งให้ผู้จัดการที่กำหนด (ส่วนตัว)
         for (const lineUserId of recipients) {
           try {
-            await (this.notificationService as any).lineService.pushMessage(lineUserId, message);
+            await (this.notificationService as any).lineService.pushMessage(lineUserId, managerFlexMessage);
           } catch (err) {
             console.warn('⚠️ Failed to send manager daily summary:', lineUserId, err);
           }
@@ -581,18 +613,11 @@ export class CronService {
         // ตรวจสอบว่ามีการตั้งค่าผู้บังคับบัญชาหรือไม่
         const supervisors: string[] = (group.settings as any)?.supervisors || [];
         if (supervisors.length === 0) {
-          // ส่งข้อความเตือนให้ตั้งค่าผู้บังคับบัญชา
-          const reminderMessage = `⚠️ ระบบยังไม่ได้ตั้งค่าผู้บังคับบัญชา
-
-📊 เพื่อให้ระบบส่งสรุปงานของผู้ใต้บังคับบัญชาให้หัวหน้างานทุกวันจันทร์เวลา 08:00 น.
-
-🔧 กรุณาตั้งค่าผู้บังคับบัญชาด้วยคำสั่ง:
-@เลขา /setup @นายเอ @นายบี
-
-💡 ตัวอย่าง: @เลขา /setup @หัวหน้างาน1 @หัวหน้างาน2`;
+          // สร้าง Flex Message สำหรับเตือนให้ตั้งค่าผู้บังคับบัญชา
+          const reminderFlexMessage = this.createSupervisorSetupReminderFlexMessage(group);
 
           try {
-            await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, reminderMessage);
+            await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, reminderFlexMessage);
             console.log(`⚠️ Sent supervisor setup reminder to group: ${group.name}`);
           } catch (err) {
             console.warn('⚠️ Failed to send supervisor setup reminder:', group.lineGroupId, err);
@@ -621,41 +646,14 @@ export class CronService {
           }
         }
 
-        // สร้างข้อความสรุปสำหรับหัวหน้างาน
+        // สร้าง Flex Message สำหรับรายงานหัวหน้างาน
         const tz = group.timezone || config.app.defaultTimezone;
-        const header = `📊 สรุปงานของผู้ใต้บังคับบัญชาประจำสัปดาห์`;
-        const subtitle = `🗓️ วันที่ ${moment().tz(tz).format('DD/MM/YYYY')} | 📋 กลุ่ม: ${group.name}`;
-        
-        let message = `${header}\n${subtitle}\n\n`;
-        message += `📈 สถานะงานค้างทั้งหมด: ${tasks.length} งาน\n\n`;
-
-        // แสดงสรุปตามผู้รับผิดชอบ
-        for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
-          if (assigneeId === 'unassigned') {
-            message += `❓ ไม่มีผู้รับผิดชอบ: ${userTasks.length} งาน\n`;
-          } else {
-            const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
-            if (assignee) {
-              // จัดหมวดหมู่ตามสถานะ
-              const overdue = userTasks.filter(t => t.status === 'overdue').length;
-              const inProgress = userTasks.filter(t => t.status === 'in_progress').length;
-              const pending = userTasks.filter(t => t.status === 'pending').length;
-              
-              message += `👤 @${assignee.displayName}: ${userTasks.length} งาน`;
-              if (overdue > 0) message += ` (⚠️ เกินกำหนด: ${overdue})`;
-              if (inProgress > 0) message += ` (⏳ ดำเนินการ: ${inProgress})`;
-              if (pending > 0) message += ` (📝 รอดำเนินการ: ${pending})`;
-              message += '\n';
-            }
-          }
-        }
-
-        message += `\n📊 รายละเอียดเพิ่มเติม: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#reports`;
+        const supervisorFlexMessage = this.createSupervisorWeeklySummaryFlexMessage(group, tasks, tasksByAssignee, tz);
 
         // ส่งให้หัวหน้างานที่กำหนด (ส่วนตัว)
         for (const supervisorLineUserId of supervisors) {
           try {
-            await (this.notificationService as any).lineService.pushMessage(supervisorLineUserId, message);
+            await (this.notificationService as any).lineService.pushMessage(supervisorLineUserId, supervisorFlexMessage);
             console.log(`✅ Sent supervisor summary to: ${supervisorLineUserId}`);
           } catch (err) {
             console.warn('⚠️ Failed to send supervisor weekly summary:', supervisorLineUserId, err);
@@ -800,5 +798,435 @@ export class CronService {
     const [h, m] = (tmpl.timeOfDay || '09:00').split(':').map(v => parseInt(v, 10));
     next.hour(h).minute(m).second(0).millisecond(0);
     return next.toDate();
+  }
+
+  /** สร้าง Flex Message สำหรับสรุปงานประจำวัน */
+  private createDailySummaryFlexMessage(group: any, tasks: any[], tasksByAssignee: Map<string, any[]>, timezone: string): any {
+    const header = `🗒️ สรุปงานค้างประจำวัน (${moment().tz(timezone).format('DD/MM/YYYY')})`;
+    const date = moment().tz(timezone).format('DD/MM/YYYY');
+    const subtitle = `🗓️ วันที่ ${date} | 📊 งานค้าง ${tasks.length} งาน`;
+    
+    // จัดหมวดหมู่ตามผู้รับผิดชอบ
+    const tasksByAssigneeFlex = new Map<string, any[]>();
+    for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
+      if (assigneeId === 'unassigned') {
+        tasksByAssigneeFlex.set('unassigned', userTasks);
+      } else {
+        const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
+        if (assignee) {
+          tasksByAssigneeFlex.set(assigneeId, userTasks);
+        }
+      }
+    }
+
+    const flexContainer: any = {
+      type: 'flex',
+      altText: header,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: header,
+              weight: 'bold',
+              size: 'lg',
+              color: '#1DB446',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: subtitle,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            }
+          ]
+        }
+      }
+    };
+
+    // แสดงสรุปตามผู้รับผิดชอบ
+    for (const [assigneeId, userTasks] of tasksByAssigneeFlex.entries()) {
+      if (assigneeId === 'unassigned') {
+        flexContainer.contents.body.contents.push({
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: `❓ ไม่มีผู้รับผิดชอบ: ${userTasks.length} งาน`,
+              weight: 'bold',
+              size: 'md',
+              color: '#FF4444',
+              flex: 0
+            }
+          ]
+        });
+      } else {
+        const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
+        if (assignee) {
+          flexContainer.contents.body.contents.push({
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: `👤 @${assignee.displayName}: ${userTasks.length} งาน`,
+                weight: 'bold',
+                size: 'md',
+                color: '#1DB446',
+                flex: 0
+              }
+            ]
+          });
+        }
+      }
+    }
+
+    flexContainer.contents.body.contents.push({
+      type: 'separator',
+      margin: 'md'
+    });
+
+    flexContainer.contents.body.contents.push({
+      type: 'text',
+      text: '💡 ดูรายละเอียดงานแต่ละชิ้นได้จากการ์ดส่วนบุคคลที่ส่งให้แต่ละคน',
+      size: 'sm',
+      color: '#999999',
+      flex: 0
+    });
+
+    return flexContainer;
+  }
+
+  /** สร้าง Flex Message สำหรับรายงานผู้จัดการ */
+  private createManagerDailySummaryFlexMessage(group: any, notSubmitted: any[], late: any[], pendingReview: any[]): any {
+    const header = `🗒️ สรุปงานค้างประจำวัน (สำหรับผู้จัดการ)`;
+    const date = moment().tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY');
+    const subtitle = `🗓️ วันที่ ${date} | 📋 กลุ่ม: ${group.name}`;
+
+    const flexContainer: any = {
+      type: 'flex',
+      altText: header,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: header,
+              weight: 'bold',
+              size: 'lg',
+              color: '#1DB446',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: subtitle,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            }
+          ]
+        }
+      }
+    };
+
+    // แสดงสรุปตามสถานะ
+    const notSubmittedBox = {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      contents: [
+        {
+          type: 'text',
+          text: `ยังไม่ส่ง (${notSubmitted.length})`,
+          weight: 'bold',
+          size: 'md',
+          color: '#FF4444',
+          flex: 0
+        },
+        ...notSubmitted.map((task, idx) => ({
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'xs',
+          margin: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: `${idx + 1}. ${task.title}`,
+              size: 'sm',
+              color: '#333333',
+              flex: 0,
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `กำหนด: ${moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM HH:mm')}`,
+              size: 'sm',
+              color: '#FF4444',
+              flex: 0
+            }
+          ]
+        }))
+      ]
+    };
+
+    const lateBox = {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      contents: [
+        {
+          type: 'text',
+          text: `ล่าช้า (${late.length})`,
+          weight: 'bold',
+          size: 'md',
+          color: '#FFAA00',
+          flex: 0
+        },
+        ...late.map((task, idx) => ({
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'xs',
+          margin: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: `${idx + 1}. ${task.title}`,
+              size: 'sm',
+              color: '#333333',
+              flex: 0,
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `กำหนด: ${moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM HH:mm')}`,
+              size: 'sm',
+              color: '#FFAA00',
+              flex: 0
+            }
+          ]
+        }))
+      ]
+    };
+
+    const pendingReviewBox = {
+      type: 'box',
+      layout: 'vertical',
+      spacing: 'sm',
+      contents: [
+        {
+          type: 'text',
+          text: `รอตรวจ (${pendingReview.length})`,
+          weight: 'bold',
+          size: 'md',
+          color: '#666666',
+          flex: 0
+        },
+        ...pendingReview.map((task, idx) => ({
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'xs',
+          margin: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: `${idx + 1}. ${task.title}`,
+              size: 'sm',
+              color: '#333333',
+              flex: 0,
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `กำหนด: ${moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM HH:mm')}`,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            }
+          ]
+        }))
+      ]
+    };
+
+    flexContainer.contents.body.contents.push(notSubmittedBox);
+    flexContainer.contents.body.contents.push(lateBox);
+    flexContainer.contents.body.contents.push(pendingReviewBox);
+
+    flexContainer.contents.body.contents.push({
+      type: 'separator',
+      margin: 'md'
+    });
+
+    flexContainer.contents.body.contents.push({
+      type: 'text',
+      text: '💡 ดูรายละเอียดเพิ่มเติม: ' + config.baseUrl + '/dashboard?groupId=' + group.lineGroupId + '#reports',
+      size: 'sm',
+      color: '#999999',
+      flex: 0
+    });
+
+    return flexContainer;
+  }
+
+  /** สร้าง Flex Message สำหรับรายงานหัวหน้างาน */
+  private createSupervisorWeeklySummaryFlexMessage(group: any, tasks: any[], tasksByAssignee: Map<string, any[]>, timezone: string): any {
+    const header = `📊 สรุปงานของผู้ใต้บังคับบัญชาประจำสัปดาห์`;
+    const date = moment().tz(timezone).format('DD/MM/YYYY');
+    const subtitle = `🗓️ วันที่ ${date} | 📋 กลุ่ม: ${group.name}`;
+
+    const flexContainer: any = {
+      type: 'flex',
+      altText: header,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: header,
+              weight: 'bold',
+              size: 'lg',
+              color: '#1DB446',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: subtitle,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            }
+          ]
+        }
+      }
+    };
+
+    // แสดงสรุปตามผู้รับผิดชอบ
+    for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
+      if (assigneeId === 'unassigned') {
+        flexContainer.contents.body.contents.push({
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: `❓ ไม่มีผู้รับผิดชอบ: ${userTasks.length} งาน`,
+              weight: 'bold',
+              size: 'md',
+              color: '#FF4444',
+              flex: 0
+            }
+          ]
+        });
+      } else {
+        const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
+        if (assignee) {
+          flexContainer.contents.body.contents.push({
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'sm',
+            contents: [
+              {
+                type: 'text',
+                text: `👤 @${assignee.displayName}: ${userTasks.length} งาน`,
+                weight: 'bold',
+                size: 'md',
+                color: '#1DB446',
+                flex: 0
+              }
+            ]
+          });
+        }
+      }
+    }
+
+    flexContainer.contents.body.contents.push({
+      type: 'separator',
+      margin: 'md'
+    });
+
+    flexContainer.contents.body.contents.push({
+      type: 'text',
+      text: '💡 ดูรายละเอียดเพิ่มเติม: ' + config.baseUrl + '/dashboard?groupId=' + group.lineGroupId + '#reports',
+      size: 'sm',
+      color: '#999999',
+      flex: 0
+    });
+
+    return flexContainer;
+  }
+
+  /** สร้าง Flex Message สำหรับเตือนให้ตั้งค่าผู้บังคับบัญชา */
+  private createSupervisorSetupReminderFlexMessage(group: any): any {
+    const header = `⚠️ ระบบยังไม่ได้ตั้งค่าผู้บังคับบัญชา`;
+    const message = `📊 เพื่อให้ระบบส่งสรุปงานของผู้ใต้บังคับบัญชาให้หัวหน้างานทุกวันจันทร์เวลา 08:00 น.
+
+🔧 กรุณาตั้งค่าผู้บังคับบัญชาด้วยคำสั่ง:
+@เลขา /setup @นายเอ @นายบี
+
+💡 ตัวอย่าง: @เลขา /setup @หัวหน้างาน1 @หัวหน้างาน2`;
+
+    const flexContainer: any = {
+      type: 'flex',
+      altText: header,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: header,
+              weight: 'bold',
+              size: 'lg',
+              color: '#FF4444',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: message,
+              size: 'sm',
+              color: '#333333',
+              flex: 0
+            }
+          ]
+        }
+      }
+    };
+
+    return flexContainer;
   }
 }

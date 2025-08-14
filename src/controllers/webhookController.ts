@@ -136,8 +136,8 @@ class WebhookController {
       //   await this.handleFileMessage(event, message as any);
       //   break;
 
-          // เมื่อมีไฟล์แนบ ให้บันทึกเป็นสถานะ in_progress folder
-          await this.handleFileMessage(event, message as any);
+          // ไม่บันทึกไฟล์อัตโนมัติแล้ว - รอคำสั่ง "เซฟไฟล์"
+          console.log('📁 ไฟล์ได้รับแล้ว (ไม่บันทึกอัตโนมัติ)');
           break;
         
       default:
@@ -366,6 +366,116 @@ class WebhookController {
             // TODO: แสดงรายการงานให้เลือก
           }
           break;
+
+        case 'link_files': {
+          const fileIdsParam = params.get('fileIds');
+          if (fileIdsParam) {
+            const fileIds = fileIdsParam.split(',').filter(Boolean);
+            const tasks = await this.taskService.getActiveTasks(groupId);
+            
+            // สร้าง Flex Message แสดงรายการงานให้เลือก
+            const flexMessage = {
+              type: 'flex' as const,
+              altText: 'เลือกงานเพื่อผูกไฟล์',
+              contents: {
+                type: 'bubble',
+                header: {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [{
+                    type: 'text',
+                    text: '📋 เลือกงานเพื่อผูกไฟล์',
+                    weight: 'bold',
+                    size: 'lg'
+                  }, {
+                    type: 'text',
+                    text: `ไฟล์ ${fileIds.length} รายการ`,
+                    size: 'sm',
+                    color: '#666666'
+                  }]
+                },
+                body: {
+                  type: 'box',
+                  layout: 'vertical',
+                  spacing: 'sm',
+                  contents: tasks.slice(0, 5).map((task: any) => ({
+                    type: 'button',
+                    style: 'secondary',
+                    action: {
+                      type: 'postback',
+                      label: `${task.title} (${task.id.substring(0, 8)})`,
+                      data: `action=link_files_to_task&taskId=${task.id}&fileIds=${fileIds.join(',')}`
+                    }
+                  }))
+                },
+                footer: {
+                  type: 'box',
+                  layout: 'vertical',
+                  contents: [{
+                    type: 'button',
+                    style: 'primary',
+                    action: {
+                      type: 'postback',
+                      label: 'ไม่ผูกกับงาน',
+                      data: `action=no_link_files&fileIds=${fileIds.join(',')}`
+                    }
+                  }]
+                }
+              }
+            };
+            
+            await this.lineService.replyMessage(replyToken, flexMessage as any);
+          }
+          break;
+        }
+
+        case 'link_files_to_task': {
+          const taskId = params.get('taskId');
+          const fileIdsParam = params.get('fileIds');
+          if (taskId && fileIdsParam) {
+            const fileIds = fileIdsParam.split(',').filter(Boolean);
+            try {
+              // ผูกไฟล์กับงาน
+              await this.taskService.linkFilesToTask(taskId, fileIds);
+              await this.lineService.replyMessage(replyToken, '✅ ผูกไฟล์กับงานเรียบร้อยแล้ว');
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถผูกไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          }
+          break;
+        }
+
+        case 'no_link_files': {
+          const fileIdsParam = params.get('fileIds');
+          if (fileIdsParam) {
+            await this.lineService.replyMessage(replyToken, '✅ ไฟล์ถูกบันทึกแล้วโดยไม่ผูกกับงาน');
+          }
+          break;
+        }
+
+        case 'view_saved_files': {
+          const fileIdsParam = params.get('fileIds');
+          if (fileIdsParam) {
+            const fileIds = fileIdsParam.split(',').filter(Boolean);
+            // แสดงรายการไฟล์ที่บันทึกแล้ว
+            let response = '📁 ไฟล์ที่บันทึกแล้ว:\n\n';
+            for (const fileId of fileIds) {
+              try {
+                const file = await this.fileService.getFilesByIds([fileId]);
+                if (file && file.length > 0) {
+                  const fileData = file[0];
+                  response += `📄 ${fileData.originalName}\n`;
+                  response += `📦 ${this.formatFileSize(fileData.size)}\n`;
+                  response += `👤 ${fileData.uploadedByUser?.displayName || 'ไม่ทราบ'}\n\n`;
+                }
+              } catch (error) {
+                console.error('Error getting file:', error);
+              }
+            }
+            await this.lineService.replyMessage(replyToken, response);
+          }
+          break;
+        }
 
         default:
           console.log('ℹ️ Unhandled postback action:', action);

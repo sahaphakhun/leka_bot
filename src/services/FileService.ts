@@ -199,6 +199,23 @@ export class FileService {
   }
 
   /**
+   * ดึงไฟล์ตาม IDs
+   */
+  public async getFilesByIds(fileIds: string[]): Promise<File[]> {
+    try {
+      if (fileIds.length === 0) {
+        return [];
+      }
+
+      const files = await this.fileRepository.findByIds(fileIds);
+      return files;
+    } catch (error) {
+      console.error('❌ Error getting files by IDs:', error);
+      throw error;
+    }
+  }
+
+  /**
    * ดึงไฟล์ในกลุ่ม
    */
   public async getGroupFiles(

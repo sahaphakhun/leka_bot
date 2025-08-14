@@ -63,6 +63,22 @@ export class TaskService {
         throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
       }
 
+      // ตรวจสอบงานซ้ำในระยะเวลา 5 นาทีที่ผ่านมา
+      const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+      const existingTask = await this.taskRepository.findOne({
+        where: {
+          groupId: group.id,
+          title: data.title,
+          createdBy: creator.id,
+          createdAt: { $gte: fiveMinutesAgo } as any
+        }
+      });
+
+      if (existingTask) {
+        console.log(`⚠️ Duplicate task detected: ${data.title} by ${data.createdBy} in group ${data.groupId}`);
+        throw new Error('งานนี้ถูกสร้างไปแล้วในระยะเวลาอันสั้น กรุณารอสักครู่ก่อนสร้างงานใหม่');
+      }
+
       // แปลง reviewerUserId จาก LINE → internal ID ถ้าจำเป็น
       let reviewerInternalId: string | undefined = data.reviewerUserId;
       if (reviewerInternalId && reviewerInternalId.startsWith('U')) {
