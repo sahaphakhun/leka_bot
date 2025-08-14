@@ -1,6 +1,6 @@
 // Task Service - จัดการงานและปฏิทิน
 
-import { Repository, In } from 'typeorm';
+import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { Task, Group, User } from '@/models';
 import { Task as TaskType, CalendarEvent } from '@/types';
@@ -70,7 +70,7 @@ export class TaskService {
           groupId: group.id,
           title: data.title,
           createdBy: creator.id,
-          createdAt: { $gte: fiveMinutesAgo } as any
+          createdAt: MoreThanOrEqual(fiveMinutesAgo)
         }
       });
 
