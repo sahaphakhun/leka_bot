@@ -120,6 +120,9 @@ class WebhookController {
     // ตรวจสอบและสร้าง user/group record ถ้าไม่มี
     await this.ensureUserAndGroup(userId, groupId);
 
+    // ตรวจสอบและบันทึกสมาชิกใหม่ที่ส่งข้อความ
+    await this.checkAndSaveNewMemberFromMessage(groupId, userId);
+
     switch (message.type) {
       case 'text':
         await this.handleTextMessage(event, message.text);
@@ -454,6 +457,29 @@ class WebhookController {
 
     } catch (error) {
       console.error('❌ Error ensuring user and group:', error);
+    }
+  }
+
+  /**
+   * ตรวจสอบและบันทึกสมาชิกใหม่ที่ส่งข้อความ
+   */
+  private async checkAndSaveNewMemberFromMessage(groupId: string, userId: string): Promise<void> {
+    try {
+      console.log(`🔍 ตรวจสอบสมาชิกใหม่จากข้อความ: ${userId} ในกลุ่ม ${groupId}`);
+      
+      // ใช้ฟังก์ชันใหม่ที่เราสร้างใน LineService
+      const result = await this.lineService.checkAndSaveNewMemberFromMessage(groupId, userId);
+      
+      if (result.isNewMember && result.memberInfo) {
+        console.log(`🆕 บันทึกสมาชิกใหม่จากข้อความ: ${result.memberInfo.displayName}`);
+        
+        // แจ้งเตือนในกลุ่มว่ามีสมาชิกใหม่ (ถ้าต้องการ)
+        // await this.lineService.pushMessage(groupId, 
+        //   `ยินดีต้อนรับ ${result.memberInfo.displayName} เข้ากลุ่มค่ะ! 👋`);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error checking and saving new member from message:', error);
     }
   }
 

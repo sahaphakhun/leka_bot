@@ -693,6 +693,39 @@ class Dashboard {
     botStatusEl.style.display = 'block';
   }
 
+  /**
+   * แสดงข้อมูลสมาชิกใหม่ที่พบจากข้อความ
+   */
+  displayNewMemberInfo(memberInfo) {
+    const newMemberInfo = document.getElementById('newMemberInfo');
+    if (!newMemberInfo) return;
+    
+    const sourceText = {
+      'message_webhook': 'ข้อความ + LINE API',
+      'message_webhook_basic': 'ข้อความ + ข้อมูลพื้นฐาน',
+      'webhook': 'Webhook Event',
+      'line_api': 'LINE API โดยตรง',
+      'database': 'ฐานข้อมูล'
+    };
+    
+    const source = sourceText[memberInfo.source] || memberInfo.source;
+    
+    newMemberInfo.innerHTML = `
+      <div class="new-member-alert">
+        <i class="fas fa-user-plus"></i>
+        <strong>สมาชิกใหม่:</strong> ${memberInfo.displayName}
+        <br>
+        <small>แหล่งข้อมูล: ${source} • อัปเดต: ${new Date(memberInfo.lastUpdated).toLocaleString('th-TH')}</small>
+      </div>
+    `;
+    newMemberInfo.style.display = 'block';
+    
+    // ซ่อนข้อความหลังจาก 10 วินาที
+    setTimeout(() => {
+      newMemberInfo.style.display = 'none';
+    }, 10000);
+  }
+
   async createTask(taskData) {
     try {
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks`, {

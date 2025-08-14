@@ -1169,3 +1169,32 @@ body {
   background-color: var(--color-gray-100);
   border: 1px solid var(--color-gray-200);
 }
+
+/* ==================== */
+/* New Member Alert */
+/* ==================== */
+
+.new-member-alert {
+  background-color: rgb(16 185 129 / 0.1);
+  color: var(--color-success);
+  border: 1px solid rgb(16 185 129 / 0.2);
+  padding: var(--spacing-2) var(--spacing-3);
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  line-height: 1.4;
+}
+
+.new-member-alert i {
+  margin-right: var(--spacing-2);
+  color: var(--color-success);
+}
+
+.new-member-alert strong {
+  color: var(--color-success);
+  font-weight: 600;
+}
+
+.new-member-alert small {
+  color: var(--color-gray-600);
+  font-size: 11px;
+}
