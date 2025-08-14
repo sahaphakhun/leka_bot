@@ -75,9 +75,28 @@ if (typeof require !== 'undefined') {
 } else if (typeof window !== 'undefined' && window.moment) {
   // Browser environment - ใช้ moment ที่โหลดจาก CDN
   moment = window.moment;
+  
+  // ตรวจสอบว่า moment-timezone โหลดสำเร็จหรือไม่
+  if (moment.tz) {
+    console.log('✅ moment-timezone โหลดสำเร็จ');
+    // ตั้งค่า timezone เริ่มต้น
+    moment.tz.setDefault('Asia/Bangkok');
+  } else {
+    console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาเพิ่ม script tag ใน HTML');
+    // ใช้ moment ปกติแทน
+    moment = window.moment;
+  }
 } else {
   // Browser environment - ต้องโหลด moment-timezone จาก CDN
   console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาเพิ่ม script tag ใน HTML');
+  // สร้าง mock moment object เพื่อป้องกัน error
+  moment = {
+    format: (format) => new Date().toLocaleString('th-TH'),
+    tz: (timezone) => new Date().toLocaleString('th-TH'),
+    setDefault: () => {},
+    utc: () => new Date(),
+    unix: (timestamp) => new Date(timestamp * 1000)
+  };
 }
 
 class Dashboard {
@@ -387,57 +406,69 @@ class Dashboard {
   // API Functions
   // ==================== 
 
+  /**
+   * ส่ง API request
+   */
   async apiRequest(endpoint, options = {}) {
     try {
-      console.log('API Request:', `${this.apiBase}/api${endpoint}`);
+      const url = `${this.apiBase}${endpoint}`;
+      console.log('API Request:', url);
       
-      const response = await fetch(`${this.apiBase}/api${endpoint}`, {
+      const response = await fetch(url, {
+        method: options.method || 'GET',
         headers: {
           'Content-Type': 'application/json',
           ...options.headers
         },
+        body: options.body ? JSON.stringify(options.body) : undefined,
         ...options
       });
 
-      console.log('API Response status:', response.status, response.statusText);
-
+      console.log('API Response status:', response.status);
+      
       if (!response.ok) {
-        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
-        
-        // พยายามดึง error message จาก response body
+        const errorText = await response.text();
+        let errorData;
         try {
-          const errorData = await response.json();
-          if (errorData.error) {
-            errorMessage = errorData.error;
-          }
-        } catch (parseError) {
-          // ถ้า parse JSON ไม่ได้ ใช้ statusText
+          errorData = JSON.parse(errorText);
+        } catch {
+          errorData = { error: errorText };
         }
         
+        const errorMessage = errorData.details || errorData.error || `HTTP ${response.status}`;
         throw new Error(errorMessage);
       }
 
       const data = await response.json();
       console.log('API Response data:', data);
+      
       return data;
     } catch (error) {
       console.error('API Request Error:', error);
-      
-      // ไม่แสดง toast สำหรับ error บางประเภท
-      if (!error.message.includes('404') && !error.message.includes('Group not found')) {
-        this.showToast(`เกิดข้อผิดพลาด: ${error.message}`, 'error');
-      }
-      
       throw error;
     }
   }
 
   async loadStats() {
     try {
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/stats`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/stats`);
       this.updateStats(response.data);
     } catch (error) {
       console.error('Failed to load stats:', error);
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      if (error.message.includes('500')) {
+        console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลสถิติ');
+      } else {
+        console.error(`❌ ไม่สามารถดึงข้อมูลสถิติได้: ${error.message}`);
+      }
+      // แสดงข้อความในหน้า dashboard
+      const containers = ['totalTasks', 'pendingTasks', 'completedTasks', 'overdueTasks'];
+      containers.forEach(id => {
+        const container = document.getElementById(id);
+        if (container) {
+          container.textContent = 'N/A';
+        }
+      });
     }
   }
 
@@ -447,18 +478,29 @@ class Dashboard {
       this._lastTaskFilters = { ...(this._lastTaskFilters || {}), ...(filters || {}) };
 
       const queryParams = new URLSearchParams(this._lastTaskFilters).toString();
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?${queryParams}`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?${queryParams}`);
       // เก็บ cache งานไว้ใช้เปิด modal โดยไม่ต้องพึ่งพา search param ฝั่ง API
       this._taskCache = response.data || [];
       this.updateTasksList(this._taskCache, response.pagination);
     } catch (error) {
       console.error('Failed to load tasks:', error);
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      if (error.message.includes('500')) {
+        console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลงาน');
+      } else {
+        console.error(`❌ ไม่สามารถดึงข้อมูลงานได้: ${error.message}`);
+      }
+      // แสดงข้อความในหน้า dashboard
+      const container = document.getElementById('tasksList');
+      if (container) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #6b7280;">ไม่สามารถโหลดข้อมูลงานได้</div>';
+      }
     }
   }
 
   async loadCalendarEvents(month, year) {
     try {
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/calendar?month=${month}&year=${year}`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/calendar?month=${month}&year=${year}`);
       this.updateCalendar(response.data, month, year);
     } catch (error) {
       console.error('Failed to load calendar events:', error);
@@ -468,7 +510,7 @@ class Dashboard {
   async loadFiles(search = '') {
     try {
       const queryParams = search ? `?search=${encodeURIComponent(search)}` : '';
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/files${queryParams}`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/files${queryParams}`);
       this.updateFilesList(response.data);
     } catch (error) {
       console.error('Failed to load files:', error);
@@ -521,7 +563,7 @@ class Dashboard {
 
   async loadLeaderboard(period = 'weekly') {
     try {
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/leaderboard?period=${period}`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=${period}`);
       this.updateLeaderboard(response.data);
     } catch (error) {
       console.error('Failed to load leaderboard:', error);
@@ -534,7 +576,7 @@ class Dashboard {
       
       // ใช้ฟังก์ชัน hybrid ที่ใช้ทั้ง LINE API และฐานข้อมูล
       try {
-        const lineResponse = await this.apiRequest(`/line/members/${this.currentGroupId}`);
+        const lineResponse = await this.apiRequest(`/api/line/members/${this.currentGroupId}`);
         if (lineResponse && lineResponse.data && lineResponse.data.length > 0) {
           console.log(`✅ ดึงข้อมูลจาก LINE API สำเร็จ: ${lineResponse.data.length} คน`);
           
@@ -581,7 +623,7 @@ class Dashboard {
 
       // Fallback: ดึงจากฐานข้อมูล
       console.log('📊 ดึงข้อมูลสมาชิกจากฐานข้อมูล...');
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/members`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/members`);
       
       if (response && response.data) {
         // เพิ่ม source เป็น 'database'
@@ -599,15 +641,28 @@ class Dashboard {
           sourceInfo.textContent = 'แหล่งข้อมูล: ฐานข้อมูล';
           sourceInfo.style.display = 'block';
         }
+      } else {
+        console.warn('⚠️ ไม่ได้รับข้อมูลสมาชิกจากฐานข้อมูล');
+        const sourceInfo = document.getElementById('membersSourceInfo');
+        if (sourceInfo) {
+          sourceInfo.textContent = '⚠️ ไม่ได้รับข้อมูลสมาชิกจากฐานข้อมูล';
+          sourceInfo.style.display = 'block';
+        }
       }
       
     } catch (error) {
       console.error('❌ Failed to load group members:', error);
       
-      // แสดงข้อความ error
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
       const sourceInfo = document.getElementById('membersSourceInfo');
       if (sourceInfo) {
-        sourceInfo.textContent = '❌ ไม่สามารถดึงข้อมูลสมาชิกได้';
+        if (error.message.includes('500')) {
+          sourceInfo.textContent = '❌ เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่อีกครั้ง';
+        } else if (error.message.includes('403')) {
+          sourceInfo.textContent = '❌ ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิก';
+        } else {
+          sourceInfo.textContent = `❌ ไม่สามารถดึงข้อมูลสมาชิกได้: ${error.message}`;
+        }
         sourceInfo.style.display = 'block';
       }
     }
@@ -618,7 +673,7 @@ class Dashboard {
    */
   async loadLineMembers() {
     try {
-      const response = await this.apiRequest(`/line/members/${this.currentGroupId}`);
+      const response = await this.apiRequest(`/api/line/members/${this.currentGroupId}`);
       if (response && response.data) {
         // แปลงข้อมูลจาก LINE API ให้เข้ากับ format เดิม
         const formattedMembers = response.data.map(member => ({
@@ -629,68 +684,24 @@ class Dashboard {
         }));
         this.updateMembersList(formattedMembers);
         return formattedMembers;
+      } else {
+        console.warn('⚠️ ไม่ได้รับข้อมูลสมาชิกจาก LINE API');
+        return [];
       }
     } catch (error) {
       console.error('Failed to load LINE members:', error);
+      
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      if (error.message.includes('500')) {
+        console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลจาก LINE API');
+      } else if (error.message.includes('403')) {
+        console.error('❌ Bot ไม่มีสิทธิ์ดึงข้อมูลสมาชิกจาก LINE API');
+      } else {
+        console.error(`❌ ไม่สามารถดึงข้อมูลสมาชิกได้: ${error.message}`);
+      }
+      
       throw error;
     }
-  }
-
-  /**
-   * ตรวจสอบสถานะ Bot ในกลุ่ม
-   */
-  async checkBotStatus() {
-    try {
-      console.log('🔍 ตรวจสอบสถานะ Bot ในกลุ่ม...');
-      
-      const response = await this.apiRequest(`/line/bot-status/${this.currentGroupId}`);
-      if (response && response.data) {
-        const botStatus = response.data;
-        
-        // แสดงสถานะ Bot ในหน้า dashboard
-        this.displayBotStatus(botStatus);
-        
-        return botStatus;
-      }
-    } catch (error) {
-      console.error('❌ Failed to check bot status:', error);
-      
-      // แสดงสถานะ error
-      this.displayBotStatus({
-        isInGroup: false,
-        canGetMembers: false,
-        canGetProfiles: false,
-        botType: 'unknown'
-      });
-    }
-  }
-
-  /**
-   * แสดงสถานะ Bot ในหน้า dashboard
-   */
-  displayBotStatus(botStatus) {
-    const botStatusEl = document.getElementById('botStatusInfo');
-    if (!botStatusEl) return;
-    
-    let statusText = '';
-    let statusClass = '';
-    
-    if (botStatus.isInGroup) {
-      if (botStatus.canGetMembers && botStatus.canGetProfiles) {
-        statusText = `✅ Bot อยู่ในกลุ่มและมีสิทธิ์ครบถ้วน (${botStatus.botType})`;
-        statusClass = 'success';
-      } else {
-        statusText = `⚠️ Bot อยู่ในกลุ่มแต่สิทธิ์จำกัด (${botStatus.botType})`;
-        statusClass = 'warning';
-      }
-    } else {
-      statusText = '❌ Bot ไม่ได้อยู่ในกลุ่ม';
-      statusClass = 'error';
-    }
-    
-    botStatusEl.textContent = statusText;
-    botStatusEl.className = `bot-status ${statusClass}`;
-    botStatusEl.style.display = 'block';
   }
 
   /**
@@ -843,10 +854,13 @@ class Dashboard {
   // Data Loading
   // ==================== 
 
+  /**
+   * โหลดข้อมูลเริ่มต้น
+   */
   async loadInitialData() {
-    this.showLoading();
-    
     try {
+      this.showLoading();
+      
       // ตรวจสอบว่ามี groupId หรือไม่
       if (this.currentGroupId === 'default' || !this.currentGroupId) {
         this.showNoGroupMessage();
@@ -856,15 +870,15 @@ class Dashboard {
       console.log('Loading data for group:', this.currentGroupId);
 
       // Load group info
-      const groupResponse = await this.apiRequest(`/groups/${this.currentGroupId}`);
+      const groupResponse = await this.apiRequest(`/api/groups/${this.currentGroupId}`);
       
       if (groupResponse.success && groupResponse.data) {
         const groupName = groupResponse.data.name || 'ไม่ทราบชื่อกลุ่ม';
         document.getElementById('currentGroupName').textContent = groupName;
         console.log('Group loaded:', groupName);
         
-        // ตรวจสอบสถานะ Bot ในกลุ่ม
-        await this.checkBotStatus();
+        // ไม่ต้องตรวจสอบสถานะ Bot เพราะไม่จำเป็น
+        // ผู้ใช้เข้าผ่านลิงก์จากบอทอยู่แล้ว
         
         // Load current view data
         this.loadViewData(this.currentView);
@@ -881,10 +895,13 @@ class Dashboard {
     } catch (error) {
       console.error('Failed to load initial data:', error);
       
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
       if (error.message.includes('404') || error.message.includes('Group not found')) {
         this.showGroupNotFoundMessage();
       } else if (error.message.includes('500')) {
         this.showToast('เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่อีกครั้ง', 'error');
+      } else if (error.message.includes('Failed to check bot status')) {
+        this.showToast('ไม่สามารถตรวจสอบสถานะ Bot ได้ กรุณาลองใหม่อีกครั้ง', 'error');
       } else {
         this.showToast('ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
       }
@@ -895,22 +912,44 @@ class Dashboard {
 
   async loadUpcomingTasks() {
     try {
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?limit=5&status=pending`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?limit=5&status=pending`);
       // อัปเดต cache ด้วยรายการล่าสุดบางส่วน เพื่อให้เปิด modal ได้แม้ยังไม่กดเข้า view Tasks
       const latest = response.data || [];
       this._taskCache = Array.from(new Map([...(this._taskCache||[]), ...latest].map(t => [t.id, t])).values());
       this.updateUpcomingTasks(latest);
     } catch (error) {
       console.error('Failed to load upcoming tasks:', error);
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      if (error.message.includes('500')) {
+        console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลงาน');
+      } else {
+        console.error(`❌ ไม่สามารถดึงข้อมูลงานได้: ${error.message}`);
+      }
+      // แสดงข้อความในหน้า dashboard
+      const container = document.getElementById('upcomingTasks');
+      if (container) {
+        container.innerHTML = '<p class="text-muted">ไม่สามารถโหลดข้อมูลงานได้</p>';
+      }
     }
   }
 
   async loadMiniLeaderboard() {
     try {
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/leaderboard?period=weekly&limit=3`);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=weekly&limit=3`);
       this.updateMiniLeaderboard(response.data);
     } catch (error) {
       console.error('Failed to load mini leaderboard:', error);
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      if (error.message.includes('500')) {
+        console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลอันดับ');
+      } else {
+        console.error(`❌ ไม่สามารถดึงข้อมูลอันดับได้: ${error.message}`);
+      }
+      // แสดงข้อความในหน้า dashboard
+      const container = document.getElementById('miniLeaderboard');
+      if (container) {
+        container.innerHTML = '<p class="text-muted">ไม่สามารถโหลดข้อมูลอันดับได้</p>';
+      }
     }
   }
 
@@ -1092,8 +1131,8 @@ class Dashboard {
 
   async renderReportRecipients() {
     try {
-      const groupResp = await this.apiRequest(`/groups/${this.currentGroupId}`);
-      const membersResp = await this.apiRequest(`/groups/${this.currentGroupId}/members`);
+      const groupResp = await this.apiRequest(`/api/groups/${this.currentGroupId}`);
+      const membersResp = await this.apiRequest(`/api/groups/${this.currentGroupId}/members`);
       const current = groupResp?.data?.settings?.reportRecipients || [];
       const members = membersResp?.data || [];
       const wrap = document.getElementById('reportRecipientsList');
@@ -1113,7 +1152,7 @@ class Dashboard {
     try {
       const wrap = document.getElementById('reportRecipientsList');
       const selected = Array.from(wrap.querySelectorAll('input[type="checkbox"]:checked')).map((el)=>el.value);
-      await this.apiRequest(`/groups/${this.currentGroupId}/settings/report-recipients`, {
+      await this.apiRequest(`/api/groups/${this.currentGroupId}/settings/report-recipients`, {
         method: 'POST',
         body: JSON.stringify({ recipients: selected })
       });

@@ -908,31 +908,6 @@ class ApiController {
       });
     }
   }
-
-  /**
-   * GET /api/line/bot-status/:groupId - ตรวจสอบสถานะ Bot ในกลุ่ม
-   */
-  public async getBotStatus(req: Request, res: Response): Promise<void> {
-    try {
-      const { groupId } = req.params;
-
-      const botStatus = await this.lineService.checkBotInGroup(groupId);
-
-      const response: ApiResponse<any> = {
-        success: true,
-        data: botStatus
-      };
-
-      res.json(response);
-
-    } catch (error) {
-      logger.error('❌ Error checking bot status:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Failed to check bot status' 
-      });
-    }
-  }
 }
 
 const apiController = new ApiController();
@@ -972,7 +947,6 @@ apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFil
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));
 apiRouter.get('/export/kpi/:groupId', apiController.exportKPI.bind(apiController));
 apiRouter.get('/line/members/:groupId', apiController.getLineMembers.bind(apiController));
-apiRouter.get('/line/bot-status/:groupId', apiController.getBotStatus.bind(apiController));
 
 // New helper route: fetch single task detail by ID (for dashboard modal)
 apiRouter.get('/task/:taskId', async (req, res) => {

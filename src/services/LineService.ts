@@ -755,60 +755,6 @@ export class LineService {
   }
 
   /**
-   * ตรวจสอบสถานะของ Bot ในกลุ่ม
-   */
-  public async checkBotInGroup(groupId: string): Promise<{
-    isInGroup: boolean;
-    canGetMembers: boolean;
-    canGetProfiles: boolean;
-    botType: 'normal' | 'verified' | 'premium';
-  }> {
-    try {
-      // ลองดึงข้อมูลกลุ่ม
-      await this.client.getGroupSummary(groupId);
-      
-      // ลองดึงข้อมูลสมาชิก
-      try {
-        await this.client.getGroupMemberIds(groupId);
-        return {
-          isInGroup: true,
-          canGetMembers: true,
-          canGetProfiles: true,
-          botType: 'verified' // หรือ 'premium' ขึ้นอยู่กับการตั้งค่า
-        };
-      } catch (memberError: any) {
-        if (memberError.status === 403) {
-          return {
-            isInGroup: true,
-            canGetMembers: false,
-            canGetProfiles: false,
-            botType: 'normal'
-          };
-        }
-        throw memberError;
-      }
-      
-    } catch (error: any) {
-      if (error.status === 403) {
-        return {
-          isInGroup: false,
-          canGetMembers: false,
-          canGetProfiles: false,
-          botType: 'normal'
-        };
-      } else if (error.status === 404) {
-        return {
-          isInGroup: false,
-          canGetMembers: false,
-          canGetProfiles: false,
-          botType: 'normal'
-        };
-      }
-      throw error;
-    }
-  }
-
-  /**
    * อัปเดตข้อมูลสมาชิกจาก webhook events
    * ใช้เก็บข้อมูลสมาชิกที่เพิ่มเข้ามาใหม่ในกลุ่ม
    */
