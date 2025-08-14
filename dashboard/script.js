@@ -431,7 +431,9 @@ class Dashboard {
    */
   async apiRequest(endpoint, options = {}) {
     try {
-      const url = `${this.apiBase}${endpoint}`;
+      // ตรวจสอบว่า endpoint เริ่มต้นด้วย /api หรือไม่
+      const fullEndpoint = endpoint.startsWith('/api') ? endpoint : `/api${endpoint}`;
+      const url = `${this.apiBase}${fullEndpoint}`;
       console.log('API Request:', url);
       
       const response = await fetch(url, {
@@ -2002,18 +2004,15 @@ class Dashboard {
 
   // เพิ่มฟังก์ชันสำหรับการแปลงวันที่ให้เป็น timezone ที่ถูกต้อง
   formatDateForAPI(date) {
-    if (moment && moment.tz) {
+    // ตรวจสอบว่า moment.tz ทำงานได้จริงหรือไม่
+    if (moment && moment.tz && typeof moment.tz === 'function') {
       try {
         return moment(date).tz(this.timezone).toISOString();
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        // แปลงเป็น Bangkok time (UTC+7) แบบ manual
-        const inputDate = new Date(date);
-        const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
-        const bangkokTime = new Date(utc + (7 * 3600000));
-        return bangkokTime.toISOString();
       }
     }
+    
     // Fallback: แปลงเป็น Bangkok time (UTC+7) แบบ manual
     const inputDate = new Date(date);
     const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
