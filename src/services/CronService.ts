@@ -203,7 +203,7 @@ export class CronService {
   }
 
   /**
-   * ส่งรายงานรายสัปดาห์
+   * ส่งรายงานรายสัปดาห์ (ศุกร์ 13:00)
    */
   private async sendWeeklyReports(): Promise<void> {
     try {
@@ -215,7 +215,19 @@ export class CronService {
         if (!group.settings.enableLeaderboard) continue;
         const weeklyStats = await this.kpiService.getWeeklyStats(group.id);
         const leaderboard = await this.kpiService.getGroupLeaderboard(group.id, 'weekly');
+        
+        // ส่งรายงานรายสัปดาห์ปกติ
         await this.notificationService.sendWeeklyReport(group, weeklyStats, leaderboard);
+        
+        // ส่ง Leader Board การ์ด
+        try {
+          const leaderboardFlexMessage = this.createLeaderboardFlexMessage(group, leaderboard);
+          await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, leaderboardFlexMessage);
+          console.log(`✅ Sent leaderboard flex message to group: ${group.name}`);
+        } catch (err) {
+          console.warn('⚠️ Failed to send leaderboard flex message:', group.lineGroupId, err);
+        }
+        
         // ส่งให้หัวหน้าทีม (admin) ทางส่วนตัวด้วย
         try {
           await (this.notificationService as any).sendWeeklyReportToAdmins(group as any, weeklyStats, leaderboard);
@@ -1293,6 +1305,174 @@ export class CronService {
         }
       }
     };
+
+    return flexContainer;
+  }
+
+  /** สร้าง Flex Message สำหรับ Leader Board */
+  private createLeaderboardFlexMessage(group: any, leaderboard: any[]): any {
+    const header = `🏆 ตารางคะแนนผู้นำประจำสัปดาห์`;
+    const date = moment().tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY');
+    const subtitle = `🗓️ วันที่ ${date} | 📋 กลุ่ม: ${group.name}`;
+
+    const flexContainer: any = {
+      type: 'flex',
+      altText: header,
+      contents: {
+        type: 'bubble',
+        size: 'kilo',
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'md',
+          contents: [
+            {
+              type: 'text',
+              text: header,
+              weight: 'bold',
+              size: 'lg',
+              color: '#FFD700',
+              flex: 0
+            },
+            {
+              type: 'text',
+              text: subtitle,
+              size: 'sm',
+              color: '#666666',
+              flex: 0
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            }
+          ]
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          spacing: 'sm',
+          contents: [
+            {
+              type: 'button',
+              style: 'primary',
+              action: {
+                type: 'uri',
+                label: 'ดู Dashboard',
+                uri: `${config.baseUrl}/dashboard?groupId=${group.id}`
+              }
+            }
+          ]
+        }
+      }
+    };
+
+    // ฟังก์ชันสำหรับเหรียญ
+    const getMedal = (rank: number, total: number) => {
+      if (rank === 1) return '🥇';
+      if (rank === 2) return '🥈';
+      if (rank === 3) return '🥉';
+      if (rank === total) return '🥚'; // บ๊วย
+      return `${rank}️⃣`;
+    };
+
+    // ฟังก์ชันสำหรับสีพื้นหลัง
+    const getRankBackgroundColor = (rank: number, total: number) => {
+      if (rank === 1) return '#FFF8DC'; // สีทองอ่อน
+      if (rank === 2) return '#F5F5F5'; // สีเงินอ่อน
+      if (rank === 3) return '#FFF8E1'; // สีทองแดงอ่อน
+      if (rank === total) return '#FFF0F5'; // สีชมพูอ่อน (บ๊วย)
+      return '#FFFFFF';
+    };
+
+    // ฟังก์ชันสำหรับสีข้อความ
+    const getRankTextColor = (rank: number, total: number) => {
+      if (rank === 1) return '#FFD700'; // สีทอง
+      if (rank === 2) return '#C0C0C0'; // สีเงิน
+      if (rank === 3) return '#CD7F32'; // สีทองแดง
+      if (rank === total) return '#FF69B4'; // สีชมพู (บ๊วย)
+      return '#333333';
+    };
+
+    const totalUsers = leaderboard.length;
+
+    // แสดงอันดับทั้งหมด
+    leaderboard.forEach((user: any, index: number) => {
+      const rank = index + 1;
+      const medal = getMedal(rank, totalUsers);
+      
+      flexContainer.contents.body.contents.push({
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'md',
+        margin: 'sm',
+        padding: 'md',
+        backgroundColor: getRankBackgroundColor(rank, totalUsers),
+        cornerRadius: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: `${medal}`,
+            size: 'lg',
+            flex: 0
+          },
+          {
+            type: 'box',
+            layout: 'vertical',
+            spacing: 'xs',
+            flex: 1,
+            contents: [
+              {
+                type: 'text',
+                text: `@${user.displayName}`,
+                weight: 'bold',
+                size: 'md',
+                color: getRankTextColor(rank, totalUsers)
+              },
+              {
+                type: 'text',
+                text: `คะแนน: ${user.score} | งานเสร็จ: ${user.completedTasks || 0} | งานเกินกำหนด: ${user.overdueTasks || 0}`,
+                size: 'xs',
+                color: '#666666'
+              }
+            ]
+          }
+        ]
+      });
+    });
+
+    // แสดงสถิติรวม
+    if (totalUsers > 0) {
+      flexContainer.contents.body.contents.push({
+        type: 'separator',
+        margin: 'md'
+      });
+
+      const totalScore = leaderboard.reduce((sum, user) => sum + user.score, 0);
+      const avgScore = Math.round(totalScore / totalUsers);
+
+      flexContainer.contents.body.contents.push({
+        type: 'box',
+        layout: 'horizontal',
+        spacing: 'sm',
+        margin: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: `👥 รวม ${totalUsers} คน`,
+            size: 'sm',
+            color: '#666666',
+            flex: 1
+          },
+          {
+            type: 'text',
+            text: `📊 คะแนนเฉลี่ย: ${avgScore}`,
+            size: 'sm',
+            color: '#666666',
+            flex: 1
+          }
+        ]
+      });
+    }
 
     return flexContainer;
   }

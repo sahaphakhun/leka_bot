@@ -206,7 +206,7 @@ export class AuthMiddleware {
       return authHeader.substring(7);
     }
     
-    // ตรวจสอบจาก query parameter (สำหรับ LIFF)
+    // ตรวจสอบจาก query parameter
     const queryToken = req.query.token as string;
     if (queryToken) {
       return queryToken;

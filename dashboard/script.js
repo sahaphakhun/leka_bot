@@ -1,4 +1,4 @@
-// Profile page logic (non-LIFF)
+// Profile page logic
 (function() {
   const app = document.getElementById('app');
   if (!app) return;

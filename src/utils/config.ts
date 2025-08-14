@@ -16,7 +16,6 @@ export const config = {
     channelAccessToken: process.env.LINE_CHANNEL_ACCESS_TOKEN!,
     channelSecret: process.env.LINE_CHANNEL_SECRET!,
     botUserId: process.env.LINE_BOT_USER_ID, // Optional - บอท user ID สำหรับตรวจจับ mention
-    liffId: process.env.LINE_LIFF_ID, // Optional แล้ว
     loginChannelId: process.env.LINE_LOGIN_CHANNEL_ID,
     loginChannelSecret: process.env.LINE_LOGIN_CHANNEL_SECRET,
   },
@@ -99,7 +98,6 @@ const optionalEnvVars = [
   'GOOGLE_CLIENT_SECRET',    // Google Calendar integration
   'SMTP_USER',              // Email notifications
   'SMTP_PASS',              // Email notifications
-  'LINE_LIFF_ID',           // LIFF (deprecated)
 ];
 
 export const validateConfig = (): void => {
@@ -136,5 +134,4 @@ export const features = {
   lineEnabled: !!(process.env.LINE_CHANNEL_ACCESS_TOKEN && process.env.LINE_CHANNEL_SECRET),
   googleCalendar: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
   emailNotifications: !!(process.env.SMTP_USER && process.env.SMTP_PASS),
-  liff: !!process.env.LINE_LIFF_ID,
 };

@@ -480,8 +480,8 @@ Email Notifications:
 - **Sync Settings:** ตั้งค่าการซิงค์
 - **Default Reminders:** การแจ้งเตือนใน Google
 
-#### LINE LIFF
-- **LIFF ID:** รหัส LIFF App
+#### LINE Web Dashboard
+- **Web URL:** ลิงก์หน้าเว็บสำหรับตั้งค่าและจัดการ
 - **Features:** ฟีเจอร์ที่เปิดใช้
 - **Permissions:** สิทธิ์การเข้าถึง
 

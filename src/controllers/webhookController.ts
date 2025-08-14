@@ -356,7 +356,7 @@ class WebhookController {
         }
 
         case 'edit':
-          // TODO: ส่งลิงก์ไปยัง LIFF สำหรับแก้ไข
+          // TODO: ส่งลิงก์ไปยังหน้าเว็บสำหรับแก้ไข
           break;
 
         case 'link_file':
@@ -436,7 +436,9 @@ class WebhookController {
             const fileIds = fileIdsParam.split(',').filter(Boolean);
             try {
               // ผูกไฟล์กับงาน
-              await this.taskService.linkFilesToTask(taskId, fileIds);
+              for (const fileId of fileIds) {
+                await this.fileService.linkFileToTask(fileId, taskId);
+              }
               await this.lineService.replyMessage(replyToken, '✅ ผูกไฟล์กับงานเรียบร้อยแล้ว');
             } catch (err: any) {
               await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถผูกไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
@@ -525,7 +527,7 @@ class WebhookController {
    * จัดการเมื่อมีสมาชิกใหม่เข้าร่วม
    */
   private async handleMemberJoinedEvent(event: WebhookEvent): Promise<void> {
-    // TODO: ส่งข้อความต้อนรับและลิงก์ LIFF
+    // TODO: ส่งข้อความต้อนรับและลิงก์หน้าเว็บ
   }
 
   /**
