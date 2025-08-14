@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ Moment.js tz Method</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>ทดสอบ Moment.js tz Method</h1>
+    <div id="output"></div>
+
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/moment-timezone.min.js"></script>
+    
+    <script>
+        var output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            var className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += '<p class="' + className + '">' + message + '</p>';
+        }
+        
+        function testSection(title) {
+            output.innerHTML += '<div class="test-section"><h3>' + title + '</h3>';
+        }
+        
+        function endSection() {
+            output.innerHTML += '</div>';
+        }
+        
+        try {
+            log('🔍 เริ่มทดสอบ Moment.js tz Method...');
+            
+            // ทดสอบ moment() ทำงานได้
+            testSection('1. ทดสอบ moment() ทำงานได้');
+            if (typeof moment === 'function') {
+                var now = moment();
+                log('✅ moment() ทำงานได้: ' + now, 'success');
+            } else {
+                log('❌ moment() ไม่ได้ถูกกำหนด', 'error');
+            }
+            endSection();
+            
+            // ทดสอบ moment.tz() ทำงานได้
+            testSection('2. ทดสอบ moment.tz() ทำงานได้');
+            if (moment.tz && typeof moment.tz === 'function') {
+                log('✅ moment.tz() ทำงานได้', 'success');
+            } else {
+                log('❌ moment.tz() ไม่ได้ถูกกำหนด', 'error');
+            }
+            endSection();
+            
+            // ทดสอบ moment(...).tz() ทำงานได้
+            testSection('3. ทดสอบ moment(...).tz() ทำงานได้');
+            if (moment.fn && moment.fn.tz && typeof moment.fn.tz === 'function') {
+                log('✅ moment(...).tz() ทำงานได้', 'success');
+                
+                // ทดสอบการใช้งาน
+                try {
+                    var testDate = moment('2024-01-01 12:00:00');
+                    var bangkokDate = testDate.tz('Asia/Bangkok');
+                    log('✅ moment(...).tz() ทำงานได้: ' + bangkokDate, 'success');
+                } catch (e) {
+                    log('❌ moment(...).tz() ไม่ทำงาน: ' + e.message, 'error');
+                }
+            } else {
+                log('❌ moment(...).tz() ไม่ได้ถูกกำหนด', 'error');
+            }
+            endSection();
+            
+            // ทดสอบ moment.tz.setDefault ทำงานได้
+            testSection('4. ทดสอบ moment.tz.setDefault() ทำงานได้');
+            if (moment.tz && moment.tz.setDefault && typeof moment.tz.setDefault === 'function') {
+                log('✅ moment.tz.setDefault() ทำงานได้', 'success');
+                
+                try {
+                    moment.tz.setDefault('Asia/Bangkok');
+                    log('✅ ตั้งค่า timezone สำเร็จ: Asia/Bangkok', 'success');
+                } catch (e) {
+                    log('❌ ไม่สามารถตั้งค่า timezone ได้: ' + e.message, 'error');
+                }
+            } else {
+                log('❌ moment.tz.setDefault() ไม่ได้ถูกกำหนด', 'error');
+            }
+            endSection();
+            
+            // ทดสอบการใช้งานจริง
+            testSection('5. ทดสอบการใช้งานจริง');
+            try {
+                var currentDate = new Date();
+                var momentDate = moment(currentDate);
+                var bangkokTime = momentDate.tz('Asia/Bangkok');
+                var formatted = bangkokTime.format('DD/MM/YYYY HH:mm');
+                
+                log('✅ วันที่ปัจจุบัน: ' + currentDate, 'info');
+                log('✅ moment object: ' + momentDate, 'info');
+                log('✅ Bangkok time: ' + bangkokTime, 'info');
+                log('✅ Formatted: ' + formatted, 'success');
+                
+            } catch (e) {
+                log('❌ การใช้งานจริงไม่ทำงาน: ' + e.message, 'error');
+            }
+            endSection();
+            
+            log('🎉 การทดสอบเสร็จสิ้น!', 'success');
+            
+        } catch (error) {
+            log('❌ เกิดข้อผิดพลาด: ' + error.message, 'error');
+            console.error('Error:', error);
+        }
+    </script>
+</body>
+</html>
