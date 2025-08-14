@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ Static Files</title>
+    <link rel="stylesheet" href="/dashboard/styles.css">
+</head>
+<body>
+    <h1>ทดสอบ Static Files</h1>
+    <p>หากเห็นสไตล์นี้ แสดงว่า CSS ทำงานได้</p>
+    
+    <div class="btn btn-primary">ปุ่มทดสอบ</div>
+    <div class="btn btn-outline">ปุ่มทดสอบ 2</div>
+    
+    <script src="/dashboard/assets/js/moment.min.js"></script>
+    <script src="/dashboard/assets/js/moment-timezone.min.js"></script>
+    <script src="/dashboard/script.js"></script>
+    
+    <script>
+        console.log('✅ Static files โหลดสำเร็จ!');
+        if (typeof moment !== 'undefined') {
+            console.log('✅ Moment.js ทำงานได้:', moment().format('DD/MM/YYYY'));
+        }
+    </script>
+</body>
+</html>

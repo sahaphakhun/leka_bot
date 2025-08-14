@@ -52,7 +52,7 @@ class Server {
     this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
     
     // Dashboard static assets (CSS, JS, images)  
-    this.app.use('/dashboard/assets', express.static(path.join(__dirname, '../dashboard')));
+    this.app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
   }
 
   private configureRoutes(): void {
