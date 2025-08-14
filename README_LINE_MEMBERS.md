@@ -36,13 +36,6 @@ const members = await lineService.getGroupMembersHybrid(groupId);
 const result = await lineService.syncGroupMembersToDatabase(groupId);
 ```
 
-#### **`checkBotInGroup(groupId)`**
-```typescript
-// ตรวจสอบสถานะ Bot ในกลุ่ม
-const status = await lineService.checkBotInGroup(groupId);
-// ส่งคืน: isInGroup, canGetMembers, canGetProfiles, botType
-```
-
 #### **`updateMemberFromWebhook(groupId, userId, eventType)`**
 ```typescript
 // อัปเดตข้อมูลสมาชิกจาก webhook
@@ -57,10 +50,6 @@ await lineService.updateMemberFromWebhook(groupId, userId, 'leave');
 - ลองใช้ LINE API ก่อน แล้ว fallback ไปฐานข้อมูล
 - ส่งคืนข้อมูลพร้อม source และ timestamp
 
-#### **GET /api/line/bot-status/:groupId**
-- ตรวจสอบสถานะ Bot ในกลุ่ม
-- แสดงสิทธิ์และประเภทของ Bot
-
 ### **4. การใช้งานใน Dashboard**
 
 #### **แสดงข้อมูล Source**
@@ -70,19 +59,11 @@ const sourceInfo = document.getElementById('membersSourceInfo');
 sourceInfo.textContent = `แหล่งข้อมูล: LINE API: 5 คน ฐานข้อมูล: 2 คน Webhook: 1 คน`;
 ```
 
-#### **แสดงสถานะ Bot**
-```javascript
-// แสดงสถานะ Bot ในกลุ่ม
-const botStatus = document.getElementById('botStatusInfo');
-botStatus.textContent = '✅ Bot อยู่ในกลุ่มและมีสิทธิ์ครบถ้วน (verified)';
-```
-
 ### **5. การจัดการ Error**
 
 #### **LINE API Error 403 (Forbidden)**
 - แสดงข้อความ: "Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม"
 - เปลี่ยนไปใช้ฐานข้อมูลแทน
-- แสดงสถานะ Bot เป็น "warning"
 
 #### **LINE API Error 404 (Not Found)**
 - แสดงข้อความ: "ไม่พบกลุ่มที่ระบุ"
@@ -170,12 +151,6 @@ curl -X GET \
 ```bash
 curl -X GET \
   'http://localhost:3000/api/line/members/{groupId}'
-```
-
-#### **ทดสอบ Bot Status**
-```bash
-curl -X GET \
-  'http://localhost:3000/api/line/bot-status/{groupId}'
 ```
 
 ### **11. การแก้ไขปัญหา**
