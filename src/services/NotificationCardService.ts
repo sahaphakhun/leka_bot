@@ -86,26 +86,32 @@ export class NotificationCardService {
         }
       }
 
-      // ส่งไปยังผู้ใช้
-      if (notificationCard.targetType === 'user' || notificationCard.targetType === 'both') {
-        for (const userId of notificationCard.userIds || []) {
-          try {
-            // ดึงข้อมูล LINE User ID จาก User ID
-            const user = await this.userService.findById(userId);
-            if (user && user.lineUserId) {
-              await this.lineService.pushMessage(user.lineUserId, flexMessage);
-              successCount++;
-              logger.info(`✅ ส่งการ์ดไปยังผู้ใช้ ${userId} สำเร็จ`);
-            } else {
-              errorCount++;
-              logger.warn(`⚠️ ไม่พบ LINE User ID สำหรับผู้ใช้ ${userId}`);
-            }
-          } catch (error) {
-            errorCount++;
-            logger.error(`❌ ส่งการ์ดไปยังผู้ใช้ ${userId} ไม่สำเร็จ:`, error);
-          }
-        }
-      }
+             // ส่งไปยังผู้ใช้
+       if (notificationCard.targetType === 'user' || notificationCard.targetType === 'both') {
+         for (const userId of notificationCard.userIds || []) {
+           try {
+             // ลองค้นหาจาก LINE User ID ก่อน (ถ้าเป็น LINE User ID)
+             let user = await this.userService.findByLineUserId(userId);
+             
+             // ถ้าไม่เจอ ให้ลองค้นหาจาก internal User ID
+             if (!user) {
+               user = await this.userService.findById(userId);
+             }
+             
+             if (user && user.lineUserId) {
+               await this.lineService.pushMessage(user.lineUserId, flexMessage);
+               successCount++;
+               logger.info(`✅ ส่งการ์ดไปยังผู้ใช้ ${userId} สำเร็จ`);
+             } else {
+               errorCount++;
+               logger.warn(`⚠️ ไม่พบ LINE User ID สำหรับผู้ใช้ ${userId}`);
+             }
+           } catch (error) {
+             errorCount++;
+             logger.error(`❌ ส่งการ์ดไปยังผู้ใช้ ${userId} ไม่สำเร็จ:`, error);
+           }
+         }
+       }
 
       // อัปเดตสถานะ
       const status = errorCount === 0 ? 'sent' : (successCount > 0 ? 'sent' : 'failed');
@@ -153,6 +159,8 @@ export class NotificationCardService {
   private createFlexMessage(notificationCard: NotificationCard): any {
     const buttons = notificationCard.buttons.map(button => ({
       type: 'button',
+      style: button.style || 'primary',
+      height: 'sm',
       action: {
         type: 'postback',
         label: button.label,
@@ -162,10 +170,7 @@ export class NotificationCardService {
           buttonId: button.id,
           ...button.data
         })
-      },
-      style: button.style || 'primary',
-      color: this.getButtonColor(button.style),
-      height: 'sm'
+      }
     }));
 
     const flexMessage = {
@@ -173,7 +178,6 @@ export class NotificationCardService {
       altText: notificationCard.title,
       contents: {
         type: 'bubble',
-        size: 'kilo',
         header: {
           type: 'box',
           layout: 'vertical',
@@ -193,14 +197,14 @@ export class NotificationCardService {
         body: {
           type: 'box',
           layout: 'vertical',
+          spacing: 'sm',
           contents: [
             ...(notificationCard.description ? [{
               type: 'text',
               text: notificationCard.description,
               wrap: true,
-              color: '#666666',
-              size: 'sm',
-              margin: 'md'
+              color: '#333333',
+              size: 'sm'
             }] : []),
             ...(notificationCard.imageUrl ? [{
               type: 'image',
@@ -214,7 +218,8 @@ export class NotificationCardService {
         ...(buttons.length > 0 && {
           footer: {
             type: 'box',
-            layout: 'vertical',
+            layout: 'horizontal',
+            spacing: 'sm',
             contents: buttons,
             paddingAll: '20px'
           }
@@ -264,21 +269,7 @@ export class NotificationCardService {
     }
   }
 
-  /**
-   * ได้สีของปุ่มตามสไตล์
-   */
-  private getButtonColor(style?: string): string {
-    switch (style) {
-      case 'primary':
-        return '#007AFF';
-      case 'secondary':
-        return '#8E8E93';
-      case 'danger':
-        return '#FF3B30';
-      default:
-        return '#007AFF';
-    }
-  }
+
 
   /**
    * ได้สีของหัวข้อตามความสำคัญ
