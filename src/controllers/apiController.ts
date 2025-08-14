@@ -7,11 +7,12 @@ import { FileService } from '@/services/FileService';
 import { KPIService } from '@/services/KPIService';
 import { RecurringTaskService } from '@/services/RecurringTaskService';
 import { LineService } from '@/services/LineService';
+import { NotificationCardService } from '@/services/NotificationCardService';
 import multer from 'multer';
 import { logger } from '@/utils/logger';
 import { authenticate } from '@/middleware/auth';
 import { validateRequest } from '@/middleware/validation';
-import { ApiResponse, PaginatedResponse } from '@/types';
+import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
 
 export const apiRouter = Router();
@@ -24,6 +25,7 @@ class ApiController {
   private kpiService: KPIService;
   private recurringService: RecurringTaskService;
   private lineService: LineService;
+  private notificationCardService: NotificationCardService;
 
   constructor() {
     this.taskService = new TaskService();
@@ -32,6 +34,7 @@ class ApiController {
     this.kpiService = new KPIService();
     this.recurringService = new RecurringTaskService();
     this.lineService = new LineService();
+    this.notificationCardService = new NotificationCardService();
   }
 
   // Task Endpoints
@@ -699,6 +702,66 @@ class ApiController {
     }
   }
 
+  /**
+   * GET /api/users/:userId/score-history/:groupId - ดึงสถิติคะแนนรายสัปดาห์
+   */
+  public async getUserScoreHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId, groupId } = req.params;
+      const { weeks = '8' } = req.query;
+
+      const history = await this.kpiService.getUserWeeklyScoreHistory(
+        userId,
+        groupId,
+        parseInt(weeks as string)
+      );
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: history
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error getting user score history:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get user score history' 
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/:userId/average-score/:groupId - ดึงค่าเฉลี่ยคะแนนของผู้ใช้
+   */
+  public async getUserAverageScore(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId, groupId } = req.params;
+      const { period = 'weekly' } = req.query;
+
+      const averageScore = await this.kpiService.getUserAverageScore(
+        userId,
+        groupId,
+        period as 'weekly' | 'monthly' | 'all'
+      );
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: { averageScore }
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error getting user average score:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get user average score' 
+      });
+    }
+  }
+
   /** Reports summary (ผู้บริหาร) */
   public async getReportsSummary(req: Request, res: Response): Promise<void> {
     try {
@@ -908,6 +971,138 @@ class ApiController {
       });
     }
   }
+
+  // Notification Card Endpoints
+
+  /**
+   * POST /api/notifications/cards - สร้างและส่งการ์ดแจ้งเตือน
+   */
+  public async createNotificationCard(req: Request, res: Response): Promise<void> {
+    try {
+      const notificationData: CreateNotificationCardRequest = req.body;
+
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!notificationData.title) {
+        res.status(400).json({
+          success: false,
+          error: 'หัวข้อการแจ้งเตือนไม่สามารถเป็นค่าว่างได้'
+        });
+        return;
+      }
+
+      if (!notificationData.targetType) {
+        res.status(400).json({
+          success: false,
+          error: 'ต้องระบุประเภทเป้าหมาย (group, user, หรือ both)'
+        });
+        return;
+      }
+
+      const result = await this.notificationCardService.createAndSendNotificationCard(notificationData);
+
+      if (result.success) {
+        res.status(201).json({
+          success: true,
+          data: result.data,
+          message: 'ส่งการ์ดแจ้งเตือนสำเร็จ'
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'ส่งการ์ดแจ้งเตือนไม่สำเร็จ'
+        });
+      }
+
+    } catch (error) {
+      logger.error('❌ Error creating notification card:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+      });
+    }
+  }
+
+  /**
+   * GET /api/notifications/cards/templates - ดึงเทมเพลตปุ่มมาตรฐาน
+   */
+  public async getNotificationTemplates(req: Request, res: Response): Promise<void> {
+    try {
+      const templates = {
+        standard: this.notificationCardService.createStandardButtons(),
+        approval: this.notificationCardService.createApprovalButtons()
+      };
+
+      res.json({
+        success: true,
+        data: templates
+      });
+
+    } catch (error) {
+      logger.error('❌ Error getting notification templates:', error);
+      res.status(500).json({
+        success: false,
+        error: 'ไม่สามารถดึงเทมเพลตได้'
+      });
+    }
+  }
+
+  /**
+   * POST /api/notifications/cards/quick - ส่งการ์ดแจ้งเตือนแบบรวดเร็ว
+   */
+  public async sendQuickNotification(req: Request, res: Response): Promise<void> {
+    try {
+      const { title, description, groupIds, userIds, priority = 'medium' } = req.body;
+
+      if (!title) {
+        res.status(400).json({
+          success: false,
+          error: 'หัวข้อการแจ้งเตือนไม่สามารถเป็นค่าว่างได้'
+        });
+        return;
+      }
+
+      // ตรวจสอบว่ามีกลุ่มหรือผู้ใช้อย่างน้อย 1 รายการ
+      if ((!groupIds || groupIds.length === 0) && (!userIds || userIds.length === 0)) {
+        res.status(400).json({
+          success: false,
+          error: 'ต้องระบุกลุ่มหรือผู้ใช้อย่างน้อย 1 รายการ'
+        });
+        return;
+      }
+
+      const notificationData: CreateNotificationCardRequest = {
+        title,
+        description,
+        targetType: groupIds && userIds ? 'both' : (groupIds ? 'group' : 'user'),
+        groupIds: groupIds || [],
+        userIds: userIds || [],
+        priority,
+        buttons: this.notificationCardService.createStandardButtons()
+      };
+
+      const result = await this.notificationCardService.createAndSendNotificationCard(notificationData);
+
+      if (result.success) {
+        res.status(201).json({
+          success: true,
+          data: result.data,
+          message: 'ส่งการแจ้งเตือนแบบรวดเร็วสำเร็จ'
+        });
+      } else {
+        res.status(400).json({
+          success: false,
+          error: result.error || 'ส่งการแจ้งเตือนไม่สำเร็จ'
+        });
+      }
+
+    } catch (error) {
+      logger.error('❌ Error sending quick notification:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+      });
+    }
+  }
 }
 
 const apiController = new ApiController();
@@ -923,6 +1118,8 @@ apiRouter.post('/groups/:groupId/tasks', apiController.createTask.bind(apiContro
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
+apiRouter.get('/users/:userId/score-history/:groupId', apiController.getUserScoreHistory.bind(apiController));
+apiRouter.get('/users/:userId/average-score/:groupId', apiController.getUserAverageScore.bind(apiController));
   apiRouter.post('/groups/:groupId/settings/report-recipients', apiController.updateReportRecipients.bind(apiController));
   // Reports routes (ผู้บริหาร)
   apiRouter.get('/groups/:groupId/reports/summary', apiController.getReportsSummary.bind(apiController));
@@ -985,3 +1182,8 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
     upload.array('attachments', 10),
     apiController.uploadFiles.bind(apiController)
   );
+
+  // Notification Card routes
+  apiRouter.post('/notifications/cards', apiController.createNotificationCard.bind(apiController));
+  apiRouter.get('/notifications/cards/templates', apiController.getNotificationTemplates.bind(apiController));
+  apiRouter.post('/notifications/cards/quick', apiController.sendQuickNotification.bind(apiController));

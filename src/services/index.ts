@@ -6,6 +6,7 @@ export { UserService } from './UserService';
 export { FileService } from './FileService';
 export { CommandService } from './CommandService';
 export { NotificationService } from './NotificationService';
+export { NotificationCardService } from './NotificationCardService';
 export { EmailService } from './EmailService';
 export { KPIService } from './KPIService';
 export { CronService } from './CronService';

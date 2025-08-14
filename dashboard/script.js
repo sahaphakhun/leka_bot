@@ -1310,7 +1310,7 @@ class Dashboard {
         </div>
         <div class="user-info" style="flex: 1;">
           <div style="font-weight: 500;">${user.displayName}</div>
-          <div style="font-size: 0.875rem; color: #6b7280;">${user.totalPoints} คะแนน</div>
+          <div style="font-size: 0.875rem; color: #6b7280;">${user.totalPoints.toFixed(2)} คะแนน</div>
         </div>
         <div class="score" style="font-weight: 600; color: #10b981;">
           ${(user.tasksCompleted ?? user.completedTasks) || 0} งาน
@@ -1488,13 +1488,13 @@ class Dashboard {
         <div class="user-info" style="flex: 1;">
           <div style="font-weight: 600; font-size: 1.125rem;">${user.displayName}</div>
           <div style="color: #6b7280; margin-top: 4px;">
-            เสร็จ ${(user.tasksCompleted ?? user.completedTasks) || 0} งาน • คะแนน ${user.totalPoints}
+            เสร็จ ${(user.tasksCompleted ?? user.completedTasks) || 0} งาน • ค่าเฉลี่ย ${user.totalPoints.toFixed(2)} คะแนน
           </div>
         </div>
         <div class="user-stats" style="text-align: right;">
-          <div style="font-weight: 600; color: #10b981;">${user.totalPoints} คะแนน</div>
+          <div style="font-weight: 600; color: #10b981;">${user.totalPoints.toFixed(2)} คะแนน</div>
           <div style="font-size: 0.875rem; color: #6b7280;">
-            เร็ว ${user.earlyTasks} • ตรงเวลา ${user.ontimeTasks}
+            เร็ว ${user.tasksEarly || 0} • ตรงเวลา ${user.tasksOnTime || 0}
           </div>
         </div>
       </div>

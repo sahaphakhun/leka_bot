@@ -243,3 +243,46 @@ export interface GoogleCalendarEvent {
     }[];
   };
 }
+
+export interface NotificationCard {
+  id: string;
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  buttons: NotificationButton[];
+  targetType: 'group' | 'user' | 'both';
+  groupIds?: string[];
+  userIds?: string[];
+  priority: 'low' | 'medium' | 'high';
+  expiresAt?: Date;
+  createdAt: Date;
+  sentAt?: Date;
+  status: 'pending' | 'sent' | 'failed';
+}
+
+export interface NotificationButton {
+  id: string;
+  label: string;
+  action: 'add_task' | 'close_task' | 'request_extension' | 'approve' | 'reject' | 'view_details' | 'custom';
+  data?: Record<string, any>;
+  style?: 'primary' | 'secondary' | 'danger';
+  url?: string;
+}
+
+export interface CreateNotificationCardRequest {
+  title: string;
+  description?: string;
+  imageUrl?: string;
+  buttons?: NotificationButton[];
+  targetType: 'group' | 'user' | 'both';
+  groupIds?: string[];
+  userIds?: string[];
+  priority?: 'low' | 'medium' | 'high';
+  expiresAt?: Date;
+}
+
+export interface NotificationCardResponse {
+  success: boolean;
+  data?: NotificationCard;
+  error?: string;
+}

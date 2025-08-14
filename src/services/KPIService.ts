@@ -245,7 +245,7 @@ export class KPIService {
   }
 
   /**
-   * ดึง Leaderboard ของกลุ่ม
+   * ดึง Leaderboard ของกลุ่ม (ใช้ค่าเฉลี่ยคะแนน)
    */
   public async getGroupLeaderboard(
     groupId: string, 
@@ -259,12 +259,13 @@ export class KPIService {
         internalGroupId = groupByLineId.id;
       }
       
-      // สร้าง query builder
+      // สร้าง query builder สำหรับค่าเฉลี่ย
       let queryBuilder = this.kpiRepository
         .createQueryBuilder('kpi')
         .select([
           'kpi.userId as userId',
           'user.displayName as displayName',
+          'AVG(kpi.points) as averagePoints',
           'SUM(kpi.points) as totalPoints',
           'COUNT(CASE WHEN kpi.type = \'early\' THEN 1 END) as tasksEarly',
           'COUNT(CASE WHEN kpi.type = \'ontime\' THEN 1 END) as tasksOnTime',
@@ -291,7 +292,7 @@ export class KPIService {
       // Execute query
       const results = await queryBuilder
         .groupBy('kpi.userId, user.displayName')
-        .orderBy('totalPoints', 'DESC')
+        .orderBy('averagePoints', 'DESC')
         .getRawMany();
 
       // แปลงเป็น Leaderboard format และคำนวณ trend
@@ -307,9 +308,9 @@ export class KPIService {
         leaderboard.push({
           userId,
           displayName: result.displayName,
-          weeklyPoints: period === 'weekly' ? parseInt(result.totalPoints) : 0,
-          monthlyPoints: period === 'monthly' ? parseInt(result.totalPoints) : 0,
-          totalPoints: parseInt(result.totalPoints),
+          weeklyPoints: period === 'weekly' ? parseFloat(result.averagePoints) : 0,
+          monthlyPoints: period === 'monthly' ? parseFloat(result.averagePoints) : 0,
+          totalPoints: parseFloat(result.averagePoints), // ใช้ค่าเฉลี่ยแทนการรวม
           tasksCompleted: parseInt(result.tasksCompleted),
           tasksEarly: parseInt(result.tasksEarly),
           tasksOnTime: parseInt(result.tasksOnTime),
@@ -325,6 +326,85 @@ export class KPIService {
     } catch (error) {
       console.error('❌ Error getting group leaderboard:', error);
       throw error;
+    }
+  }
+
+  /**
+   * คำนวณค่าเฉลี่ยคะแนนของผู้ใช้
+   */
+  public async getUserAverageScore(
+    userId: string,
+    groupId: string,
+    period: 'weekly' | 'monthly' | 'all' = 'weekly'
+  ): Promise<number> {
+    try {
+      let queryBuilder = this.kpiRepository
+        .createQueryBuilder('kpi')
+        .select('AVG(kpi.points)', 'averagePoints')
+        .where('kpi.userId = :userId', { userId })
+        .andWhere('kpi.groupId = :groupId', { groupId });
+
+      // เพิ่ม date filter ตาม period
+      switch (period) {
+        case 'weekly':
+          const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
+          queryBuilder = queryBuilder.andWhere('kpi.weekOf = :weekStart', { weekStart });
+          break;
+        case 'monthly':
+          const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
+          queryBuilder = queryBuilder.andWhere('kpi.monthOf = :monthStart', { monthStart });
+          break;
+        // 'all' ไม่ต้องกรอง
+      }
+
+      const result = await queryBuilder.getRawOne();
+      return result ? parseFloat(result.averagePoints) : 0;
+
+    } catch (error) {
+      console.error('❌ Error calculating user average score:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * ดึงสถิติคะแนนรายสัปดาห์ของผู้ใช้
+   */
+  public async getUserWeeklyScoreHistory(
+    userId: string,
+    groupId: string,
+    weeks: number = 8
+  ): Promise<Array<{ week: string; averageScore: number; totalTasks: number }>> {
+    try {
+      const history = [];
+      const currentWeek = moment().tz(config.app.defaultTimezone).startOf('week');
+
+      for (let i = 0; i < weeks; i++) {
+        const weekStart = moment(currentWeek).subtract(i, 'weeks').toDate();
+        const weekEnd = moment(currentWeek).subtract(i - 1, 'weeks').toDate();
+
+        const result = await this.kpiRepository
+          .createQueryBuilder('kpi')
+          .select([
+            'AVG(kpi.points) as averageScore',
+            'COUNT(*) as totalTasks'
+          ])
+          .where('kpi.userId = :userId', { userId })
+          .andWhere('kpi.groupId = :groupId', { groupId })
+          .andWhere('kpi.weekOf = :weekStart', { weekStart })
+          .getRawOne();
+
+        history.unshift({
+          week: moment(weekStart).format('YYYY-MM-DD'),
+          averageScore: result ? parseFloat(result.averageScore) : 0,
+          totalTasks: result ? parseInt(result.totalTasks) : 0
+        });
+      }
+
+      return history;
+
+    } catch (error) {
+      console.error('❌ Error getting user weekly score history:', error);
+      return [];
     }
   }
 
