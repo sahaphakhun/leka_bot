@@ -8,7 +8,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/dashboard/assets/styles.css">
+    <link rel="stylesheet" href="styles.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -575,9 +575,9 @@
         </a>
     </nav>
 
-    <!-- เพิ่ม moment-timezone สำหรับการจัดการเวลา -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
-    <script src="/dashboard/assets/script.js"></script>
+    <!-- เพิ่ม moment-timezone สำหรับการจัดการเวลา (local version เพื่อแก้ปัญหา CSP) -->
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/moment-timezone.min.js"></script>
+    <script src="script.js"></script>
 </body>
 </html>

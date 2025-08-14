@@ -67,28 +67,28 @@
  * ===============================
  */
 
-// เพิ่ม moment-timezone สำหรับการจัดการเวลา
+// เพิ่ม moment-timezone สำหรับการจัดการเวลา (local version)
 let moment;
 if (typeof require !== 'undefined') {
   // Node.js environment
   moment = require('moment-timezone');
 } else if (typeof window !== 'undefined' && window.moment) {
-  // Browser environment - ใช้ moment ที่โหลดจาก CDN
+  // Browser environment - ใช้ moment ที่โหลดจาก local
   moment = window.moment;
   
   // ตรวจสอบว่า moment-timezone โหลดสำเร็จหรือไม่
   if (moment.tz) {
-    console.log('✅ moment-timezone โหลดสำเร็จ');
+    console.log('✅ moment-timezone โหลดสำเร็จ (local version)');
     // ตั้งค่า timezone เริ่มต้น
     moment.tz.setDefault('Asia/Bangkok');
   } else {
-    console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาเพิ่ม script tag ใน HTML');
+    console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
     // ใช้ moment ปกติแทน
     moment = window.moment;
   }
 } else {
-  // Browser environment - ต้องโหลด moment-timezone จาก CDN
-  console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาเพิ่ม script tag ใน HTML');
+  // Browser environment - ต้องโหลด moment จาก local
+  console.warn('⚠️ moment ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
   // สร้าง mock moment object เพื่อป้องกัน error
   moment = {
     format: (format) => new Date().toLocaleString('th-TH'),
