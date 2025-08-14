@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ Moment.js (แก้ไขแล้ว)</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+    </style>
+</head>
+<body>
+    <h1>ทดสอบ Moment.js (แก้ไขแล้ว)</h1>
+    <div id="output"></div>
+
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/moment-timezone.min.js"></script>
+    
+    <script>
+        var output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            var className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += '<p class="' + className + '">' + message + '</p>';
+        }
+        
+        try {
+            log('🔍 เริ่มทดสอบ Moment.js...');
+            
+            // ทดสอบ moment() ทำงานได้
+            if (typeof moment === 'function') {
+                var now = moment();
+                log('✅ moment() ทำงานได้: ' + now, 'success');
+            } else {
+                log('❌ moment() ไม่ได้ถูกกำหนด', 'error');
+            }
+            
+            // ทดสอบ moment.tz ทำงานได้
+            if (moment.tz && typeof moment.tz === 'function') {
+                log('✅ moment.tz() ทำงานได้', 'success');
+            } else {
+                log('❌ moment.tz() ไม่ได้ถูกกำหนด', 'error');
+            }
+            
+            // ทดสอบ moment.tz.setDefault ทำงานได้
+            if (moment.tz && moment.tz.setDefault && typeof moment.tz.setDefault === 'function') {
+                log('✅ moment.tz.setDefault() ทำงานได้', 'success');
+                
+                // ทดสอบการตั้งค่า timezone
+                try {
+                    moment.tz.setDefault('Asia/Bangkok');
+                    log('✅ ตั้งค่า timezone สำเร็จ: Asia/Bangkok', 'success');
+                } catch (e) {
+                    log('❌ ไม่สามารถตั้งค่า timezone ได้: ' + e.message, 'error');
+                }
+            } else {
+                log('❌ moment.tz.setDefault() ไม่ได้ถูกกำหนด', 'error');
+            }
+            
+            // ทดสอบการใช้งาน moment.tz
+            try {
+                var bangkokTime = moment.tz('2024-01-01 12:00:00', 'Asia/Bangkok');
+                log('✅ moment.tz() ทำงานได้: ' + bangkokTime, 'success');
+            } catch (e) {
+                log('❌ moment.tz() ไม่ทำงาน: ' + e.message, 'error');
+            }
+            
+            // ทดสอบการ format
+            try {
+                var formatted = moment().format('DD/MM/YYYY HH:mm');
+                log('✅ moment.format() ทำงานได้: ' + formatted, 'success');
+            } catch (e) {
+                log('❌ moment.format() ไม่ทำงาน: ' + e.message, 'error');
+            }
+            
+            log('🎉 การทดสอบเสร็จสิ้น!', 'success');
+            
+        } catch (error) {
+            log('❌ เกิดข้อผิดพลาด: ' + error.message, 'error');
+            console.error('Error:', error);
+        }
+    </script>
+</body>
+</html>
