@@ -91,7 +91,7 @@ export class NotificationCardService {
         for (const userId of notificationCard.userIds || []) {
           try {
             // ดึงข้อมูล LINE User ID จาก User ID
-            const user = await this.userService.getUserById(userId);
+            const user = await this.userService.findById(userId);
             if (user && user.lineUserId) {
               await this.lineService.pushMessage(user.lineUserId, flexMessage);
               successCount++;
