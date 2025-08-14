@@ -346,14 +346,17 @@ export class CronService {
         },
         footer: {
           type: 'box',
-          layout: 'horizontal',
+          layout: 'vertical',
           spacing: 'sm',
           contents: [
             {
               type: 'button',
               style: 'primary',
-              height: 'sm',
-              action: { type: 'uri', label: 'ดู Dashboard', uri: `${config.baseUrl}/dashboard?groupId=${tasks[0]?.group?.lineGroupId || ''}` }
+              action: {
+                type: 'uri',
+                label: 'ดู Dashboard',
+                uri: `${config.baseUrl}/dashboard?groupId=${assignee.groupId}`
+              }
             }
           ]
         }
@@ -363,184 +366,131 @@ export class CronService {
     // เพิ่มงานเกินกำหนด
     if (overdueTasks.length > 0) {
       flexContainer.contents.body.contents.push({
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: `⚠️ งานเกินกำหนด (${overdueTasks.length})`,
-            weight: 'bold',
-            size: 'md',
-            color: '#FF4444',
-            flex: 0
-          },
-          ...overdueTasks.map((task, idx) => ({
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'xs',
-            margin: 'sm',
-            contents: [
-              {
-                type: 'text',
-                text: `${idx + 1}. ${task.title}`,
-                size: 'sm',
-                color: '#333333',
-                flex: 0,
-                wrap: true
-              },
-              {
-                type: 'text',
-                text: `กำหนด: ${moment(task.dueTime).tz(timezone).format('DD/MM HH:mm')}`,
-                size: 'sm',
-                color: '#FF4444',
-                flex: 0
-              },
-              {
-                type: 'text',
-                text: `กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
-                size: 'sm',
-                color: '#666666',
-                flex: 0
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                height: 'sm',
-                margin: 'sm',
-                action: { type: 'postback', label: 'ปิดงาน', data: `action=complete&taskId=${task.id}` }
-              }
-            ]
-          }))
-        ]
+        type: 'text',
+        text: '⚠️ งานเกินกำหนด:',
+        weight: 'bold',
+        color: '#FF0000',
+        margin: 'md'
+      });
+      
+      overdueTasks.forEach(task => {
+        flexContainer.contents.body.contents.push({
+          type: 'box',
+          layout: 'vertical',
+          margin: 'sm',
+          padding: 'sm',
+          backgroundColor: '#FFF2F2',
+          cornerRadius: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: task.title,
+              weight: 'bold',
+              size: 'sm',
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
+              size: 'xs',
+              color: '#FF0000'
+            },
+            {
+              type: 'text',
+              text: `📋 กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
+              size: 'xs',
+              color: '#666666'
+            }
+          ]
+        });
       });
     }
 
     // เพิ่มงานกำลังดำเนินการ
     if (inProgressTasks.length > 0) {
       flexContainer.contents.body.contents.push({
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: `⏳ งานกำลังดำเนินการ (${inProgressTasks.length})`,
-            weight: 'bold',
-            size: 'md',
-            color: '#FFAA00',
-            flex: 0
-          },
-          ...inProgressTasks.map((task, idx) => ({
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'xs',
-            margin: 'sm',
-            contents: [
-              {
-                type: 'text',
-                text: `${idx + 1}. ${task.title}`,
-                size: 'sm',
-                color: '#333333',
-                flex: 0,
-                wrap: true
-              },
-              {
-                type: 'text',
-                text: `กำหนด: ${moment(task.dueTime).tz(timezone).format('DD/MM HH:mm')}`,
-                size: 'sm',
-                color: '#FFAA00',
-                flex: 0
-              },
-              {
-                type: 'text',
-                text: `กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
-                size: 'sm',
-                color: '#666666',
-                flex: 0
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                height: 'sm',
-                margin: 'sm',
-                action: { type: 'postback', label: 'ปิดงาน', data: `action=complete&taskId=${task.id}` }
-              }
-            ]
-          }))
-        ]
+        type: 'text',
+        text: '⏳ งานกำลังดำเนินการ:',
+        weight: 'bold',
+        color: '#FFA500',
+        margin: 'md'
+      });
+      
+      inProgressTasks.forEach(task => {
+        flexContainer.contents.body.contents.push({
+          type: 'box',
+          layout: 'vertical',
+          margin: 'sm',
+          padding: 'sm',
+          backgroundColor: '#FFF8E1',
+          cornerRadius: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: task.title,
+              weight: 'bold',
+              size: 'sm',
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
+              size: 'xs',
+              color: '#FFA500'
+            },
+            {
+              type: 'text',
+              text: `📋 กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
+              size: 'xs',
+              color: '#666666'
+            }
+          ]
+        });
       });
     }
 
     // เพิ่มงานรอดำเนินการ
     if (pendingTasks.length > 0) {
       flexContainer.contents.body.contents.push({
-        type: 'box',
-        layout: 'vertical',
-        spacing: 'sm',
-        contents: [
-          {
-            type: 'text',
-            text: `📝 งานรอดำเนินการ (${pendingTasks.length})`,
-            weight: 'bold',
-            size: 'md',
-            color: '#666666',
-            flex: 0
-          },
-          ...pendingTasks.map((task, idx) => ({
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'xs',
-            margin: 'sm',
-            contents: [
-              {
-                type: 'text',
-                text: `${idx + 1}. ${task.title}`,
-                size: 'sm',
-                color: '#333333',
-                flex: 0,
-                wrap: true
-              },
-              {
-                type: 'text',
-                text: `กำหนด: ${moment(task.dueTime).tz(timezone).format('DD/MM HH:mm')}`,
-                size: 'sm',
-                color: '#666666',
-                flex: 0
-              },
-              {
-                type: 'text',
-                text: `กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
-                size: 'sm',
-                color: '#666666',
-                flex: 0
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                height: 'sm',
-                margin: 'sm',
-                action: { type: 'postback', label: 'ปิดงาน', data: `action=complete&taskId=${task.id}` }
-              }
-            ]
-          }))
-        ]
+        type: 'text',
+        text: '📝 งานรอดำเนินการ:',
+        weight: 'bold',
+        color: '#0066CC',
+        margin: 'md'
+      });
+      
+      pendingTasks.forEach(task => {
+        flexContainer.contents.body.contents.push({
+          type: 'box',
+          layout: 'vertical',
+          margin: 'sm',
+          padding: 'sm',
+          backgroundColor: '#F0F8FF',
+          cornerRadius: 'sm',
+          contents: [
+            {
+              type: 'text',
+              text: task.title,
+              weight: 'bold',
+              size: 'sm',
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
+              size: 'xs',
+              color: '#0066CC'
+            },
+            {
+              type: 'text',
+              text: `📋 กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
+              size: 'xs',
+              color: '#666666'
+            }
+          ]
+        });
       });
     }
-
-    // เพิ่ม footer
-    flexContainer.contents.body.contents.push({
-      type: 'separator',
-      margin: 'md'
-    });
-
-    flexContainer.contents.body.contents.push({
-      type: 'text',
-      text: '💡 ดูรายละเอียดเพิ่มเติมได้ที่ Dashboard ของกลุ่ม',
-      size: 'sm',
-      color: '#999999',
-      flex: 0
-    });
 
     return flexContainer;
   }
@@ -1126,64 +1076,181 @@ export class CronService {
               margin: 'md'
             }
           ]
-        }
-      }
-    };
-
-    // แสดงสรุปตามผู้รับผิดชอบ
-    for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
-      if (assigneeId === 'unassigned') {
-        flexContainer.contents.body.contents.push({
+        },
+        footer: {
           type: 'box',
           layout: 'vertical',
           spacing: 'sm',
           contents: [
             {
+              type: 'button',
+              style: 'primary',
+              action: {
+                type: 'uri',
+                label: 'ดู Dashboard',
+                uri: `${config.baseUrl}/dashboard?groupId=${group.id}`
+              }
+            }
+          ]
+        }
+      }
+    };
+
+    // สร้างสถิติรวม
+    let totalOverdue = 0;
+    let totalInProgress = 0;
+    let totalPending = 0;
+
+    tasksByAssignee.forEach((userTasks) => {
+      userTasks.forEach(task => {
+        if (task.status === 'overdue') totalOverdue++;
+        else if (task.status === 'in_progress') totalInProgress++;
+        else if (task.status === 'pending') totalPending++;
+      });
+    });
+
+    // เพิ่มสถิติรวม
+    flexContainer.contents.body.contents.push({
+      type: 'box',
+      layout: 'horizontal',
+      spacing: 'sm',
+      margin: 'md',
+      contents: [
+        {
+          type: 'text',
+          text: `⚠️ เกินกำหนด: ${totalOverdue}`,
+          size: 'sm',
+          color: '#FF0000',
+          flex: 1
+        },
+        {
+          type: 'text',
+          text: `⏳ ดำเนินการ: ${totalInProgress}`,
+          size: 'sm',
+          color: '#FFA500',
+          flex: 1
+        },
+        {
+          type: 'text',
+          text: `📝 รอดำเนินการ: ${totalPending}`,
+          size: 'sm',
+          color: '#0066CC',
+          flex: 1
+        }
+      ]
+    });
+
+    // เพิ่มรายละเอียดงานของแต่ละคน
+    tasksByAssignee.forEach((userTasks, lineUserId) => {
+      const user = userTasks[0]?.assignee;
+      if (!user) return;
+
+      const overdueCount = userTasks.filter(t => t.status === 'overdue').length;
+      const inProgressCount = userTasks.filter(t => t.status === 'in_progress').length;
+      const pendingCount = userTasks.filter(t => t.status === 'pending').length;
+
+      flexContainer.contents.body.contents.push({
+        type: 'box',
+        layout: 'vertical',
+        margin: 'md',
+        padding: 'md',
+        backgroundColor: '#F8F9FA',
+        cornerRadius: 'md',
+        contents: [
+          {
+            type: 'text',
+            text: `👤 @${user.displayName}: ${userTasks.length} งาน`,
+            weight: 'bold',
+            size: 'md',
+            color: '#333333'
+          },
+          {
+            type: 'text',
+            text: `⚠️ เกินกำหนด: ${overdueCount} | ⏳ ดำเนินการ: ${inProgressCount} | 📝 รอดำเนินการ: ${pendingCount}`,
+            size: 'sm',
+            color: '#666666',
+            margin: 'sm'
+          }
+        ]
+      });
+
+      // เพิ่มรายละเอียดงานแต่ละชิ้น
+      userTasks.forEach(task => {
+        flexContainer.contents.body.contents.push({
+          type: 'box',
+          layout: 'vertical',
+          margin: 'sm',
+          padding: 'sm',
+          backgroundColor: this.getStatusBackgroundColor(task.status),
+          cornerRadius: 'sm',
+          contents: [
+            {
               type: 'text',
-              text: `❓ ไม่มีผู้รับผิดชอบ: ${userTasks.length} งาน`,
+              text: task.title,
               weight: 'bold',
-              size: 'md',
-              color: '#FF4444',
-              flex: 0
+              size: 'sm',
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
+              size: 'xs',
+              color: this.getStatusColor(task.status)
+            },
+            {
+              type: 'text',
+              text: `📋 สถานะ: ${this.getStatusText(task.status)}`,
+              size: 'xs',
+              color: '#666666'
             }
           ]
         });
-      } else {
-        const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
-        if (assignee) {
-          flexContainer.contents.body.contents.push({
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'text',
-                text: `👤 @${assignee.displayName}: ${userTasks.length} งาน`,
-                weight: 'bold',
-                size: 'md',
-                color: '#1DB446',
-                flex: 0
-              }
-            ]
-          });
-        }
-      }
-    }
-
-    flexContainer.contents.body.contents.push({
-      type: 'separator',
-      margin: 'md'
-    });
-
-    flexContainer.contents.body.contents.push({
-      type: 'text',
-      text: '💡 ดูรายละเอียดเพิ่มเติม: ' + config.baseUrl + '/dashboard?groupId=' + group.lineGroupId + '#reports',
-      size: 'sm',
-      color: '#999999',
-      flex: 0
+      });
     });
 
     return flexContainer;
+  }
+
+  /** Helper method สำหรับข้อความสถานะ */
+  private getStatusText(status: string): string {
+    switch (status) {
+      case 'overdue':
+        return 'เกินกำหนด';
+      case 'in_progress':
+        return 'กำลังดำเนินการ';
+      case 'pending':
+        return 'รอดำเนินการ';
+      default:
+        return 'ไม่ระบุ';
+    }
+  }
+
+  /** Helper method สำหรับสีสถานะ */
+  private getStatusColor(status: string): string {
+    switch (status) {
+      case 'overdue':
+        return '#FF4444';
+      case 'in_progress':
+        return '#FFAA00';
+      case 'pending':
+        return '#666666';
+      default:
+        return '#999999';
+    }
+  }
+
+  /** Helper method สำหรับสีพื้นหลังสถานะ */
+  private getStatusBackgroundColor(status: string): string {
+    switch (status) {
+      case 'overdue':
+        return '#FFF2F2'; // สีอ่อนสีแดง
+      case 'in_progress':
+        return '#FFF8E1'; // สีอ่อนสีเหลือง
+      case 'pending':
+        return '#F0F8FF'; // สีอ่อนสีฟ้า
+      default:
+        return '#FFFFFF'; // สีปกติ
+    }
   }
 
   /** สร้าง Flex Message สำหรับเตือนให้ตั้งค่าผู้บังคับบัญชา */
