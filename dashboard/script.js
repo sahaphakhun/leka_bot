@@ -377,8 +377,17 @@ class Dashboard {
   }
 
   formatDate(date) {
-    if (moment) {
-      return moment(date).tz(this.timezone).format('DD MMMM YYYY');
+    if (moment && moment.tz) {
+      try {
+        return moment(date).tz(this.timezone).format('DD MMMM YYYY');
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        return new Date(date).toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric'
+        });
+      }
     }
     // fallback to native Date if moment is not available
     return new Date(date).toLocaleDateString('th-TH', {
@@ -389,8 +398,19 @@ class Dashboard {
   }
 
   formatDateTime(date) {
-    if (moment) {
-      return moment(date).tz(this.timezone).format('DD MMM YYYY HH:mm');
+    if (moment && moment.tz) {
+      try {
+        return moment(date).tz(this.timezone).format('DD MMM YYYY HH:mm');
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        return new Date(date).toLocaleString('th-TH', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      }
     }
     // fallback to native Date if moment is not available
     return new Date(date).toLocaleString('th-TH', {
@@ -820,9 +840,15 @@ class Dashboard {
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
       case 'calendar':
-        if (moment) {
-          const now = moment().tz(this.timezone);
-          this.loadCalendarEvents(now.month() + 1, now.year());
+        if (moment && moment.tz) {
+          try {
+            const now = moment().tz(this.timezone);
+            this.loadCalendarEvents(now.month() + 1, now.year());
+          } catch (error) {
+            console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+            const now = new Date();
+            this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+          }
         } else {
           const now = new Date();
           this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
@@ -1091,19 +1117,36 @@ class Dashboard {
       let startDate = document.getElementById('reportStartDate').value;
       let endDate = document.getElementById('reportEndDate').value;
       if (period !== 'custom') {
-        if (moment) {
-          // ใช้ moment-timezone สำหรับการจัดการเวลา
-          const now = moment().tz(this.timezone);
-          if (period === 'weekly') {
-            const startOfWeek = now.clone().startOf('week');
-            const endOfWeek = now.clone().endOf('week');
-            startDate = startOfWeek.toISOString();
-            endDate = endOfWeek.toISOString();
-          } else {
-            const startOfMonth = now.clone().startOf('month');
-            const endOfMonth = now.clone().endOf('month');
-            startDate = startOfMonth.toISOString();
-            endDate = endOfMonth.toISOString();
+        if (moment && moment.tz) {
+          try {
+            // ใช้ moment-timezone สำหรับการจัดการเวลา
+            const now = moment().tz(this.timezone);
+            if (period === 'weekly') {
+              const startOfWeek = now.clone().startOf('week');
+              const endOfWeek = now.clone().endOf('week');
+              startDate = startOfWeek.toISOString();
+              endDate = endOfWeek.toISOString();
+            } else {
+              const startOfMonth = now.clone().startOf('month');
+              const endOfMonth = now.clone().endOf('month');
+              startDate = startOfMonth.toISOString();
+              endDate = endOfMonth.toISOString();
+            }
+          } catch (error) {
+            console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+            // fallback to native Date
+            const d = new Date();
+            if (period === 'weekly') {
+              const day = d.getDay();
+              const diffToMonday = (day === 0 ? 6 : day - 1);
+              const s = new Date(d); s.setDate(d.getDate()-diffToMonday); s.setHours(0,0,0,0);
+              const e = new Date(s); e.setDate(s.getDate()+6); e.setHours(23,59,59,999);
+              startDate = s.toISOString(); endDate = e.toISOString();
+            } else {
+              const s = new Date(d.getFullYear(), d.getMonth(), 1);
+              const e = new Date(d.getFullYear(), d.getMonth()+1, 0, 23,59,59,999);
+              startDate = s.toISOString(); endDate = e.toISOString();
+            }
           }
         } else {
           // fallback to native Date
@@ -1288,8 +1331,13 @@ class Dashboard {
     
     // Current month days
     let today;
-    if (moment) {
-      today = moment().tz(this.timezone);
+    if (moment && moment.tz) {
+      try {
+        today = moment().tz(this.timezone);
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        today = new Date();
+      }
     } else {
       today = new Date();
     }
@@ -1297,19 +1345,24 @@ class Dashboard {
     
     for (let day = 1; day <= daysInMonth; day++) {
       const isToday = isCurrentMonth && today.date() === day;
-      const dayEvents = events.filter(event => {
-        let eventDate;
-        if (moment) {
-          eventDate = moment(event.end || event.dueTime || event.start).tz(this.timezone);
-        } else {
-          eventDate = new Date(event.end || event.dueTime || event.start);
-        }
-        return (
-          eventDate.year() === year &&
-          (eventDate.month() + 1) === month &&
-          eventDate.date() === day
-        );
-      });
+              const dayEvents = events.filter(event => {
+          let eventDate;
+          if (moment && moment.tz) {
+            try {
+              eventDate = moment(event.end || event.dueTime || event.start).tz(this.timezone);
+            } catch (error) {
+              console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+              eventDate = new Date(event.end || event.dueTime || event.start);
+            }
+          } else {
+            eventDate = new Date(event.end || event.dueTime || event.start);
+          }
+          return (
+            eventDate.year() === year &&
+            (eventDate.month() + 1) === month &&
+            eventDate.date() === day
+          );
+        });
       
       calendarHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" onclick="dashboard.onCalendarDayClick(${year}, ${month}, ${day})">
         <div class="calendar-day-number">${day}</div>
@@ -1635,9 +1688,15 @@ class Dashboard {
     });
     
     // โหมดยังเป็น placeholder แสดงผลเดือนเป็นหลัก (พร้อมไว้ต่อยอด)
-    if (moment) {
-      const now = moment().tz(this.timezone);
-      this.loadCalendarEvents(now.month() + 1, now.year());
+    if (moment && moment.tz) {
+      try {
+        const now = moment().tz(this.timezone);
+        this.loadCalendarEvents(now.month() + 1, now.year());
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        const now = new Date();
+        this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+      }
     } else {
       const now = new Date();
       this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
@@ -1719,8 +1778,13 @@ class Dashboard {
     const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
     const currentMonthIdx = months.indexOf(parts[0]);
     let currentYear;
-    if (moment) {
-      currentYear = parseInt(parts[1]) || moment().tz(this.timezone).year();
+    if (moment && moment.tz) {
+      try {
+        currentYear = parseInt(parts[1]) || moment().tz(this.timezone).year();
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        currentYear = parseInt(parts[1]) || new Date().getFullYear();
+      }
     } else {
       currentYear = parseInt(parts[1]) || new Date().getFullYear();
     }
@@ -1737,8 +1801,13 @@ class Dashboard {
       .then(resp => {
         const events = (resp.data || []).filter(ev => {
           let eventDate;
-          if (moment) {
-            eventDate = moment(ev.end || ev.dueTime || ev.start).tz(this.timezone);
+          if (moment && moment.tz) {
+            try {
+              eventDate = moment(ev.end || ev.dueTime || ev.start).tz(this.timezone);
+            } catch (error) {
+              console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+              eventDate = new Date(ev.end || ev.dueTime || ev.start);
+            }
           } else {
             eventDate = new Date(ev.end || ev.dueTime || ev.start);
           }
@@ -1920,18 +1989,36 @@ class Dashboard {
 
   // เพิ่มฟังก์ชันสำหรับการจัดการวันที่ปัจจุบัน
   getCurrentDate() {
-    if (moment) {
-      return moment().tz(this.timezone);
+    if (moment && moment.tz) {
+      try {
+        return moment().tz(this.timezone);
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        return new Date();
+      }
     }
     return new Date();
   }
 
   // เพิ่มฟังก์ชันสำหรับการแปลงวันที่ให้เป็น timezone ที่ถูกต้อง
   formatDateForAPI(date) {
-    if (moment) {
-      return moment(date).tz(this.timezone).toISOString();
+    if (moment && moment.tz) {
+      try {
+        return moment(date).tz(this.timezone).toISOString();
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        // แปลงเป็น Bangkok time (UTC+7) แบบ manual
+        const inputDate = new Date(date);
+        const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
+        const bangkokTime = new Date(utc + (7 * 3600000));
+        return bangkokTime.toISOString();
+      }
     }
-    return new Date(date).toISOString();
+    // Fallback: แปลงเป็น Bangkok time (UTC+7) แบบ manual
+    const inputDate = new Date(date);
+    const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
+    const bangkokTime = new Date(utc + (7 * 3600000));
+    return bangkokTime.toISOString();
   }
 }
 
