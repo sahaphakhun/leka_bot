@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Debug Moment.js</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .success { color: green; }
+        .error { color: red; }
+        .info { color: blue; }
+        .debug { background: #f0f0f0; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>Debug Moment.js</h1>
+    <div id="output"></div>
+
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/moment-timezone.min.js"></script>
+    
+    <script>
+        var output = document.getElementById('output');
+        
+        function log(message, type = 'info') {
+            var className = type === 'success' ? 'success' : type === 'error' ? 'error' : 'info';
+            output.innerHTML += '<p class="' + className + '">' + message + '</p>';
+        }
+        
+        function debugObject(obj, name) {
+            output.innerHTML += '<div class="debug"><strong>' + name + ':</strong><br>';
+            for (var key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    output.innerHTML += key + ': ' + typeof obj[key] + ' = ' + obj[key] + '<br>';
+                }
+            }
+            output.innerHTML += '</div>';
+        }
+        
+        try {
+            log('🔍 เริ่ม Debug Moment.js...');
+            
+            // ตรวจสอบ moment function
+            log('1. ตรวจสอบ moment function');
+            if (typeof moment === 'function') {
+                log('✅ moment เป็น function', 'success');
+                log('moment.length: ' + moment.length);
+            } else {
+                log('❌ moment ไม่ใช่ function', 'error');
+                log('typeof moment: ' + typeof moment);
+            }
+            
+            // ตรวจสอบ moment object
+            log('2. ตรวจสอบ moment object');
+            if (moment) {
+                log('✅ moment object มีอยู่', 'success');
+                debugObject(moment, 'moment object');
+            } else {
+                log('❌ moment object ไม่มี', 'error');
+            }
+            
+            // ตรวจสอบ moment.fn
+            log('3. ตรวจสอบ moment.fn (prototype)');
+            if (moment.fn) {
+                log('✅ moment.fn มีอยู่', 'success');
+                debugObject(moment.fn, 'moment.fn');
+            } else {
+                log('❌ moment.fn ไม่มี', 'error');
+            }
+            
+            // ตรวจสอบ moment.tz
+            log('4. ตรวจสอบ moment.tz');
+            if (moment.tz) {
+                log('✅ moment.tz มีอยู่', 'success');
+                debugObject(moment.tz, 'moment.tz');
+            } else {
+                log('❌ moment.tz ไม่มี', 'error');
+            }
+            
+            // ทดสอบการสร้าง moment instance
+            log('5. ทดสอบการสร้าง moment instance');
+            try {
+                var now = moment();
+                log('✅ moment() ทำงานได้: ' + now, 'success');
+                log('typeof now: ' + typeof now);
+                log('now.constructor: ' + now.constructor.name);
+                
+                // ตรวจสอบ prototype ของ instance
+                if (now.__proto__) {
+                    log('✅ __proto__ มีอยู่', 'success');
+                    debugObject(now.__proto__, 'instance __proto__');
+                } else {
+                    log('❌ __proto__ ไม่มี', 'error');
+                }
+                
+            } catch (e) {
+                log('❌ moment() ไม่ทำงาน: ' + e.message, 'error');
+            }
+            
+            // ทดสอบ tz method
+            log('6. ทดสอบ tz method');
+            try {
+                var testDate = moment('2024-01-01 12:00:00');
+                log('✅ สร้าง testDate: ' + testDate, 'success');
+                
+                if (typeof testDate.tz === 'function') {
+                    log('✅ testDate.tz เป็น function', 'success');
+                    var bangkokDate = testDate.tz('Asia/Bangkok');
+                    log('✅ tz() ทำงานได้: ' + bangkokDate, 'success');
+                } else {
+                    log('❌ testDate.tz ไม่ใช่ function', 'error');
+                    log('typeof testDate.tz: ' + typeof testDate.tz);
+                }
+                
+            } catch (e) {
+                log('❌ tz method ไม่ทำงาน: ' + e.message, 'error');
+            }
+            
+            log('🎉 การ Debug เสร็จสิ้น!', 'success');
+            
+        } catch (error) {
+            log('❌ เกิดข้อผิดพลาด: ' + error.message, 'error');
+            console.error('Error:', error);
+        }
+    </script>
+</body>
+</html>
