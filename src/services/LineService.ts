@@ -3,6 +3,7 @@
 import { Client, WebhookEvent, MessageEvent, TextMessage, FlexMessage } from '@line/bot-sdk';
 import { config } from '@/utils/config';
 import { BotCommand } from '@/types';
+import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { createHmac, timingSafeEqual } from 'crypto';
 import moment from 'moment-timezone';
 
@@ -416,104 +417,30 @@ export class LineService {
     priority: string;
     tags: string[];
   }): FlexMessage {
-    const priorityColor = {
-      high: '#FF5551',
-      medium: '#FFA500', 
-      low: '#00C851'
-    }[task.priority] || '#00C851';
+    const statusText = FlexMessageDesignSystem.getStatusText(task.status);
+    const priorityColor = FlexMessageDesignSystem.getPriorityColor(task.priority);
 
-    const statusText = {
-      pending: 'รอดำเนินการ',
-      in_progress: 'กำลังดำเนินการ',
-      completed: 'เสร็จแล้ว',
-      cancelled: 'ยกเลิก',
-      overdue: 'เกินกำหนด'
-    }[task.status] || task.status;
+    const content = [
+      ...(task.description ? [FlexMessageDesignSystem.createText(task.description, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true, 'small')] : []),
+      FlexMessageDesignSystem.createBox('vertical', [
+        FlexMessageDesignSystem.createText(`กำหนดส่ง: ${moment(task.dueTime).tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+        FlexMessageDesignSystem.createText(`ผู้รับผิดชอบ: ${task.assignees.join(', ')}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+        ...(task.tags.length > 0 ? [FlexMessageDesignSystem.createText(`แท็ก: ${task.tags.map(tag => `#${tag}`).join(' ')}`, 'sm', FlexMessageDesignSystem.colors.textSecondary)] : [])
+      ], undefined, 'medium')
+    ];
 
-    return {
-      type: 'flex',
-      altText: `งาน: ${task.title}`,
-      contents: {
-        type: 'bubble' as const,
-        header: {
-          type: 'box' as const,
-          layout: 'vertical' as const,
-          contents: [
-            {
-              type: 'text' as const,
-              text: task.title,
-              weight: 'bold' as const,
-              size: 'lg' as const,
-              color: '#333333'
-            },
-            {
-              type: 'text' as const,
-              text: statusText,
-              size: 'sm' as const,
-              color: priorityColor,
-              weight: 'bold' as const
-            }
-          ],
-          backgroundColor: '#F8F9FA'
-        },
-        body: {
-          type: 'box' as const,
-          layout: 'vertical' as const,
-          contents: [
-            ...(task.description ? [{
-              type: 'text' as const,
-              text: task.description,
-              size: 'sm' as const,
-              color: '#666666',
-              wrap: true,
-              margin: 'sm' as const
-            }] : []),
-            {
-              type: 'box' as const,
-              layout: 'vertical' as const,
-              contents: [
-                {
-                  type: 'text' as const,
-                  text: `กำหนดส่ง: ${moment(task.dueTime).tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')}`,
-                  size: 'sm' as const,
-                  color: '#333333'
-                },
-                {
-                  type: 'text' as const,
-                  text: `ผู้รับผิดชอบ: ${task.assignees.join(', ')}`,
-                  size: 'sm' as const,
-                  color: '#333333'
-                },
-                ...(task.tags.length > 0 ? [{
-                  type: 'text' as const,
-                  text: `แท็ก: ${task.tags.map(tag => `#${tag}`).join(' ')}`,
-                  size: 'sm' as const,
-                  color: '#666666'
-                }] : [])
-              ],
-              margin: 'md' as const
-            }
-          ]
-        },
-        footer: {
-          type: 'box' as const,
-          layout: 'horizontal' as const,
-          contents: [
-            {
-              type: 'button' as const,
-              style: 'secondary' as const,
-              height: 'sm' as const,
-              action: {
-                type: 'postback' as const,
-                label: 'แก้ไข',
-                data: `action=edit&taskId=${task.id}`
-              }
-            }
-          ],
-          spacing: 'sm' as const
-        }
-      }
-    };
+    const buttons = [
+      FlexMessageDesignSystem.createButton('แก้ไข', 'postback', `action=edit&taskId=${task.id}`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      task.title,
+      FlexMessageDesignSystem.emojis.task,
+      FlexMessageDesignSystem.colors.lightGray,
+      content,
+      buttons,
+      'default'
+    );
   }
 
   /**

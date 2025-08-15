@@ -2,6 +2,7 @@
 
 import { LineService } from './LineService';
 import { UserService } from './UserService';
+import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { 
   NotificationCard, 
   NotificationButton, 
@@ -157,77 +158,38 @@ export class NotificationCardService {
    * สร้าง Flex Message สำหรับ LINE
    */
   private createFlexMessage(notificationCard: NotificationCard): any {
-    const buttons = notificationCard.buttons.map(button => ({
-      type: 'button',
-      style: button.style || 'primary',
-      height: 'sm',
-      action: {
-        type: 'postback',
-        label: button.label,
-        data: JSON.stringify({
+    const buttons = notificationCard.buttons.map(button => 
+      FlexMessageDesignSystem.createButton(
+        button.label,
+        'postback',
+        JSON.stringify({
           action: button.action,
           notificationId: notificationCard.id,
           buttonId: button.id,
           ...button.data
-        })
-      }
-    }));
+        }),
+        button.style || 'primary'
+      )
+    );
 
-    const flexMessage = {
-      type: 'flex',
-      altText: notificationCard.title,
-      contents: {
-        type: 'bubble',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: notificationCard.title,
-              weight: 'bold',
-              size: 'lg',
-              color: '#FFFFFF',
-              wrap: true
-            }
-          ],
-          backgroundColor: this.getPriorityColor(notificationCard.priority),
-          paddingAll: '20px'
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            ...(notificationCard.description ? [{
-              type: 'text',
-              text: notificationCard.description,
-              wrap: true,
-              color: '#333333',
-              size: 'sm'
-            }] : []),
-            ...(notificationCard.imageUrl ? [{
-              type: 'image',
-              url: notificationCard.imageUrl,
-              size: 'full',
-              margin: 'md'
-            }] : [])
-          ],
-          paddingAll: '20px'
-        },
-        ...(buttons.length > 0 && {
-          footer: {
-            type: 'box',
-            layout: 'horizontal',
-            spacing: 'sm',
-            contents: buttons,
-            paddingAll: '20px'
-          }
-        })
-      }
-    };
+    const content = [
+      ...(notificationCard.description ? [FlexMessageDesignSystem.createText(notificationCard.description, 'sm', FlexMessageDesignSystem.colors.textPrimary, undefined, true)] : []),
+      ...(notificationCard.imageUrl ? [{
+        type: 'image',
+        url: notificationCard.imageUrl,
+        size: 'full',
+        margin: 'md'
+      }] : [])
+    ];
 
-    return flexMessage;
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      notificationCard.title,
+      '📢',
+      this.getPriorityColor(notificationCard.priority),
+      content,
+      buttons,
+      'compact'
+    );
   }
 
   /**
@@ -277,13 +239,13 @@ export class NotificationCardService {
   private getPriorityColor(priority: string): string {
     switch (priority) {
       case 'high':
-        return '#FF3B30';
+        return FlexMessageDesignSystem.colors.danger;
       case 'medium':
-        return '#FF9500';
+        return FlexMessageDesignSystem.colors.warning;
       case 'low':
-        return '#34C759';
+        return FlexMessageDesignSystem.colors.success;
       default:
-        return '#007AFF';
+        return FlexMessageDesignSystem.colors.primary;
     }
   }
 

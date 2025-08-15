@@ -6,6 +6,7 @@ import { LineService } from '@/services/LineService';
 import { TaskService } from '@/services/TaskService';
 import { UserService } from '@/services/UserService';
 import { FileService } from '@/services/FileService';
+import { FlexMessageDesignSystem } from '@/services/FlexMessageDesignSystem';
 import { CommandService } from '@/services/CommandService';
 import { config } from '@/utils/config';
 
@@ -235,58 +236,34 @@ class WebhookController {
       });
 
       // สร้าง Flex Message สำหรับแสดงตัวเลือก
-      const flexMessage = {
-        type: 'flex' as const,
-        altText: 'บันทึกไฟล์แล้ว',
-        contents: {
-          type: 'bubble',
-          header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [{
-              type: 'text',
-              text: '✅ บันทึกไฟล์แล้ว',
-              weight: 'bold',
-              color: '#00C851'
-            }]
-          },
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [{
-              type: 'text',
-              text: `ไฟล์: ${fileRecord.originalName}`,
-              size: 'sm'
-            }, {
-              type: 'text',
-              text: `ขนาด: ${this.formatFileSize(fileRecord.size)}`,
-              size: 'sm'
-            }]
-          },
-          footer: {
-            type: 'box',
-            layout: 'horizontal',
-            contents: [{
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'postback',
-                label: 'ผูกกับงาน',
-                data: `action=link_file&fileId=${fileRecord.id}`
-              }
-            }, {
-              type: 'button',
-              style: 'secondary',
-              action: {
-                type: 'postback',
-                label: 'เพิ่มแท็ก',
-                data: `action=tag_file&fileId=${fileRecord.id}`
-              }
-            }],
-            spacing: 'sm'
-          }
-        }
-      };
+      const fileContent = [
+        FlexMessageDesignSystem.createText(`ไฟล์: ${fileRecord.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+        FlexMessageDesignSystem.createText(`ขนาด: ${this.formatFileSize(fileRecord.size)}`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+      ];
+
+      const fileButtons = [
+        FlexMessageDesignSystem.createButton(
+          'ผูกกับงาน',
+          'postback',
+          `action=link_file&fileId=${fileRecord.id}`,
+          'primary'
+        ),
+        FlexMessageDesignSystem.createButton(
+          'เพิ่มแท็ก',
+          'postback',
+          `action=tag_file&fileId=${fileRecord.id}`,
+          'secondary'
+        )
+      ];
+
+      const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
+        '✅ บันทึกไฟล์แล้ว',
+        '📁',
+        FlexMessageDesignSystem.colors.success,
+        fileContent,
+        fileButtons,
+        'compact'
+      );
 
       await this.lineService.replyMessage(replyToken!, flexMessage as any);
 
@@ -386,55 +363,35 @@ class WebhookController {
             const tasks = await this.taskService.getActiveTasks(groupId);
             
             // สร้าง Flex Message แสดงรายการงานให้เลือก
-            const flexMessage = {
-              type: 'flex' as const,
-              altText: 'เลือกงานเพื่อผูกไฟล์',
-              contents: {
-                type: 'bubble',
-                header: {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: [{
-                    type: 'text',
-                    text: '📋 เลือกงานเพื่อผูกไฟล์',
-                    weight: 'bold',
-                    size: 'lg'
-                  }, {
-                    type: 'text',
-                    text: `ไฟล์ ${fileIds.length} รายการ`,
-                    size: 'sm',
-                    color: '#666666'
-                  }]
-                },
-                body: {
-                  type: 'box',
-                  layout: 'vertical',
-                  spacing: 'sm',
-                  contents: tasks.slice(0, 5).map((task: any) => ({
-                    type: 'button',
-                    style: 'secondary',
-                    action: {
-                      type: 'postback',
-                      label: `${task.title} (${task.id.substring(0, 8)})`,
-                      data: `action=link_files_to_task&taskId=${task.id}&fileIds=${fileIds.join(',')}`
-                    }
-                  }))
-                },
-                footer: {
-                  type: 'box',
-                  layout: 'vertical',
-                  contents: [{
-                    type: 'button',
-                    style: 'primary',
-                    action: {
-                      type: 'postback',
-                      label: 'ไม่ผูกกับงาน',
-                      data: `action=no_link_files&fileIds=${fileIds.join(',')}`
-                    }
-                  }]
-                }
-              }
-            };
+            const taskButtons = tasks.slice(0, 5).map((task: any) => 
+              FlexMessageDesignSystem.createButton(
+                `${task.title} (${task.id.substring(0, 8)})`,
+                'postback',
+                `action=link_files_to_task&taskId=${task.id}&fileIds=${fileIds.join(',')}`,
+                'secondary'
+              )
+            );
+
+            const footerButtons = [
+              FlexMessageDesignSystem.createButton(
+                'ไม่ผูกกับงาน',
+                'postback',
+                `action=no_link_files&fileIds=${fileIds.join(',')}`,
+                'primary'
+              )
+            ];
+
+            const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
+              '📋 เลือกงานเพื่อผูกไฟล์',
+              '📋',
+              FlexMessageDesignSystem.colors.primary,
+              [
+                FlexMessageDesignSystem.createText(`ไฟล์ ${fileIds.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+                ...taskButtons
+              ],
+              footerButtons,
+              'compact'
+            );
             
             await this.lineService.replyMessage(replyToken, flexMessage as any);
           }

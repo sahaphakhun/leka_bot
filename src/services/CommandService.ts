@@ -5,6 +5,7 @@ import { TaskService } from './TaskService';
 import { UserService } from './UserService';
 import { FileService } from './FileService';
 import { LineService } from './LineService';
+import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { config } from '@/utils/config';
 import moment from 'moment-timezone';
 
@@ -246,66 +247,38 @@ ${supervisorNames}
 
       // สร้าง Flex Message เพื่อยืนยันการแนบไฟล์
       const fileListContents = topFiles.length > 0
-        ? topFiles.map(f => ({ type: 'text', text: `• ${f.originalName}`, size: 'sm', wrap: true }))
-        : [{ type: 'text', text: 'ไม่มีไฟล์ที่จะถูกแนบ', size: 'sm', color: '#888888' }];
+        ? topFiles.map(f => FlexMessageDesignSystem.createText(`• ${f.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, undefined, true))
+        : [FlexMessageDesignSystem.createText('ไม่มีไฟล์ที่จะถูกแนบ', 'sm', '#888888')];
 
-      const confirmFlex = {
-        type: 'flex',
-        altText: 'ยืนยันการส่งงาน',
-        contents: {
-          type: 'bubble',
-          header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              { type: 'text', text: 'ยืนยันการส่งงาน', weight: 'bold', size: 'lg', color: '#333333' },
-              { type: 'text', text: task.title, size: 'sm', color: '#666666', wrap: true }
-            ]
-          },
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              { type: 'text', text: 'ไฟล์ที่จะถูกแนบ:', weight: 'bold', size: 'sm', color: '#333333' },
-              ...fileListContents
-            ]
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'button',
-                style: 'primary',
-                height: 'sm',
-                action: {
-                  type: 'postback',
-                  label: topFiles.length > 0 ? `ยืนยันแนบ (${topFiles.length})` : 'ยืนยันส่ง',
-                  data: `action=submit_confirm&taskId=${encodeURIComponent(task.id)}&fileIds=${encodeURIComponent(fileIds.join(','))}&note=${encodeURIComponent(note)}`
-                }
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                height: 'sm',
-                action: {
-                  type: 'postback',
-                  label: 'ส่งโดยไม่แนบไฟล์',
-                  data: `action=submit_nofile&taskId=${encodeURIComponent(task.id)}&note=${encodeURIComponent(note)}`
-                }
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                height: 'sm',
-                action: { type: 'postback', label: 'ยกเลิก', data: 'action=submit_cancel' }
-              }
-            ]
-          }
-        }
-      } as any;
+      const content = [
+        FlexMessageDesignSystem.createText('ไฟล์ที่จะถูกแนบ:', 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+        ...fileListContents
+      ];
+
+      const buttons = [
+        FlexMessageDesignSystem.createButton(
+          topFiles.length > 0 ? `ยืนยันแนบ (${topFiles.length})` : 'ยืนยันส่ง',
+          'postback',
+          `action=submit_confirm&taskId=${encodeURIComponent(task.id)}&fileIds=${encodeURIComponent(fileIds.join(','))}&note=${encodeURIComponent(note)}`,
+          'primary'
+        ),
+        FlexMessageDesignSystem.createButton(
+          'ส่งโดยไม่แนบไฟล์',
+          'postback',
+          `action=submit_nofile&taskId=${encodeURIComponent(task.id)}&note=${encodeURIComponent(note)}`,
+          'secondary'
+        ),
+        FlexMessageDesignSystem.createButton('ยกเลิก', 'postback', 'action=submit_cancel', 'secondary')
+      ];
+
+      const confirmFlex = FlexMessageDesignSystem.createStandardTaskCard(
+        'ยืนยันการส่งงาน',
+        '📎',
+        FlexMessageDesignSystem.colors.info,
+        content,
+        buttons,
+        'compact'
+      );
 
       return confirmFlex;
     } catch (error) {
@@ -545,67 +518,34 @@ ${supervisorNames}
     try {
       const newTaskUrl = `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(command.groupId)}&action=new-task&userId=${encodeURIComponent(command.userId)}`;
 
-      const flexMessage = {
-        type: 'flex',
-        altText: 'เพิ่มงานใหม่ในกลุ่ม',
-        contents: {
-          type: 'bubble',
-          header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [
-              {
-                type: 'text',
-                text: 'เพิ่มงานใหม่',
-                weight: 'bold',
-                size: 'lg',
-                color: '#333333'
-              }
-            ]
-          },
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'text',
-                text: 'กดปุ่มด้านล่างเพื่อเปิดหน้าเว็บกรอกข้อมูลงาน (ชื่องาน กำหนดส่ง ผู้รับผิดชอบ แท็ก ฯลฯ) โดยระบบเลือกกลุ่มให้อัตโนมัติ',
-                wrap: true,
-                size: 'sm',
-                color: '#666666'
-              }
-            ]
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [
-              {
-                type: 'button',
-                style: 'primary',
-                height: 'sm',
-                action: {
-                  type: 'uri',
-                  label: 'กรอกข้อมูลงาน',
-                  uri: newTaskUrl
-                }
-              },
-              {
-                type: 'button',
-                style: 'secondary',
-                height: 'sm',
-                action: {
-                  type: 'uri',
-                  label: 'เปิด Dashboard กลุ่ม',
-                  uri: `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(command.groupId)}`
-                }
-              }
-            ]
-          }
-        }
-      } as any;
+      const content = [
+        FlexMessageDesignSystem.createText(
+          'กดปุ่มด้านล่างเพื่อเปิดหน้าเว็บกรอกข้อมูลงาน (ชื่องาน กำหนดส่ง ผู้รับผิดชอบ แท็ก ฯลฯ) โดยระบบเลือกกลุ่มให้อัตโนมัติ',
+          'sm',
+          FlexMessageDesignSystem.colors.textSecondary,
+          undefined,
+          true
+        )
+      ];
+
+      const buttons = [
+        FlexMessageDesignSystem.createButton('กรอกข้อมูลงาน', 'uri', newTaskUrl, 'primary'),
+        FlexMessageDesignSystem.createButton(
+          'เปิด Dashboard กลุ่ม',
+          'uri',
+          `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(command.groupId)}`,
+          'secondary'
+        )
+      ];
+
+      const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
+        'เพิ่มงานใหม่',
+        '➕',
+        FlexMessageDesignSystem.colors.primary,
+        content,
+        buttons,
+        'compact'
+      );
 
       return flexMessage;
     } catch (error) {
@@ -735,74 +675,41 @@ ${supervisorNames}
       }
 
       // สร้าง Flex Message แสดงไฟล์พร้อมปุ่มผูกงาน
-      const flexMessage = {
-        type: 'flex' as const,
-        altText: `พบไฟล์ ${files.length} รายการใน 1 ชั่วโมงล่าสุด`,
-        contents: {
-          type: 'bubble',
-          header: {
-            type: 'box',
-            layout: 'vertical',
-            contents: [{
-              type: 'text',
-              text: `📁 เซฟไฟล์สำเร็จ (${files.length} รายการ)`,
-              weight: 'bold',
-              color: '#00C851',
-              size: 'lg'
-            }, {
-              type: 'text',
-              text: 'ไฟล์ทั้งหมดถูกบันทึกแล้ว สามารถผูกกับงานได้ทันที',
-              size: 'sm',
-              color: '#666666',
-              wrap: true
-            }]
-          },
-          body: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: files.slice(0, 5).map(file => ({
-              type: 'box',
-              layout: 'horizontal',
-              contents: [{
-                type: 'text',
-                text: `📄 ${file.originalName}`,
-                size: 'sm',
-                flex: 1,
-                wrap: true
-              }, {
-                type: 'text',
-                text: this.formatFileSize(file.size),
-                size: 'xs',
-                color: '#666666',
-                align: 'end'
-              }]
-            }))
-          },
-          footer: {
-            type: 'box',
-            layout: 'vertical',
-            spacing: 'sm',
-            contents: [{
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'postback',
-                label: 'ผูกไฟล์กับงาน',
-                data: `action=link_files&fileIds=${files.map(f => f.id).join(',')}`
-              }
-            }, {
-              type: 'button',
-              style: 'secondary',
-              action: {
-                type: 'postback',
-                label: 'ดูไฟล์ทั้งหมด',
-                data: `action=view_saved_files&fileIds=${files.map(f => f.id).join(',')}`
-              }
-            }]
-          }
-        }
-      };
+      const fileContents = files.slice(0, 5).map(file => 
+        FlexMessageDesignSystem.createBox('horizontal', [
+          FlexMessageDesignSystem.createText(`📄 ${file.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, undefined, true),
+          FlexMessageDesignSystem.createText(this.formatFileSize(file.size), 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ])
+      );
+
+      const content = [
+        FlexMessageDesignSystem.createText('ไฟล์ทั้งหมดถูกบันทึกแล้ว สามารถผูกกับงานได้ทันที', 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true),
+        ...fileContents
+      ];
+
+      const buttons = [
+        FlexMessageDesignSystem.createButton(
+          'ผูกไฟล์กับงาน',
+          'postback',
+          `action=link_files&fileIds=${files.map(f => f.id).join(',')}`,
+          'primary'
+        ),
+        FlexMessageDesignSystem.createButton(
+          'ดูไฟล์ทั้งหมด',
+          'postback',
+          `action=view_saved_files&fileIds=${files.map(f => f.id).join(',')}`,
+          'secondary'
+        )
+      ];
+
+      const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
+        `📁 เซฟไฟล์สำเร็จ (${files.length} รายการ)`,
+        '📁',
+        FlexMessageDesignSystem.colors.success,
+        content,
+        buttons,
+        'compact'
+      );
 
       return flexMessage;
 

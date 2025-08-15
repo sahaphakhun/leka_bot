@@ -121,6 +121,12 @@ export class TaskService {
         reviewerInternalId = reviewer ? reviewer.id : undefined;
       }
 
+      // ถ้าไม่ระบุผู้ตรวจ ให้ผู้สร้างงานเป็นผู้อนุมัติ
+      if (!reviewerInternalId) {
+        reviewerInternalId = creator.id;
+        console.log(`📝 No reviewer specified, creator ${creator.displayName} will be the reviewer`);
+      }
+
       const task = this.taskRepository.create({
         groupId: group.id,
         title: data.title,
@@ -134,10 +140,10 @@ export class TaskService {
         status: 'pending',
         requireAttachment: data.requireAttachment ?? false,
         workflow: {
-          review: reviewerInternalId ? {
+          review: {
             reviewerUserId: reviewerInternalId,
             status: 'not_requested'
-          } : undefined,
+          },
           history: [
             { action: 'create', byUserId: creator.id, at: new Date() }
           ]
@@ -425,13 +431,17 @@ export class TaskService {
         completedByInternalId = user.id;
       }
 
-      // ตรวจสอบสิทธิ์ (ผู้รับผิดชอบ, ผู้สร้าง, ผู้ตรวจ)
-      const isAssignee = task.assignedUsers.some(user => user.id === completedByInternalId);
-      const isCreator = task.createdBy === completedByInternalId;
-      const isReviewer = (task.workflow as any)?.review?.reviewerUserId === completedByInternalId;
-
-      if (!isAssignee && !isCreator && !isReviewer) {
-        throw new Error('Unauthorized to complete this task');
+      // ตรวจสอบสิทธิ์ตามกฎใหม่
+      if (task.status === 'pending' || task.status === 'in_progress') {
+        // กรณีงานยังไม่เสร็จ - ต้องเป็นผู้ตรวจหรือผู้สร้างเพื่ออนุมัติ
+        if (!this.checkApprovalPermission(task, completedByInternalId)) {
+          throw new Error('Only task reviewers or creators can approve tasks');
+        }
+      } else {
+        // กรณีงานเสร็จแล้ว - ต้องเป็นผู้รับผิดชอบเพื่อปิดงาน
+        if (!this.checkCompletionPermission(task, completedByInternalId)) {
+          throw new Error('Only task assignees can complete tasks');
+        }
       }
 
       // บังคับต้องแนบไฟล์ถ้าระบุ requireAttachment
@@ -488,6 +498,41 @@ export class TaskService {
     }
   }
 
+  /**
+   * ตรวจสอบสิทธิ์การอนุมัติงาน
+   */
+  private checkApprovalPermission(task: Task, userId: string): boolean {
+    const isCreator = task.createdBy === userId;
+    const isReviewer = (task.workflow as any)?.review?.reviewerUserId === userId;
+    return isCreator || isReviewer;
+  }
+
+  /**
+   * ตรวจสอบสิทธิ์การปิดงาน
+   */
+  private checkCompletionPermission(task: Task, userId: string): boolean {
+    const isAssignee = task.assignedUsers.some(user => user.id === userId);
+    return isAssignee;
+  }
+
+  /**
+   * ตรวจสอบสิทธิ์ทั่วไปในการทำงานกับงาน
+   */
+  private checkTaskPermission(task: Task, userId: string): boolean {
+    const isAssignee = task.assignedUsers.some(user => user.id === userId);
+    const isCreator = task.createdBy === userId;
+    const isReviewer = (task.workflow as any)?.review?.reviewerUserId === userId;
+    return isAssignee || isCreator || isReviewer;
+  }
+
+  /**
+   * ดึงข้อมูลผู้ตรวจงาน ถ้าไม่มีให้ผู้สร้างเป็นผู้อนุมัติ
+   */
+  private getTaskReviewer(task: Task): string {
+    const reviewerUserId = (task.workflow as any)?.review?.reviewerUserId;
+    return reviewerUserId || task.createdBy;
+  }
+
   /** บันทึกการส่งงาน (แนบไฟล์) */
   public async recordSubmission(
     taskId: string,
@@ -530,11 +575,15 @@ export class TaskService {
       });
 
       const reviewDue = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
+      
+      // ใช้ helper method เพื่อดึงข้อมูลผู้ตรวจ
+      const reviewerUserId = this.getTaskReviewer(task);
+      
       task.workflow = {
         ...(task.workflow || {}),
         submissions,
         review: {
-          reviewerUserId: task.workflow?.review?.reviewerUserId || task.createdBy,
+          reviewerUserId: reviewerUserId,
           status: 'pending',
           reviewRequestedAt: now,
           reviewDueAt: reviewDue,
@@ -558,7 +607,7 @@ export class TaskService {
 
       // แจ้งผู้ตรวจให้ตรวจภายใน 2 วัน
       try {
-        const reviewerInternalId = ((saved.workflow as any)?.review?.reviewerUserId) || saved.createdBy;
+        const reviewerInternalId = this.getTaskReviewer(saved);
         const reviewer = await this.userRepository.findOneBy({ id: reviewerInternalId });
         if (reviewer) {
           await this.notificationService.sendReviewRequest(saved as any, reviewer.lineUserId, {
@@ -619,7 +668,7 @@ export class TaskService {
       const wf: any = task.workflow || {};
       if (wf.review) {
         wf.review.lateReview = true;
-        wf.history = [...(wf.history || []), { action: 'reject', byUserId: wf.review.reviewerUserId || task.createdBy, at: new Date(), note: 'late_review' }];
+        wf.history = [...(wf.history || []), { action: 'reject', byUserId: this.getTaskReviewer(task), at: new Date(), note: 'late_review' }];
         task.workflow = wf;
         await this.taskRepository.save(task);
       }

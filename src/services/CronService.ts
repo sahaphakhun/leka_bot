@@ -6,6 +6,8 @@ import { config } from '@/utils/config';
 import { TaskService } from './TaskService';
 import { NotificationService } from './NotificationService';
 import { KPIService } from './KPIService';
+import { FlexMessageTemplateService } from './FlexMessageTemplateService';
+import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { AppDataSource } from '@/utils/database';
 import { RecurringTask } from '@/models';
 
@@ -302,286 +304,14 @@ export class CronService {
    * สร้าง Flex Message สำหรับรายงานรายวัน
    */
   private createDailySummaryFlexMessage(group: any, tasks: any[], timezone: string): any {
-    const overdueTasks = tasks.filter(t => t.status === 'overdue');
-    const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-    const pendingTasks = tasks.filter(t => t.status === 'pending');
-    
-    const date = moment().tz(timezone).format('DD/MM/YYYY');
-
-    return {
-      type: 'flex',
-      altText: `📊 รายงานรายวัน - ${group.name}`,
-      contents: {
-        type: 'bubble',
-        size: 'kilo',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: '📊 รายงานรายวัน',
-              weight: 'bold',
-              size: 'lg',
-              color: '#FFFFFF',
-              align: 'center'
-            },
-            {
-              type: 'text',
-              text: group.name,
-              size: 'sm',
-              color: '#FFFFFF',
-              align: 'center'
-            }
-          ],
-          backgroundColor: '#4CAF50',
-          paddingAll: 'md'
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'md',
-          contents: [
-            {
-              type: 'text',
-              text: `🗓️ วันที่ ${date}`,
-              size: 'sm',
-              color: '#666666',
-              align: 'center'
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            },
-            {
-              type: 'text',
-              text: `📋 งานค้างทั้งหมด: ${tasks.length} งาน`,
-              weight: 'bold',
-              size: 'md',
-              color: '#333333'
-            },
-            {
-              type: 'box',
-              layout: 'vertical',
-              spacing: 'sm',
-              contents: [
-                {
-                  type: 'text',
-                  text: `⚠️ งานเกินกำหนด: ${overdueTasks.length} งาน`,
-                  size: 'sm',
-                  color: '#F44336'
-                },
-                {
-                  type: 'text',
-                  text: `⏳ งานกำลังดำเนินการ: ${inProgressTasks.length} งาน`,
-                  size: 'sm',
-                  color: '#FF9800'
-                },
-                {
-                  type: 'text',
-                  text: `📝 งานรอดำเนินการ: ${pendingTasks.length} งาน`,
-                  size: 'sm',
-                  color: '#0066CC'
-                }
-              ]
-            }
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'uri',
-                label: 'ดู Dashboard',
-                uri: `${config.baseUrl}/dashboard?groupId=${group.id}`
-              }
-            }
-          ]
-        }
-      }
-    };
+    return FlexMessageTemplateService.createDailySummaryCard(group, tasks, timezone);
   }
 
   /**
    * สร้าง Flex Message สำหรับรายงานรายวันส่วนบุคคล
    */
   private createPersonalDailyReportFlexMessage(assignee: any, tasks: any[], timezone: string): any {
-    const overdueTasks = tasks.filter(t => t.status === 'overdue');
-    const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-    const pendingTasks = tasks.filter(t => t.status === 'pending');
-    
-    const date = moment().tz(timezone).format('DD/MM/YYYY');
-    const header = `📋 การ์ดงานส่วนบุคคล - ${assignee.displayName}`;
-    const subtitle = `🗓️ วันที่ ${date} | 📊 งานค้าง ${tasks.length} งาน`;
-    
-    const flexContainer: any = {
-      type: 'flex',
-      altText: header,
-      contents: {
-        type: 'bubble',
-        size: 'kilo',
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'md',
-          contents: [
-            {
-              type: 'text',
-              text: header,
-              weight: 'bold',
-              size: 'lg',
-              color: '#1DB446',
-              flex: 0
-            },
-            {
-              type: 'text',
-              text: subtitle,
-              size: 'sm',
-              color: '#666666',
-              flex: 0
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            }
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'uri',
-                label: 'ดู Dashboard',
-                uri: `${config.baseUrl}/dashboard?groupId=${assignee.groupId}`
-              }
-            }
-          ]
-        }
-      }
-    };
-
-    // เพิ่มงานเกินกำหนด
-    if (overdueTasks.length > 0) {
-      flexContainer.contents.body.contents.push({
-        type: 'text',
-        text: '⚠️ งานเกินกำหนด:',
-        weight: 'bold',
-        color: '#FF0000',
-        margin: 'md'
-      });
-      
-      overdueTasks.forEach(task => {
-        flexContainer.contents.body.contents.push({
-          type: 'box',
-          layout: 'vertical',
-          margin: 'sm',
-          padding: 'sm',
-          backgroundColor: '#FFF2F2',
-          cornerRadius: 'sm',
-          contents: [
-            {
-              type: 'text',
-              text: task.title,
-              weight: 'bold',
-              size: 'sm',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
-              size: 'xs',
-              color: '#FF0000'
-            }
-          ]
-        });
-      });
-    }
-
-    // เพิ่มงานกำลังดำเนินการ
-    if (inProgressTasks.length > 0) {
-      flexContainer.contents.body.contents.push({
-        type: 'text',
-        text: '⏳ งานกำลังดำเนินการ:',
-        weight: 'bold',
-        color: '#FFA500',
-        margin: 'md'
-      });
-      
-      inProgressTasks.forEach(task => {
-        flexContainer.contents.body.contents.push({
-          type: 'box',
-          layout: 'vertical',
-          margin: 'sm',
-          padding: 'sm',
-          backgroundColor: '#FFF8E1',
-          cornerRadius: 'sm',
-          contents: [
-            {
-              type: 'text',
-              text: task.title,
-              weight: 'bold',
-              size: 'sm',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
-              size: 'xs',
-              color: '#FFA500'
-            }
-          ]
-        });
-      });
-    }
-
-    // เพิ่มงานรอดำเนินการ
-    if (pendingTasks.length > 0) {
-      flexContainer.contents.body.contents.push({
-        type: 'text',
-        text: '📝 งานรอดำเนินการ:',
-        weight: 'bold',
-        color: '#0066CC',
-        margin: 'md'
-      });
-      
-      pendingTasks.forEach(task => {
-        flexContainer.contents.body.contents.push({
-          type: 'box',
-          layout: 'vertical',
-          margin: 'sm',
-          padding: 'sm',
-          backgroundColor: '#F0F8FF',
-          cornerRadius: 'sm',
-          contents: [
-            {
-              type: 'text',
-              text: task.title,
-              weight: 'bold',
-              size: 'sm',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
-              size: 'xs',
-              color: '#0066CC'
-            }
-          ]
-        });
-      });
-    }
-
-    return flexContainer;
+    return FlexMessageTemplateService.createPersonalReportCard(assignee, tasks, timezone);
   }
 
   /**
@@ -597,187 +327,9 @@ export class CronService {
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
     const pendingTasks = tasks.filter(t => t.status === 'pending');
 
-    const flexContainer: any = {
-      type: 'flex',
-      altText: header,
-      contents: {
-        type: 'bubble',
-        size: 'kilo',
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'md',
-          contents: [
-            {
-              type: 'text',
-              text: header,
-              weight: 'bold',
-              size: 'lg',
-              color: '#1DB446',
-              flex: 0
-            },
-            {
-              type: 'text',
-              text: subtitle,
-              size: 'sm',
-              color: '#666666',
-              flex: 0
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            }
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'uri',
-                label: 'ดู Dashboard',
-                uri: `${config.baseUrl}/dashboard?groupId=${assignee.groupId}`
-              }
-            }
-          ]
-        }
-      }
-    };
+    return FlexMessageTemplateService.createPersonalReportCard(assignee, tasks, timezone);
 
-    // เพิ่มงานเกินกำหนด
-    if (overdueTasks.length > 0) {
-      flexContainer.contents.body.contents.push({
-        type: 'text',
-        text: '⚠️ งานเกินกำหนด:',
-        weight: 'bold',
-        color: '#FF0000',
-        margin: 'md'
-      });
-      
-      overdueTasks.forEach(task => {
-        flexContainer.contents.body.contents.push({
-          type: 'box',
-          layout: 'vertical',
-          margin: 'sm',
-          padding: 'sm',
-          backgroundColor: '#FFF2F2',
-          cornerRadius: 'sm',
-          contents: [
-            {
-              type: 'text',
-              text: task.title,
-              weight: 'bold',
-              size: 'sm',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
-              size: 'xs',
-              color: '#FF0000'
-            },
-            {
-              type: 'text',
-              text: `📋 กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
-              size: 'xs',
-              color: '#666666'
-            }
-          ]
-        });
-      });
-    }
 
-    // เพิ่มงานกำลังดำเนินการ
-    if (inProgressTasks.length > 0) {
-      flexContainer.contents.body.contents.push({
-        type: 'text',
-        text: '⏳ งานกำลังดำเนินการ:',
-        weight: 'bold',
-        color: '#FFA500',
-        margin: 'md'
-      });
-      
-      inProgressTasks.forEach(task => {
-          flexContainer.contents.body.contents.push({
-            type: 'box',
-            layout: 'vertical',
-          margin: 'sm',
-          padding: 'sm',
-          backgroundColor: '#FFF8E1',
-          cornerRadius: 'sm',
-            contents: [
-              {
-                type: 'text',
-              text: task.title,
-                weight: 'bold',
-              size: 'sm',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
-              size: 'xs',
-              color: '#FFA500'
-            },
-            {
-              type: 'text',
-              text: `📋 กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
-              size: 'xs',
-              color: '#666666'
-            }
-          ]
-        });
-      });
-    }
-
-    // เพิ่มงานรอดำเนินการ
-    if (pendingTasks.length > 0) {
-    flexContainer.contents.body.contents.push({
-        type: 'text',
-        text: '📝 งานรอดำเนินการ:',
-        weight: 'bold',
-        color: '#0066CC',
-      margin: 'md'
-    });
-
-      pendingTasks.forEach(task => {
-    flexContainer.contents.body.contents.push({
-          type: 'box',
-          layout: 'vertical',
-          margin: 'sm',
-          padding: 'sm',
-          backgroundColor: '#F0F8FF',
-          cornerRadius: 'sm',
-          contents: [
-            {
-      type: 'text',
-              text: task.title,
-              weight: 'bold',
-      size: 'sm',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`,
-              size: 'xs',
-              color: '#0066CC'
-            },
-            {
-              type: 'text',
-              text: `📋 กลุ่ม: ${task.group?.name || 'ไม่ระบุ'}`,
-              size: 'xs',
-              color: '#666666'
-            }
-          ]
-        });
-      });
-    }
-
-    return flexContainer;
   }
 
   /** ส่งสรุปสำหรับผู้จัดการทุกเช้า: งานที่ยังไม่ส่ง / ใครล่าช้า / ใครยังไม่ตรวจ */
@@ -816,166 +368,51 @@ export class CronService {
   /**
    * สร้าง Flex Message สำหรับรายงานผู้จัดการ
    */
-  private createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): any {
+    private createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): any {
     const date = moment().tz(timezone).format('DD/MM/YYYY');
     
-    return {
-      type: 'flex',
-      altText: `📊 รายงานผู้จัดการ - ${group.name}`,
-      contents: {
-        type: 'bubble',
-        size: 'kilo',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: '📊 รายงานผู้จัดการ',
-              weight: 'bold',
-              size: 'lg',
-              color: '#FFFFFF',
-              align: 'center'
-            },
-            {
-              type: 'text',
-              text: group.name,
-              size: 'sm',
-              color: '#FFFFFF',
-              align: 'center'
-            }
-          ],
-          backgroundColor: '#9C27B0',
-          paddingAll: 'md'
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'md',
-          contents: [
-            {
-              type: 'text',
-              text: `🗓️ วันที่ ${date}`,
-              size: 'sm',
-              color: '#666666',
-              align: 'center'
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            },
-            {
-      type: 'box',
-              layout: 'horizontal',
-      contents: [
-        {
-          type: 'box',
-          layout: 'vertical',
-                  flex: 1,
-          contents: [
-            {
-              type: 'text',
-                      text: '📋 งานทั้งหมด',
-                      size: 'xs',
-                      color: '#666666'
-            },
-            {
-              type: 'text',
-                      text: stats.totalTasks?.toString() || '0',
-                      size: 'lg',
-                      weight: 'bold',
-                      color: '#333333'
-                    }
-                  ]
-                },
-                {
-          type: 'box',
-          layout: 'vertical',
-                  flex: 1,
-          contents: [
-            {
-              type: 'text',
-                      text: '✅ เสร็จแล้ว',
-                      size: 'xs',
-                      color: '#666666'
-            },
-            {
-              type: 'text',
-                      text: stats.completedTasks?.toString() || '0',
-                      size: 'lg',
-                      weight: 'bold',
-                      color: '#4CAF50'
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-      type: 'box',
-              layout: 'horizontal',
-      contents: [
-        {
-          type: 'box',
-          layout: 'vertical',
-                  flex: 1,
-          contents: [
-            {
-              type: 'text',
-                      text: '⚠️ เกินกำหนด',
-                      size: 'xs',
-                      color: '#666666'
-            },
-            {
-              type: 'text',
-                      text: stats.overdueTasks?.toString() || '0',
-                      size: 'lg',
-                      weight: 'bold',
-                      color: '#F44336'
-                    }
-                  ]
-                },
-                {
-          type: 'box',
-          layout: 'vertical',
-                  flex: 1,
-          contents: [
-            {
-              type: 'text',
-                      text: '📝 รอตรวจ',
-                      size: 'xs',
-                      color: '#666666'
-            },
-            {
-              type: 'text',
-                      text: stats.pendingReviewTasks?.toString() || '0',
-                      size: 'lg',
-                      weight: 'bold',
-                      color: '#FF9800'
-                    }
-                  ]
-                }
-              ]
-            }
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'uri',
-                label: 'ดู Dashboard',
-                uri: `${config.baseUrl}/dashboard?groupId=${group.id}`
-              }
-            }
-          ]
-        }
-      }
-    };
+    const content = [
+      { ...FlexMessageDesignSystem.createText(`🗓️ วันที่ ${date}`, 'sm', FlexMessageDesignSystem.colors.textSecondary), align: 'center' },
+      FlexMessageDesignSystem.createSeparator('medium'),
+      FlexMessageDesignSystem.createBox('horizontal', [
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('📋 งานทั้งหมด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.totalTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('✅ เสร็จแล้ว', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.completedTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.success, 'bold')
+        ]), flex: 1 }
+      ]),
+      FlexMessageDesignSystem.createBox('horizontal', [
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('⚠️ เกินกำหนด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.overdueTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.danger, 'bold')
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('📝 รอตรวจ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.pendingReviewTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.warning, 'bold')
+        ]), flex: 1 }
+      ])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton(
+        'ดู Dashboard',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}`,
+        'primary'
+      )
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📊 รายงานผู้จัดการ',
+      '📊',
+      FlexMessageDesignSystem.colors.info,
+      content,
+      buttons,
+      'compact'
+    );
   }
 
   /**
@@ -1020,109 +457,35 @@ export class CronService {
     const weekStart = moment().tz(timezone).startOf('week').format('DD/MM');
     const weekEnd = moment().tz(timezone).endOf('week').format('DD/MM');
     
-    return {
-      type: 'flex',
-      altText: `📊 รายงานหัวหน้างาน - ${group.name}`,
-      contents: {
-        type: 'bubble',
-        size: 'kilo',
-        header: {
-      type: 'box',
-          layout: 'vertical',
-      contents: [
-        {
-          type: 'text',
-              text: '📊 รายงานหัวหน้างาน',
-              weight: 'bold',
-              size: 'lg',
-              color: '#FFFFFF',
-              align: 'center'
-        },
-        {
-          type: 'text',
-              text: group.name,
-          size: 'sm',
-              color: '#FFFFFF',
-              align: 'center'
-            }
-          ],
-          backgroundColor: '#607D8B',
-          paddingAll: 'md'
-        },
-        body: {
-        type: 'box',
-        layout: 'vertical',
-          spacing: 'md',
-        contents: [
-          {
-            type: 'text',
-              text: `📅 สัปดาห์ ${weekStart} - ${weekEnd}`,
-              size: 'sm',
-              color: '#666666',
-              align: 'center'
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            },
-            {
-              type: 'text',
-              text: '📋 สรุปงานของผู้ใต้บังคับบัญชา',
-            weight: 'bold',
-            size: 'md',
-            color: '#333333'
-          },
-          {
-          type: 'box',
-          layout: 'vertical',
-              spacing: 'sm',
-          contents: [
-            {
-              type: 'text',
-                  text: `👥 สมาชิกทั้งหมด: ${stats.totalMembers || 0} คน`,
-              size: 'sm',
-                  color: '#666666'
-            },
-            {
-              type: 'text',
-                  text: `📊 งานเสร็จแล้ว: ${stats.completedTasks || 0} งาน`,
-                  size: 'sm',
-                  color: '#4CAF50'
-            },
-            {
-              type: 'text',
-                  text: `⚠️ งานเกินกำหนด: ${stats.overdueTasks || 0} งาน`,
-                  size: 'sm',
-                  color: '#F44336'
-                },
-                {
-                  type: 'text',
-                  text: `📝 งานรอตรวจ: ${stats.pendingReviewTasks || 0} งาน`,
-                  size: 'sm',
-                  color: '#FF9800'
-                }
-              ]
-            }
-          ]
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'uri',
-                label: 'ดู Dashboard',
-                uri: `${config.baseUrl}/dashboard?groupId=${group.id}`
-              }
-            }
-          ]
-        }
-      }
-    };
+    const content = [
+      { ...FlexMessageDesignSystem.createText(`📅 สัปดาห์ ${weekStart} - ${weekEnd}`, 'sm', FlexMessageDesignSystem.colors.textSecondary), align: 'center' },
+      FlexMessageDesignSystem.createSeparator('medium'),
+      FlexMessageDesignSystem.createText('📋 สรุปงานของผู้ใต้บังคับบัญชา', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createBox('vertical', [
+        FlexMessageDesignSystem.createText(`👥 สมาชิกทั้งหมด: ${stats.totalMembers || 0} คน`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+        FlexMessageDesignSystem.createText(`📊 งานเสร็จแล้ว: ${stats.completedTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.success),
+        FlexMessageDesignSystem.createText(`⚠️ งานเกินกำหนด: ${stats.overdueTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.danger),
+        FlexMessageDesignSystem.createText(`📝 งานรอตรวจ: ${stats.pendingReviewTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.warning)
+      ], 'small')
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton(
+        'ดู Dashboard',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}`,
+        'primary'
+      )
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📊 รายงานหัวหน้างาน',
+      '📊',
+      FlexMessageDesignSystem.colors.neutral,
+      content,
+      buttons,
+      'compact'
+    );
   }
 
   /**
@@ -1198,85 +561,37 @@ export class CronService {
    * สร้าง Flex Message สำหรับ Leaderboard
    */
   private createLeaderboardFlexMessage(group: any, leaderboard: any[]): any {
-    return {
-      type: 'flex',
-      altText: `🏆 Leaderboard - ${group.name}`,
-      contents: {
-        type: 'bubble',
-        size: 'kilo',
-        header: {
-          type: 'box',
-          layout: 'vertical',
-          contents: [
-            {
-              type: 'text',
-              text: '🏆 Leaderboard',
-              weight: 'bold',
-              size: 'lg',
-              color: '#FFFFFF',
-              align: 'center'
-            },
-            {
-              type: 'text',
-              text: group.name,
-              size: 'sm',
-              color: '#FFFFFF',
-              align: 'center'
-            }
-          ],
-          backgroundColor: '#FFD700',
-          paddingAll: 'md'
-        },
-        body: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'md',
-          contents: leaderboard.slice(0, 5).map((user, index) => ({
-            type: 'box',
-            layout: 'horizontal',
-            spacing: 'sm',
-          contents: [
-            {
-              type: 'text',
-                text: index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : `${index + 1}️⃣`,
-                size: 'sm',
-                color: '#666666',
-              flex: 0
-            },
-            {
-              type: 'text',
-                text: user.displayName,
-              size: 'sm',
-                color: '#333333',
-                flex: 1
-              },
-              {
-                type: 'text',
-                text: `${user.weeklyPoints} คะแนน`,
-                size: 'sm',
-                color: '#666666',
-                flex: 0
-              }
-            ]
-          }))
-        },
-        footer: {
-          type: 'box',
-          layout: 'vertical',
-          spacing: 'sm',
-          contents: [
-            {
-              type: 'button',
-              style: 'primary',
-              action: {
-                type: 'uri',
-                label: 'ดู Dashboard',
-                uri: `${config.baseUrl}/dashboard?groupId=${group.id}`
-              }
-            }
-          ]
-        }
-      }
-    };
+    const content = [
+      FlexMessageDesignSystem.createBox('vertical', leaderboard.slice(0, 5).map((user, index) => {
+        const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
+        const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
+        
+        return FlexMessageDesignSystem.createBox('horizontal', [
+          { ...FlexMessageDesignSystem.createText(medal, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
+          { ...FlexMessageDesignSystem.createText(`${user.weeklyPoints} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
+        ], 'small');
+      }), 'small')
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton(
+        'ดู Leaderboard ฉบับเต็ม',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}#leaderboard`,
+        'primary'
+      )
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '🏆 Leaderboard',
+      '🏆',
+      FlexMessageDesignSystem.colors.warning,
+      content,
+      buttons,
+      'compact'
+    );
+
   }
 }
