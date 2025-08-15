@@ -13,6 +13,8 @@
     "db:migrate-admin": "tsx src/scripts/updateAllMembersToAdmin.ts",
     "db:migrate-supervisors": "tsx src/scripts/updateGroupSettingsForSupervisors.ts",
     "db:migrate-task-workflow": "tsx src/scripts/migrateTaskWorkflow.ts",
+    "db:migrate-add-columns": "tsx src/scripts/addMissingColumns.ts",
+    "db:check-schema": "tsx src/scripts/checkDatabaseSchema.ts",
     "test:rules": "tsx src/scripts/testProjectRules.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts",
