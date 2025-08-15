@@ -146,10 +146,7 @@ class ApiController {
         res.status(400).json({ success: false, error: 'Missing userId (LINE User ID)' });
         return;
       }
-      if ((!files || files.length === 0) && (!links || (Array.isArray(links) && links.length === 0))) {
-        res.status(400).json({ success: false, error: 'No attachments or links provided' });
-        return;
-      }
+      // อนุญาตให้ส่งงานได้แม้ไม่มีไฟล์/ลิงก์ (จะถือเป็นการส่งหมายเหตุอย่างเดียว)
 
       // บันทึกไฟล์ทั้งหมด แล้วได้ fileIds
       const savedFileIds: string[] = [];

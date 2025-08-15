@@ -141,9 +141,9 @@ export class NotificationService {
 
       const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
       
-      // สร้างข้อความสรุปสำหรับส่งในกลุ่ม
-      const summaryMessage = this.createTaskCreatedSummaryMessage(task, group, creator, dueDate);
-      await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
+      // ส่งการ์ดงานใหม่ (Flex) ไปยังกลุ่มแทนข้อความธรรมดา
+      const groupFlexMessage = this.createTaskCreatedFlexMessage(task, group, creator, dueDate);
+      await this.lineService.pushMessage(group.lineGroupId, groupFlexMessage);
 
       // ส่งการ์ดงานต่างๆ ของแต่ละงานเข้าไลน์ส่วนตัว
       for (const assignee of assignees) {

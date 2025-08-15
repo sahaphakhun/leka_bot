@@ -228,7 +228,7 @@ class Dashboard {
       e.preventDefault();
       
       // ป้องกันการส่งฟอร์มซ้ำ
-      const submitBtn = e.target.querySelector('button[type="submit"]');
+      const submitBtn = e.target.querySelector('button[type="submit"], #addTaskSubmitBtn');
       if (submitBtn && submitBtn.disabled) {
         console.log('⚠️ Form submission already in progress, ignoring duplicate request');
         return;
@@ -1729,13 +1729,15 @@ class Dashboard {
        const filesInput = document.getElementById('submitFiles');
        const files = filesInput.files;
        if (!taskId) { this.showToast('กรุณาเลือกงาน', 'error'); return; }
-       if (!files || files.length === 0) { this.showToast('กรุณาเลือกไฟล์', 'error'); return; }
+       // อนุญาตให้ส่งได้แม้ไม่มีไฟล์
 
        const formData = new FormData();
        formData.append('userId', this.currentUserId || 'unknown');
        formData.append('comment', comment || '');
-       for (let i = 0; i < files.length; i++) {
-         formData.append('attachments', files[i]);
+       if (files && files.length > 0) {
+         for (let i = 0; i < files.length; i++) {
+           formData.append('attachments', files[i]);
+         }
        }
 
        const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`, {
