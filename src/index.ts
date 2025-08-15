@@ -14,6 +14,8 @@ import { dashboardRouter } from './controllers/dashboardController';
 import { projectRouter } from './controllers/projectController';
 import { LineService } from './services/LineService';
 import { CronService } from './services/CronService';
+import { logger } from './utils/logger';
+import { getCurrentTime } from './utils/common';
 
 class Server {
   private app: Application;
@@ -59,12 +61,12 @@ class Server {
   private configureRoutes(): void {
     // Health check
     this.app.get('/health', (req: Request, res: Response) => {
-      res.json({
-        status: 'OK',
-        timestamp: new Date().toISOString(),
-        version: process.env.npm_package_version || '1.0.0',
-        environment: config.nodeEnv
-      });
+              res.json({
+          status: 'OK',
+          timestamp: getCurrentTime(),
+          version: process.env.npm_package_version || '1.0.0',
+          environment: config.nodeEnv
+        });
     });
 
     // Main routes
@@ -114,7 +116,7 @@ class Server {
   private setupErrorHandling(): void {
     // Global error handler
     this.app.use((error: Error, req: Request, res: Response, next: any) => {
-      console.error('❌ Global error handler:', error);
+      logger.error('Global error handler:', error);
       
       res.status(500).json({
         error: 'Internal Server Error',
@@ -129,17 +131,17 @@ class Server {
 
     // Handle uncaught exceptions
     process.on('uncaughtException', (error: Error) => {
-      console.error('❌ Uncaught Exception:', error);
+      logger.error('Uncaught Exception:', error);
       this.gracefulShutdown();
     });
 
     process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
-      console.error('❌ Unhandled Rejection at:', promise, 'reason:', reason);
+      logger.error('Unhandled Rejection at:', { promise, reason });
     });
   }
 
   private async gracefulShutdown(): Promise<void> {
-    console.log('🔄 Starting graceful shutdown...');
+    logger.info('Starting graceful shutdown...');
     try {
       // Stop cron jobs
       this.cronService.stop();
@@ -147,10 +149,10 @@ class Server {
       // Close database connections
       await closeDatabase();
       
-      console.log('✅ Graceful shutdown completed');
+      logger.info('Graceful shutdown completed');
       process.exit(0);
     } catch (error) {
-      console.error('❌ Error during shutdown:', error);
+      logger.error('Error during shutdown:', error);
       process.exit(1);
     }
   }
@@ -159,39 +161,39 @@ class Server {
     try {
       // Validate configuration
       validateConfig();
-      console.log('✅ Configuration validated');
+      logger.info('Configuration validated');
 
       // Initialize database
       await initializeDatabase();
-      console.log('✅ Database connected');
+      logger.info('Database connected');
 
       // Initialize LINE service และ Cron jobs (เฉพาะเมื่อเปิดใช้ LINE integration)
       if (features.lineEnabled) {
         await this.lineService.initialize();
-        console.log('✅ LINE service initialized');
+        logger.info('LINE service initialized');
         this.cronService.start();
-        console.log('✅ Cron jobs started');
+        logger.info('Cron jobs started');
       } else {
-        console.log('⚠️  Starting in Dashboard-only mode (LINE integration disabled)');
+        logger.info('Starting in Dashboard-only mode (LINE integration disabled)');
       }
 
       // Start server
       const port = config.port;
       this.app.listen(port, () => {
-        console.log('');
-        console.log('🚀 เลขาบอท Started Successfully!');
-        console.log('====================================');
-        console.log(`📡 Server running on port: ${port}`);
-        console.log(`🌐 Base URL: ${config.baseUrl}`);
-        console.log(`🔧 Environment: ${config.nodeEnv}`);
-        console.log(`📱 LINE Bot ready to receive webhooks`);
-        console.log(`📊 Dashboard available at: ${config.baseUrl}/dashboard`);
-        console.log('====================================');
-        console.log('');
+        logger.info('');
+        logger.info('🚀 เลขาบอท Started Successfully!');
+        logger.info('====================================');
+        logger.info(`📡 Server running on port: ${port}`);
+        logger.info(`🌐 Base URL: ${config.baseUrl}`);
+        logger.info(`🔧 Environment: ${config.nodeEnv}`);
+        logger.info(`📱 LINE Bot ready to receive webhooks`);
+        logger.info(`📊 Dashboard available at: ${config.baseUrl}/dashboard`);
+        logger.info('====================================');
+        logger.info('');
       });
 
     } catch (error) {
-      console.error('❌ Failed to start server:', error);
+      logger.error('Failed to start server:', error);
       process.exit(1);
     }
   }
@@ -200,6 +202,6 @@ class Server {
 // Start the server
 const server = new Server();
 server.start().catch((error) => {
-  console.error('❌ Fatal error:', error);
+  logger.error('Fatal error:', error);
   process.exit(1);
 });

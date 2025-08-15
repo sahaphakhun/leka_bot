@@ -7,8 +7,12 @@ import { TaskService } from '@/services/TaskService';
 import { UserService } from '@/services/UserService';
 import { FileService } from '@/services/FileService';
 import { FlexMessageDesignSystem } from '@/services/FlexMessageDesignSystem';
+import { FlexMessageTemplateService } from '@/services/FlexMessageTemplateService';
 import { CommandService } from '@/services/CommandService';
 import { config } from '@/utils/config';
+import { serviceContainer } from '@/utils/serviceContainer';
+import { logger } from '@/utils/logger';
+import { formatFileSize } from '@/utils/common';
 
 export const webhookRouter = Router();
 
@@ -20,11 +24,11 @@ class WebhookController {
   private commandService: CommandService;
 
   constructor() {
-    this.lineService = new LineService();
-    this.taskService = new TaskService();
-    this.userService = new UserService();
-    this.fileService = new FileService();
-    this.commandService = new CommandService();
+    this.lineService = serviceContainer.get<LineService>('LineService');
+    this.taskService = serviceContainer.get<TaskService>('TaskService');
+    this.userService = serviceContainer.get<UserService>('UserService');
+    this.fileService = serviceContainer.get<FileService>('FileService');
+    this.commandService = serviceContainer.get<CommandService>('CommandService');
   }
 
   /**
@@ -56,7 +60,7 @@ class WebhookController {
       res.status(200).json({ message: 'OK' });
 
     } catch (error) {
-      console.error('❌ Webhook error:', error);
+      logger.error('Webhook error:', error);
       res.status(500).json({ error: 'Internal server error' });
     }
   }
@@ -66,7 +70,7 @@ class WebhookController {
    */
   private async processEvent(event: WebhookEvent): Promise<void> {
     try {
-      console.log('📥 Processing event:', event.type, event.source);
+      logger.info('Processing event:', { type: event.type, source: event.source });
 
       switch (event.type) {
         case 'message':
@@ -94,11 +98,11 @@ class WebhookController {
           break;
 
         default:
-          console.log('ℹ️ Unhandled event type:', event.type);
+          logger.info('Unhandled event type:', { type: event.type });
       }
 
     } catch (error) {
-      console.error('❌ Error processing event:', error);
+      logger.error('Error processing event:', error);
     }
   }
 
@@ -330,6 +334,46 @@ class WebhookController {
         case 'submit_cancel':
           await this.lineService.replyMessage(replyToken, 'ยกเลิกการส่งงานแล้ว');
           break;
+
+        case 'submit_with_files': {
+          const taskId = params.get('taskId')!;
+          try {
+            // ส่งการ์ดให้แนบไฟล์
+            const task = await this.taskService.getTaskById(taskId);
+            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+            const assignee = await this.userService.findByLineUserId(userId);
+            
+            const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
+            await this.lineService.replyMessage(replyToken, fileAttachmentCard);
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'confirm_submit': {
+          const taskId = params.get('taskId')!;
+          try {
+            // ส่งการ์ดยืนยันการส่งงาน
+            const task = await this.taskService.getTaskById(taskId);
+            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+            
+            // หาไฟล์ที่ผู้ใช้ส่งล่าสุด (24 ชม.)
+            const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const { files } = await this.fileService.getGroupFiles(groupId, { startDate: since });
+            
+            const submitConfirmationCard = FlexMessageTemplateService.createSubmitConfirmationCard(
+              task, 
+              group, 
+              files.length, 
+              files.map((f: any) => f.originalName)
+            );
+            await this.lineService.replyMessage(replyToken, submitConfirmationCard);
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดยืนยันได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
 
         case 'approve_task': {
           const taskId2 = params.get('taskId');
@@ -568,10 +612,7 @@ class WebhookController {
    * จัดรูปแบบขนาดไฟล์
    */
   private formatFileSize(bytes: number): string {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    return formatFileSize(bytes);
   }
 }
 

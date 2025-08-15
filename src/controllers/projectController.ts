@@ -6,13 +6,14 @@ import { ProjectChecklistService } from '@/services/ProjectChecklistService';
 import { ProjectMemoryService } from '@/services/ProjectMemoryService';
 import { ProjectWorkflowService } from '@/services/ProjectWorkflowService';
 import { logger } from '@/utils/logger';
+import { serviceContainer } from '@/utils/serviceContainer';
 
 export const projectRouter = Router();
 
 // Services
-const checklistService = new ProjectChecklistService();
-const memoryService = new ProjectMemoryService();
-const workflowService = new ProjectWorkflowService();
+const checklistService = serviceContainer.get<ProjectChecklistService>('ProjectChecklistService');
+const memoryService = serviceContainer.get<ProjectMemoryService>('ProjectMemoryService');
+const workflowService = serviceContainer.get<ProjectWorkflowService>('ProjectWorkflowService');
 
 // ==================== PROJECT STATUS & CHECKLIST ====================
 

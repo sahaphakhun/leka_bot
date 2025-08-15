@@ -42,10 +42,6 @@ export class NotificationService {
       const flexMessage = this.createTaskReminderFlexMessage(task, group, reminderType);
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
-      // สร้างข้อความสรุปสำหรับส่งในกลุ่ม
-      const summaryMessage = this.createTaskReminderSummaryMessage(task, group, reminderType);
-      await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
-
       // ส่งการแจ้งเตือนส่วนตัวให้ผู้รับผิดชอบ
       const assignees = task.assignedUsers || [];
       for (const assignee of assignees) {
@@ -661,24 +657,6 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
       'compact'
     );
   }
-
-  /**
-   * สร้างข้อความสรุปการเตือนงานสำหรับส่งในกลุ่ม
-   */
-  private createTaskReminderSummaryMessage(task: any, group: any, reminderType: string): string {
-    const timeText = this.getReminderTimeText(reminderType);
-    const dueDate = moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
-    
-    let message = `⏰ ${timeText}\n\n`;
-    message += `📋 ${task.title}\n`;
-    message += `📅 กำหนดส่ง: ${dueDate}\n`;
-    message += `👥 ผู้รับผิดชอบ: ${task.assignedUsers?.map((u: any) => `@${u.displayName}`).join(' ') || 'ไม่ระบุ'}\n`;
-    message += `🏠 กลุ่ม: ${group.name}\n\n`;
-    message += `💡 ดูรายละเอียดการ์ดงานได้จากการแจ้งเตือนส่วนตัวที่ส่งให้แต่ละคน`;
-
-    return message;
-  }
-
   /**
    * สร้างการ์ดงานส่วนบุคคลสำหรับการเตือนงาน
    */
@@ -859,46 +837,6 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     if (diff <= 48) return 80;  // เสร็จช้าเล็กน้อย
     if (diff <= 72) return 70;  // เสร็จช้า
     return 0; // เสร็จช้ามาก
-  }
-
-  /**
-   * สร้างข้อความสรุปสำหรับงานใหม่ที่ส่งในกลุ่ม
-   */
-  private createTaskCreatedSummaryMessage(task: any, group: any, creator: any, dueDate: string): string {
-    const assignees = task.assignedUsers || [];
-    const assigneeNames = assignees.map((u: any) => `@${u.displayName}`).join(' ');
-
-    let message = `📋 งานใหม่!
-
-**${task.title}**
-${task.description ? `📝 ${task.description}\n` : ''}📅 กำหนดส่ง: ${dueDate}
-👤 สร้างโดย: ${creator?.displayName || 'ไม่ทราบ'}
-👥 ผู้รับผิดชอบ: ${assigneeNames}
-
-${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}
-📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`;
-
-    return message;
-  }
-
-  /**
-   * สร้างข้อความสรุปสำหรับงานเกินกำหนดที่ส่งในกลุ่ม
-   */
-  private createOverdueTaskSummaryMessage(task: any, group: any, overdueHours: number): string {
-    const dueDate = moment(task.dueTime).tz(group.timezone || config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
-    const overdueText = overdueHours < 24 
-      ? `เกินกำหนด ${overdueHours} ชั่วโมง`
-      : `เกินกำหนด ${Math.floor(overdueHours / 24)} วัน ${overdueHours % 24} ชั่วโมง`;
-
-    let message = `🚨 งานเกินกำหนด!\n\n`;
-    message += `📋 ${task.title}\n`;
-    message += `📅 กำหนดส่ง: ${dueDate}\n`;
-    message += `⏰ เกินมา: ${overdueText}\n`;
-    message += `👥 ผู้รับผิดชอบ: ${task.assignedUsers?.map((u: any) => `@${u.displayName}`).join(' ') || 'ไม่ระบุ'}\n`;
-    message += `🏠 กลุ่ม: ${group.name}\n\n`;
-    message += `💡 ดูรายละเอียดการ์ดงานได้จากการแจ้งเตือนส่วนตัวที่ส่งให้แต่ละคน`;
-
-    return message;
   }
 
   /** แจ้งผู้ตรวจว่ามีงานรอการตรวจ */

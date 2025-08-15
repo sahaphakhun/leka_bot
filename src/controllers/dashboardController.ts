@@ -8,6 +8,8 @@ import { FileService } from '@/services/FileService';
 import { KPIService } from '@/services/KPIService';
 import { generateToken } from '@/middleware/auth';
 import { config } from '@/utils/config';
+import { serviceContainer } from '@/utils/serviceContainer';
+import { logger } from '@/utils/logger';
 
 export const dashboardRouter = Router();
 
@@ -18,10 +20,10 @@ class DashboardController {
   private kpiService: KPIService;
 
   constructor() {
-    this.userService = new UserService();
-    this.taskService = new TaskService();
-    this.fileService = new FileService();
-    this.kpiService = new KPIService();
+    this.userService = serviceContainer.get<UserService>('UserService');
+    this.taskService = serviceContainer.get<TaskService>('TaskService');
+    this.fileService = serviceContainer.get<FileService>('FileService');
+    this.kpiService = serviceContainer.get<KPIService>('KPIService');
   }
 
   /**
@@ -33,7 +35,7 @@ class DashboardController {
       const dashboardPath = path.join(__dirname, '../../dashboard/index.html');
       res.sendFile(dashboardPath);
     } catch (error) {
-      console.error('❌ Error serving dashboard:', error);
+      logger.error('Error serving dashboard:', error);
       res.status(500).send('Dashboard not available');
     }
   }
@@ -79,7 +81,7 @@ class DashboardController {
       res.send(this.generateProfileWebHtml(profileData));
 
     } catch (error) {
-      console.error('❌ Error serving profile web:', error);
+      logger.error('Error serving profile web:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Profile page not available' 
@@ -117,7 +119,7 @@ class DashboardController {
       });
 
     } catch (error) {
-      console.error('❌ Error saving user profile:', error);
+      logger.error('Error saving user profile:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to save profile' 
@@ -164,7 +166,7 @@ class DashboardController {
       });
 
     } catch (error) {
-      console.error('❌ Error getting group dashboard:', error);
+      logger.error('Error getting group dashboard:', error);
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get dashboard data' 

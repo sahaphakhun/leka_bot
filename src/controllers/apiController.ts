@@ -10,6 +10,7 @@ import { LineService } from '@/services/LineService';
 import { NotificationCardService } from '@/services/NotificationCardService';
 import multer from 'multer';
 import { logger } from '@/utils/logger';
+import { serviceContainer } from '@/utils/serviceContainer';
 import { authenticate } from '@/middleware/auth';
 import { validateRequest } from '@/middleware/validation';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
@@ -28,13 +29,13 @@ class ApiController {
   private notificationCardService: NotificationCardService;
 
   constructor() {
-    this.taskService = new TaskService();
-    this.userService = new UserService();
-    this.fileService = new FileService();
-    this.kpiService = new KPIService();
-    this.recurringService = new RecurringTaskService();
-    this.lineService = new LineService();
-    this.notificationCardService = new NotificationCardService();
+    this.taskService = serviceContainer.get<TaskService>('TaskService');
+    this.userService = serviceContainer.get<UserService>('UserService');
+    this.fileService = serviceContainer.get<FileService>('FileService');
+    this.kpiService = serviceContainer.get<KPIService>('KPIService');
+    this.recurringService = serviceContainer.get<RecurringTaskService>('RecurringTaskService');
+    this.lineService = serviceContainer.get<LineService>('LineService');
+    this.notificationCardService = serviceContainer.get<NotificationCardService>('NotificationCardService');
   }
 
   // Task Endpoints

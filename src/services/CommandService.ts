@@ -6,7 +6,13 @@ import { UserService } from './UserService';
 import { FileService } from './FileService';
 import { LineService } from './LineService';
 import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
+import { FlexMessageTemplateService } from './FlexMessageTemplateService';
 import { config } from '@/utils/config';
+import { serviceContainer } from '@/utils/serviceContainer';
+import { logger } from '@/utils/logger';
+import { formatFileSize } from '@/utils/common';
+import { parseDateTime } from '@/utils/dateUtils';
+import { UrlBuilder } from '@/utils/urlBuilder';
 import moment from 'moment-timezone';
 
 export class CommandService {
@@ -16,10 +22,10 @@ export class CommandService {
   private lineService: LineService;
 
   constructor() {
-    this.taskService = new TaskService();
-    this.userService = new UserService();
-    this.fileService = new FileService();
-    this.lineService = new LineService();
+    this.taskService = serviceContainer.get<TaskService>('TaskService');
+    this.userService = serviceContainer.get<UserService>('UserService');
+    this.fileService = serviceContainer.get<FileService>('FileService');
+    this.lineService = serviceContainer.get<LineService>('LineService');
   }
 
   /**
@@ -27,7 +33,7 @@ export class CommandService {
    */
   public async executeCommand(command: BotCommand): Promise<string | any> {
     try {
-      console.log('🤖 Executing command:', command.command, command.args);
+      logger.info('Executing command:', { command: command.command, args: command.args });
 
       switch (command.command) {
         case '/setup':
@@ -66,7 +72,7 @@ export class CommandService {
       }
 
     } catch (error) {
-      console.error('❌ Error executing command:', error);
+      logger.error('Error executing command:', error);
       return 'เกิดข้อผิดพลาดในการประมวลผลคำสั่ง กรุณาลองใหม่อีกครั้ง';
     }
   }
@@ -82,7 +88,7 @@ export class CommandService {
       }
 
       // สร้างลิงก์ Dashboard (ทุกคนในกลุ่มสามารถใช้ได้)
-      const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${command.groupId}`;
+      const dashboardUrl = UrlBuilder.getDashboardUrl(command.groupId);
 
       return `🔧 Dashboard เลขาบอท
 
@@ -104,7 +110,7 @@ ${dashboardUrl}
 ระบบจะส่งสรุปงานของผู้ใต้บังคับบัญชาให้หัวหน้างานทุกวันจันทร์เวลา 08:00 น.`;
 
     } catch (error) {
-      console.error('❌ Error in setup command:', error);
+      logger.error('Error in setup command:', error);
       return 'เกิดข้อผิดพลาดในการสร้างลิงก์ Dashboard กรุณาลองใหม่';
     }
   }
@@ -145,7 +151,7 @@ ${supervisorNames}
       }
 
     } catch (error) {
-      console.error('❌ Error in setup supervisors command:', error);
+      logger.error('Error in setup supervisors command:', error);
       return 'เกิดข้อผิดพลาดในการตั้งค่าผู้บังคับบัญชา กรุณาลองใหม่';
     }
   }
@@ -245,9 +251,15 @@ ${supervisorNames}
       const fileIds = topFiles.map(f => f.id);
       const note = noteParts.join(' ');
 
+      // สร้าง Flex Message สำหรับการแนบไฟล์
+      if (task.description?.includes('แนบไฟล์') || task.description?.includes('ไฟล์แนบ') || 
+          task.tags?.some((tag: string) => tag.includes('ไฟล์') || tag.includes('แนบ'))) {
+        return FlexMessageTemplateService.createFileAttachmentCard(task, { id: command.groupId }, { id: command.userId });
+      }
+
       // สร้าง Flex Message เพื่อยืนยันการแนบไฟล์
       const fileListContents = topFiles.length > 0
-        ? topFiles.map(f => FlexMessageDesignSystem.createText(`• ${f.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, undefined, true))
+        ? topFiles.map(f => FlexMessageDesignSystem.createText(`• ${f.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary))
         : [FlexMessageDesignSystem.createText('ไม่มีไฟล์ที่จะถูกแนบ', 'sm', '#888888')];
 
       const content = [
@@ -282,7 +294,7 @@ ${supervisorNames}
 
       return confirmFlex;
     } catch (error) {
-      console.error('❌ submit error:', error);
+      logger.error('submit error:', error);
       return 'เกิดข้อผิดพลาดในการส่งงาน กรุณาลองใหม่';
     }
   }
@@ -303,7 +315,7 @@ ${supervisorNames}
       }
       return `✅ อนุมัติงาน "${task.title}" สำเร็จ และปิดงานเรียบร้อย`;
     } catch (error) {
-      console.error('❌ approve error:', error);
+      logger.error('approve error:', error);
       return 'เกิดข้อผิดพลาดในการอนุมัติงาน';
     }
   }
@@ -334,7 +346,7 @@ ${supervisorNames}
 
       return `❌ ตีกลับงาน "${task.title}" และกำหนดวันส่งใหม่เป็น ${moment(newDue).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')} แล้ว`;
     } catch (error) {
-      console.error('❌ reject error:', error);
+      logger.error('reject error:', error);
       return 'เกิดข้อผิดพลาดในการตีกลับงาน';
     }
   }
@@ -516,7 +528,7 @@ ${supervisorNames}
   private async handleAddTaskCommand(command: BotCommand): Promise<string | any> {
     // เปลี่ยนเป็นแสดงการ์ดพร้อมปุ่มไปหน้าเว็บเพิ่มงาน
     try {
-      const newTaskUrl = `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(command.groupId)}&action=new-task&userId=${encodeURIComponent(command.userId)}`;
+      const newTaskUrl = UrlBuilder.getNewTaskUrl(command.groupId, command.userId);
 
       const content = [
         FlexMessageDesignSystem.createText(
@@ -533,7 +545,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.createButton(
           'เปิด Dashboard กลุ่ม',
           'uri',
-          `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(command.groupId)}`,
+          UrlBuilder.getDashboardUrl(command.groupId),
           'secondary'
         )
       ];
@@ -549,7 +561,7 @@ ${supervisorNames}
 
       return flexMessage;
     } catch (error) {
-      console.error('❌ Error generating add task card:', error);
+      logger.error('Error generating add task card:', error);
       return 'เกิดข้อผิดพลาดในการสร้างการ์ดเพิ่มงาน กรุณาลองใหม่';
     }
   }
@@ -559,12 +571,11 @@ ${supervisorNames}
    */
   private async parseAndCreateTask(command: BotCommand, text: string): Promise<string | any> {
     try {
-      console.log('🔍 Parsing task from text:', text);
-      console.log('👥 Mentions:', command.mentions);
+      logger.info('Parsing task from text:', { text, mentions: command.mentions });
       
       const parsed = this.parseTaskFromText(text, command.mentions);
       
-      console.log('📝 Parsed result:', {
+      logger.info('Parsed result:', {
         title: parsed.title,
         dueTime: parsed.dueTime,
         startTime: parsed.startTime,
@@ -574,12 +585,12 @@ ${supervisorNames}
       });
       
       if (!parsed.title) {
-        console.log('❌ No title found');
+        logger.warn('No title found');
         return 'ไม่สามารถแยกวิเคราะห์ชื่องานได้\nตัวอย่าง: แท็กบอท เพิ่มงาน "ประชุมลูกค้า" @บอล @me due 25/12 14:00';
       }
 
       if (!parsed.dueTime) {
-        console.log('❌ No due time found');
+        logger.warn('No due time found');
         return `ไม่สามารถแยกวิเคราะห์วันเวลากำหนดส่งได้
         
 ตัวอย่างที่ถูกต้อง:
@@ -594,11 +605,11 @@ ${supervisorNames}
       const assigneeIds = await this.resolveAssignees(command.groupId, parsed.assignees);
       
       if (assigneeIds.length === 0) {
-        console.log('❌ No assignees found');
+        logger.warn('No assignees found');
         return 'ไม่พบผู้รับผิดชอบที่ระบุ กรุณาแท็กสมาชิกในกลุ่มหรือใช้ @me ค่ะ';
       }
 
-      console.log('👥 Resolved assignee IDs:', assigneeIds);
+      logger.info('Resolved assignee IDs:', assigneeIds);
 
       // ดึง display names ของผู้รับผิดชอบ
       const assigneeNames: string[] = [];
@@ -609,7 +620,7 @@ ${supervisorNames}
         }
       }
 
-      console.log('👥 Assignee display names:', assigneeNames);
+      logger.info('Assignee display names:', assigneeNames);
 
       // สร้างงาน
       const task = await this.taskService.createTask({
@@ -625,7 +636,7 @@ ${supervisorNames}
         customReminders: parsed.reminders
       });
 
-      console.log('✅ Task created:', task.id);
+      logger.info('Task created:', task.id);
 
       // สร้าง Flex Message
       const flexMessage = this.lineService.createTaskFlexMessage({
@@ -639,7 +650,7 @@ ${supervisorNames}
         tags: task.tags
       });
 
-      console.log('🎴 Flex Message created:', {
+      logger.info('Flex Message created:', {
         type: flexMessage.type,
         altText: flexMessage.altText,
         hasContents: !!flexMessage.contents
@@ -648,7 +659,7 @@ ${supervisorNames}
       return flexMessage;
 
     } catch (error) {
-      console.error('❌ Error creating task:', error);
+      logger.error('Error creating task:', error);
       return 'เกิดข้อผิดพลาดในการสร้างงาน กรุณาลองใหม่';
     }
   }
@@ -677,7 +688,7 @@ ${supervisorNames}
       // สร้าง Flex Message แสดงไฟล์พร้อมปุ่มผูกงาน
       const fileContents = files.slice(0, 5).map(file => 
         FlexMessageDesignSystem.createBox('horizontal', [
-          FlexMessageDesignSystem.createText(`📄 ${file.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, undefined, true),
+          FlexMessageDesignSystem.createText(`📄 ${file.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
           FlexMessageDesignSystem.createText(this.formatFileSize(file.size), 'xs', FlexMessageDesignSystem.colors.textSecondary)
         ])
       );
@@ -714,7 +725,7 @@ ${supervisorNames}
       return flexMessage;
 
     } catch (error) {
-      console.error('❌ Error in save files command:', error);
+      logger.error('Error in save files command:', error);
       return 'เกิดข้อผิดพลาดในการเซฟไฟล์ กรุณาลองใหม่อีกครั้ง';
     }
   }
@@ -847,7 +858,7 @@ ${supervisorNames}
       return response;
 
     } catch (error) {
-      console.error('❌ Error in whoami command:', error);
+      logger.error('Error in whoami command:', error);
       return 'เกิดข้อผิดพลาดในการดึงข้อมูล';
     }
   }
@@ -867,7 +878,7 @@ ${supervisorNames}
     tags: string[];
     reminders?: string[];
   } {
-    console.log('🔍 parseTaskFromText input:', { text, mentions });
+    logger.info('parseTaskFromText input:', { text, mentions });
     
     const result: {
       title?: string;
@@ -888,15 +899,15 @@ ${supervisorNames}
     const titleMatch = text.match(/["'"](.*?)["'"]/);
     if (titleMatch) {
       result.title = titleMatch[1];
-      console.log('📝 Title found:', result.title);
+      logger.info('Title found:', result.title);
     } else {
-      console.log('❌ No title found in quotes');
+      logger.warn('No title found in quotes');
       
       // ลองหาชื่องานแบบอื่น - หลังคำว่า "เพิ่มงาน" หรือ "add" แต่ก่อนการ mention
       const altTitleMatch = text.match(/(?:เพิ่มงาน|add)\s+([^@]+?)(?:\s+@|\s+เริ่ม|\s+due|\s+ถึง|$)/i);
       if (altTitleMatch) {
         result.title = altTitleMatch[1].trim().replace(/^["']|["']$/g, '');
-        console.log('📝 Alternative title found:', result.title);
+        logger.info('Alternative title found:', result.title);
       }
     }
 
@@ -916,26 +927,26 @@ ${supervisorNames}
       const startTimeStr = startEndMatch[1]?.trim();
       const endTimeStr = startEndMatch[2]?.trim();
       
-      console.log('🔍 Found start-end pattern:', { startTimeStr, endTimeStr });
+      logger.info('Found start-end pattern:', { startTimeStr, endTimeStr });
       
       if (startTimeStr) {
         result.startTime = this.parseDateTime(startTimeStr);
-        console.log('🕐 Parsed start time:', startTimeStr, '→', result.startTime);
+        logger.info(`Parsed start time: ${startTimeStr} → ${result.startTime}`);
       }
       
       if (endTimeStr) {
         result.dueTime = this.parseDateTime(endTimeStr);
-        console.log('🕕 Parsed end time:', endTimeStr, '→', result.dueTime);
+        logger.info(`Parsed end time: ${endTimeStr} → ${result.dueTime}`);
       }
     } else {
-      console.log('❌ No start-end pattern found, looking for due only');
+      logger.warn('No start-end pattern found, looking for due only');
       
       // ถ้าไม่มี pattern "เริ่ม ... ถึง ..." ให้ลองหา "due" หรือ "ถึง" อย่างเดียว
       const duePattern = /(?:due|ถึง|กำหนด)\s+([\d\/\-\s:]+?)(?:\s|$)/i;
       const dueMatch = text.match(duePattern);
       if (dueMatch) {
         result.dueTime = this.parseDateTime(dueMatch[1]);
-        console.log('📅 Parsed due time:', dueMatch[1], '→', result.dueTime);
+        logger.info(`Parsed due time: ${dueMatch[1]} → ${result.dueTime}`);
       }
       
       // ลองหาแค่ "เริ่ม" อย่างเดียว
@@ -943,7 +954,7 @@ ${supervisorNames}
       const startOnlyMatch = text.match(startOnlyPattern);
       if (startOnlyMatch) {
         result.startTime = this.parseDateTime(startOnlyMatch[1]);
-        console.log('🕐 Parsed start time only:', startOnlyMatch[1], '→', result.startTime);
+        logger.info(`Parsed start time only: ${startOnlyMatch[1]} → ${result.startTime}`);
       }
     }
 
@@ -990,7 +1001,7 @@ ${supervisorNames}
       
       return resolvedUserIds;
     } catch (error) {
-      console.error('❌ Error resolving assignees:', error);
+      logger.error('Error resolving assignees:', error);
       return [];
     }
   }
@@ -999,91 +1010,13 @@ ${supervisorNames}
    * แปลงข้อความเป็นวันเวลา
    */
   private parseDateTime(dateStr: string): Date | undefined {
-    try {
-      console.log('📅 Parsing datetime:', dateStr);
-      const now = moment().tz(config.app.defaultTimezone);
-      
-      // รูปแบบต่างๆ ที่รองรับ
-      const formats = [
-        'DD/MM/YYYY HH:mm',
-        'DD/MM HH:mm',
-        'DD/MM/YY HH:mm',
-        'DD/MM/YYYY',
-        'DD/MM',
-        'YYYY-MM-DD HH:mm',
-        'YYYY-MM-DD',
-        'DD-MM-YYYY HH:mm',
-        'DD-MM-YYYY',
-        'DD-MM HH:mm',
-        'DD-MM',
-        'HH:mm'
-      ];
-
-      // คำพิเศษ
-      const specialDates: { [key: string]: moment.Moment } = {
-        'วันนี้': now.clone(),
-        'พรุ่งนี้': now.clone().add(1, 'day'),
-        'มะรืนนี้': now.clone().add(2, 'days'),
-        'สัปดาห์หน้า': now.clone().add(1, 'week'),
-        'เดือนหน้า': now.clone().add(1, 'month')
-      };
-
-      // ตรวจสอบคำพิเศษ
-      for (const [key, date] of Object.entries(specialDates)) {
-        if (dateStr.includes(key)) {
-          const timeMatch = dateStr.match(/(\d{1,2}):(\d{2})/);
-          if (timeMatch) {
-            date.hour(parseInt(timeMatch[1])).minute(parseInt(timeMatch[2]));
-          } else {
-            // ถ้าไม่มีเวลาระบุ ใช้ 09:00
-            date.hour(9).minute(0);
-          }
-          console.log(`  Special date result: ${date.toDate()} (${config.app.defaultTimezone})`);
-          return date.toDate();
-        }
-      }
-
-      // ลองแปลงตามรูปแบบต่างๆ
-      for (const format of formats) {
-        // ใช้ strict check ป้องกัน string แปลก เช่น "2d" ไป match pattern วันที่
-        const strictOk = moment(dateStr, format, true).isValid();
-        console.log(`  Testing format "${format}":`, strictOk ? 'Valid' : 'Invalid');
-        if (!strictOk) continue;
-
-        const parsed = moment.tz(dateStr, format, config.app.defaultTimezone);
-        console.log(`  ✅ Successfully parsed with format "${format}"`);
-        
-        // ถ้าไม่มีปี ใช้ปีปัจจุบัน
-        if (!format.includes('Y')) {
-          parsed.year(now.year());
-          console.log(`  Added current year: ${now.year()}`);
-        }
-        
-        // ถ้าไม่มีเวลา ใช้ 09:00
-        if (!format.includes('H')) {
-          parsed.hour(9).minute(0);
-          console.log(`  Added default time: 09:00`);
-        }
-
-        const result = parsed.toDate();
-        console.log(`  Final result: ${result} (${config.app.defaultTimezone})`);
-        return result;
-      }
-
-      return undefined;
-    } catch (error) {
-      console.error('❌ Error parsing date:', error);
-      return undefined;
-    }
+    return parseDateTime(dateStr);
   }
 
   /**
    * จัดรูปแบบขนาดไฟล์
    */
   private formatFileSize(bytes: number): string {
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
-    if (bytes === 0) return '0 Bytes';
-    const i = Math.floor(Math.log(bytes) / Math.log(1024));
-    return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    return formatFileSize(bytes);
   }
 }
