@@ -347,14 +347,14 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับงานรอตรวจ
    */
-  private createReviewRequestFlexMessage(task: any, group: any, details: any, dueText: string): any {
+  private createReviewRequestFlexMessage(task: any, group: any, details: any, dueText: string): FlexMessage {
     return FlexMessageTemplateService.createReviewRequestCard(task, group, details, dueText);
   }
 
   /**
-   * สร้าง Flex Message สำหรับงานที่ถูกตีกลับ
+   * สร้าง Flex Message สำหรับงานที่ถูกปฏิเสธ
    */
-  private createTaskRejectedFlexMessage(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): any {
+  private createTaskRejectedFlexMessage(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): FlexMessage {
     return FlexMessageTemplateService.createRejectedTaskCard(task, group, newDueTime, reviewerDisplayName);
   }
 

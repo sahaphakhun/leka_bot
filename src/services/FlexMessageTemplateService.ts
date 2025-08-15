@@ -198,34 +198,34 @@ export class FlexMessageTemplateService {
   }
 
   /**
-   * สร้างการ์ดงานรอตรวจ
+   * สร้างการ์ดขอตรวจงาน
    */
   static createReviewRequestCard(task: any, group: any, details: any, dueText: string): FlexMessage {
-    const submitterName = details.submitterDisplayName || 'ไม่ระบุ';
-
     const content = [
-      FlexMessageDesignSystem.createText(task.description || 'ไม่มีคำอธิบาย', 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true),
-      FlexMessageDesignSystem.createSeparator(),
-      FlexMessageDesignSystem.createBox('horizontal', [
-        FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('👤 ผู้ส่ง', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(submitterName, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold')
-        ]),
-        FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('📅 กำหนดตรวจ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(dueText, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold')
-        ])
-      ])
+      FlexMessageDesignSystem.createText('📝 มีงานรอการตรวจ', 'md', FlexMessageDesignSystem.colors.warning, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`👤 ผู้ส่ง: ${details.submitterDisplayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      ...(details.fileCount > 0 ? [
+        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${details.fileCount} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+      ] : []),
+      ...(details.links && details.links.length > 0 ? [
+        FlexMessageDesignSystem.createText(`🔗 ลิงก์: ${details.links.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+      ] : []),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📅 กำหนดตรวจภายใน: ${dueText}`, 'sm', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('อนุมัติ', 'postback', `action=approve_task&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ตีกลับ', 'postback', `action=reject_task&taskId=${task.id}`, 'secondary'),
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
-      task.title,
-      FlexMessageDesignSystem.emojis.review,
-      FlexMessageDesignSystem.colors.primary,
+      '📝 งานรอการตรวจ',
+      '📝',
+      FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
       'compact'
@@ -237,30 +237,25 @@ export class FlexMessageTemplateService {
    */
   static createRejectedTaskCard(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): FlexMessage {
     const newDueText = moment(newDueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
-    const reviewerName = reviewerDisplayName || 'ไม่ระบุ';
-
+    
     const content = [
-      FlexMessageDesignSystem.createText(task.description || 'ไม่มีคำอธิบาย', 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true),
-      FlexMessageDesignSystem.createSeparator(),
-      FlexMessageDesignSystem.createBox('horizontal', [
-        FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('👤 ผู้ตรวจ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(reviewerName, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold')
-        ]),
-        FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('📅 กำหนดส่งใหม่', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(newDueText, 'sm', FlexMessageDesignSystem.colors.danger, 'bold')
-        ])
-      ])
+      FlexMessageDesignSystem.createText('❌ งานถูกตีกลับ', 'md', FlexMessageDesignSystem.colors.danger, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`👤 ผู้ตรวจ: ${reviewerDisplayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่งใหม่: ${newDueText}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('กรุณาตรวจสอบข้อผิดพลาดและส่งงานใหม่ตามกำหนด', 'sm', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ส่งงานใหม่', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
-      task.title,
-      FlexMessageDesignSystem.emojis.rejected,
+      '❌ งานถูกตีกลับ',
+      '❌',
       FlexMessageDesignSystem.colors.danger,
       content,
       buttons,

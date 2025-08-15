@@ -15,6 +15,7 @@ import { authenticate } from '@/middleware/auth';
 import { validateRequest } from '@/middleware/validation';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
+import { config } from '@/utils/config';
 
 export const apiRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -444,13 +445,25 @@ class ApiController {
       const { userId, tags } = (req.body || {}) as any;
       const files = (req as any).files as any[];
 
-      if (!userId) {
-        res.status(400).json({ success: false, error: 'Missing userId (LINE User ID)' });
+      if (!userId || userId === 'unknown') {
+        res.status(400).json({ success: false, error: 'Missing or invalid userId (LINE User ID)' });
         return;
       }
       if (!files || files.length === 0) {
         res.status(400).json({ success: false, error: 'No files provided' });
         return;
+      }
+
+      // ตรวจสอบว่าไฟล์มีขนาดเกิน limit หรือไม่
+      const maxFileSize = config.storage.maxFileSize || 10 * 1024 * 1024; // 10MB default
+      for (const file of files) {
+        if (file.size > maxFileSize) {
+          res.status(400).json({ 
+            success: false, 
+            error: `File ${file.originalname} is too large. Maximum size is ${Math.round(maxFileSize / 1024 / 1024)}MB` 
+          });
+          return;
+        }
       }
 
       const tagsArray: string[] = Array.isArray(tags)
@@ -459,25 +472,46 @@ class ApiController {
 
       const saved: any[] = [];
       for (const f of files) {
-        const savedFile = await this.fileService.saveFile({
-          groupId,
-          uploadedBy: userId,
-          messageId: f.originalname,
-          content: f.buffer,
-          originalName: f.originalname,
-          mimeType: f.mimetype,
-          folderStatus: 'in_progress'
-        });
-        if (tagsArray.length > 0) {
-          try { await this.fileService.addFileTags(savedFile.id, tagsArray); } catch {}
+        try {
+          const savedFile = await this.fileService.saveFile({
+            groupId,
+            uploadedBy: userId,
+            messageId: f.originalname,
+            content: f.buffer,
+            originalName: f.originalname,
+            mimeType: f.mimetype,
+            folderStatus: 'in_progress'
+          });
+          
+          if (tagsArray.length > 0) {
+            try { 
+              await this.fileService.addFileTags(savedFile.id, tagsArray); 
+            } catch (tagError) {
+              logger.warn(`⚠️ Failed to add tags to file: ${savedFile.id}`, tagError);
+            }
+          }
+          saved.push(savedFile);
+        } catch (fileError) {
+          logger.error(`❌ Error saving file: ${f.originalname}`, fileError);
+          res.status(500).json({ 
+            success: false, 
+            error: `Failed to save file: ${f.originalname}` 
+          });
+          return;
         }
-        saved.push(savedFile);
       }
 
-      res.status(201).json({ success: true, data: saved, message: 'Files uploaded successfully' });
+      res.status(201).json({ 
+        success: true, 
+        data: saved, 
+        message: `Files uploaded successfully (${saved.length} files)` 
+      });
     } catch (error) {
       logger.error('❌ Error uploading files:', error);
-      res.status(500).json({ success: false, error: 'Failed to upload files' });
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to upload files' 
+      });
     }
   }
 

@@ -77,7 +77,7 @@ if (typeof require !== 'undefined') {
   moment = window.moment;
   
   // ตรวจสอบว่า moment-timezone โหลดสำเร็จหรือไม่
-  if (moment.tz) {
+  if (moment && moment.tz) {
     console.log('✅ moment-timezone โหลดสำเร็จ (local version)');
     // ตั้งค่า timezone เริ่มต้น
     moment.tz.setDefault('Asia/Bangkok');
@@ -452,7 +452,9 @@ class Dashboard {
   }
 
   formatDate(date) {
-    if (moment && moment.tz) {
+    if (!date) return '-';
+    
+    if (moment && moment.tz && typeof moment.tz === 'function') {
       try {
         const momentDate = moment(date).tz(this.timezone);
         const day = momentDate.format('DD');
@@ -461,14 +463,10 @@ class Dashboard {
         return `${day}/${month}/${year}`;
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        const dateObj = new Date(date);
-        const day = dateObj.getDate().toString().padStart(2, '0');
-        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-        const year = this.convertToThaiYear(dateObj.getFullYear());
-        return `${day}/${month}/${year}`;
       }
     }
-    // fallback to native Date if moment is not available
+    
+    // fallback to native Date
     const dateObj = new Date(date);
     const day = dateObj.getDate().toString().padStart(2, '0');
     const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
@@ -477,7 +475,9 @@ class Dashboard {
   }
 
   formatDateTime(date) {
-    if (moment && moment.tz) {
+    if (!date) return '-';
+    
+    if (moment && moment.tz && typeof moment.tz === 'function') {
       try {
         const momentDate = moment(date).tz(this.timezone);
         const day = momentDate.format('DD');
@@ -487,16 +487,10 @@ class Dashboard {
         return `${day}/${month}/${year} ${time}`;
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        const dateObj = new Date(date);
-        const day = dateObj.getDate().toString().padStart(2, '0');
-        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-        const year = this.convertToThaiYear(dateObj.getFullYear());
-        const hours = dateObj.getHours().toString().padStart(2, '0');
-        const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-        return `${day}/${month}/${year} ${hours}:${minutes}`;
       }
     }
-    // fallback to native Date if moment is not available
+    
+    // fallback to native Date
     const dateObj = new Date(date);
     const day = dateObj.getDate().toString().padStart(2, '0');
     const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
@@ -637,7 +631,7 @@ class Dashboard {
         if (!files || files.length === 0) { document.body.removeChild(input); return; }
 
         const formData = new FormData();
-        formData.append('userId', this.currentUserId || 'unknown');
+        formData.append('userId', this.currentUserId || this.currentUser?.lineUserId || 'unknown');
         for (let i = 0; i < files.length; i++) formData.append('attachments', files[i]);
 
         try {
@@ -1336,20 +1330,25 @@ class Dashboard {
       return;
     }
 
-    container.innerHTML = leaderboard.map((user, index) => `
-      <div class="leaderboard-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
-        <div class="rank" style="font-weight: 600; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'};">
-          ${index + 1}
+    container.innerHTML = leaderboard.map((user, index) => {
+      const totalPoints = user.totalPoints || 0;
+      const tasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
+      
+      return `
+        <div class="leaderboard-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
+          <div class="rank" style="font-weight: 600; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'};">
+            ${index + 1}
+          </div>
+          <div class="user-info" style="flex: 1;">
+            <div style="font-weight: 500;">${user.displayName}</div>
+            <div style="font-size: 0.875rem; color: #6b7280;">${totalPoints.toFixed(2)} คะแนน</div>
+          </div>
+          <div class="score" style="font-weight: 600; color: #10b981;">
+            ${tasksCompleted} งาน
+          </div>
         </div>
-        <div class="user-info" style="flex: 1;">
-          <div style="font-weight: 500;">${user.displayName}</div>
-          <div style="font-size: 0.875rem; color: #6b7280;">${user.totalPoints.toFixed(2)} คะแนน</div>
-        </div>
-        <div class="score" style="font-weight: 600; color: #10b981;">
-          ${(user.tasksCompleted ?? user.completedTasks) || 0} งาน
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
   }
 
   updateTasksList(tasks, pagination) {
@@ -1942,7 +1941,7 @@ class Dashboard {
        // อนุญาตให้ส่งได้แม้ไม่มีไฟล์
 
        const formData = new FormData();
-       formData.append('userId', this.currentUserId || 'unknown');
+               formData.append('userId', this.currentUserId || this.currentUser?.lineUserId || 'unknown');
        formData.append('comment', comment || '');
        if (files && files.length > 0) {
          for (let i = 0; i < files.length; i++) {
