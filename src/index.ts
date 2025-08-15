@@ -12,7 +12,6 @@ import { webhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
 import { dashboardRouter } from './controllers/dashboardController';
 import { projectRouter } from './controllers/projectController';
-import { imageRouter } from './controllers/imageController';
 import { LineService } from './services/LineService';
 import { CronService } from './services/CronService';
 
@@ -95,9 +94,6 @@ class Server {
 
     // API Routes
     this.app.use('/api', apiRouter);
-
-    // Image Routes
-    this.app.use('/api/images', imageRouter);
 
     // Project Rules & Memory Routes
     this.app.use('/api/project', projectRouter);

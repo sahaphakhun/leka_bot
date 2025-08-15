@@ -122,8 +122,7 @@ dist/
 build/
 
 # Upload files
-uploads/*
-!uploads/.gitkeep
+uploads/
 *.upload
 
 # Database
