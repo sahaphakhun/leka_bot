@@ -46,7 +46,7 @@ export interface Task {
   groupId: string;
   title: string;
   description?: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'overdue';
+  status: 'pending' | 'in_progress' | 'submitted' | 'reviewed' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'overdue';
   priority: 'low' | 'medium' | 'high';
   tags: string[];
   
@@ -54,6 +54,11 @@ export interface Task {
   startTime?: Date;
   dueTime: Date;
   completedAt?: Date;
+  
+  // เพิ่มฟิลด์เวลาใหม่สำหรับ workflow
+  submittedAt?: Date;      // เวลาส่งงาน
+  reviewedAt?: Date;       // เวลาตรวจสอบ
+  approvedAt?: Date;       // เวลาอนุมัติ
   
   // ผู้รับผิดชอบ
   assignees: string[]; // User IDs
@@ -67,6 +72,9 @@ export interface Task {
   googleEventId?: string;
   attachedFiles: string[]; // File IDs
   
+  // Workflow
+  workflow?: TaskWorkflow;
+  
   createdAt: Date;
   updatedAt: Date;
 }
@@ -75,6 +83,47 @@ export interface ReminderLog {
   type: string; // '7d', '1d', '3h', 'due'
   sentAt: Date;
   channels: ('line' | 'email')[];
+}
+
+export interface TaskWorkflow {
+  submissions?: TaskSubmission[];
+  review?: TaskReview;
+  approval?: TaskApproval;
+  history?: WorkflowHistory[];
+}
+
+export interface TaskSubmission {
+  submittedByUserId: string;
+  submittedAt: Date;
+  fileIds: string[];
+  comment?: string;
+  links?: string[];
+  lateSubmission?: boolean;
+}
+
+export interface TaskReview {
+  reviewerUserId: string;
+  status: 'not_requested' | 'pending' | 'approved' | 'rejected';
+  reviewRequestedAt?: Date;
+  reviewDueAt?: Date;
+  reviewedAt?: Date;
+  reviewerComment?: string;
+  lateReview?: boolean;
+}
+
+export interface TaskApproval {
+  creatorUserId: string;
+  status: 'not_requested' | 'pending' | 'approved';
+  approvalRequestedAt?: Date;
+  approvedAt?: Date;
+  creatorComment?: string;
+}
+
+export interface WorkflowHistory {
+  action: 'create' | 'submit' | 'review' | 'approve' | 'reject' | 'revise_due' | 'complete';
+  byUserId: string;
+  at: Date;
+  note?: string;
 }
 
 export interface File {
@@ -103,7 +152,7 @@ export interface KPIRecord {
   taskId: string;
   
   // ประเภทการให้คะแนน
-  type: 'early' | 'ontime' | 'late' | 'overtime';
+  type: 'early' | 'ontime' | 'late' | 'overtime' | 'approval' | 'review';
   points: number;
   
   // วันเวลาที่เกิดเหตุการณ์

@@ -132,10 +132,10 @@ export class Task {
 
   @Column({ 
     type: 'enum', 
-    enum: ['pending', 'in_progress', 'completed', 'cancelled', 'overdue'],
+    enum: ['pending', 'in_progress', 'submitted', 'reviewed', 'approved', 'completed', 'rejected', 'cancelled', 'overdue'],
     default: 'pending'
   })
-  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'overdue';
+  status: 'pending' | 'in_progress' | 'submitted' | 'reviewed' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'overdue';
 
   @Column({
     type: 'enum',
@@ -155,6 +155,16 @@ export class Task {
 
   @Column({ nullable: true })
   completedAt?: Date;
+
+  // เพิ่มฟิลด์เวลาใหม่สำหรับ workflow
+  @Column({ nullable: true })
+  submittedAt?: Date;      // เวลาส่งงาน
+
+  @Column({ nullable: true })
+  reviewedAt?: Date;       // เวลาตรวจสอบ
+
+  @Column({ nullable: true })
+  approvedAt?: Date;       // เวลาอนุมัติ
 
   // บังคับให้ต้องมีไฟล์แนบเมื่อส่งงาน
   @Column({ type: 'boolean', default: false })
@@ -176,7 +186,7 @@ export class Task {
   @Column({ type: 'varchar', nullable: true })
   googleEventId?: string;
 
-  // ข้อมูลเวิร์กโฟลว์การส่งงาน/ตรวจงาน
+  // ข้อมูลเวิร์กโฟลว์การส่งงาน/ตรวจงาน/อนุมัติ
   @Column('jsonb', { default: {} })
   workflow: {
     submissions?: Array<{
@@ -196,8 +206,15 @@ export class Task {
       reviewerComment?: string;
       lateReview?: boolean;
     };
+    approval?: {
+      creatorUserId: string; // internal user UUID
+      status: 'not_requested' | 'pending' | 'approved';
+      approvalRequestedAt?: Date;
+      approvedAt?: Date;
+      creatorComment?: string;
+    };
     history?: Array<{
-      action: 'create' | 'submit' | 'approve' | 'reject' | 'revise_due';
+      action: 'create' | 'submit' | 'review' | 'approve' | 'reject' | 'revise_due' | 'complete';
       byUserId: string;
       at: Date;
       note?: string;

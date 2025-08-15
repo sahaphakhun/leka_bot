@@ -86,8 +86,9 @@ export class FlexMessageDesignSystem {
   static sizes = {
     default: undefined,      // ขนาดปกติ
     compact: 'kilo',        // ขนาดกะทัดรัด
-    large: 'mega'           // ขนาดใหญ่
-  };
+    large: 'mega',          // ขนาดใหญ่
+    extraLarge: 'giga'      // ขนาดใหญ่มาก
+  } as const;
 
   // Layout มาตรฐาน
   static layouts = {

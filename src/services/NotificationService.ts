@@ -384,7 +384,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'compact'
+      'large'
     );
   }
 
@@ -413,7 +413,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'compact'
+      'large'
     );
   }
 
@@ -452,7 +452,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.danger,
       content,
       buttons,
-      'compact'
+      'large'
     );
   }
 
