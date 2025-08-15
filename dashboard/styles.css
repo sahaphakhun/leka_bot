@@ -1580,3 +1580,34 @@ body {
     font-size: var(--font-size-base);
   }
 }
+
+/* ผู้รับผิดชอบ: checkbox list */
+.checkbox-list {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--spacing-2);
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+  padding: var(--spacing-2) var(--spacing-3);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-md);
+  background: var(--color-white);
+  cursor: pointer;
+}
+
+.checkbox-item:hover {
+  background: var(--color-gray-50);
+}
+
+.checkbox-item input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+}
+
+@media (max-width: 768px) {
+  .checkbox-list { grid-template-columns: 1fr; }
+}

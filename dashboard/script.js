@@ -1540,9 +1540,9 @@ class Dashboard {
     const reviewerSelect = document.getElementById('reviewerSelect');
     
     if (select) {
-      // ใช้ lineUserId สำหรับการสร้างงานแบบ recurring และความเข้ากันได้กับ backend
+      // แสดงเป็น checkbox list เพื่อเลือกหลายคนได้ง่าย
       select.innerHTML = members.map(member => 
-        `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`
+        `<label class="checkbox-item"><input type="checkbox" class="assignee-checkbox" value="${member.lineUserId || member.id}"><span>${member.displayName}</span></label>`
       ).join('');
     }
     
@@ -1643,15 +1643,19 @@ class Dashboard {
       seg._bound = true;
     }
 
-    // Assignee count
+    // Assignee count (นับจำนวน checkbox ที่ถูกเลือก)
     const assignees = document.getElementById('taskAssignees');
     const assigneeCount = document.getElementById('assigneeCount');
     if (assignees && assigneeCount && !assignees._boundCount) {
       const update = () => {
-        const count = Array.from(assignees.selectedOptions).length;
+        const count = assignees.querySelectorAll('.assignee-checkbox:checked').length;
         assigneeCount.textContent = count > 0 ? `(${count} คน)` : '';
       };
-      assignees.addEventListener('change', update);
+      assignees.addEventListener('change', (e) => {
+        if (e.target && e.target.classList && e.target.classList.contains('assignee-checkbox')) {
+          update();
+        }
+      });
       update();
       assignees._boundCount = true;
     }
@@ -1773,8 +1777,8 @@ class Dashboard {
         description: formData.get('description')?.trim() || '',
         dueTime: this.formatDateForAPI(dueDate),
         priority: (document.getElementById('taskPriority')?.value || 'medium'),
-        assigneeIds: Array.from(document.getElementById('taskAssignees').selectedOptions)
-          .map(option => option.value),
+        assigneeIds: Array.from(document.querySelectorAll('#taskAssignees .assignee-checkbox:checked'))
+          .map(input => input.value),
         tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag) : [],
         createdBy: this.currentUserId || 'unknown',
         requireAttachment: document.getElementById('requireAttachment').checked,

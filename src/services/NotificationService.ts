@@ -87,13 +87,9 @@ export class NotificationService {
       const group = task.group;
       if (!group) return;
 
-      // สร้าง Flex Message สำหรับงานเกินกำหนด
+      // สร้าง Flex Message สำหรับงานเกินกำหนด (ส่งเฉพาะการ์ด ไม่ส่งข้อความธรรมดา)
       const flexMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
-
-      // สร้างข้อความสรุปสำหรับส่งในกลุ่ม
-      const summaryMessage = this.createOverdueTaskSummaryMessage(task, group, overdueHours);
-      await this.lineService.pushMessage(group.lineGroupId, summaryMessage);
 
       // ส่งการแจ้งเตือนส่วนตัวให้ผู้รับผิดชอบ
       const assignees = task.assignedUsers || [];
@@ -835,7 +831,7 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
 
     return {
       type: 'flex',
-      altText: `🚨 งานเกินกำหนด: ${task.title}`,
+      altText: `งานเกินกำหนด: ${task.title}`,
       contents: {
         type: 'bubble',
         size: 'kilo',
@@ -843,87 +839,22 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
           type: 'box',
           layout: 'vertical',
           contents: [
-            {
-              type: 'text',
-              text: '🚨 งานเกินกำหนด',
-              weight: 'bold',
-              size: 'lg',
-              color: '#FFFFFF',
-              align: 'center'
-            }
+            { type: 'text', text: '⚠️ งานเกินกำหนด', weight: 'bold', size: 'lg', color: '#FFFFFF' },
+            { type: 'text', text: task.title, size: 'md', wrap: true, color: '#FFFFFF' }
           ],
-          backgroundColor: '#DC3545',
+          backgroundColor: '#F44336',
           paddingAll: 'md'
         },
         body: {
           type: 'box',
           layout: 'vertical',
-          spacing: 'md',
+          spacing: 'sm',
           contents: [
-            {
-              type: 'text',
-              text: task.title,
-              weight: 'bold',
-              size: 'lg',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: task.description || 'ไม่มีคำอธิบาย',
-              size: 'sm',
-              color: '#666666',
-              wrap: true
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  flex: 1,
-                  contents: [
-                    {
-                      type: 'text',
-                      text: '⏰ เวลาที่เกิน',
-                      size: 'xs',
-                      color: '#666666'
-                    },
-                    {
-                      type: 'text',
-                      text: overdueText,
-                      size: 'sm',
-                      weight: 'bold',
-                      color: '#DC3545'
-                    }
-                  ]
-                },
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  flex: 1,
-                  contents: [
-                    {
-                      type: 'text',
-                      text: '🎯 ความสำคัญ',
-                      size: 'xs',
-                      color: '#666666'
-                    },
-                    {
-                      type: 'text',
-                      text: priorityText[task.priority as keyof typeof priorityText] || 'ไม่ระบุ',
-                      size: 'sm',
-                      weight: 'bold',
-                      color: priorityColors[task.priority as keyof typeof priorityColors] || '#666666'
-                    }
-                  ]
-                }
-              ]
-            }
+            { type: 'text', text: `📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, size: 'sm', color: '#333333' },
+            { type: 'text', text: `⏰ เวลาที่เกิน: ${overdueText}`, size: 'sm', color: '#F44336', weight: 'bold' },
+            { type: 'text', text: `👥 ผู้รับผิดชอบ: ${(task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ'}`, size: 'sm', color: '#333333' },
+            { type: 'text', text: `🎯 ${priorityText[task.priority as keyof typeof priorityText] || 'ไม่ระบุ'}`, size: 'sm', color: (priorityColors[task.priority as keyof typeof priorityColors] || '#666666'), weight: 'bold' },
+            ...(task.description ? [{ type: 'text', text: `📝 ${task.description}`, size: 'sm', color: '#666666', wrap: true }] : [])
           ]
         },
         footer: {

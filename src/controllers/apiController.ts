@@ -1156,9 +1156,8 @@ apiRouter.get('/task/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     const svc = new TaskService();
-    // Reuse search by id
-    const result = await svc.searchTasks('', taskId, { limit: 1 });
-    res.json({ success: true, data: result.tasks[0] || null });
+    const task = await svc.getTaskById(taskId);
+    res.json({ success: true, data: task });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to get task' });
   }

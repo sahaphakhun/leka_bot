@@ -30,6 +30,20 @@ export class TaskService {
     this.lineService = new LineService();
   }
 
+  /** ดึงงานตาม ID พร้อม relations หลัก */
+  public async getTaskById(taskId: string): Promise<Task | null> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'createdByUser', 'group']
+      });
+      return task || null;
+    } catch (error) {
+      console.error('❌ Error getting task by id:', error);
+      throw error;
+    }
+  }
+
   /**
    * สร้างงานใหม่
    * @param data.groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
