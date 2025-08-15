@@ -551,7 +551,35 @@ class Dashboard {
           errorData = { error: errorText };
         }
         
-        const errorMessage = errorData.details || errorData.error || `HTTP ${response.status}`;
+        // Extract error message with better fallback
+        let errorMessage = errorData.error || errorData.details || errorData.message;
+        
+        // If no specific error message, provide HTTP status-based message
+        if (!errorMessage) {
+          switch (response.status) {
+            case 400:
+              errorMessage = 'Bad Request - ข้อมูลที่ส่งไม่ถูกต้อง';
+              break;
+            case 401:
+              errorMessage = 'Unauthorized - ไม่มีสิทธิ์เข้าถึง';
+              break;
+            case 403:
+              errorMessage = 'Forbidden - ถูกปฏิเสธการเข้าถึง';
+              break;
+            case 404:
+              errorMessage = 'Not Found - ไม่พบข้อมูลที่ต้องการ';
+              break;
+            case 409:
+              errorMessage = 'Conflict - ข้อมูลขัดแย้ง';
+              break;
+            case 500:
+              errorMessage = 'Internal Server Error - เซิร์ฟเวอร์มีปัญหา';
+              break;
+            default:
+              errorMessage = `HTTP ${response.status} - เกิดข้อผิดพลาด`;
+          }
+        }
+        
         throw new Error(errorMessage);
       }
 
@@ -887,7 +915,22 @@ class Dashboard {
       return response.data;
     } catch (error) {
       console.error('Failed to create task:', error);
-      this.showToast('ไม่สามารถเพิ่มงานได้', 'error');
+      
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      let errorMessage = 'ไม่สามารถเพิ่มงานได้';
+      if (error.message.includes('Group not found')) {
+        errorMessage = 'ไม่พบกลุ่มที่ระบุ';
+      } else if (error.message.includes('Creator user not found')) {
+        errorMessage = 'ไม่พบผู้สร้างงาน';
+      } else if (error.message.includes('งานนี้ถูกสร้างไปแล้ว')) {
+        errorMessage = error.message;
+      } else if (error.message.includes('Missing required field')) {
+        errorMessage = 'กรุณากรอกข้อมูลให้ครบถ้วน';
+      } else {
+        errorMessage = error.message || 'ไม่สามารถเพิ่มงานได้';
+      }
+      
+      this.showToast(errorMessage, 'error');
       throw error; // Re-throw เพื่อให้ finally block ทำงาน
     } finally {
       // รีเซ็ตสถานะทันทีหลังจากเสร็จสิ้น
@@ -1045,17 +1088,30 @@ class Dashboard {
       this.updateUpcomingTasks(latest);
     } catch (error) {
       console.error('Failed to load upcoming tasks:', error);
+      
       // แสดงข้อความ error ที่ชัดเจนขึ้น
+      let errorMessage = 'ไม่สามารถโหลดข้อมูลงานได้';
       if (error.message.includes('500')) {
+        errorMessage = 'เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลงาน';
         console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลงาน');
+      } else if (error.message.includes('Group not found')) {
+        errorMessage = 'ไม่พบกลุ่มที่ระบุ';
+        console.error('❌ ไม่พบกลุ่มที่ระบุ');
+      } else if (error.message.includes('Invalid date')) {
+        errorMessage = 'รูปแบบวันที่ไม่ถูกต้อง';
+        console.error('❌ รูปแบบวันที่ไม่ถูกต้อง');
       } else {
         console.error(`❌ ไม่สามารถดึงข้อมูลงานได้: ${error.message}`);
       }
+      
       // แสดงข้อความในหน้า dashboard
       const container = document.getElementById('upcomingTasks');
       if (container) {
-        container.innerHTML = '<p class="text-muted">ไม่สามารถโหลดข้อมูลงานได้</p>';
+        container.innerHTML = `<p class="text-muted">${errorMessage}</p>`;
       }
+      
+      // แสดง toast notification
+      this.showToast(errorMessage, 'error');
     }
   }
 
@@ -2446,20 +2502,26 @@ class Dashboard {
 
   // เพิ่มฟังก์ชันสำหรับการแปลงวันที่ให้เป็น timezone ที่ถูกต้อง
   formatDateForAPI(date) {
-    // ตรวจสอบว่า moment.tz ทำงานได้จริงหรือไม่
-    if (moment && moment.tz && typeof moment.tz === 'function') {
-      try {
-        return moment(date).tz(this.timezone).toISOString();
-      } catch (error) {
-        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+    try {
+      // ตรวจสอบว่า moment.tz ทำงานได้จริงหรือไม่
+      if (moment && moment.tz && typeof moment.tz === 'function') {
+        try {
+          return moment(date).tz(this.timezone).toISOString();
+        } catch (error) {
+          console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        }
       }
+      
+      // Fallback: แปลงเป็น Bangkok time (UTC+7) แบบ manual
+      const inputDate = new Date(date);
+      const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
+      const bangkokTime = new Date(utc + (7 * 3600000));
+      return bangkokTime.toISOString();
+    } catch (error) {
+      console.error('❌ Error formatting date:', error);
+      // Ultimate fallback: return current date in ISO format
+      return new Date().toISOString();
     }
-    
-    // Fallback: แปลงเป็น Bangkok time (UTC+7) แบบ manual
-    const inputDate = new Date(date);
-    const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
-    const bangkokTime = new Date(utc + (7 * 3600000));
-    return bangkokTime.toISOString();
   }
 
   // ==================== */

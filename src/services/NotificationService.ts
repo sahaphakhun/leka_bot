@@ -967,4 +967,90 @@ export class NotificationService {
       'compact'
     );
   }
+
+  /**
+   * ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกชั่วโมง
+   */
+  public async sendHourlyOverdueSummary(): Promise<void> {
+    try {
+      console.log('🕐 Starting hourly overdue tasks summary...');
+      
+      // ใช้ TaskService เพื่อดึงข้อมูล
+      const taskService = new (await import('./TaskService')).TaskService();
+      
+      // ดึงข้อมูลกลุ่มทั้งหมด
+      const groups = await taskService.getAllGroups();
+      
+      for (const group of groups) {
+        try {
+          // ดึงงานเกินกำหนดทั้งหมดในกลุ่ม
+          const overdueTasks = await taskService.getOverdueTasksByGroup(group.id);
+          
+          if (overdueTasks.length === 0) {
+            console.log(`✅ No overdue tasks in group: ${group.name}`);
+            continue;
+          }
+          
+          // จัดกลุ่มงานตามผู้รับผิดชอบ
+          const tasksByAssignee = new Map<string, any[]>();
+          
+          for (const task of overdueTasks) {
+            const assignees = task.assignedUsers || [];
+            for (const assignee of assignees) {
+              if (!tasksByAssignee.has(assignee.id)) {
+                tasksByAssignee.set(assignee.id, []);
+              }
+              tasksByAssignee.get(assignee.id)!.push(task);
+            }
+          }
+          
+          // ส่งการแจ้งเตือนรวมให้ผู้ใช้แต่ละคน
+          for (const [assigneeId, tasks] of tasksByAssignee) {
+            try {
+              const assignee = await this.userService.findById(assigneeId);
+              if (!assignee || !assignee.lineUserId) continue;
+              
+              // สร้างการ์ดรวมงานเกินกำหนด
+              const tz = group.timezone || config.app.defaultTimezone;
+              const summaryCard = FlexMessageTemplateService.createOverdueTasksSummaryCard(assignee, tasks, tz);
+              
+              // ส่งการแจ้งเตือนส่วนตัว
+              await this.lineService.pushMessage(assignee.lineUserId, summaryCard);
+              console.log(`✅ Sent hourly overdue summary to: ${assignee.displayName} (${tasks.length} tasks)`);
+              
+            } catch (err) {
+              console.warn('⚠️ Failed to send hourly overdue summary to assignee:', assigneeId, err);
+            }
+          }
+          
+          // ส่งการแจ้งเตือนรวมลงกลุ่ม (ถ้ามีงานเกินกำหนด)
+          if (overdueTasks.length > 0) {
+            try {
+              const tz = group.timezone || config.app.defaultTimezone;
+              const groupSummaryCard = FlexMessageTemplateService.createOverdueTasksSummaryCard(
+                { displayName: group.name, groupId: group.id },
+                overdueTasks,
+                tz
+              );
+              
+              await this.lineService.pushMessage(group.lineGroupId, groupSummaryCard);
+              console.log(`✅ Sent hourly overdue summary to group: ${group.name} (${overdueTasks.length} tasks)`);
+              
+            } catch (err) {
+              console.warn('⚠️ Failed to send hourly overdue summary to group:', group.lineGroupId, err);
+            }
+          }
+          
+        } catch (err) {
+          console.warn('⚠️ Failed to process group for hourly overdue summary:', group.id, err);
+        }
+      }
+      
+      console.log('✅ Hourly overdue tasks summary completed');
+      
+    } catch (error) {
+      console.error('❌ Error sending hourly overdue summary:', error);
+      throw error;
+    }
+  }
 }

@@ -42,6 +42,14 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
+    // ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกชั่วโมง
+    const hourlyOverdueSummaryJob = cron.schedule('0 * * * *', async () => {
+      await this.sendHourlyOverdueSummary();
+    }, {
+      scheduled: false,
+      timezone: config.app.defaultTimezone
+    });
+
     // สรุปรายงานรายสัปดาห์ (ศุกร์ 13:00)
     const weeklyReportJob = cron.schedule('0 13 * * 5', async () => {
       await this.sendWeeklyReports();
@@ -86,6 +94,7 @@ export class CronService {
     // เก็บ jobs ไว้สำหรับ shutdown
     this.jobs.set('reminderOneDay', reminderOneDayJob);
     this.jobs.set('overdue', overdueJob);
+    this.jobs.set('hourlyOverdueSummary', hourlyOverdueSummaryJob);
     this.jobs.set('weeklyReport', weeklyReportJob);
     this.jobs.set('dailySummary', dailySummaryJob);
     this.jobs.set('supervisorSummary', supervisorSummaryJob);
@@ -179,18 +188,27 @@ export class CronService {
     try {
       console.log('⏰ Processing overdue tasks...');
       
-      const overdueTasks = await this.taskService.getOverdueTasks();
+      // ดึงกลุ่มทั้งหมดและตรวจสอบงานเกินกำหนดในแต่ละกลุ่ม
+      const groups = await this.taskService.getAllGroups();
       
-      for (const task of overdueTasks) {
-        // อัปเดตสถานะเป็น overdue
-        await this.taskService.updateTaskStatus(task.id, 'overdue');
-        
-        // ส่งการแจ้งเตือน
-        const overdueHours = moment().diff(moment(task.dueTime), 'hours');
-        await this.notificationService.sendOverdueNotification({ task, overdueHours });
-        
-        // บันทึก KPI (คะแนนลบ)
-        await this.kpiService.recordTaskCompletion(task, 'late');
+      for (const group of groups) {
+        try {
+          const overdueTasks = await this.taskService.getOverdueTasksByGroup(group.id);
+          
+          for (const task of overdueTasks) {
+            // อัปเดตสถานะเป็น overdue
+            await this.taskService.updateTaskStatus(task.id, 'overdue');
+            
+            // ส่งการแจ้งเตือน
+            const overdueHours = moment().diff(moment(task.dueTime), 'hours');
+            await this.notificationService.sendOverdueNotification({ task, overdueHours });
+            
+            // บันทึก KPI (คะแนนลบ)
+            await this.kpiService.recordTaskCompletion(task, 'late');
+          }
+        } catch (err) {
+          console.warn('⚠️ Failed to process overdue tasks for group:', group.id, err);
+        }
       }
 
       // ตรวจงานที่รอการตรวจเกิน 2 วัน
@@ -554,6 +572,18 @@ export class CronService {
       await this.notificationService.sendTaskReminder(task, reminderType);
     } catch (error) {
       console.error('❌ Error sending task reminder:', error);
+    }
+  }
+
+  /**
+   * ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกชั่วโมง
+   */
+  private async sendHourlyOverdueSummary(): Promise<void> {
+    try {
+      console.log('🕐 Starting hourly overdue tasks summary...');
+      await this.notificationService.sendHourlyOverdueSummary();
+    } catch (error) {
+      console.error('❌ Error in hourly overdue summary job:', error);
     }
   }
 

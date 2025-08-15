@@ -671,6 +671,135 @@ export class FlexMessageTemplateService {
     );
   }
 
+  /**
+   * สร้างการ์ดรวมงานเกินกำหนดสำหรับผู้ใช้แต่ละคน
+   */
+  static createOverdueTasksSummaryCard(assignee: any, overdueTasks: any[], timezone: string): FlexMessage {
+    const date = moment().tz(timezone).format('DD/MM/YYYY HH:mm');
+    
+    // จัดกลุ่มงานตามความสำคัญ
+    const highPriorityTasks = overdueTasks.filter(t => t.priority === 'high');
+    const mediumPriorityTasks = overdueTasks.filter(t => t.priority === 'medium');
+    const lowPriorityTasks = overdueTasks.filter(t => t.priority === 'low');
+    
+    // สร้างรายการงานย่อตามความสำคัญ
+    const createPriorityTaskList = (taskList: any[], maxItems: number = 3) => {
+      if (taskList.length === 0) return [];
+      
+      const displayTasks = taskList.slice(0, maxItems);
+      const remainingCount = taskList.length - maxItems;
+      
+      const taskItems: any[] = [];
+      
+      // เพิ่มงานที่แสดง
+      for (const task of displayTasks) {
+        const dueDate = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
+        const priorityEmoji = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
+        
+        taskItems.push(
+          FlexMessageDesignSystem.createBox('vertical', [
+            FlexMessageDesignSystem.createText(`• ${priorityEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
+            FlexMessageDesignSystem.createText(`  📅 ${dueDate} | 🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          ], 'small', 'small', '#FFF5F5', 'xs')
+        );
+      }
+      
+      // เพิ่มข้อความแสดงงานที่เหลือ
+      if (remainingCount > 0) {
+        taskItems.push(
+          FlexMessageDesignSystem.createText(`... และอีก ${remainingCount} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        );
+      }
+      
+      return taskItems;
+    };
+
+    // สร้าง content array
+    const contentItems: any[] = [
+      // Header
+      FlexMessageDesignSystem.createText(`🚨 สรุปงานเกินกำหนด`, 'lg', FlexMessageDesignSystem.colors.danger, 'bold', undefined, 'large'),
+      FlexMessageDesignSystem.createText(`👤 ${assignee.displayName}`, 'md', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createText(`📅 อัปเดตล่าสุด: ${date}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('medium'),
+      
+      // สถิติรวม
+      FlexMessageDesignSystem.createBox('horizontal', [
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('📊 รวม', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(overdueTasks.length.toString(), 'lg', FlexMessageDesignSystem.colors.danger, 'bold')
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('🔴 สูง', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(highPriorityTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.danger, 'bold')
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('🟡 กลาง', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(mediumPriorityTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.warning, 'bold')
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('🟢 ต่ำ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(lowPriorityTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.success, 'bold')
+        ]), flex: 1 }
+      ], 'medium')
+    ];
+
+    // เพิ่มงานความสำคัญสูง (แสดงเต็ม)
+    if (highPriorityTasks.length > 0) {
+      contentItems.push(
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText('🔴 งานความสำคัญสูง (ต้องทำด่วน!)', 'md', FlexMessageDesignSystem.colors.danger, 'bold')
+      );
+      const highPriorityTaskItems = createPriorityTaskList(highPriorityTasks, 5);
+      for (const item of highPriorityTaskItems) {
+        contentItems.push(item);
+      }
+    }
+    
+    // เพิ่มงานความสำคัญกลาง
+    if (mediumPriorityTasks.length > 0) {
+      contentItems.push(
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText('🟡 งานความสำคัญกลาง', 'md', FlexMessageDesignSystem.colors.warning, 'bold')
+      );
+      const mediumPriorityTaskItems = createPriorityTaskList(mediumPriorityTasks, 3);
+      for (const item of mediumPriorityTaskItems) {
+        contentItems.push(item);
+      }
+    }
+    
+    // เพิ่มงานความสำคัญต่ำ
+    if (lowPriorityTasks.length > 0) {
+      contentItems.push(
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText('🟢 งานความสำคัญต่ำ', 'md', FlexMessageDesignSystem.colors.success, 'bold')
+      );
+      const lowPriorityTaskItems = createPriorityTaskList(lowPriorityTasks, 3);
+      for (const item of lowPriorityTaskItems) {
+        contentItems.push(item);
+      }
+    }
+    
+    // เพิ่มคำแนะนำ
+    contentItems.push(
+      FlexMessageDesignSystem.createSeparator('medium'),
+      FlexMessageDesignSystem.createText('💡 เริ่มจากงานความสำคัญสูงก่อน แล้วค่อยทำงานอื่นๆ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+    );
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋 ดูงานของฉัน', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}#my-tasks`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      `🚨 งานเกินกำหนด - ${assignee.displayName}`,
+      '🚨',
+      FlexMessageDesignSystem.colors.danger,
+      contentItems,
+      buttons,
+      'extraLarge'
+    );
+  }
+
   // Helper methods
   private static calculateCompletionScore(task: any): number {
     // คำนวณคะแนนตามความสมบูรณ์ของงาน

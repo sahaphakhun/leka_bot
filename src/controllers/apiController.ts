@@ -12,7 +12,7 @@ import multer from 'multer';
 import { logger } from '@/utils/logger';
 import { serviceContainer } from '@/utils/serviceContainer';
 import { authenticate } from '@/middleware/auth';
-import { validateRequest } from '@/middleware/validation';
+import { validateRequest, taskSchemas } from '@/middleware/validation';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
 import { config } from '@/utils/config';
@@ -84,9 +84,23 @@ class ApiController {
 
     } catch (error) {
       logger.error('❌ Error getting tasks:', error);
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to get tasks';
+      if (error instanceof Error) {
+        if (error.message.includes('Group not found')) {
+          errorMessage = 'Group not found';
+        } else if (error.message.includes('Invalid date')) {
+          errorMessage = 'Invalid date format provided';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
       res.status(500).json({ 
         success: false, 
-        error: 'Failed to get tasks' 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
       });
     }
   }
@@ -130,9 +144,33 @@ class ApiController {
 
     } catch (error) {
       logger.error('❌ Error creating task:', error);
-      res.status(500).json({ 
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to create task';
+      let statusCode = 500;
+      
+      if (error instanceof Error) {
+        if (error.message.includes('Group not found')) {
+          errorMessage = 'Group not found';
+          statusCode = 404;
+        } else if (error.message.includes('Creator user not found')) {
+          errorMessage = 'Creator user not found';
+          statusCode = 400;
+        } else if (error.message.includes('งานนี้ถูกสร้างไปแล้ว')) {
+          errorMessage = error.message;
+          statusCode = 409;
+        } else if (error.message.includes('Missing required field')) {
+          errorMessage = error.message;
+          statusCode = 400;
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      res.status(statusCode).json({ 
         success: false, 
-        error: 'Failed to create task' 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
       });
     }
   }
@@ -1154,8 +1192,8 @@ const apiController = new ApiController();
 apiRouter.get('/groups/:groupId', apiController.getGroup.bind(apiController));
 apiRouter.get('/groups/:groupId/members', apiController.getGroupMembers.bind(apiController));
 apiRouter.get('/groups/:groupId/stats', apiController.getGroupStats.bind(apiController));
-apiRouter.get('/groups/:groupId/tasks', apiController.getTasks.bind(apiController));
-apiRouter.post('/groups/:groupId/tasks', apiController.createTask.bind(apiController));
+apiRouter.get('/groups/:groupId/tasks', validateRequest(taskSchemas.list), apiController.getTasks.bind(apiController));
+apiRouter.post('/groups/:groupId/tasks', validateRequest(taskSchemas.create), apiController.createTask.bind(apiController));
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));

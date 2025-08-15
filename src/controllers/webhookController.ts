@@ -211,56 +211,18 @@ class WebhookController {
 
   /**
    * จัดการไฟล์ที่อัปโหลด
+   * ไม่บันทึกอัตโนมัติและไม่ตอบกลับอะไร
    */
   private async handleFileMessage(event: MessageEvent, message: ImageMessage | VideoMessage | AudioMessage | any): Promise<void> {
-    try {
-      const { source, replyToken } = event;
-      const groupId = source.type === 'group' ? (source as any).groupId : '';
-      const userId = source.userId!;
-
-      // ดาวน์โหลดไฟล์
-      const content = await this.lineService.downloadContent((message as any).id);
-      
-      // กำหนดชื่อไฟล์และ MIME type
-      let originalName: string;
-      let mimeType: string;
-      
-      if (message.type === 'file') {
-        originalName = (message as any).fileName || `file_${(message as any).id}`;
-        mimeType = this.getMimeTypeFromFileName(originalName);
-      } else {
-        originalName = (message as any).fileName || `${message.type}_${(message as any).id}`;
-        mimeType = message.type === 'image' ? 'image/jpeg' : 
-                   message.type === 'video' ? 'video/mp4' :
-                   message.type === 'audio' ? 'audio/mpeg' : 
-                   'application/octet-stream';
-      }
-      
-      // บันทึกไฟล์
-      const fileRecord = await this.fileService.saveFile({
-        groupId,
-        uploadedBy: userId,
-        messageId: (message as any).id,
-        content,
-        originalName,
-        mimeType,
-        folderStatus: 'in_progress'
-      });
-
-      // สร้างการ์ดแสดงไฟล์
-      const fileCard = FlexMessageTemplateService.createFileDisplayCard(fileRecord, { id: groupId });
-      await this.lineService.replyMessage(replyToken!, fileCard);
-
-      // แจ้งเตือนในกลุ่ม
-      const user = await this.userService.findByLineUserId(userId);
-      const displayName = user?.displayName || 'ไม่ทราบ';
-      await this.lineService.pushMessage(groupId, `${displayName} อัปโหลดไฟล์: ${fileRecord.originalName}`);
-
-    } catch (error) {
-      console.error('❌ Error handling file message:', error);
-      await this.lineService.replyMessage(event.replyToken!, 
-        'ขออภัยค่ะ เกิดข้อผิดพลาดในการบันทึกไฟล์');
-    }
+    // ไม่ทำอะไรกับไฟล์ที่ส่งมา - ไม่บันทึก ไม่ตอบกลับ ไม่แจ้งเตือน
+    // ระบบจะเงียบๆ เมื่อมีการส่งไฟล์ในแชทกลุ่ม
+    logger.info('File message received but ignored (auto-save disabled)', {
+      messageId: (message as any).id,
+      messageType: message.type,
+      fileName: (message as any).fileName || 'unknown'
+    });
+    
+    // ไม่ต้องทำอะไรเพิ่มเติม - ระบบจะเงียบๆ
   }
 
   /**

@@ -802,21 +802,31 @@ export class TaskService {
   }
 
   /**
-   * ดึงงานที่เกินกำหนด
+   * ดึงงานเกินกำหนดทั้งหมดในกลุ่ม
    */
-  public async getOverdueTasks(): Promise<Task[]> {
+  public async getOverdueTasksByGroup(groupId: string): Promise<Task[]> {
     try {
-      const now = new Date();
-
-      return await this.taskRepository.createQueryBuilder('task')
-        .leftJoinAndSelect('task.assignedUsers', 'assignee')
-        .leftJoinAndSelect('task.group', 'group')
-        .where('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress'] })
-        .andWhere('task.dueTime < :now', { now })
-        .getMany();
-
+      return await this.taskRepository.find({
+        where: { 
+          groupId,
+          status: 'overdue'
+        },
+        relations: ['assignedUsers', 'group']
+      });
     } catch (error) {
-      console.error('❌ Error getting overdue tasks:', error);
+      console.error('❌ Error getting overdue tasks by group:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ดึงกลุ่มทั้งหมด
+   */
+  public async getAllGroups(): Promise<Group[]> {
+    try {
+      return await this.groupRepository.find();
+    } catch (error) {
+      console.error('❌ Error getting all groups:', error);
       throw error;
     }
   }

@@ -58,13 +58,15 @@ export const taskSchemas = {
     body: Joi.object({
       title: Joi.string().required().min(1).max(200),
       description: Joi.string().optional().max(1000),
-      assigneeIds: Joi.array().items(Joi.string().uuid()).min(1).required(),
-      createdBy: Joi.string().uuid().required(),
-      dueTime: Joi.date().required(),
-      startTime: Joi.date().optional(),
+      assigneeIds: Joi.array().items(Joi.string().pattern(/^[U][a-zA-Z0-9]+$/)).min(1).required(),
+      createdBy: Joi.string().pattern(/^[U][a-zA-Z0-9]+$/).required(),
+      dueTime: Joi.string().required(), // Accept string for date parsing
+      startTime: Joi.string().optional(), // Accept string for date parsing
       priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
       tags: Joi.array().items(Joi.string()).optional(),
-      customReminders: Joi.array().items(Joi.string()).optional()
+      customReminders: Joi.array().items(Joi.string()).optional(),
+      requireAttachment: Joi.boolean().optional(),
+      reviewerUserId: Joi.string().pattern(/^[U][a-zA-Z0-9]+$/).optional()
     })
   },
   
@@ -84,10 +86,10 @@ export const taskSchemas = {
   list: {
     query: Joi.object({
       status: Joi.string().valid('pending', 'in_progress', 'completed', 'cancelled', 'overdue').optional(),
-      assignee: Joi.string().uuid().optional(),
+      assignee: Joi.string().pattern(/^[U][a-zA-Z0-9]+$/).optional(),
       tags: Joi.string().optional(), // comma-separated
-      startDate: Joi.date().optional(),
-      endDate: Joi.date().optional(),
+      startDate: Joi.string().optional(), // Accept string for date parsing
+      endDate: Joi.string().optional(), // Accept string for date parsing
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(20)
     })
