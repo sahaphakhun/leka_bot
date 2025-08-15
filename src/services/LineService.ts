@@ -508,16 +508,6 @@ export class LineService {
                 label: 'แก้ไข',
                 data: `action=edit&taskId=${task.id}`
               }
-            },
-            {
-              type: 'button' as const,
-              style: 'primary' as const,
-              height: 'sm' as const,
-              action: {
-                type: 'postback' as const,
-                label: 'เสร็จแล้ว',
-                data: `action=complete&taskId=${task.id}`
-              }
             }
           ],
           spacing: 'sm' as const

@@ -312,6 +312,7 @@ class WebhookController {
 
       switch (action) {
         case 'complete':
+        case 'complete_task':
           const taskId = params.get('taskId');
           if (taskId) {
             try {

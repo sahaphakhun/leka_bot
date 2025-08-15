@@ -756,26 +756,15 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     const baseMessage = this.createTaskCreatedFlexMessage(task, group, creator, dueDate);
     
     // เพิ่มปุ่มสำหรับผู้รับผิดชอบ
-    baseMessage.contents.footer.contents.push(
-      {
-        type: 'button',
-        style: 'secondary',
-        action: {
-          type: 'postback',
-          label: 'รับงาน',
-          data: `action=accept_task&taskId=${task.id}`
-        }
-      },
-      {
-        type: 'button',
-        style: 'primary',
-        action: {
-          type: 'postback',
-          label: 'เสร็จแล้ว',
-          data: `action=complete_task&taskId=${task.id}`
-        }
+    baseMessage.contents.footer.contents.push({
+      type: 'button',
+      style: 'primary',
+      action: {
+        type: 'postback',
+        label: 'เสร็จแล้ว',
+        data: `action=complete_task&taskId=${task.id}`
       }
-    );
+    });
 
     return baseMessage;
   }
@@ -935,26 +924,15 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     const baseMessage = this.createTaskReminderFlexMessage(task, group, reminderType);
     
     // เพิ่มปุ่มสำหรับผู้รับผิดชอบ
-    baseMessage.contents.footer.contents.push(
-      {
-        type: 'button',
-        style: 'secondary',
-        action: {
-          type: 'postback',
-          label: 'รับงาน',
-          data: `action=accept_task&taskId=${task.id}`
-        }
-      },
-      {
-        type: 'button',
-        style: 'primary',
-        action: {
-          type: 'postback',
-          label: 'เสร็จแล้ว',
-          data: `action=complete_task&taskId=${task.id}`
-        }
+    baseMessage.contents.footer.contents.push({
+      type: 'button',
+      style: 'primary',
+      action: {
+        type: 'postback',
+        label: 'เสร็จแล้ว',
+        data: `action=complete_task&taskId=${task.id}`
       }
-    );
+    });
 
     return baseMessage;
   }
@@ -1099,26 +1077,15 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     const baseMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
     
     // เพิ่มปุ่มสำหรับผู้รับผิดชอบ
-    baseMessage.contents.footer.contents.push(
-      {
-        type: 'button',
-        style: 'primary',
-        action: {
-          type: 'postback',
-          label: 'เสร็จแล้ว',
-          data: `action=complete_task&taskId=${task.id}`
-        }
-      },
-      {
-        type: 'button',
-        style: 'secondary',
-        action: {
-          type: 'postback',
-          label: 'ขอขยายเวลา',
-          data: `action=request_extension&taskId=${task.id}`
-        }
+    baseMessage.contents.footer.contents.push({
+      type: 'button',
+      style: 'primary',
+      action: {
+        type: 'postback',
+        label: 'เสร็จแล้ว',
+        data: `action=complete_task&taskId=${task.id}`
       }
-    );
+    });
 
     return baseMessage;
   }
