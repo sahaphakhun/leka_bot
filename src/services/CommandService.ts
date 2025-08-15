@@ -223,36 +223,54 @@ ${supervisorNames}
   }
 
   /**
-   * ส่งงาน (ผู้รับงานแนบไฟล์ในแชท แล้วพิมพ์ /submit <รหัสงาน หรือ ชื่องาน> [หมายเหตุ]
-   * หมายเหตุ: ระบบจะนำไฟล์ล่าสุดของผู้ใช้ในกลุ่ม (24 ชม.) ไปผูกกับงานโดยอัตโนมัติ
+   * จัดการคำสั่ง /submit
    */
   private async handleSubmitCommand(command: BotCommand): Promise<string | any> {
     try {
-      const [taskQuery, ...noteParts] = command.args;
-      if (!taskQuery) return 'กรุณาระบุรหัสงานหรือชื่องาน เช่น /submit abc123 รายงานเดือนเม.ย.';
+      const args = command.args || [];
+      const taskQuery = args[0];
+      const note = args.slice(1).join(' ');
 
-      // ค้นหางานจากรหัสหรือชื่อ
+      if (!taskQuery) {
+        return 'กรุณาระบุงานที่ต้องการส่ง\nตัวอย่าง: @เลขา /submit <รหัสงาน หรือ ชื่องาน> [หมายเหตุ]';
+      }
+
+      // หางาน
       const { tasks } = await this.taskService.searchTasks(command.groupId, taskQuery, { limit: 1 });
-      if (tasks.length === 0) return `ไม่พบงาน "${taskQuery}"`; 
-
+      if (tasks.length === 0) {
+        return 'ไม่พบงานที่ระบุ กรุณาตรวจสอบรหัสงานหรือชื่องาน';
+      }
       const task = tasks[0];
 
-      // หาไฟล์ที่ผู้ใช้คนนี้เพิ่งส่งในกลุ่มล่าสุด (24 ชม.)
+      // ตรวจสอบว่าผู้ใช้เป็นผู้รับผิดชอบงานหรือไม่
+      const isAssignee = (task as any).assignees?.some((assignee: any) => 
+        assignee.lineUserId === command.userId || assignee.id === command.userId
+      ) || (task as any).assignedUsers?.some((assignee: any) => 
+        assignee.lineUserId === command.userId || assignee.id === command.userId
+      );
+      
+      if (!isAssignee) {
+        return 'คุณไม่ใช่ผู้รับผิดชอบงานนี้ ไม่สามารถส่งงานได้';
+      }
+
+      // ตรวจสอบสถานะงาน
+      if (task.status === 'completed') {
+        return 'งานนี้เสร็จสิ้นแล้ว ไม่สามารถส่งงานได้';
+      }
+
+      // หาไฟล์ที่ผู้ใช้ส่งล่าสุด (24 ชม.)
       const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
       const { files } = await this.fileService.getGroupFiles(command.groupId, {
         uploadedBy: command.userId,
-        startDate: since,
-        limit: 20
-      } as any);
+        startDate: since
+      });
 
-      // กรองเฉพาะไฟล์ที่ยังอยู่จริงบนดิสก์
       const existingFiles = await this.fileService.filterExistingFiles(files || []);
       const topFiles = existingFiles.slice(0, 5);
       const fileIds = topFiles.map(f => f.id);
-      const note = noteParts.join(' ');
 
       // สร้าง Flex Message สำหรับการแนบไฟล์
-      if (task.description?.includes('แนบไฟล์') || task.description?.includes('ไฟล์แนบ') || 
+      if (task.description?.includes('แนบไฟล์') || task.description?.includes('ไฟล์แนบ') ||
           task.tags?.some((tag: string) => tag.includes('ไฟล์') || tag.includes('แนบ'))) {
         return FlexMessageTemplateService.createFileAttachmentCard(task, { id: command.groupId }, { id: command.userId });
       }
@@ -263,6 +281,9 @@ ${supervisorNames}
         : [FlexMessageDesignSystem.createText('ไม่มีไฟล์ที่จะถูกแนบ', 'sm', '#888888')];
 
       const content = [
+        FlexMessageDesignSystem.createText('📤 ยืนยันการส่งงาน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+        FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+        FlexMessageDesignSystem.createSeparator('small'),
         FlexMessageDesignSystem.createText('ไฟล์ที่จะถูกแนบ:', 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
         ...fileListContents
       ];
@@ -279,23 +300,21 @@ ${supervisorNames}
           'postback',
           `action=submit_nofile&taskId=${encodeURIComponent(task.id)}&note=${encodeURIComponent(note)}`,
           'secondary'
-        ),
-        FlexMessageDesignSystem.createButton('ยกเลิก', 'postback', 'action=submit_cancel', 'secondary')
+        )
       ];
 
-      const confirmFlex = FlexMessageDesignSystem.createStandardTaskCard(
-        'ยืนยันการส่งงาน',
-        '📎',
-        FlexMessageDesignSystem.colors.info,
+      return FlexMessageDesignSystem.createStandardTaskCard(
+        '📤 ยืนยันการส่งงาน',
+        '📤',
+        FlexMessageDesignSystem.colors.success,
         content,
         buttons,
         'compact'
       );
 
-      return confirmFlex;
     } catch (error) {
-      logger.error('submit error:', error);
-      return 'เกิดข้อผิดพลาดในการส่งงาน กรุณาลองใหม่';
+      console.error('❌ Error in submit command:', error);
+      return 'เกิดข้อผิดพลาดในการส่งงาน กรุณาลองใหม่อีกครั้ง';
     }
   }
 

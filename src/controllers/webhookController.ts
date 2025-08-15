@@ -136,14 +136,9 @@ class WebhookController {
       case 'image':
       case 'video':
       case 'audio':
-      // Note: File messages are handled through other message types
-      // case 'file':
-      //   await this.handleFileMessage(event, message as any);
-      //   break;
-
-          // ไม่บันทึกไฟล์อัตโนมัติแล้ว - รอคำสั่ง "เซฟไฟล์"
-          console.log('📁 ไฟล์ได้รับแล้ว (ไม่บันทึกอัตโนมัติ)');
-          break;
+      case 'file':
+        await this.handleFileMessage(event, message as any);
+        break;
         
       default:
         console.log('ℹ️ Unhandled message type:', message.type);
@@ -216,7 +211,7 @@ class WebhookController {
   /**
    * จัดการไฟล์ที่อัปโหลด
    */
-  private async handleFileMessage(event: MessageEvent, message: ImageMessage | VideoMessage | AudioMessage): Promise<void> {
+  private async handleFileMessage(event: MessageEvent, message: ImageMessage | VideoMessage | AudioMessage | any): Promise<void> {
     try {
       const { source, replyToken } = event;
       const groupId = source.type === 'group' ? (source as any).groupId : '';
@@ -225,51 +220,40 @@ class WebhookController {
       // ดาวน์โหลดไฟล์
       const content = await this.lineService.downloadContent((message as any).id);
       
+      // กำหนดชื่อไฟล์และ MIME type
+      let originalName: string;
+      let mimeType: string;
+      
+      if (message.type === 'file') {
+        originalName = (message as any).fileName || `file_${(message as any).id}`;
+        mimeType = this.getMimeTypeFromFileName(originalName);
+      } else {
+        originalName = (message as any).fileName || `${message.type}_${(message as any).id}`;
+        mimeType = message.type === 'image' ? 'image/jpeg' : 
+                   message.type === 'video' ? 'video/mp4' :
+                   message.type === 'audio' ? 'audio/mpeg' : 
+                   'application/octet-stream';
+      }
+      
       // บันทึกไฟล์
       const fileRecord = await this.fileService.saveFile({
         groupId,
         uploadedBy: userId,
         messageId: (message as any).id,
         content,
-        originalName: (message as any).fileName || `file_${(message as any).id}`,
-        mimeType: message.type === 'image' ? 'image/jpeg' : 
-                  message.type === 'video' ? 'video/mp4' :
-                  message.type === 'audio' ? 'audio/mpeg' : 
-                  'application/octet-stream',
+        originalName,
+        mimeType,
         folderStatus: 'in_progress'
       });
 
-      // สร้าง Flex Message สำหรับแสดงตัวเลือก
-      const fileContent = [
-        FlexMessageDesignSystem.createText(`ไฟล์: ${fileRecord.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
-        FlexMessageDesignSystem.createText(`ขนาด: ${this.formatFileSize(fileRecord.size)}`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
-      ];
+      // สร้างการ์ดแสดงไฟล์
+      const fileCard = FlexMessageTemplateService.createFileDisplayCard(fileRecord, { id: groupId });
+      await this.lineService.replyMessage(replyToken!, fileCard);
 
-      const fileButtons = [
-        FlexMessageDesignSystem.createButton(
-          'ผูกกับงาน',
-          'postback',
-          `action=link_file&fileId=${fileRecord.id}`,
-          'primary'
-        ),
-        FlexMessageDesignSystem.createButton(
-          'เพิ่มแท็ก',
-          'postback',
-          `action=tag_file&fileId=${fileRecord.id}`,
-          'secondary'
-        )
-      ];
-
-      const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
-        '✅ บันทึกไฟล์แล้ว',
-        '📁',
-        FlexMessageDesignSystem.colors.success,
-        fileContent,
-        fileButtons,
-        'compact'
-      );
-
-      await this.lineService.replyMessage(replyToken!, flexMessage as any);
+      // แจ้งเตือนในกลุ่ม
+      const user = await this.userService.findByLineUserId(userId);
+      const displayName = user?.displayName || 'ไม่ทราบ';
+      await this.lineService.pushMessage(groupId, `${displayName} อัปโหลดไฟล์: ${fileRecord.originalName}`);
 
     } catch (error) {
       console.error('❌ Error handling file message:', error);
@@ -307,12 +291,11 @@ class WebhookController {
 
         case 'submit_confirm': {
           const taskId = params.get('taskId')!;
-          const fileIdsParam = params.get('fileIds') || '';
+          const fileIds = params.get('fileIds')?.split(',').filter(Boolean) || [];
           const note = params.get('note') || '';
-          const fileIds = fileIdsParam ? fileIdsParam.split(',').filter(Boolean) : [];
           try {
             const task = await this.taskService.recordSubmission(taskId, userId, fileIds, note);
-            await this.lineService.replyMessage(replyToken, `📥 บันทึกการส่งงานให้ "${task.title}" แล้วค่ะ`);
+            await this.lineService.replyMessage(replyToken, `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ สำเร็จแล้วค่ะ`);
           } catch (err: any) {
             await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
@@ -492,6 +475,21 @@ class WebhookController {
           break;
         }
 
+        case 'view_task_files': {
+          const taskId = params.get('taskId')!;
+          try {
+            const task = await this.taskService.getTaskById(taskId);
+            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+            const files = await this.fileService.getTaskFiles(taskId);
+            
+            const taskFilesCard = FlexMessageTemplateService.createTaskFilesCard(task, files, group);
+            await this.lineService.replyMessage(replyToken, taskFilesCard);
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงไฟล์แนบได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
         default:
           console.log('ℹ️ Unhandled postback action:', action);
       }
@@ -590,29 +588,58 @@ class WebhookController {
    */
   private async checkAndSaveNewMemberFromMessage(groupId: string, userId: string): Promise<void> {
     try {
-      console.log(`🔍 ตรวจสอบสมาชิกใหม่จากข้อความ: ${userId} ในกลุ่ม ${groupId}`);
-      
-      // ใช้ฟังก์ชันใหม่ที่เราสร้างใน LineService
-      const result = await this.lineService.checkAndSaveNewMemberFromMessage(groupId, userId);
-      
-      if (result.isNewMember && result.memberInfo) {
-        console.log(`🆕 บันทึกสมาชิกใหม่จากข้อความ: ${result.memberInfo.displayName}`);
-        
-        // แจ้งเตือนในกลุ่มว่ามีสมาชิกใหม่ (ถ้าต้องการ)
-        // await this.lineService.pushMessage(groupId, 
-        //   `ยินดีต้อนรับ ${result.memberInfo.displayName} เข้ากลุ่มค่ะ! 👋`);
+      // ตรวจสอบว่าสมาชิกมีอยู่ในฐานข้อมูลหรือไม่
+      const existingMember = await this.userService.findByLineUserId(userId);
+      if (!existingMember) {
+        // บันทึกสมาชิกใหม่
+        // สร้าง user record ใหม่
+        await this.userService.createUser({
+          lineUserId: userId,
+          displayName: 'ไม่ทราบ'
+        });
       }
-      
     } catch (error) {
-      console.error('❌ Error checking and saving new member from message:', error);
+      console.warn('⚠️ Failed to check/save new member:', error);
     }
+  }
+
+  /**
+   * ได้ MIME type จากชื่อไฟล์
+   */
+  private getMimeTypeFromFileName(fileName: string): string {
+    const ext = fileName.split('.').pop()?.toLowerCase();
+    const mimeMap: { [key: string]: string } = {
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'webp': 'image/webp',
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'txt': 'text/plain',
+      'zip': 'application/zip',
+      'rar': 'application/x-rar-compressed',
+      'mp3': 'audio/mpeg',
+      'mp4': 'video/mp4',
+      'mov': 'video/quicktime'
+    };
+    return mimeMap[ext || ''] || 'application/octet-stream';
   }
 
   /**
    * จัดรูปแบบขนาดไฟล์
    */
   private formatFileSize(bytes: number): string {
-    return formatFileSize(bytes);
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }
 

@@ -279,457 +279,69 @@ export class NotificationService {
 
   /** แจ้งว่ามีการส่งงาน (แนบไฟล์/ลิงก์) */
   public async sendTaskSubmittedNotification(
-    task: any, 
-    submitterDisplayName: string, 
-    fileCount: number, 
+    task: any,
+    submitterDisplayName: string,
+    fileCount: number,
     links: string[]
   ): Promise<void> {
     try {
-      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
-      const notificationKey = `task_submitted_${task.id}`;
-      if (this._sentNotifications.has(notificationKey)) {
-        console.log(`⚠️ Task submitted notification already sent for task: ${task.id}`);
-        return;
-      }
-
       const group = task.group;
-      if (!group) return;
+      if (!group?.lineGroupId) return;
 
-      // สร้าง Flex Message สำหรับการส่งงาน
+      // สร้าง Flex Message สำหรับการแจ้งเตือนการส่งงาน
       const flexMessage = this.createTaskSubmittedFlexMessage(task, group, submitterDisplayName, fileCount, links);
-
+      
+      // ส่งการแจ้งเตือนในกลุ่ม
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
 
-      // บันทึกว่าส่งการแจ้งเตือนแล้ว
-      this._sentNotifications.add(notificationKey);
-      
-      // ลบออกหลังจาก 5 นาที (สำหรับการแจ้งเตือนการส่งงาน)
-      setTimeout(() => {
-        this._sentNotifications.delete(notificationKey);
-      }, 5 * 60 * 1000);
+      // แจ้งผู้ตรวจให้ตรวจงาน
+      const reviewerUserId = this.getTaskReviewer(task);
+      if (reviewerUserId) {
+        const reviewer = await this.userService.findByInternalId(reviewerUserId);
+        if (reviewer?.lineUserId) {
+          // สร้างการ์ดแจ้งผู้ตรวจ
+          const reviewCard = FlexMessageTemplateService.createReviewRequestCard(task, group, submitterDisplayName, fileCount, links);
+          await this.lineService.pushMessage(reviewer.lineUserId, reviewCard);
+        }
+      }
 
     } catch (error) {
       console.error('❌ Error sending task submitted notification:', error);
-      throw error;
-    }
-  }
-
-  /** แจ้งผู้ตรวจให้ตรวจงานภายใน 2 วัน พร้อมสรุปไฟล์/ลิงก์ */
-  public async sendReviewRequest(
-    task: any,
-    reviewerLineUserId: string,
-    details: { submitterDisplayName?: string; fileCount?: number; links?: string[] }
-  ): Promise<void> {
-    try {
-      const group = task.group;
-      if (!group) return;
-
-      const dueText = task.workflow?.review?.reviewDueAt
-        ? moment(task.workflow.review.reviewDueAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')
-        : moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
-
-      const messageToReviewer = `📝 มีการส่งงานรอตรวจ
-
-📋 ${task.title}
-${details.submitterDisplayName ? `👤 ผู้ส่ง: ${details.submitterDisplayName}\n` : ''}${typeof details.fileCount === 'number' ? `📎 ไฟล์: ${details.fileCount} รายการ\n` : ''}📅 กำหนดตรวจภายใน: ${dueText}
-
-ตอบในแชทกลุ่ม: /approve ${task.id.substring(0, 8)} หรือ /reject ${task.id.substring(0, 8)} [เหตุผล]`;
-
-      // แจ้งแบบส่วนตัวไปยังผู้ตรวจ
-      await this.lineService.pushMessage(reviewerLineUserId, messageToReviewer);
-
-      // สร้าง Flex Message สำหรับงานรอตรวจ
-      const flexMessage = this.createReviewRequestFlexMessage(task, group, details, dueText);
-
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
-
-    } catch (error) {
-      console.error('❌ Error sending review request:', error);
-      throw error;
-    }
-  }
-
-  /** แจ้งว่าถูกตีกลับ พร้อมกำหนดส่งใหม่ */
-  public async sendTaskRejectedNotification(
-    task: any, 
-    newDueTime: Date, 
-    reviewerDisplayName?: string
-  ): Promise<void> {
-    try {
-      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
-      const notificationKey = `task_rejected_${task.id}`;
-      if (this._sentNotifications.has(notificationKey)) {
-        console.log(`⚠️ Task rejected notification already sent for task: ${task.id}`);
-        return;
-      }
-
-      const group = task.group;
-      if (!group) return;
-
-      // สร้าง Flex Message สำหรับงานที่ถูกปฏิเสธ
-      const flexMessage = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName);
-
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
-
-      // บันทึกว่าส่งการแจ้งเตือนแล้ว
-      this._sentNotifications.add(notificationKey);
-      
-      // ลบออกหลังจาก 10 นาที (สำหรับการแจ้งเตือนงานถูกปฏิเสธ)
-      setTimeout(() => {
-        this._sentNotifications.delete(notificationKey);
-      }, 10 * 60 * 1000);
-
-    } catch (error) {
-      console.error('❌ Error sending task rejected notification:', error);
-      throw error;
     }
   }
 
   /**
-   * ส่งรายงานรายสัปดาห์
+   * สร้าง Flex Message สำหรับการแจ้งเตือนการส่งงาน
    */
-  public async sendWeeklyReport(
-    group: Group, 
-    stats: any, 
-    leaderboard: Leaderboard[]
-  ): Promise<void> {
-    try {
-      if (!group.settings.enableLeaderboard) return;
-
-      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
-      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
-
-      // สร้าง Flex Message สำหรับรายงานรายสัปดาห์
-      const flexMessage = this.createWeeklyReportFlexMessage(group, stats, leaderboard, weekStart, weekEnd);
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
-
-    } catch (error) {
-      console.error('❌ Error sending weekly report:', error);
-      throw error;
-    }
-  }
-
-  /** ส่งรายงานรายสัปดาห์ให้ผู้ดูแลกลุ่ม (หัวหน้าทีม) แบบการ์ดส่วนตัว */
-  public async sendWeeklyReportToAdmins(
-    group: Group,
-    stats: any,
-    leaderboard: Leaderboard[]
-  ): Promise<void> {
-    try {
-      // ดึงสมาชิกกลุ่มเพื่อหา admin
-      const members = await this.userService.getGroupMembers(group.lineGroupId);
-      const admins = members.filter(m => m.role === 'admin');
-      if (admins.length === 0) return;
-
-      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
-      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
-
-      // สร้าง Flex Message สำหรับรายงานรายสัปดาห์ให้ admin
-      const flexMessage = this.createAdminWeeklyReportFlexMessage(group, stats, leaderboard, weekStart, weekEnd);
-
-      for (const admin of admins) {
-        try {
-          await this.lineService.pushMessage(admin.lineUserId, flexMessage);
-        } catch (err) {
-          console.warn('⚠️ Failed to send weekly report to admin:', admin.displayName, err);
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error sending weekly report to admins:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * ส่งการแจ้งเตือนทั่วไป
-   */
-  public async sendNotification(payload: NotificationPayload): Promise<void> {
-    try {
-      console.log('📬 Sending notification:', payload.type);
-
-      switch (payload.type) {
-        case 'task_created':
-          await this.sendTaskCreatedNotification(payload.data);
-          break;
-
-        case 'task_reminder':
-          await this.sendTaskReminder(payload.data.task, payload.data.reminderType);
-          break;
-
-        case 'task_overdue':
-          await this.sendOverdueNotification(payload.data);
-          break;
-
-        case 'task_completed':
-          await this.sendTaskCompletedNotification(payload.data.task, payload.data.completedBy);
-          break;
-
-        case 'weekly_summary':
-          await this.sendWeeklyReport(payload.data.group, payload.data.stats, payload.data.leaderboard);
-          break;
-
-        default:
-          console.warn('⚠️ Unknown notification type:', payload.type);
-      }
-
-    } catch (error) {
-      console.error('❌ Error sending notification:', error);
-      throw error;
-    }
-  }
-
-  // Helper Methods
-
-  /**
-   * สร้างข้อความเตือน
-   */
-  private createReminderMessage(task: any, reminderType: string): string {
-    const dueTime = moment(task.dueTime).tz(task.group.timezone || config.app.defaultTimezone);
-    const now = moment().tz(task.group.timezone || config.app.defaultTimezone);
-    const timeDiff = dueTime.diff(now);
-    const duration = moment.duration(timeDiff);
-
-    let timeText = '';
-    let emoji = '🔔';
-
-    switch (reminderType) {
-      case 'P7D':
-      case '7d':
-        timeText = 'อีก 7 วัน';
-        emoji = '📅';
-        break;
-      case 'P1D':
-      case '1d':
-        timeText = 'พรุ่งนี้';
-        emoji = '⏰';
-        break;
-      case 'PT3H':
-      case '3h':
-        timeText = 'อีก 3 ชั่วโมง';
-        emoji = '⚡';
-        break;
-      case 'daily_8am':
-        timeText = 'เตือนความจำตอนเช้า 08:00 น.';
-        emoji = '🌅';
-        break;
-      case 'due':
-        timeText = 'ถึงเวลาแล้ว';
-        emoji = '🚨';
-        break;
-      default:
-        if (duration.asDays() >= 1) {
-          timeText = `อีก ${Math.floor(duration.asDays())} วัน`;
-        } else if (duration.asHours() >= 1) {
-          timeText = `อีก ${Math.floor(duration.asHours())} ชั่วโมง`;
-        } else {
-          timeText = `อีก ${Math.floor(duration.asMinutes())} นาที`;
-        }
-    }
-
-    const assignees = task.assignedUsers || [];
-    const assigneeNames = assignees.map((u: any) => `@${u.displayName}`).join(' ');
-
-    return `${emoji} **เตือนงาน - ${timeText}**
-
-📋 ${task.title}
-📅 กำหนดส่ง: ${dueTime.format('DD/MM/YYYY HH:mm')}
-👥 ผู้รับผิดชอบ: ${assigneeNames}
-
-${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}
-📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard`;
-  }
-
-  /**
-   * ได้รับอิโมจิสถานะการทำงาน
-   */
-  private getCompletionStatusEmoji(task: any): string {
-    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone);
-    const completedTime = moment(task.completedAt).tz(config.app.defaultTimezone);
-    const diff = completedTime.diff(dueTime, 'hours');
-
-    if (diff <= -24) return '🎯'; // เสร็จก่อนกำหนด
-    if (diff <= 24) return '✨';  // เสร็จตรงเวลา
-    return '⚠️'; // เสร็จช้า
-  }
-
-  /**
-   * ได้รับข้อความสถานะการทำงาน
-   */
-  private getCompletionStatusText(task: any): string {
-    const dueTime = moment(task.dueTime).tz(config.app.defaultTimezone);
-    const completedTime = moment(task.completedAt).tz(config.app.defaultTimezone);
-    const diff = completedTime.diff(dueTime, 'hours');
-
-    if (diff <= -24) return 'เสร็จก่อนกำหนด - ยอดเยี่ยม! 🎉';
-    if (diff <= 24) return 'เสร็จตรงเวลา - ดีมาก! 👍';
-    return `เสร็จช้า ${Math.abs(diff)} ชั่วโมง`;
-  }
-
-  // Helper Methods สำหรับสร้าง Flex Message
-
-  /**
-   * สร้าง Flex Message สำหรับงานใหม่
-   */
-  private createTaskCreatedFlexMessage(task: any, group: any, creator: any, dueDate: string): any {
-    return FlexMessageTemplateService.createNewTaskCard(task, group, creator, dueDate);
-  }
-
-  /**
-   * สร้าง Flex Message ส่วนตัวสำหรับการแจ้งเตือนงานใหม่
-   */
-  private createPersonalTaskCreatedFlexMessage(task: any, group: any, assignee: any, creator: any, dueDate: string): any {
-    const baseMessage = FlexMessageTemplateService.createNewTaskCard(task, group, creator, dueDate);
-    
-    // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
-    const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
-    if (isAssignee) {
-      const flexMessage = baseMessage as any;
-      if (flexMessage.contents.footer) {
-        flexMessage.contents.footer.contents.push(
-          FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-        );
-      }
-    }
-
-    return baseMessage;
-  }
-
-  /**
-   * สร้าง Flex Message สำหรับเตือนงานตามประเภท
-   */
-  private createTaskReminderFlexMessage(task: any, group: any, reminderType: string): any {
-    const reminderInfo = this.createReminderMessage(task, reminderType);
-    const timeText = this.getReminderTimeText(reminderType);
-    const emoji = this.getReminderEmoji(reminderType);
-    const priorityColors = {
-      low: '#28A745',
-      medium: '#FFC107', 
-      high: '#DC3545'
-    };
-
-    const priorityText = {
-      low: 'ต่ำ',
-      medium: 'ปานกลาง',
-      high: 'สูง'
-    };
-
+  private createTaskSubmittedFlexMessage(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[]): FlexMessage {
     const content = [
-      FlexMessageDesignSystem.createText(task.title, 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
-      FlexMessageDesignSystem.createText(task.description || 'ไม่มีคำอธิบาย', 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true),
-      FlexMessageDesignSystem.createSeparator('medium'),
-      FlexMessageDesignSystem.createBox('horizontal', [
-        FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('📅 กำหนดส่ง', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(
-            moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm'),
-            'sm',
-            FlexMessageDesignSystem.colors.textPrimary,
-            'bold'
-          )
-        ]),
-        FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('🎯 ความสำคัญ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(
-            priorityText[task.priority as keyof typeof priorityText] || 'ไม่ระบุ',
-            'sm',
-            priorityColors[task.priority as keyof typeof priorityColors] || FlexMessageDesignSystem.colors.textSecondary,
-            'bold'
-          )
-        ])
-      ])
+      FlexMessageDesignSystem.createText('📤 มีการส่งงานใหม่', 'md', FlexMessageDesignSystem.colors.success, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`👤 ผู้ส่ง: ${submitterDisplayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      ...(fileCount > 0 ? [
+        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+      ] : []),
+      ...(links && links.length > 0 ? [
+        FlexMessageDesignSystem.createText(`🔗 ลิงก์: ${links.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+      ] : []),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('📅 กำหนดตรวจภายใน: 2 วัน', 'sm', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton(
-        'ดูรายละเอียด',
-        'uri',
-        `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`,
-        'primary'
-      )
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ดูไฟล์แนบ', 'postback', `action=view_task_files&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
-      `${emoji} เตือนงาน - ${timeText}`,
-      emoji,
-      FlexMessageDesignSystem.colors.warning,
+      '📤 การส่งงานใหม่',
+      '📤',
+      FlexMessageDesignSystem.colors.success,
       content,
       buttons,
       'compact'
     );
-  }
-  /**
-   * สร้างการ์ดงานส่วนบุคคลสำหรับการเตือนงาน
-   */
-  private createPersonalTaskReminderFlexMessage(task: any, group: any, assignee: any, reminderType: string): any {
-    const baseMessage = this.createTaskReminderFlexMessage(task, group, reminderType);
-    
-    // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
-    const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
-    if (isAssignee) {
-      const flexMessage = baseMessage as any;
-      if (flexMessage.contents.footer) {
-        flexMessage.contents.footer.contents.push(
-          FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-        );
-      }
-    }
-
-    return baseMessage;
-  }
-
-  /**
-   * สร้าง Flex Message สำหรับงานเกินกำหนด
-   */
-  private createOverdueTaskFlexMessage(task: any, group: any, overdueHours: number): any {
-    return FlexMessageTemplateService.createOverdueTaskCard(task, group, overdueHours);
-  }
-
-  /**
-   * สร้างการ์ดงานส่วนบุคคลสำหรับงานเกินกำหนดที่ส่งในกลุ่ม
-   */
-  private createPersonalOverdueTaskFlexMessage(task: any, group: any, assignee: any, overdueHours: number): any {
-    const baseMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
-    
-    // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
-    const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
-    if (isAssignee) {
-      const flexMessage = baseMessage as any;
-      if (flexMessage.contents.footer) {
-        flexMessage.contents.footer.contents.push(
-          FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-        );
-      }
-    }
-
-    return baseMessage;
-  }
-
-  /**
-   * สร้าง Flex Message สำหรับงานสำเร็จ
-   */
-  private createTaskCompletedFlexMessage(task: any, group: any, completedBy: User): FlexMessage {
-    return FlexMessageTemplateService.createCompletedTaskCard(task, group, completedBy);
-  }
-
-  /**
-   * สร้าง Flex Message สำหรับงานที่อัปเดต
-   */
-  private createTaskUpdatedFlexMessage(task: any, group: any, changes: Record<string, any>, changedFields: string[]): FlexMessage {
-    return FlexMessageTemplateService.createUpdatedTaskCard(task, group, changes, changedFields);
-  }
-
-  /**
-   * สร้าง Flex Message สำหรับงานที่ถูกลบ
-   */
-  private createTaskDeletedFlexMessage(task: any, group: any): FlexMessage {
-    return FlexMessageTemplateService.createDeletedTaskCard(task, group);
-  }
-
-  /**
-   * สร้าง Flex Message สำหรับงานที่ถูกส่ง
-   */
-  private createTaskSubmittedFlexMessage(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[]): FlexMessage {
-    return FlexMessageTemplateService.createSubmittedTaskCard(task, group, submitterDisplayName, fileCount, links);
   }
 
   /**

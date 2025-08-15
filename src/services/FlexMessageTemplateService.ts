@@ -3,7 +3,7 @@
 
 import { FlexMessageDesignSystem, TaskCardData } from './FlexMessageDesignSystem';
 import { FlexMessage } from '@line/bot-sdk';
-import moment from 'moment-timezone';
+import moment from 'moment';
 import { config } from '@/utils/config';
 
 export class FlexMessageTemplateService {
@@ -381,7 +381,7 @@ export class FlexMessageTemplateService {
   }
 
   /**
-   * สร้างการ์ดสำหรับการแนบไฟล์เมื่อส่งงาน
+   * สร้างการ์ดแสดงไฟล์แนบในแชท
    */
   static createFileAttachmentCard(task: any, group: any, assignee: any): FlexMessage {
     const content = [
@@ -401,6 +401,98 @@ export class FlexMessageTemplateService {
 
     return FlexMessageDesignSystem.createStandardTaskCard(
       '📎 แนบไฟล์และส่งงาน',
+      '📎',
+      FlexMessageDesignSystem.colors.info,
+      content,
+      buttons,
+      'compact'
+    );
+  }
+
+  /**
+   * สร้างการ์ดแสดงไฟล์แนบในแชท
+   */
+  static createFileDisplayCard(file: any, group: any): FlexMessage {
+    const fileIcon = this.getFileIcon(file.mimeType);
+    const fileSize = this.formatFileSize(file.size);
+    const uploadDate = moment(file.uploadedAt).format('DD/MM HH:mm');
+    
+    const content = [
+      FlexMessageDesignSystem.createText('📎 ไฟล์แนบ', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`${fileIcon} ${file.originalName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`📦 ${fileSize} • 📅 ${uploadDate}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createText(`👤 ${file.uploadedByUser?.displayName || 'ไม่ทราบ'}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      ...(file.tags && file.tags.length > 0 ? [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText(`🏷️ ${file.tags.map((tag: string) => `#${tag}`).join(' ')}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ] : [])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('ดาวน์โหลด', 'uri', `${config.baseUrl}/api/files/${file.id}/download`, 'primary'),
+      ...(this.isPreviewable(file.mimeType) ? [
+        FlexMessageDesignSystem.createButton('ดูตัวอย่าง', 'uri', `${config.baseUrl}/api/files/${file.id}/preview`, 'secondary')
+      ] : [])
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📎 ไฟล์แนบ',
+      '📎',
+      FlexMessageDesignSystem.colors.info,
+      content,
+      buttons,
+      'compact'
+    );
+  }
+
+  /**
+   * สร้างการ์ดแสดงรายการไฟล์แนบของงาน
+   */
+  static createTaskFilesCard(task: any, files: any[], group: any): FlexMessage {
+    if (!files || files.length === 0) {
+      return FlexMessageDesignSystem.createStandardTaskCard(
+        '📎 ไฟล์แนบ',
+        '📎',
+        FlexMessageDesignSystem.colors.info,
+        [
+          FlexMessageDesignSystem.createText('📎 ไฟล์แนบของงาน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+          FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+          FlexMessageDesignSystem.createSeparator('small'),
+          FlexMessageDesignSystem.createText('ไม่มีไฟล์แนบ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+        ],
+        [
+          FlexMessageDesignSystem.createButton('ดูในเว็บ', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+        ],
+        'compact'
+      );
+    }
+
+    const content = [
+      FlexMessageDesignSystem.createText('📎 ไฟล์แนบของงาน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      ...files.slice(0, 3).map(file => [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText(`${this.getFileIcon(file.mimeType)} ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textPrimary),
+        FlexMessageDesignSystem.createText(`📦 ${this.formatFileSize(file.size)} • 👤 ${file.uploadedByUser?.displayName || 'ไม่ทราบ'}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ]).flat(),
+      ...(files.length > 3 ? [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText(`และอีก ${files.length - 3} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ] : [])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('ดูทั้งหมดในเว็บ', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'primary'),
+      ...(files.length === 1 ? [
+        FlexMessageDesignSystem.createButton('ดาวน์โหลด', 'uri', `${config.baseUrl}/api/files/${files[0].id}/download`, 'secondary')
+      ] : [])
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📎 ไฟล์แนบ',
       '📎',
       FlexMessageDesignSystem.colors.info,
       content,
@@ -473,5 +565,42 @@ export class FlexMessageTemplateService {
     if (score >= 90) return 'งานสมบูรณ์แบบ';
     if (score >= 70) return 'งานเสร็จตามกำหนด';
     return 'งานเสร็จช้า';
+  }
+
+  /**
+   * ตรวจสอบว่าไฟล์สามารถแสดงตัวอย่างได้หรือไม่
+   */
+  private static isPreviewable(mimeType: string): boolean {
+    const previewableMimes = [
+      'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+      'application/pdf', 'text/plain'
+    ];
+    return previewableMimes.includes(mimeType);
+  }
+
+  /**
+   * ได้ไอคอนไฟล์ตาม MIME type
+   */
+  private static getFileIcon(mimeType: string): string {
+    if (mimeType.startsWith('image/')) return '🖼️';
+    if (mimeType.startsWith('video/')) return '🎥';
+    if (mimeType.startsWith('audio/')) return '🎵';
+    if (mimeType.includes('pdf')) return '📄';
+    if (mimeType.includes('word')) return '📝';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return '📊';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '📽️';
+    if (mimeType.includes('zip') || mimeType.includes('rar')) return '📦';
+    return '📎';
+  }
+
+  /**
+   * จัดรูปแบบขนาดไฟล์
+   */
+  private static formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }

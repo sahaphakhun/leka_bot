@@ -1360,24 +1360,52 @@ class Dashboard {
       return;
     }
 
-    container.innerHTML = tasks.map(task => `
-      <div class="task-item" data-task-id="${task.id}">
-        <div class="task-priority ${task.priority}"></div>
-        <div class="task-content">
-          <div class="task-title">${task.title}</div>
-          <div class="task-meta">
-            <span><i class="fas fa-clock"></i> ${this.formatDateTime(task.dueTime)}</span>
-            ${task.assignedUsers && task.assignedUsers.length > 0 ? 
-              `<span><i class=\"fas fa-user\"></i> ${task.assignedUsers.length} คน</span>` : ''
-            }
-            ${task.tags && task.tags.length > 0 ? 
-              `<span><i class="fas fa-tag"></i> ${task.tags.join(', ')}</span>` : ''
-            }
+    container.innerHTML = tasks.map(task => {
+      const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
+      const statusClass = this.getStatusClass(task.status);
+      const priorityClass = this.getPriorityClass(task.priority);
+      const hasAttachments = task.attachedFiles && task.attachedFiles.length > 0;
+      
+      return `
+        <div class="task-item" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer;" 
+             onclick="app.openTaskModal('${task.id}')" data-task-id="${task.id}">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px;">
+            <div style="flex: 1;">
+              <h3 style="margin: 0 0 8px 0; font-size: 1.125rem; font-weight: 600;">${task.title}</h3>
+              <p style="margin: 0; color: #6b7280; font-size: 0.875rem; line-height: 1.4;">${task.description || 'ไม่มีรายละเอียด'}</p>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              ${hasAttachments ? '<span style="color: #3b82f6; font-size: 0.875rem;">📎</span>' : ''}
+              <span class="status ${statusClass}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500;">${this.getStatusText(task.status)}</span>
+              <span class="priority ${priorityClass}" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500;">${this.getPriorityText(task.priority)}</span>
+            </div>
+          </div>
+          
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: #6b7280;">
+            <div style="display: flex; gap: 16px;">
+              <span>👥 ${assignees}</span>
+              <span>📅 ${this.formatDate(task.dueTime)}</span>
+              ${hasAttachments ? `<span>📎 ${task.attachedFiles.length} ไฟล์</span>` : ''}
+            </div>
+            <div style="display: flex; gap: 8px;">
+              ${task.status === 'pending' ? `
+                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
+                </button>
+              ` : ''}
+              ${task.status === 'in_progress' ? `
+                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); app.handleApproveTask('${task.id}')">
+                  <i class="fas fa-check"></i> อนุมัติ
+                </button>
+                <button class="btn btn-sm btn-warning" onclick="event.stopPropagation(); app.handleRejectTask('${task.id}')">
+                  <i class="fas fa-times"></i> ตีกลับ
+                </button>
+              ` : ''}
+            </div>
           </div>
         </div>
-        <div class="task-status ${task.status}">${this.getStatusText(task.status)}</div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
 
     // Update pagination if provided
     if (pagination) {
@@ -1690,38 +1718,93 @@ class Dashboard {
   }
 
   async openTaskModal(taskId) {
-    const body = document.getElementById('taskModalBody');
-    if (!body) { return; }
-    const findInCache = () => (this._taskCache || []).find(t => t.id === taskId);
-    let task = findInCache();
-    if (!task) {
-      try {
-        const resp = await this.apiRequest(`/task/${taskId}`);
-        task = resp?.data || null;
-        if (task) {
-          // เพิ่มเข้า cache ไว้ด้วย
-          this._taskCache = Array.from(new Map([...(this._taskCache||[]), task].map(t => [t.id, t])).values());
-        }
-      } catch (e) {
-        console.warn('openTaskModal fallback fetch failed:', e);
+    try {
+      const task = this._taskCache?.find(t => t.id === taskId) || 
+                   await this.apiRequest(`/task/${taskId}`).then(r => r.data);
+      
+      if (!task) {
+        this.showToast('ไม่พบข้อมูลงาน', 'error');
+        return;
       }
-    }
-    if (!task) { this.showToast('ไม่พบข้อมูลงาน', 'error'); return; }
-    const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
-    const tags = (task.tags || []).map(t => `#${t}`).join(' ');
-    body.innerHTML = `
-      <div style="display:grid; gap:8px;">
-        <div><strong>ชื่องาน:</strong> ${task.title}</div>
-        <div><strong>รายละเอียด:</strong> ${task.description || '-'}</div>
-        <div><strong>กำหนดส่ง:</strong> ${this.formatDateTime(task.dueTime)}</div>
-        <div><strong>ผู้รับผิดชอบ:</strong> ${assignees}</div>
-        ${tags ? `<div><strong>แท็ก:</strong> ${tags}</div>` : ''}
-        <div style="display:flex; gap:8px; margin-top:8px;">
-          <button class="btn btn-primary" data-task-id="${task.id}"><i class='fas fa-paperclip'></i> ส่งงาน</button>
+
+      // โหลดไฟล์แนบของงาน
+      let attachedFiles = [];
+      try {
+        const filesResponse = await this.apiRequest(`/api/groups/${this.currentGroupId}/files?taskId=${taskId}`);
+        attachedFiles = filesResponse.data || [];
+      } catch (error) {
+        console.warn('ไม่สามารถโหลดไฟล์แนบได้:', error);
+      }
+
+      const modal = document.getElementById('taskModal');
+      const content = modal.querySelector('.modal-content');
+      
+      const statusClass = this.getStatusClass(task.status);
+      const priorityClass = this.getPriorityClass(task.priority);
+      
+      content.innerHTML = `
+        <div class="modal-header">
+          <h3>${task.title}</h3>
+          <button class="modal-close" onclick="this.closest('.modal').classList.remove('active')">&times;</button>
         </div>
-      </div>`;
-    document.getElementById('taskModalTitle').textContent = 'รายละเอียดงาน';
-    document.getElementById('taskModal').classList.add('active');
+        <div class="modal-body">
+          <div class="task-details">
+            <div class="task-meta">
+              <span class="status ${statusClass}">${this.getStatusText(task.status)}</span>
+              <span class="priority ${priorityClass}">${this.getPriorityText(task.priority)}</span>
+              <span class="due-date">📅 ${this.formatDate(task.dueTime)}</span>
+            </div>
+            
+            <div class="task-description">
+              <h4>รายละเอียด</h4>
+              <p>${task.description || 'ไม่มีรายละเอียด'}</p>
+            </div>
+
+            <div class="task-assignees">
+              <h4>ผู้รับผิดชอบ</h4>
+              <p>${task.assignees?.map(a => a.displayName).join(', ') || 'ไม่ระบุ'}</p>
+            </div>
+
+            ${attachedFiles.length > 0 ? `
+              <div class="task-attachments">
+                <h4>📎 ไฟล์แนบ (${attachedFiles.length})</h4>
+                <div class="attachments-list">
+                  ${attachedFiles.map(file => `
+                    <div class="attachment-item" onclick="app.downloadFile('${file.id}')">
+                      <i class="fas ${this.getFileIcon(file.mimeType)}"></i>
+                      <span class="file-name">${file.originalName}</span>
+                      <span class="file-size">${this.formatFileSize(file.size)}</span>
+                    </div>
+                  `).join('')}
+                </div>
+              </div>
+            ` : ''}
+
+            <div class="task-actions">
+              ${task.status === 'pending' ? `
+                <button class="btn btn-primary" onclick="app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
+                </button>
+              ` : ''}
+              ${task.status === 'in_progress' ? `
+                <button class="btn btn-success" onclick="app.handleApproveTask('${task.id}')">
+                  <i class="fas fa-check"></i> อนุมัติ
+                </button>
+                <button class="btn btn-warning" onclick="app.handleRejectTask('${task.id}')">
+                  <i class="fas fa-times"></i> ตีกลับ
+                </button>
+              ` : ''}
+            </div>
+          </div>
+        </div>
+      `;
+      
+      modal.classList.add('active');
+      
+    } catch (error) {
+      console.error('Error opening task modal:', error);
+      this.showToast('ไม่สามารถเปิดรายละเอียดงานได้', 'error');
+    }
   }
 
   openSubmitModal(taskId) {
@@ -2159,6 +2242,42 @@ class Dashboard {
       overdue: 'เกินกำหนด'
     };
     return statusMap[status] || status;
+  }
+
+  getStatusClass(status) {
+    const classMap = {
+      pending: 'status-pending',
+      in_progress: 'status-progress',
+      completed: 'status-completed',
+      cancelled: 'status-cancelled',
+      overdue: 'status-overdue'
+    };
+    return classMap[status] || 'status-default';
+  }
+
+  getPriorityText(priority) {
+    const priorityMap = {
+      low: 'ต่ำ',
+      medium: 'ปานกลาง',
+      high: 'สูง',
+      urgent: 'เร่งด่วน'
+    };
+    return priorityMap[priority] || priority;
+  }
+
+  getPriorityClass(priority) {
+    const classMap = {
+      low: 'priority-low',
+      medium: 'priority-medium',
+      high: 'priority-high',
+      urgent: 'priority-urgent'
+    };
+    return classMap[priority] || 'priority-default';
+  }
+
+  openSubmitTaskModal(taskId = '') {
+    this.populateSubmitTaskSelect(taskId);
+    document.getElementById('submitTaskModal').classList.add('active');
   }
 
   getFileIcon(mimeType) {
