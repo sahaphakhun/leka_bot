@@ -322,41 +322,33 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText('📝 รอดำเนินการ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
           FlexMessageDesignSystem.createText(pendingTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.primary, 'bold')
         ]), flex: 1 }
-      ], 'medium')
-    ];
-
-    // เพิ่มงานเกินกำหนด (สำคัญที่สุด)
-    if (overdueTasks.length > 0) {
-      content.push(
+      ], 'medium'),
+      
+      // งานเกินกำหนด (สำคัญที่สุด)
+      ...(overdueTasks.length > 0 ? [
         FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (สำคัญ)', 'md', FlexMessageDesignSystem.colors.danger, 'bold')
-      );
-      content.push(...createTaskList(overdueTasks, 4));
-    }
-    
-    // เพิ่มงานกำลังดำเนินการ
-    if (inProgressTasks.length > 0) {
-      content.push(
+        FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (สำคัญ)', 'md', FlexMessageDesignSystem.colors.danger, 'bold'),
+        ...createTaskList(overdueTasks, 4)
+      ] : []),
+      
+      // งานกำลังดำเนินการ
+      ...(inProgressTasks.length > 0 ? [
         FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('⏳ งานกำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold')
-      );
-      content.push(...createTaskList(inProgressTasks, 4));
-    }
-    
-    // เพิ่มงานรอดำเนินการ
-    if (pendingTasks.length > 0) {
-      content.push(
+        FlexMessageDesignSystem.createText('⏳ งานกำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold'),
+        ...createTaskList(inProgressTasks, 4)
+      ] : []),
+      
+      // งานรอดำเนินการ
+      ...(pendingTasks.length > 0 ? [
         FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('📝 งานรอดำเนินการ', 'md', FlexMessageDesignSystem.colors.primary, 'bold')
-      );
-      content.push(...createTaskList(pendingTasks, 4));
-    }
-    
-    // เพิ่ม Footer
-    content.push(
+        FlexMessageDesignSystem.createText('📝 งานรอดำเนินการ', 'md', FlexMessageDesignSystem.colors.primary, 'bold'),
+        ...createTaskList(pendingTasks, 4)
+      ] : []),
+      
+      // Footer
       FlexMessageDesignSystem.createSeparator('medium'),
       FlexMessageDesignSystem.createText('💡 คลิกปุ่มด้านล่างเพื่อดูรายละเอียดเพิ่มเติม', 'sm', FlexMessageDesignSystem.colors.textSecondary)
-    );
+    ];
 
     const buttons = [
       FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}`, 'primary'),
@@ -433,41 +425,33 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText('📝 รอดำเนินการ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
           FlexMessageDesignSystem.createText(pendingTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.primary, 'bold')
         ]), flex: 1 }
-      ], 'medium')
-    ];
-
-    // เพิ่มงานเกินกำหนด (แสดงเต็ม)
-    if (overdueTasks.length > 0) {
-      content.push(
+      ], 'medium'),
+      
+      // งานเกินกำหนด (แสดงเต็ม)
+      ...(overdueTasks.length > 0 ? [
         FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (ต้องทำด่วน!)', 'md', FlexMessageDesignSystem.colors.danger, 'bold')
-      );
-      content.push(...createPersonalTaskList(overdueTasks, 5));
-    }
-    
-    // เพิ่มงานกำลังดำเนินการ
-    if (inProgressTasks.length > 0) {
-      content.push(
+        FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (ต้องทำด่วน!)', 'md', FlexMessageDesignSystem.colors.danger, 'bold'),
+        ...createPersonalTaskList(overdueTasks, 5)
+      ] : []),
+      
+      // งานกำลังดำเนินการ
+      ...(inProgressTasks.length > 0 ? [
         FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('⏳ งานกำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold')
-      );
-      content.push(...createPersonalTaskList(inProgressTasks, 4));
-    }
-    
-    // เพิ่มงานรอดำเนินการ
-    if (pendingTasks.length > 0) {
-      content.push(
+        FlexMessageDesignSystem.createText('⏳ งานกำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold'),
+        ...createPersonalTaskList(inProgressTasks, 4)
+      ] : []),
+      
+      // งานรอดำเนินการ
+      ...(pendingTasks.length > 0 ? [
         FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('📝 งานรอดำเนินการ', 'md', FlexMessageDesignSystem.colors.primary, 'bold')
-      );
-      content.push(...createPersonalTaskList(pendingTasks, 4));
-    }
-    
-    // เพิ่มคำแนะนำ
-    content.push(
+        FlexMessageDesignSystem.createText('📝 งานรอดำเนินการ', 'md', FlexMessageDesignSystem.colors.primary, 'bold'),
+        ...createPersonalTaskList(pendingTasks, 4)
+      ] : []),
+      
+      // คำแนะนำ
       FlexMessageDesignSystem.createSeparator('medium'),
       FlexMessageDesignSystem.createText('💡 เริ่มจากงานที่เกินกำหนดก่อน แล้วค่อยทำงานอื่นๆ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
-    );
+    ];
 
     const buttons = [
       FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}`, 'primary'),
