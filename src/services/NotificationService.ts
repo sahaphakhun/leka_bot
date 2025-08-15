@@ -587,9 +587,12 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
     const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
     if (isAssignee) {
-      baseMessage.contents.footer.contents.push(
-        FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-      );
+      const flexMessage = baseMessage as any;
+      if (flexMessage.contents.footer) {
+        flexMessage.contents.footer.contents.push(
+          FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
+        );
+      }
     }
 
     return baseMessage;
@@ -685,9 +688,12 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
     const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
     if (isAssignee) {
-      baseMessage.contents.footer.contents.push(
-        FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-      );
+      const flexMessage = baseMessage as any;
+      if (flexMessage.contents.footer) {
+        flexMessage.contents.footer.contents.push(
+          FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
+        );
+      }
     }
 
     return baseMessage;
@@ -709,9 +715,12 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
     // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
     const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
     if (isAssignee) {
-      baseMessage.contents.footer.contents.push(
-        FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-      );
+      const flexMessage = baseMessage as any;
+      if (flexMessage.contents.footer) {
+        flexMessage.contents.footer.contents.push(
+          FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
+        );
+      }
     }
 
     return baseMessage;
@@ -964,7 +973,7 @@ ${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => 
       FlexMessageDesignSystem.createSeparator('medium'),
       FlexMessageDesignSystem.createBox('vertical', [
         FlexMessageDesignSystem.createText('🏆 อันดับพนักงานคนขยัน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
-        ...leaderboardContents
+                ...leaderboardContents
       ], 'small')
     ];
 
@@ -1014,7 +1023,7 @@ ${task.tags && task.tags.length > 0 ? `🏷️ ${task.tags.map((tag: string) => 
       FlexMessageDesignSystem.createSeparator('medium'),
       FlexMessageDesignSystem.createBox('vertical', [
         FlexMessageDesignSystem.createText('🏆 อันดับผู้ทำงาน (Top 5)', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
-        ...leaderboardContents
+                ...leaderboardContents
       ], 'small')
     ];
 

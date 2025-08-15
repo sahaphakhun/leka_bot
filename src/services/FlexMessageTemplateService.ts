@@ -329,7 +329,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createBox('vertical', [
             FlexMessageDesignSystem.createText(task.title, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
             FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.danger)
-          ], 'small', 'small', '#FFF2F2', 'sm')
+          ], 'small', 'small', '#FFF2F2', 'sm') as any
         );
       });
     }
@@ -345,7 +345,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createBox('vertical', [
             FlexMessageDesignSystem.createText(task.title, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
             FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.warning)
-          ], 'small', 'small', '#FFF8E1', 'sm')
+          ], 'small', 'small', '#FFF8E1', 'sm') as any
         );
       });
     }
@@ -361,7 +361,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createBox('vertical', [
             FlexMessageDesignSystem.createText(task.title, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
             FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${moment(task.dueTime).tz(timezone).format('DD/MM/YYYY HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.primary)
-          ], 'small', 'small', '#F0F8FF', 'sm')
+          ], 'small', 'small', '#F0F8FF', 'sm') as any
         );
       });
     }

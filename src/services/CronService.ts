@@ -368,7 +368,7 @@ export class CronService {
   /**
    * สร้าง Flex Message สำหรับรายงานผู้จัดการ
    */
-    private createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): any {
+  private createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): any {
     const date = moment().tz(timezone).format('DD/MM/YYYY');
     
     const content = [

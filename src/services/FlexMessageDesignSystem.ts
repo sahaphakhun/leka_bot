@@ -278,7 +278,7 @@ export class FlexMessageDesignSystem {
     title: string,
     emoji: string,
     color: string,
-    content: any[],
+    content: any[], // รับได้ทั้ง text, separator, และ box components
     buttons: any[],
     size: keyof typeof FlexMessageDesignSystem.sizes = 'default'
   ): FlexMessage {
@@ -287,7 +287,7 @@ export class FlexMessageDesignSystem {
       altText: title,
       contents: {
         type: 'bubble',
-        ...(size !== 'default' && { size: this.sizes[size] }),
+        ...(size !== 'default' && { size: this.sizes[size] as 'nano' | 'micro' | 'kilo' | 'mega' | 'giga' }),
         header: {
           type: 'box',
           layout: this.layouts.header,

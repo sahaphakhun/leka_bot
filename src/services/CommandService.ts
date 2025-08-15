@@ -220,7 +220,7 @@ ${supervisorNames}
    * ส่งงาน (ผู้รับงานแนบไฟล์ในแชท แล้วพิมพ์ /submit <รหัสงาน หรือ ชื่องาน> [หมายเหตุ]
    * หมายเหตุ: ระบบจะนำไฟล์ล่าสุดของผู้ใช้ในกลุ่ม (24 ชม.) ไปผูกกับงานโดยอัตโนมัติ
    */
-  private async handleSubmitCommand(command: BotCommand): Promise<string> {
+  private async handleSubmitCommand(command: BotCommand): Promise<string | any> {
     try {
       const [taskQuery, ...noteParts] = command.args;
       if (!taskQuery) return 'กรุณาระบุรหัสงานหรือชื่องาน เช่น /submit abc123 รายงานเดือนเม.ย.';
