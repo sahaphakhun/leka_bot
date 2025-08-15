@@ -1,7 +1,6 @@
 // Configuration และ Environment Variables
 
 import dotenv from 'dotenv';
-import { logger } from './logger';
 
 dotenv.config();
 
@@ -106,9 +105,9 @@ export const validateConfig = (): void => {
   
   if (missing.length > 0) {
     if (config.allowDashboardOnly) {
-      logger.warn('Missing LINE env vars, starting in Dashboard-only mode:', { missing });
+      console.warn('Missing LINE env vars, starting in Dashboard-only mode:', { missing });
     } else {
-      logger.error('Missing required environment variables:', { missing });
+      console.error('Missing required environment variables:', { missing });
       process.exit(1);
     }
   }
@@ -116,18 +115,18 @@ export const validateConfig = (): void => {
   // Check optional features
   const missingOptional = optionalEnvVars.filter(key => !process.env[key]);
   if (missingOptional.length > 0) {
-    logger.warn('Optional features disabled due to missing variables:', { missingOptional });
-    logger.info('The bot will work but some features will be unavailable:');
+    console.warn('Optional features disabled due to missing variables:', { missingOptional });
+    console.info('The bot will work but some features will be unavailable:');
     
     if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
-      logger.info('   - Google Calendar integration disabled');
+      console.info('   - Google Calendar integration disabled');
     }
     if (!process.env.SMTP_USER || !process.env.SMTP_PASS) {
-      logger.info('   - Email notifications disabled');
+      console.info('   - Email notifications disabled');
     }
   }
   
-  logger.info('Configuration validated successfully');
+  console.info('Configuration validated successfully');
 };
 
 // Feature flags based on environment variables
