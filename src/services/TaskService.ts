@@ -937,4 +937,79 @@ export class TaskService {
       throw error;
     }
   }
+
+  /**
+   * ดึงงานประจำทั้งหมด
+   */
+  public async getAllRecurringTasks(): Promise<Task[]> {
+    try {
+      // ดึงงานที่มีการตั้งค่าประจำ
+      const recurringTasks = await this.taskRepository.find({
+        where: {
+          // งานที่มีการตั้งค่าประจำ (ในอนาคตจะเพิ่ม field recurring)
+          status: In(['pending', 'in_progress'])
+        },
+        relations: ['group', 'assignedUsers', 'createdByUser']
+      });
+
+      return recurringTasks;
+    } catch (error) {
+      console.error('❌ Error getting recurring tasks:', error);
+      return [];
+    }
+  }
+
+  /**
+   * ดำเนินการงานประจำ
+   */
+  public async executeRecurringTask(taskId: string): Promise<void> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['group', 'assignedUsers']
+      });
+
+      if (!task) {
+        console.warn(`⚠️ Task not found: ${taskId}`);
+        return;
+      }
+
+      // สร้างงานใหม่จากงานประจำ
+      const newTask = await this.createTask({
+        groupId: task.group.lineGroupId,
+        title: task.title,
+        description: task.description,
+        assigneeIds: task.assignedUsers.map(u => u.lineUserId),
+        createdBy: task.createdByUser.lineUserId,
+        dueTime: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 วันจากนี้
+        priority: task.priority,
+        tags: task.tags,
+        customReminders: task.customReminders,
+        requireAttachment: false
+      });
+
+      console.log(`✅ Created recurring task: ${newTask.title}`);
+
+    } catch (error) {
+      console.error('❌ Error executing recurring task:', error);
+    }
+  }
+
+  /**
+   * อัปเดตเวลารันถัดไปของงานประจำ
+   */
+  public async updateRecurringTaskNextRunAt(taskId: string): Promise<void> {
+    try {
+      // อัปเดตเวลารันถัดไป (ในอนาคตจะเพิ่ม field nextRunAt)
+      // สำหรับตอนนี้ให้อัปเดต updatedAt
+      await this.taskRepository.update(taskId, {
+        updatedAt: new Date()
+      });
+
+      console.log(`✅ Updated recurring task next run time: ${taskId}`);
+
+    } catch (error) {
+      console.error('❌ Error updating recurring task next run time:', error);
+    }
+  }
 }

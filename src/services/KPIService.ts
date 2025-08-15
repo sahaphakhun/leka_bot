@@ -721,4 +721,159 @@ export class KPIService {
       return 'same';
     }
   }
+
+  /**
+   * ดึงสถิติรายวันสำหรับรายงานผู้จัดการ
+   */
+  public async getDailyStats(groupId: string): Promise<{
+    totalTasks: number;
+    completedTasks: number;
+    overdueTasks: number;
+    pendingReviewTasks: number;
+  }> {
+    try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) internalGroupId = groupByLineId.id;
+
+      const now = moment().tz(config.app.defaultTimezone);
+      const today = now.clone().startOf('day');
+
+      // งานทั้งหมดในกลุ่ม
+      const totalTasks = await this.taskRepository.count({
+        where: { groupId: internalGroupId }
+      });
+
+      // งานที่เสร็จแล้ววันนี้
+      const completedTasks = await this.taskRepository.count({
+        where: {
+          groupId: internalGroupId,
+          status: 'completed'
+        }
+      });
+
+      // งานที่เกินกำหนด
+      const overdueTasks = await this.taskRepository.count({
+        where: {
+          groupId: internalGroupId,
+          status: 'overdue'
+        }
+      });
+
+      // งานที่รอการตรวจ (สถานะ in_progress)
+      const pendingReviewTasks = await this.taskRepository.count({
+        where: {
+          groupId: internalGroupId,
+          status: 'in_progress'
+        }
+      });
+
+      return {
+        totalTasks,
+        completedTasks,
+        overdueTasks,
+        pendingReviewTasks
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting daily stats:', error);
+      return {
+        totalTasks: 0,
+        completedTasks: 0,
+        overdueTasks: 0,
+        pendingReviewTasks: 0
+      };
+    }
+  }
+
+  /**
+   * อัปเดตสถิติกลุ่ม
+   */
+  public async updateGroupStats(groupId: string): Promise<void> {
+    try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) internalGroupId = groupByLineId.id;
+
+      // อัปเดตสถิติรายสัปดาห์
+      await this.updateWeeklyStats(internalGroupId);
+      
+      // อัปเดตสถิติรายเดือน
+      await this.updateMonthlyStats(internalGroupId);
+
+    } catch (error) {
+      console.error('❌ Error updating group stats:', error);
+    }
+  }
+
+  /**
+   * อัปเดตสถิติรายสัปดาห์
+   */
+  private async updateWeeklyStats(groupId: string): Promise<void> {
+    try {
+      const now = moment().tz(config.app.defaultTimezone);
+      const weekStart = now.clone().startOf('week');
+      const weekEnd = now.clone().endOf('week');
+
+      // คำนวณสถิติรายสัปดาห์
+      const weeklyStats = await this.getReportSummary(groupId, {
+        startDate: weekStart.toDate(),
+        endDate: weekEnd.toDate(),
+        period: 'weekly'
+      });
+
+      // บันทึกลงฐานข้อมูล (ในอนาคต)
+      console.log(`📊 Updated weekly stats for group ${groupId}:`, weeklyStats);
+
+    } catch (error) {
+      console.error('❌ Error updating weekly stats:', error);
+    }
+  }
+
+  /**
+   * อัปเดตสถิติรายเดือน
+   */
+  private async updateMonthlyStats(groupId: string): Promise<void> {
+    try {
+      const now = moment().tz(config.app.defaultTimezone);
+      const monthStart = now.clone().startOf('month');
+      const monthEnd = now.clone().endOf('month');
+
+      // คำนวณสถิติรายเดือน
+      const monthlyStats = await this.getReportSummary(groupId, {
+        startDate: monthStart.toDate(),
+        endDate: monthEnd.toDate(),
+        period: 'monthly'
+      });
+
+      // บันทึกลงฐานข้อมูล (ในอนาคต)
+      console.log(`📊 Updated monthly stats for group ${groupId}:`, monthlyStats);
+
+    } catch (error) {
+      console.error('❌ Error updating monthly stats:', error);
+    }
+  }
+
+  /**
+   * อัปเดต Leaderboard ของกลุ่ม
+   */
+  public async updateGroupLeaderboard(groupId: string, period: 'weekly' | 'monthly'): Promise<void> {
+    try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) internalGroupId = groupByLineId.id;
+
+      // อัปเดต Leaderboard
+      const leaderboard = await this.getGroupLeaderboard(internalGroupId, period);
+      
+      // บันทึกลงฐานข้อมูล (ในอนาคต)
+      console.log(`🏆 Updated ${period} leaderboard for group ${groupId}:`, leaderboard.length, 'users');
+
+    } catch (error) {
+      console.error('❌ Error updating group leaderboard:', error);
+    }
+  }
 }

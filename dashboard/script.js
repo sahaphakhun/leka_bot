@@ -427,50 +427,64 @@ class Dashboard {
     }, 5000);
   }
 
+  // ฟังก์ชันแปลงปี ค.ศ. เป็น พ.ศ.
+  convertToThaiYear(year) {
+    return year + 543;
+  }
+
   formatDate(date) {
     if (moment && moment.tz) {
       try {
-        return moment(date).tz(this.timezone).format('DD MMMM YYYY');
+        const momentDate = moment(date).tz(this.timezone);
+        const day = momentDate.format('DD');
+        const month = momentDate.format('MM');
+        const year = this.convertToThaiYear(momentDate.year());
+        return `${day}/${month}/${year}`;
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        return new Date(date).toLocaleDateString('th-TH', {
-          year: 'numeric',
-          month: 'long',
-          day: 'numeric'
-        });
+        const dateObj = new Date(date);
+        const day = dateObj.getDate().toString().padStart(2, '0');
+        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const year = this.convertToThaiYear(dateObj.getFullYear());
+        return `${day}/${month}/${year}`;
       }
     }
     // fallback to native Date if moment is not available
-    return new Date(date).toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
+    const dateObj = new Date(date);
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const year = this.convertToThaiYear(dateObj.getFullYear());
+    return `${day}/${month}/${year}`;
   }
 
   formatDateTime(date) {
     if (moment && moment.tz) {
       try {
-        return moment(date).tz(this.timezone).format('DD MMM YYYY HH:mm');
+        const momentDate = moment(date).tz(this.timezone);
+        const day = momentDate.format('DD');
+        const month = momentDate.format('MM');
+        const year = this.convertToThaiYear(momentDate.year());
+        const time = momentDate.format('HH:mm');
+        return `${day}/${month}/${year} ${time}`;
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        return new Date(date).toLocaleString('th-TH', {
-          year: 'numeric',
-          month: 'short',
-          day: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit'
-        });
+        const dateObj = new Date(date);
+        const day = dateObj.getDate().toString().padStart(2, '0');
+        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+        const year = this.convertToThaiYear(dateObj.getFullYear());
+        const hours = dateObj.getHours().toString().padStart(2, '0');
+        const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+        return `${day}/${month}/${year} ${hours}:${minutes}`;
       }
     }
     // fallback to native Date if moment is not available
-    return new Date(date).toLocaleString('th-TH', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    });
+    const dateObj = new Date(date);
+    const day = dateObj.getDate().toString().padStart(2, '0');
+    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+    const year = this.convertToThaiYear(dateObj.getFullYear());
+    const hours = dateObj.getHours().toString().padStart(2, '0');
+    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+    return `${day}/${month}/${year} ${hours}:${minutes}`;
   }
 
   // ==================== 
@@ -799,7 +813,7 @@ class Dashboard {
         <i class="fas fa-user-plus"></i>
         <strong>สมาชิกใหม่:</strong> ${memberInfo.displayName}
         <br>
-        <small>แหล่งข้อมูล: ${source} • อัปเดต: ${new Date(memberInfo.lastUpdated).toLocaleString('th-TH')}</small>
+        <small>แหล่งข้อมูล: ${source} • อัปเดต: ${this.formatDateTime(memberInfo.lastUpdated)}</small>
       </div>
     `;
     newMemberInfo.style.display = 'block';

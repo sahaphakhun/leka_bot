@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบรูปแบบวันที่ใหม่</title>
+    <style>
+        body {
+            font-family: 'Sarabun', sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .date-example {
+            background: #f8f9fa;
+            padding: 15px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border-left: 4px solid #007bff;
+        }
+        .format-label {
+            font-weight: bold;
+            color: #007bff;
+            margin-bottom: 5px;
+        }
+        .date-result {
+            font-size: 18px;
+            color: #333;
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        .info {
+            background: #e7f3ff;
+            padding: 15px;
+            border-radius: 5px;
+            margin-bottom: 20px;
+            border-left: 4px solid #007bff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 ทดสอบรูปแบบวันที่ใหม่</h1>
+        
+        <div class="info">
+            <strong>การเปลี่ยนแปลง:</strong> เปลี่ยนรูปแบบวันที่จาก "DD MMMM YYYY" เป็น "dd/mm/yyyy (พ.ศ.)"
+            <br>
+            <strong>ตัวอย่าง:</strong> จาก "15 มกราคม 2024" เป็น "15/01/2567"
+        </div>
+
+        <div class="date-example">
+            <div class="format-label">📅 วันที่ปัจจุบัน (formatDate):</div>
+            <div class="date-result" id="currentDate"></div>
+        </div>
+
+        <div class="date-example">
+            <div class="format-label">🕐 วันที่และเวลาปัจจุบัน (formatDateTime):</div>
+            <div class="date-result" id="currentDateTime"></div>
+        </div>
+
+        <div class="date-example">
+            <div class="format-label">📋 วันที่ตัวอย่าง (1 มกราคม 2024):</div>
+            <div class="date-result" id="sampleDate"></div>
+        </div>
+
+        <div class="date-example">
+            <div class="format-label">📋 วันที่และเวลาตัวอย่าง (1 มกราคม 2024 14:30):</div>
+            <div class="date-result" id="sampleDateTime"></div>
+        </div>
+    </div>
+
+    <!-- โหลด moment.js จาก local -->
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/moment-timezone.min.js"></script>
+    
+    <script>
+        // Mock Dashboard class สำหรับทดสอบ
+        class TestDashboard {
+            constructor() {
+                this.timezone = 'Asia/Bangkok';
+            }
+
+            // ฟังก์ชันแปลงปี ค.ศ. เป็น พ.ศ.
+            convertToThaiYear(year) {
+                return year + 543;
+            }
+
+            formatDate(date) {
+                if (moment && moment.tz) {
+                    try {
+                        const momentDate = moment(date).tz(this.timezone);
+                        const day = momentDate.format('DD');
+                        const month = momentDate.format('MM');
+                        const year = this.convertToThaiYear(momentDate.year());
+                        return `${day}/${month}/${year}`;
+                    } catch (error) {
+                        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+                        const dateObj = new Date(date);
+                        const day = dateObj.getDate().toString().padStart(2, '0');
+                        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                        const year = this.convertToThaiYear(dateObj.getFullYear());
+                        return `${day}/${month}/${year}`;
+                    }
+                }
+                // fallback to native Date if moment is not available
+                const dateObj = new Date(date);
+                const day = dateObj.getDate().toString().padStart(2, '0');
+                const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                const year = this.convertToThaiYear(dateObj.getFullYear());
+                return `${day}/${month}/${year}`;
+            }
+
+            formatDateTime(date) {
+                if (moment && moment.tz) {
+                    try {
+                        const momentDate = moment(date).tz(this.timezone);
+                        const day = momentDate.format('DD');
+                        const month = momentDate.format('MM');
+                        const year = this.convertToThaiYear(momentDate.year());
+                        const time = momentDate.format('HH:mm');
+                        return `${day}/${month}/${year} ${time}`;
+                    } catch (error) {
+                        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+                        const dateObj = new Date(date);
+                        const day = dateObj.getDate().toString().padStart(2, '0');
+                        const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                        const year = this.convertToThaiYear(dateObj.getFullYear());
+                        const hours = dateObj.getHours().toString().padStart(2, '0');
+                        const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+                        return `${day}/${month}/${year} ${hours}:${minutes}`;
+                    }
+                }
+                // fallback to native Date if moment is not available
+                const dateObj = new Date(date);
+                const day = dateObj.getDate().toString().padStart(2, '0');
+                const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
+                const year = this.convertToThaiYear(dateObj.getFullYear());
+                const hours = dateObj.getHours().toString().padStart(2, '0');
+                const minutes = dateObj.getMinutes().toString().padStart(2, '0');
+                return `${day}/${month}/${year} ${hours}:${minutes}`;
+            }
+        }
+
+        // ทดสอบเมื่อโหลดหน้าเสร็จ
+        document.addEventListener('DOMContentLoaded', () => {
+            const dashboard = new TestDashboard();
+            
+            // แสดงวันที่ปัจจุบัน
+            document.getElementById('currentDate').textContent = dashboard.formatDate(new Date());
+            document.getElementById('currentDateTime').textContent = dashboard.formatDateTime(new Date());
+            
+            // แสดงวันที่ตัวอย่าง
+            const sampleDate = new Date('2024-01-01');
+            document.getElementById('sampleDate').textContent = dashboard.formatDate(sampleDate);
+            
+            const sampleDateTime = new Date('2024-01-01T14:30:00');
+            document.getElementById('sampleDateTime').textContent = dashboard.formatDateTime(sampleDateTime);
+        });
+    </script>
+</body>
+</html>

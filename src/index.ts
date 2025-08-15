@@ -11,6 +11,7 @@ import { initializeDatabase, closeDatabase } from './utils/database';
 import { webhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
 import { dashboardRouter } from './controllers/dashboardController';
+import { projectRouter } from './controllers/projectController';
 import { LineService } from './services/LineService';
 import { CronService } from './services/CronService';
 
@@ -75,6 +76,7 @@ class Server {
           health: '/health',
           webhook: '/webhook',
           api: '/api',
+          'project-rules': '/api/project',
           dashboard: '/dashboard'
         }
       });
@@ -93,6 +95,9 @@ class Server {
     // API Routes
     this.app.use('/api', apiRouter);
 
+    // Project Rules & Memory Routes
+    this.app.use('/api/project', projectRouter);
+
     // Dashboard Routes (ต้องมาหลัง static files)
     this.app.use('/dashboard', dashboardRouter);
 
@@ -101,7 +106,7 @@ class Server {
       res.status(404).json({
         error: 'Not Found',
         message: `Route ${req.originalUrl} not found`,
-        availableRoutes: ['/', '/health', '/webhook', '/api', '/dashboard']
+        availableRoutes: ['/', '/health', '/webhook', '/api', '/api/project', '/dashboard']
       });
     });
   }
