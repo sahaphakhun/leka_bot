@@ -305,17 +305,21 @@ export class KPIService {
         // คำนวณ trend (เปรียบเทียบกับสัปดาห์/เดือนก่อน)
         const trend = await this.calculateTrend(userId, internalGroupId, period);
         
+        // Safe parsing of numeric values with fallbacks
+        const averagePoints = result.averagePoints !== null && result.averagePoints !== undefined ? parseFloat(result.averagePoints) : 0;
+        const safeAveragePoints = isNaN(averagePoints) ? 0 : averagePoints;
+        
         leaderboard.push({
           userId,
           displayName: result.displayName,
-          weeklyPoints: period === 'weekly' ? parseFloat(result.averagePoints) : 0,
-          monthlyPoints: period === 'monthly' ? parseFloat(result.averagePoints) : 0,
-          totalPoints: parseFloat(result.averagePoints), // ใช้ค่าเฉลี่ยแทนการรวม
-          tasksCompleted: parseInt(result.tasksCompleted),
-          tasksEarly: parseInt(result.tasksEarly),
-          tasksOnTime: parseInt(result.tasksOnTime),
-          tasksLate: parseInt(result.tasksLate),
-          tasksOvertime: parseInt(result.tasksOvertime),
+          weeklyPoints: period === 'weekly' ? safeAveragePoints : 0,
+          monthlyPoints: period === 'monthly' ? safeAveragePoints : 0,
+          totalPoints: safeAveragePoints, // ใช้ค่าเฉลี่ยแทนการรวม
+          tasksCompleted: parseInt(result.tasksCompleted) || 0,
+          tasksEarly: parseInt(result.tasksEarly) || 0,
+          tasksOnTime: parseInt(result.tasksOnTime) || 0,
+          tasksLate: parseInt(result.tasksLate) || 0,
+          tasksOvertime: parseInt(result.tasksOvertime) || 0,
           rank: i + 1,
           trend
         });
@@ -358,7 +362,11 @@ export class KPIService {
       }
 
       const result = await queryBuilder.getRawOne();
-      return result ? parseFloat(result.averagePoints) : 0;
+      if (!result || result.averagePoints === null || result.averagePoints === undefined) {
+        return 0;
+      }
+      const averagePoints = parseFloat(result.averagePoints);
+      return isNaN(averagePoints) ? 0 : averagePoints;
 
     } catch (error) {
       console.error('❌ Error calculating user average score:', error);
@@ -393,11 +401,22 @@ export class KPIService {
           .andWhere('kpi.weekOf = :weekStart', { weekStart })
           .getRawOne();
 
-        history.unshift({
-          week: moment(weekStart).format('YYYY-MM-DD'),
-          averageScore: result ? parseFloat(result.averageScore) : 0,
-          totalTasks: result ? parseInt(result.totalTasks) : 0
-        });
+        if (result) {
+          const averageScore = result.averageScore !== null && result.averageScore !== undefined ? parseFloat(result.averageScore) : 0;
+          const totalTasks = result.totalTasks !== null && result.totalTasks !== undefined ? parseInt(result.totalTasks) : 0;
+          
+          history.unshift({
+            week: moment(weekStart).format('YYYY-MM-DD'),
+            averageScore: isNaN(averageScore) ? 0 : averageScore,
+            totalTasks: isNaN(totalTasks) ? 0 : totalTasks
+          });
+        } else {
+          history.unshift({
+            week: moment(weekStart).format('YYYY-MM-DD'),
+            averageScore: 0,
+            totalTasks: 0
+          });
+        }
       }
 
       return history;

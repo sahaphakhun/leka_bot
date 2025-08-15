@@ -175,6 +175,260 @@ class DashboardController {
   }
 
   /**
+   * GET /dashboard/task/:taskId - หน้ารายละเอียดงาน
+   */
+  public async getTaskDetail(req: Request, res: Response): Promise<void> {
+    try {
+      const { taskId } = req.params;
+      
+      // ดึงข้อมูลงาน
+      const task = await this.taskService.getTaskById(taskId);
+      if (!task) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'Task not found' 
+        });
+        return;
+      }
+
+      // ดึงข้อมูลกลุ่ม
+      const group = await this.userService.findGroupById(task.groupId);
+      
+      // ดึงข้อมูลผู้รับมอบหมายงาน (ใช้ assignedUsers แรก)
+      const assigneeId = (task as any).assignedUsers && (task as any).assignedUsers.length > 0 ? (task as any).assignedUsers[0].id : null;
+      const assignee = assigneeId ? await this.userService.findById(assigneeId) : null;
+      
+      // ดึงข้อมูลไฟล์แนบ
+      const files = await this.fileService.getTaskFiles(taskId);
+      
+      // สร้างหน้าเว็บแสดงรายละเอียดงาน
+      const taskDetailHtml = this.generateTaskDetailHtml({
+        task,
+        group,
+        assignee,
+        files
+      });
+
+      res.send(taskDetailHtml);
+
+    } catch (error) {
+      logger.error('Error serving task detail:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Task detail page not available' 
+      });
+    }
+  }
+
+  /**
+   * สร้าง HTML สำหรับหน้ารายละเอียดงาน
+   */
+  private generateTaskDetailHtml(data: any): string {
+    const { task, group, assignee, files } = data;
+    
+    return `
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>รายละเอียดงาน - เลขาบอท</title>
+  <style>
+    body { 
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+      margin: 0; 
+      padding: 20px; 
+      background-color: #f5f5f5; 
+    }
+    .container { 
+      max-width: 600px; 
+      margin: 0 auto; 
+      background: white; 
+      border-radius: 10px; 
+      padding: 20px; 
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1); 
+    }
+    .header { 
+      text-align: center; 
+      margin-bottom: 20px; 
+      padding-bottom: 20px;
+      border-bottom: 2px solid #f0f0f0;
+    }
+    .title { 
+      color: #333; 
+      font-size: 24px; 
+      font-weight: bold; 
+      margin-bottom: 10px; 
+    }
+    .subtitle { 
+      color: #666; 
+      font-size: 14px; 
+    }
+    .task-info { 
+      margin-bottom: 20px; 
+    }
+    .info-row { 
+      display: flex; 
+      justify-content: space-between; 
+      margin-bottom: 10px; 
+      padding: 8px 0;
+      border-bottom: 1px solid #f0f0f0;
+    }
+    .info-label { 
+      font-weight: 600; 
+      color: #555; 
+      min-width: 120px;
+    }
+    .info-value { 
+      color: #333; 
+      text-align: right;
+    }
+    .status-badge { 
+      padding: 4px 12px; 
+      border-radius: 20px; 
+      font-size: 12px; 
+      font-weight: 600; 
+      text-transform: uppercase;
+    }
+    .status-pending { background-color: #fff3cd; color: #856404; }
+    .status-in_progress { background-color: #d1ecf1; color: #0c5460; }
+    .status-completed { background-color: #d4edda; color: #155724; }
+    .status-cancelled { background-color: #f8d7da; color: #721c24; }
+    .status-overdue { background-color: #f8d7da; color: #721c24; }
+    .priority-badge { 
+      padding: 4px 12px; 
+      border-radius: 20px; 
+      font-size: 12px; 
+      font-weight: 600; 
+    }
+    .priority-low { background-color: #d4edda; color: #155724; }
+    .priority-medium { background-color: #fff3cd; color: #856404; }
+    .priority-high { background-color: #f8d7da; color: #721c24; }
+    .description { 
+      background-color: #f8f9fa; 
+      padding: 15px; 
+      border-radius: 8px; 
+      margin: 15px 0; 
+      border-left: 4px solid #007bff;
+    }
+    .files-section { 
+      margin-top: 20px; 
+    }
+    .file-item { 
+      background-color: #f8f9fa; 
+      padding: 10px; 
+      border-radius: 6px; 
+      margin-bottom: 8px; 
+      border-left: 3px solid #28a745;
+    }
+    .back-button { 
+      display: inline-block; 
+      padding: 10px 20px; 
+      background-color: #6c757d; 
+      color: white; 
+      text-decoration: none; 
+      border-radius: 6px; 
+      margin-top: 20px; 
+    }
+    .back-button:hover { 
+      background-color: #5a6268; 
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <div class="title">📋 รายละเอียดงาน</div>
+      <div class="subtitle">เลขาบอท - ระบบจัดการงานกลุ่ม</div>
+    </div>
+
+    <div class="task-info">
+      <div class="info-row">
+        <span class="info-label">ชื่องาน:</span>
+        <span class="info-value">${this.escapeAttr(task.title)}</span>
+      </div>
+      
+      <div class="info-row">
+        <span class="info-label">สถานะ:</span>
+        <span class="info-value">
+          <span class="status-badge status-${task.status}">${this.getStatusText(task.status)}</span>
+        </span>
+      </div>
+      
+      <div class="info-row">
+        <span class="info-label">ความสำคัญ:</span>
+        <span class="info-value">
+          <span class="priority-badge priority-${task.priority}">${this.getPriorityText(task.priority)}</span>
+        </span>
+      </div>
+      
+      <div class="info-row">
+        <span class="info-label">กำหนดส่ง:</span>
+        <span class="info-value">${this.formatDate(task.dueTime)}</span>
+      </div>
+      
+      ${task.startTime ? `
+      <div class="info-row">
+        <span class="info-label">เริ่มงาน:</span>
+        <span class="info-value">${this.formatDate(task.startTime)}</span>
+      </div>
+      ` : ''}
+      
+      ${task.completedAt ? `
+      <div class="info-row">
+        <span class="info-label">เสร็จสิ้น:</span>
+        <span class="info-value">${this.formatDate(task.completedAt)}</span>
+      </div>
+      ` : ''}
+      
+      ${group ? `
+      <div class="info-row">
+        <span class="info-label">กลุ่ม:</span>
+        <span class="info-value">${this.escapeAttr(group.name)}</span>
+      </div>
+      ` : ''}
+      
+      ${assignee ? `
+      <div class="info-row">
+        <span class="info-label">ผู้รับผิดชอบ:</span>
+        <span class="info-value">${this.escapeAttr(assignee.displayName)}</span>
+      </div>
+      ` : ''}
+      
+      ${task.tags && task.tags.length > 0 ? `
+      <div class="info-row">
+        <span class="info-label">แท็ก:</span>
+        <span class="info-value">${task.tags.map((tag: string) => '<span style="background: #e9ecef; padding: 2px 8px; border-radius: 4px; margin-left: 5px;">' + this.escapeAttr(tag) + '</span>').join('')}</span>
+      </div>
+      ` : ''}
+    </div>
+
+    ${task.description ? `
+    <div class="description">
+      <strong>รายละเอียด:</strong><br>
+      ${this.escapeAttr(task.description)}
+    </div>
+    ` : ''}
+
+    ${files && files.length > 0 ? `
+    <div class="files-section">
+      <h3>📎 ไฟล์แนบ (${files.length})</h3>
+      ${files.map((file: any) => 
+        '<div class="file-item">' +
+          '<strong>' + this.escapeAttr(file.originalName) + '</strong><br>' +
+          '<small>ขนาด: ' + this.formatFileSize(file.size) + ' | อัปโหลด: ' + this.formatDate(file.uploadedAt) + '</small>' +
+        '</div>'
+      ).join('')}
+    </div>
+    ` : ''}
+
+    <a href="/dashboard" class="back-button">← กลับไปแดชบอร์ด</a>
+  </div>
+</body>
+</html>`;
+  }
+
+  /**
    * สร้าง HTML สำหรับ Profile แบบเว็บ
    */
   private generateProfileWebHtml(data: any): string {
@@ -269,6 +523,49 @@ class DashboardController {
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
   }
+
+  // แปลงสถานะงานเป็นข้อความภาษาไทย
+  private getStatusText(status: string): string {
+    const statusMap: { [key: string]: string } = {
+      'pending': 'รอดำเนินการ',
+      'in_progress': 'กำลังดำเนินการ',
+      'completed': 'เสร็จสิ้น',
+      'cancelled': 'ยกเลิก',
+      'overdue': 'เกินกำหนด'
+    };
+    return statusMap[status] || status;
+  }
+
+  // แปลงความสำคัญเป็นข้อความภาษาไทย
+  private getPriorityText(priority: string): string {
+    const priorityMap: { [key: string]: string } = {
+      'low': 'ต่ำ',
+      'medium': 'ปานกลาง',
+      'high': 'สูง'
+    };
+    return priorityMap[priority] || priority;
+  }
+
+  // จัดรูปแบบวันที่
+  private formatDate(date: Date): string {
+    if (!date) return '-';
+    return new Date(date).toLocaleDateString('th-TH', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+  }
+
+  // จัดรูปแบบขนาดไฟล์
+  private formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
 }
 
 const dashboardController = new DashboardController();
@@ -276,6 +573,7 @@ const dashboardController = new DashboardController();
 // Routes setup
 dashboardRouter.get('/', dashboardController.mainDashboard.bind(dashboardController));
 dashboardRouter.get('/group/:groupId', dashboardController.getGroupDashboard.bind(dashboardController));
+dashboardRouter.get('/task/:taskId', dashboardController.getTaskDetail.bind(dashboardController));
 // Web profile endpoints
 dashboardRouter.get('/profile', dashboardController.profileWeb.bind(dashboardController));
 dashboardRouter.post('/profile', dashboardController.saveUserProfileWeb.bind(dashboardController));

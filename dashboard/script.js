@@ -446,6 +446,22 @@ class Dashboard {
     }, 5000);
   }
 
+  /**
+   * Safely get current time with fallback to native Date
+   */
+  getSafeCurrentTime() {
+    if (moment && moment.tz && typeof moment.tz === 'function') {
+      try {
+        return moment().tz(this.timezone);
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        return new Date();
+      }
+    } else {
+      return new Date();
+    }
+  }
+
   // ฟังก์ชันแปลงปี ค.ศ. เป็น พ.ศ.
   convertToThaiYear(year) {
     return year + 543;
@@ -664,6 +680,7 @@ class Dashboard {
   async loadLeaderboard(period = 'weekly') {
     try {
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=${period}`);
+      console.log('📊 Leaderboard data received:', response.data);
       this.updateLeaderboard(response.data);
     } catch (error) {
       console.error('Failed to load leaderboard:', error);
@@ -1330,9 +1347,18 @@ class Dashboard {
       return;
     }
 
+    console.log('🔄 Processing mini leaderboard data for', leaderboard.length, 'users');
+
     container.innerHTML = leaderboard.map((user, index) => {
-      const totalPoints = user.totalPoints || 0;
-      const tasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
+      // Safe handling of numeric values that might be null, undefined, or NaN
+      const totalPoints = user.totalPoints;
+      const safeTotalPoints = (totalPoints !== null && totalPoints !== undefined && !isNaN(totalPoints)) ? totalPoints : 0;
+      const safeTasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
+      
+      // Log any data issues for debugging
+      if (totalPoints === null || totalPoints === undefined || isNaN(totalPoints)) {
+        console.warn(`⚠️ User ${user.displayName} has invalid totalPoints:`, totalPoints, 'using fallback: 0');
+      }
       
       return `
         <div class="leaderboard-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
@@ -1341,14 +1367,16 @@ class Dashboard {
           </div>
           <div class="user-info" style="flex: 1;">
             <div style="font-weight: 500;">${user.displayName}</div>
-            <div style="font-size: 0.875rem; color: #6b7280;">${totalPoints.toFixed(2)} คะแนน</div>
+            <div style="font-size: 0.875rem; color: #6b7280;">${safeTotalPoints.toFixed(2)} คะแนน</div>
           </div>
           <div class="score" style="font-weight: 600; color: #10b981;">
-            ${tasksCompleted} งาน
+            ${safeTasksCompleted} งาน
           </div>
         </div>
       `;
     }).join('');
+    
+    console.log('✅ Mini leaderboard updated successfully');
   }
 
   updateTasksList(tasks, pagination) {
@@ -1416,6 +1444,8 @@ class Dashboard {
     const container = document.getElementById('calendarGrid');
     const monthHeader = document.getElementById('currentMonth');
     
+    console.log('🔄 Updating calendar for month:', month, 'year:', year, 'with', events?.length || 0, 'events');
+    
     // Update month header
     const monthNames = [
       'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
@@ -1447,38 +1477,78 @@ class Dashboard {
     
     // Current month days
     let today;
+    let todayAdapter;
+    
     if (moment && moment.tz) {
       try {
         today = moment().tz(this.timezone);
+        // Create adapter for moment object
+        todayAdapter = {
+          year: () => today.year(),
+          month: () => today.month(),
+          date: () => today.date()
+        };
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
         today = new Date();
+        // Create adapter for Date object
+        todayAdapter = {
+          year: () => today.getFullYear(),
+          month: () => today.getMonth(),
+          date: () => today.getDate()
+        };
       }
     } else {
       today = new Date();
+      // Create adapter for Date object
+      todayAdapter = {
+        year: () => today.getFullYear(),
+        month: () => today.getMonth(),
+        date: () => today.getDate()
+      };
     }
-    const isCurrentMonth = today.year() === year && today.month() === month - 1;
+    
+    const isCurrentMonth = todayAdapter.year() === year && todayAdapter.month() === month - 1;
     
     for (let day = 1; day <= daysInMonth; day++) {
-      const isToday = isCurrentMonth && today.date() === day;
-              const dayEvents = events.filter(event => {
-          let eventDate;
-          if (moment && moment.tz) {
-            try {
-              eventDate = moment(event.end || event.dueTime || event.start).tz(this.timezone);
-            } catch (error) {
-              console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-              eventDate = new Date(event.end || event.dueTime || event.start);
-            }
-          } else {
+      const isToday = isCurrentMonth && todayAdapter.date() === day;
+      
+      const dayEvents = events.filter(event => {
+        let eventDate;
+        let eventDateAdapter;
+        
+        if (moment && moment.tz) {
+          try {
+            eventDate = moment(event.end || event.dueTime || event.start).tz(this.timezone);
+            eventDateAdapter = {
+              year: () => eventDate.year(),
+              month: () => eventDate.month(),
+              date: () => eventDate.date()
+            };
+          } catch (error) {
+            console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
             eventDate = new Date(event.end || event.dueTime || event.start);
+            eventDateAdapter = {
+              year: () => eventDate.getFullYear(),
+              month: () => eventDate.getMonth(),
+              date: () => eventDate.getDate()
+            };
           }
-          return (
-            eventDate.year() === year &&
-            (eventDate.month() + 1) === month &&
-            eventDate.date() === day
-          );
-        });
+        } else {
+          eventDate = new Date(event.end || event.dueTime || event.start);
+          eventDateAdapter = {
+            year: () => eventDate.getFullYear(),
+            month: () => eventDate.getMonth(),
+            date: () => eventDate.getDate()
+          };
+        }
+        
+        return (
+          eventDateAdapter.year() === year &&
+          (eventDateAdapter.month() + 1) === month &&
+          eventDateAdapter.date() === day
+        );
+      });
       
               calendarHTML += `<div class="calendar-day ${isToday ? 'today' : ''}" data-year="${year}" data-month="${month}" data-day="${day}">
         <div class="calendar-day-number">${day}</div>
@@ -1503,6 +1573,7 @@ class Dashboard {
     }
     
     container.innerHTML = calendarHTML;
+    console.log('✅ Calendar updated successfully');
   }
 
   updateFilesList(files) {
@@ -1540,7 +1611,22 @@ class Dashboard {
       return;
     }
 
-    container.innerHTML = users.map((user, index) => `
+    console.log('🔄 Processing leaderboard data for', users.length, 'users');
+
+    container.innerHTML = users.map((user, index) => {
+      // Safe handling of numeric values that might be null, undefined, or NaN
+      const totalPoints = user.totalPoints;
+      const safeTotalPoints = (totalPoints !== null && totalPoints !== undefined && !isNaN(totalPoints)) ? totalPoints : 0;
+      const safeTasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
+      const safeTasksEarly = user.tasksEarly || 0;
+      const safeTasksOnTime = user.tasksOnTime || 0;
+      
+      // Log any data issues for debugging
+      if (totalPoints === null || totalPoints === undefined || isNaN(totalPoints)) {
+        console.warn(`⚠️ User ${user.displayName} has invalid totalPoints:`, totalPoints, 'using fallback: 0');
+      }
+      
+      return `
       <div class="leaderboard-item" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px;">
         <div class="rank" style="font-size: 1.5rem; font-weight: 700; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'}; min-width: 40px;">
           ${index + 1}
@@ -1548,17 +1634,20 @@ class Dashboard {
         <div class="user-info" style="flex: 1;">
           <div style="font-weight: 600; font-size: 1.125rem;">${user.displayName}</div>
           <div style="color: #6b7280; margin-top: 4px;">
-            เสร็จ ${(user.tasksCompleted ?? user.completedTasks) || 0} งาน • ค่าเฉลี่ย ${user.totalPoints.toFixed(2)} คะแนน
+            เสร็จ ${safeTasksCompleted} งาน • ค่าเฉลี่ย ${safeTotalPoints.toFixed(2)} คะแนน
           </div>
         </div>
         <div class="user-stats" style="text-align: right;">
-          <div style="font-weight: 600; color: #10b981;">${user.totalPoints.toFixed(2)} คะแนน</div>
+          <div style="font-weight: 600; color: #10b981;">${safeTotalPoints.toFixed(2)} คะแนน</div>
           <div style="font-size: 0.875rem; color: #6b7280;">
-            เร็ว ${user.tasksEarly || 0} • ตรงเวลา ${user.tasksOnTime || 0}
+            เร็ว ${safeTasksEarly} • ตรงเวลา ${safeTasksOnTime}
           </div>
         </div>
       </div>
-    `).join('');
+    `;
+    }).join('');
+    
+    console.log('✅ Leaderboard updated successfully');
   }
 
   updateMembersList(members) {
@@ -2081,7 +2170,7 @@ class Dashboard {
     let currentYear;
     if (moment && moment.tz) {
       try {
-        currentYear = parseInt(parts[1]) || moment().tz(this.timezone).year();
+        currentYear = parseInt(parts[1]) || this.getSafeCurrentTime().getFullYear();
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
         currentYear = parseInt(parts[1]) || new Date().getFullYear();
@@ -2102,20 +2191,38 @@ class Dashboard {
       .then(resp => {
         const events = (resp.data || []).filter(ev => {
           let eventDate;
+          let eventDateAdapter;
+          
           if (moment && moment.tz) {
             try {
               eventDate = moment(ev.end || ev.dueTime || ev.start).tz(this.timezone);
+              eventDateAdapter = {
+                year: () => eventDate.year(),
+                month: () => eventDate.month(),
+                date: () => eventDate.date()
+              };
             } catch (error) {
               console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
               eventDate = new Date(ev.end || ev.dueTime || ev.start);
+              eventDateAdapter = {
+                year: () => eventDate.getFullYear(),
+                month: () => eventDate.getMonth(),
+                date: () => eventDate.getDate()
+              };
             }
           } else {
             eventDate = new Date(ev.end || ev.dueTime || ev.start);
+            eventDateAdapter = {
+              year: () => eventDate.getFullYear(),
+              month: () => eventDate.getMonth(),
+              date: () => eventDate.getDate()
+            };
           }
+          
           return (
-            eventDate.year() === year &&
-            (eventDate.month() + 1) === month &&
-            eventDate.date() === day
+            eventDateAdapter.year() === year &&
+            (eventDateAdapter.month() + 1) === month &&
+            eventDateAdapter.date() === day
           );
         });
         const body = document.getElementById('taskModalBody');

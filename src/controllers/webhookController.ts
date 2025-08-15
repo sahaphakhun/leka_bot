@@ -528,6 +528,22 @@ class WebhookController {
           break;
         }
 
+        case 'view_details': {
+          const taskId = params.get('taskId');
+          if (taskId) {
+            try {
+              // สร้างลิงก์ไปยังหน้ารายละเอียดงาน
+              const taskDetailUrl = `${config.baseUrl}/dashboard/task/${taskId}`;
+              const message = `📋 รายละเอียดงาน\n\n🔗 ดูรายละเอียดเพิ่มเติมได้ที่:\n${taskDetailUrl}`;
+              
+              await this.lineService.replyMessage(replyToken, message);
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงรายละเอียดงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          }
+          break;
+        }
+
         default:
           console.log('ℹ️ Unhandled postback action:', action);
       }
