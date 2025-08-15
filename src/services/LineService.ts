@@ -4,6 +4,7 @@ import { Client, WebhookEvent, MessageEvent, TextMessage, FlexMessage } from '@l
 import { config } from '@/utils/config';
 import { BotCommand } from '@/types';
 import { createHmac, timingSafeEqual } from 'crypto';
+import moment from 'moment-timezone';
 
 export class LineService {
   private client: Client;
@@ -461,7 +462,7 @@ export class LineService {
               contents: [
                 {
                   type: 'text' as const,
-                  text: `กำหนดส่ง: ${task.dueTime.toLocaleString('th-TH')}`,
+                  text: `กำหนดส่ง: ${moment(task.dueTime).tz('Asia/Bangkok').format('DD/MM/YYYY HH:mm')}`,
                   size: 'sm' as const,
                   color: '#333333'
                 },
