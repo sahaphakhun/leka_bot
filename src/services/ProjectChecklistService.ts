@@ -159,7 +159,7 @@ export class ProjectChecklistService {
   private async checkLineBotStatus(): Promise<ProjectStatus['lineBot']> {
     try {
       const webhookUrl = `${config.baseUrl}/webhook`;
-      const isConnected = config.lineEnabled && !!config.lineChannelAccessToken;
+      const isConnected = !!config.line.channelAccessToken;
       
       return {
         isConnected,
@@ -415,8 +415,7 @@ export class ProjectChecklistService {
 
     checklist.items[itemIndex] = {
       ...checklist.items[itemIndex],
-      ...updates,
-      updatedAt: new Date()
+      ...updates
     };
 
     return this.projectRules.updateChecklist(checklistId, checklist);
