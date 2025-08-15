@@ -96,6 +96,9 @@ class Server {
     // API Routes
     this.app.use('/api', apiRouter);
 
+    // Image Routes
+    this.app.use('/api/images', imageRouter);
+
     // Project Rules & Memory Routes
     this.app.use('/api/project', projectRouter);
 
