@@ -178,7 +178,7 @@ export class NotificationCardService {
         type: 'image',
         url: notificationCard.imageUrl,
         size: 'full',
-        margin: 'md'
+        margin: FlexMessageDesignSystem.padding.medium
       }] : [])
     ];
 
