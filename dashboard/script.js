@@ -1689,13 +1689,24 @@ class Dashboard {
     }
   }
 
-  openTaskModal(taskId) {
-    // ใช้ cache จาก loadTasks ล่าสุด เพื่อไม่ต้องพึ่ง API search ที่ฝั่ง backend ยังไม่รองรับ
-    const findInCache = () => (this._taskCache || []).find(t => t.id === taskId);
-    const task = findInCache();
+  async openTaskModal(taskId) {
     const body = document.getElementById('taskModalBody');
-    if (!task) { this.showToast('ไม่พบข้อมูลงาน', 'error'); return; }
     if (!body) { return; }
+    const findInCache = () => (this._taskCache || []).find(t => t.id === taskId);
+    let task = findInCache();
+    if (!task) {
+      try {
+        const resp = await this.apiRequest(`/task/${taskId}`);
+        task = resp?.data || null;
+        if (task) {
+          // เพิ่มเข้า cache ไว้ด้วย
+          this._taskCache = Array.from(new Map([...(this._taskCache||[]), task].map(t => [t.id, t])).values());
+        }
+      } catch (e) {
+        console.warn('openTaskModal fallback fetch failed:', e);
+      }
+    }
+    if (!task) { this.showToast('ไม่พบข้อมูลงาน', 'error'); return; }
     const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
     const tags = (task.tags || []).map(t => `#${t}`).join(' ');
     body.innerHTML = `
