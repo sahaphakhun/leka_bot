@@ -223,7 +223,19 @@ export class LineService {
         ? { type: 'text', text: message } as TextMessage
         : message;
 
+      // เพิ่ม logging เพื่อตรวจสอบ Flex Message
+      if (typeof message !== 'string') {
+        console.log('🎴 Sending Flex Message:', {
+          type: message.type,
+          altText: message.altText,
+          hasContents: !!message.contents
+        });
+      } else {
+        console.log('📝 Sending Text Message:', message);
+      }
+
       await this.client.replyMessage(replyToken, messageObj);
+      console.log('✅ Message sent successfully');
     } catch (error) {
       console.error('❌ Failed to reply message:', error);
       throw error;

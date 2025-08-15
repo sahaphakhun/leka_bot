@@ -163,6 +163,17 @@ class WebhookController {
         const response = await this.commandService.executeCommand(command);
         
         if (response) {
+          // เพิ่ม logging เพื่อตรวจสอบ response
+          console.log('📤 Command response type:', typeof response);
+          if (typeof response !== 'string') {
+            console.log('🎴 Response is Flex Message:', {
+              type: response.type,
+              altText: response.altText
+            });
+          } else {
+            console.log('📝 Response is Text Message:', response.substring(0, 100) + '...');
+          }
+          
           await this.lineService.replyMessage(replyToken!, response);
           console.log('📤 Bot response sent');
         } else {

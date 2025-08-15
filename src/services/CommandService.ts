@@ -699,6 +699,12 @@ ${supervisorNames}
         tags: task.tags
       });
 
+      console.log('🎴 Flex Message created:', {
+        type: flexMessage.type,
+        altText: flexMessage.altText,
+        hasContents: !!flexMessage.contents
+      });
+
       return flexMessage;
 
     } catch (error) {
