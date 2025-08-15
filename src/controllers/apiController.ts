@@ -552,8 +552,11 @@ class ApiController {
         });
         return;
       }
-
-      const group = await this.userService.findGroupByLineId(groupId);
+      // รองรับทั้ง LINE Group ID และ internal UUID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const group = isUuid
+        ? await this.userService.findGroupById(groupId)
+        : await this.userService.findGroupByLineId(groupId);
       
       if (!group) {
         logger.warn('❌ Group not found for ID', { groupId });
@@ -600,8 +603,11 @@ class ApiController {
         return;
       }
 
-      // โหลด group และบันทึก settings.reportRecipients
-      const group = await this.userService.findGroupByLineId(groupId);
+      // โหลด group (รองรับ LINE Group ID และ UUID) และบันทึก settings.reportRecipients
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const group = isUuid
+        ? await this.userService.findGroupById(groupId)
+        : await this.userService.findGroupByLineId(groupId);
       if (!group) {
         res.status(404).json({ success: false, error: 'Group not found' });
         return;
@@ -627,8 +633,11 @@ class ApiController {
       
       logger.debug('📊 Loading stats for group', { groupId });
 
-      // ตรวจสอบว่ากลุ่มมีอยู่จริง
-      const group = await this.userService.findGroupByLineId(groupId);
+      // ตรวจสอบว่ากลุ่มมีอยู่จริง (รองรับทั้ง LINE Group ID และ UUID)
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const group = isUuid
+        ? await this.userService.findGroupById(groupId)
+        : await this.userService.findGroupByLineId(groupId);
       if (!group) {
         res.status(404).json({ 
           success: false, 

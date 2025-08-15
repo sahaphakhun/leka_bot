@@ -237,6 +237,25 @@ class Dashboard {
       this.handleAddTask();
     });
 
+    // Real-time validation for add task form
+    document.getElementById('taskTitle')?.addEventListener('input', (e) => {
+      const value = e.target.value.trim();
+      if (value) {
+        this.showFieldSuccess('taskTitle');
+      } else {
+        this.showFieldError('taskTitle', 'กรุณากรอกชื่องาน');
+      }
+    });
+
+    document.getElementById('taskDueDate')?.addEventListener('change', (e) => {
+      const value = e.target.value;
+      if (value) {
+        this.showFieldSuccess('taskDueDate');
+      } else {
+        this.showFieldError('taskDueDate', 'กรุณาเลือกวันที่ครบกำหนด');
+      }
+    });
+
     // Files view search & upload
     document.getElementById('searchFiles')?.addEventListener('input', this.debounce(() => {
       const value = document.getElementById('searchFiles').value || '';
@@ -1563,6 +1582,7 @@ class Dashboard {
     const weekSel = document.getElementById('weekDaySelect');
     const domInput = document.getElementById('dayOfMonthInput');
     const timeInput = document.getElementById('timeOfDayInput');
+    const recurrenceSummary = document.getElementById('recurrenceSummary');
     if (recurrenceType && cfg && weekSel && domInput && timeInput && !recurrenceType._bound) {
       recurrenceType.addEventListener('change', () => {
         const v = recurrenceType.value;
@@ -1570,6 +1590,7 @@ class Dashboard {
           cfg.style.display = 'none';
           weekSel.style.display = 'none';
           domInput.style.display = 'none';
+          if (recurrenceSummary) recurrenceSummary.style.display = 'none';
         } else {
           cfg.style.display = 'block';
           if (v === 'weekly') {
@@ -1579,9 +1600,88 @@ class Dashboard {
             weekSel.style.display = 'none';
             domInput.style.display = 'inline-block';
           }
+          if (recurrenceSummary) {
+            const summary = v === 'weekly'
+              ? `ทุกสัปดาห์ วัน${weekSel.options[weekSel.selectedIndex]?.text || 'จันทร์'} เวลา ${timeInput.value}`
+              : `ทุกเดือน วันที่ ${domInput.value || 1} เวลา ${timeInput.value}`;
+            recurrenceSummary.textContent = summary;
+            recurrenceSummary.style.display = 'block';
+          }
         }
       });
       recurrenceType._bound = true;
+    }
+
+    // ตั้งค่า default dueDate = พรุ่งนี้ 17:00 ตามโซนเวลา
+    try {
+      const dueInput = document.getElementById('taskDueDate');
+      if (dueInput && !dueInput.value) {
+        if (moment && moment.tz) {
+          const d = moment().tz(this.timezone).add(1, 'day').hour(17).minute(0).second(0);
+          dueInput.value = d.format('YYYY-MM-DDTHH:mm');
+        } else {
+          const d = new Date();
+          d.setDate(d.getDate() + 1);
+          d.setHours(17, 0, 0, 0);
+          const pad = (n) => String(n).padStart(2, '0');
+          dueInput.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+        }
+      }
+    } catch {}
+
+    // Priority segmented control
+    const seg = document.getElementById('prioritySegmented');
+    const hiddenPriority = document.getElementById('taskPriority');
+    if (seg && hiddenPriority && !seg._bound) {
+      seg.addEventListener('click', (e) => {
+        const btn = e.target.closest('.seg-btn');
+        if (!btn) return;
+        seg.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        hiddenPriority.value = btn.dataset.priority;
+      });
+      seg._bound = true;
+    }
+
+    // Assignee count
+    const assignees = document.getElementById('taskAssignees');
+    const assigneeCount = document.getElementById('assigneeCount');
+    if (assignees && assigneeCount && !assignees._boundCount) {
+      const update = () => {
+        const count = Array.from(assignees.selectedOptions).length;
+        assigneeCount.textContent = count > 0 ? `(${count} คน)` : '';
+      };
+      assignees.addEventListener('change', update);
+      update();
+      assignees._boundCount = true;
+    }
+
+    // Tags chips preview
+    const tagsInput = document.getElementById('taskTags');
+    const chips = document.getElementById('tagsChips');
+    if (tagsInput && chips && !tagsInput._boundChips) {
+      const render = () => {
+        const values = (tagsInput.value || '')
+          .split(',')
+          .map(t => t.trim())
+          .filter(Boolean);
+        chips.innerHTML = values.map((t, i) => `<span class="chip">#${t}<button type="button" class="remove" data-index="${i}" aria-label="ลบแท็ก ${t}">×</button></span>`).join('');
+      };
+      tagsInput.addEventListener('input', render);
+      chips.addEventListener('click', (e) => {
+        const btn = e.target.closest('.remove');
+        if (!btn) return;
+        const idx = parseInt(btn.dataset.index, 10);
+        const values = (tagsInput.value || '')
+          .split(',')
+          .map(t => t.trim())
+          .filter(Boolean);
+        values.splice(idx, 1);
+        tagsInput.value = values.join(', ');
+        render();
+      });
+      render();
+      tagsInput._boundChips = true;
     }
   }
 
@@ -1633,10 +1733,11 @@ class Dashboard {
     
     // แสดงสถานะการโหลด
     const submitBtn = document.querySelector('#addTaskForm button[type="submit"]');
-    const originalText = submitBtn?.textContent || 'เพิ่มงาน';
+    const originalText = submitBtn?.innerHTML || '<i class="fas fa-plus"></i> เพิ่มงาน';
     if (submitBtn) {
-      submitBtn.textContent = 'กำลังเพิ่มงาน...';
+      submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังเพิ่มงาน...';
       submitBtn.disabled = true;
+      submitBtn.classList.add('btn-loading');
     }
     
     try {
@@ -1647,13 +1748,23 @@ class Dashboard {
       const title = formData.get('title')?.trim();
       const dueDate = formData.get('dueDate');
       
+      // Clear previous error states
+      this.clearFormErrors();
+      
+      let hasErrors = false;
+      
       if (!title) {
-        this.showToast('กรุณากรอกชื่องาน', 'error');
-        return;
+        this.showFieldError('taskTitle', 'กรุณากรอกชื่องาน');
+        hasErrors = true;
       }
       
       if (!dueDate) {
-        this.showToast('กรุณาเลือกวันที่ครบกำหนด', 'error');
+        this.showFieldError('taskDueDate', 'กรุณาเลือกวันที่ครบกำหนด');
+        hasErrors = true;
+      }
+      
+      if (hasErrors) {
+        this.showToast('กรุณากรอกข้อมูลให้ครบถ้วน', 'error');
         return;
       }
       
@@ -1661,7 +1772,7 @@ class Dashboard {
         title: title,
         description: formData.get('description')?.trim() || '',
         dueTime: this.formatDateForAPI(dueDate),
-        priority: formData.get('priority') || 'medium',
+        priority: (document.getElementById('taskPriority')?.value || 'medium'),
         assigneeIds: Array.from(document.getElementById('taskAssignees').selectedOptions)
           .map(option => option.value),
         tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag) : [],
@@ -1715,8 +1826,9 @@ class Dashboard {
       // รีเซ็ตสถานะและปุ่ม
       this._isHandlingAddTask = false;
       if (submitBtn) {
-        submitBtn.textContent = originalText;
+        submitBtn.innerHTML = originalText;
         submitBtn.disabled = false;
+        submitBtn.classList.remove('btn-loading');
       }
     }
   }
@@ -2109,15 +2221,72 @@ class Dashboard {
     const bangkokTime = new Date(utc + (7 * 3600000));
     return bangkokTime.toISOString();
   }
+
+  // ==================== */
+  // Form Validation & Error Handling */
+  // ==================== */
+
+  clearFormErrors() {
+    const formGroups = document.querySelectorAll('#addTaskForm .form-group');
+    formGroups.forEach(group => {
+      group.classList.remove('error', 'success');
+      const errorMessage = group.querySelector('.error-message');
+      if (errorMessage) {
+        errorMessage.remove();
+      }
+    });
+  }
+
+  showFieldError(fieldId, message) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    const formGroup = field.closest('.form-group');
+    if (!formGroup) return;
+    
+    formGroup.classList.add('error');
+    formGroup.classList.remove('success');
+    
+    // Remove existing error message
+    const existingError = formGroup.querySelector('.error-message');
+    if (existingError) {
+      existingError.remove();
+    }
+    
+    // Add new error message
+    const errorMessage = document.createElement('div');
+    errorMessage.className = 'error-message';
+    errorMessage.textContent = message;
+    formGroup.appendChild(errorMessage);
+    
+    // Focus on the field
+    field.focus();
+  }
+
+  showFieldSuccess(fieldId) {
+    const field = document.getElementById(fieldId);
+    if (!field) return;
+    
+    const formGroup = field.closest('.form-group');
+    if (!formGroup) return;
+    
+    formGroup.classList.add('success');
+    formGroup.classList.remove('error');
+    
+    // Remove error message if exists
+    const errorMessage = formGroup.querySelector('.error-message');
+    if (errorMessage) {
+      errorMessage.remove();
+    }
+  }
+
+  // ==================== */
+  // Enhanced Form Handling */
+  // ==================== */
 }
 
 // Initialize Dashboard
 let dashboard;
-document.addEventListener('DOMContentLoaded', () => {
-  dashboard = new Dashboard();
-  // Expose after init to ensure handlers can access
-  window.dashboard = dashboard;
-});
 document.addEventListener('DOMContentLoaded', () => {
   dashboard = new Dashboard();
   // Expose after init to ensure handlers can access

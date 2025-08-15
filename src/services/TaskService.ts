@@ -52,8 +52,11 @@ export class TaskService {
     _tempId?: string; // สำหรับป้องกันการสร้างงานซ้ำ
   }): Promise<Task> {
     try {
-      // ค้นหา Group entity จาก LINE Group ID
-      const group = await this.groupRepository.findOneBy({ lineGroupId: data.groupId });
+      // ค้นหา Group entity จาก LINE Group ID หรือ internal UUID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.groupId);
+      const group = isUuid
+        ? await this.groupRepository.findOneBy({ id: data.groupId as any })
+        : await this.groupRepository.findOneBy({ lineGroupId: data.groupId });
       if (!group) {
         throw new Error(`Group not found for LINE ID: ${data.groupId}`);
       }
@@ -629,8 +632,11 @@ export class TaskService {
     } = {}
   ): Promise<{ tasks: Task[]; total: number }> {
     try {
-      // ค้นหา Group entity จาก LINE Group ID
-      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      // ค้นหา Group entity จาก LINE Group ID หรือ UUID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const group = isUuid
+        ? await this.groupRepository.findOneBy({ id: groupId as any })
+        : await this.groupRepository.findOneBy({ lineGroupId: groupId });
       if (!group) {
         throw new Error(`Group not found for LINE ID: ${groupId}`);
       }
@@ -757,12 +763,15 @@ export class TaskService {
    */
   public async getActiveTasks(groupId: string): Promise<Task[]> {
     try {
-      console.log(`🔍 Looking for group with LINE ID: ${groupId}`);
+      console.log(`🔍 Looking for group with ID: ${groupId}`);
       
-      // ค้นหา Group entity จาก LINE Group ID
-      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      // ค้นหา Group entity จาก LINE Group ID หรือ UUID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const group = isUuid
+        ? await this.groupRepository.findOneBy({ id: groupId as any })
+        : await this.groupRepository.findOneBy({ lineGroupId: groupId });
       if (!group) {
-        console.error(`❌ Group not found for LINE ID: ${groupId}`);
+        console.error(`❌ Group not found for ID: ${groupId}`);
         throw new Error(`Group not found for LINE ID: ${groupId}`);
       }
 
@@ -788,8 +797,9 @@ export class TaskService {
   /** ดึงงานที่ยังไม่เสร็จของกลุ่ม (pending, in_progress, overdue) โดยระบุ LINE Group ID */
   public async getIncompleteTasksOfGroup(lineGroupId: string): Promise<Task[]> {
     try {
-      // หา internal group UUID จาก LINE Group ID
-      const group = await this.groupRepository.findOneBy({ lineGroupId });
+      // หา internal group UUID จาก LINE Group ID หรือใช้ UUID ตรง ๆ
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(lineGroupId);
+      const group = isUuid ? await this.groupRepository.findOneBy({ id: lineGroupId as any }) : await this.groupRepository.findOneBy({ lineGroupId });
       if (!group) {
         throw new Error(`Group not found for LINE ID: ${lineGroupId}`);
       }

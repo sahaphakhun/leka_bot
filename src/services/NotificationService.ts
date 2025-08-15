@@ -577,156 +577,36 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
    * สร้าง Flex Message สำหรับงานใหม่
    */
   private createTaskCreatedFlexMessage(task: any, group: any, creator: any, dueDate: string): any {
-    const priorityColors = {
-      low: '#28A745',
-      medium: '#FFC107', 
-      high: '#DC3545'
-    };
-
-    const priorityText = {
-      low: 'ต่ำ',
-      medium: 'ปานกลาง',
-      high: 'สูง'
-    };
-
-    const tags = task.tags && task.tags.length > 0 
-      ? task.tags.map((tag: string) => `#${tag}`).join(' ')
-      : 'ไม่มีแท็ก';
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
+    const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
 
     return {
       type: 'flex',
-      altText: `📋 งานใหม่: ${task.title}`,
+      altText: `งานใหม่: ${task.title}`,
       contents: {
         type: 'bubble',
-        size: 'kilo',
         header: {
           type: 'box',
           layout: 'vertical',
           contents: [
-            {
-              type: 'text',
-              text: '📋 งานใหม่',
-              weight: 'bold',
-              size: 'lg',
-              color: '#FFFFFF',
-              align: 'center'
-            }
+            { type: 'text', text: '🆕 งานใหม่', weight: 'bold', size: 'lg', color: '#FFFFFF' },
+            { type: 'text', text: task.title, size: 'md', wrap: true, color: '#FFFFFF' }
           ],
-          backgroundColor: '#1DB446',
-          paddingAll: 'md'
+          backgroundColor: '#2196F3'
         },
         body: {
           type: 'box',
           layout: 'vertical',
-          spacing: 'md',
+          spacing: 'sm',
           contents: [
-            {
-              type: 'text',
-              text: task.title,
-              weight: 'bold',
-              size: 'lg',
-              wrap: true
-            },
-            {
-              type: 'text',
-              text: task.description || 'ไม่มีคำอธิบาย',
-              size: 'sm',
-              color: '#666666',
-              wrap: true
-            },
-            {
-              type: 'separator',
-              margin: 'md'
-            },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  flex: 1,
-                  contents: [
-                    {
-                      type: 'text',
-                      text: '📅 กำหนดส่ง',
-                      size: 'xs',
-                      color: '#666666'
-                    },
-                    {
-                      type: 'text',
-                      text: dueDate,
-                      size: 'sm',
-                      weight: 'bold'
-                    }
-                  ]
-                },
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  flex: 1,
-                  contents: [
-                    {
-                      type: 'text',
-                      text: '🎯 ความสำคัญ',
-                      size: 'xs',
-                      color: '#666666'
-                    },
-                    {
-                      type: 'text',
-                      text: priorityText[task.priority as keyof typeof priorityText] || 'ไม่ระบุ',
-                      size: 'sm',
-                      weight: 'bold',
-                      color: priorityColors[task.priority as keyof typeof priorityColors] || '#666666'
-                    }
-                  ]
-                }
-              ]
-            },
-            {
-              type: 'box',
-              layout: 'horizontal',
-              contents: [
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  flex: 1,
-                  contents: [
-                    {
-                      type: 'text',
-                      text: '👤 ผู้สร้าง',
-                      size: 'xs',
-                      color: '#666666'
-                    },
-                    {
-                      type: 'text',
-                      text: creator?.displayName || 'ไม่ระบุ',
-                      size: 'sm',
-                      weight: 'bold'
-                    }
-                  ]
-                },
-                {
-                  type: 'box',
-                  layout: 'vertical',
-                  flex: 1,
-                  contents: [
-                    {
-                      type: 'text',
-                      text: '🏷️ แท็ก',
-                      size: 'xs',
-                      color: '#666666'
-                    },
-                    {
-                      type: 'text',
-                      text: tags,
-                      size: 'sm',
-                      weight: 'bold'
-                    }
-                  ]
-                }
-              ]
-            }
+            { type: 'text', text: `📅 กำหนดส่ง: ${dueDate}`, size: 'sm', color: '#333333' },
+            { type: 'text', text: `👥 ผู้รับผิดชอบ: ${assigneeNames}`, size: 'sm', color: '#333333' },
+            { type: 'text', text: `👤 ผู้สร้าง: ${creator?.displayName || 'ไม่ระบุ'}`, size: 'sm', color: '#333333' },
+            ...(priorityText ? [{ type: 'text', text: `🎯 ${priorityText}`, size: 'sm', color: priorityColor, weight: 'bold' }] : []),
+            ...(task.description ? [{ type: 'text', text: `📝 ${task.description}`, size: 'sm', color: '#666666', wrap: true }] : []),
+            ...(tagsText ? [{ type: 'text', text: tagsText, size: 'sm', color: '#666666', wrap: true }] : [])
           ]
         },
         footer: {
@@ -737,11 +617,7 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
             {
               type: 'button',
               style: 'primary',
-              action: {
-                type: 'uri',
-                label: 'ดูรายละเอียด',
-                uri: `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`
-              }
+              action: { type: 'uri', label: 'ดูรายละเอียด', uri: `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}` }
             }
           ]
         }

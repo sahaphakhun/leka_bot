@@ -437,94 +437,164 @@
     <div id="addTaskModal" class="modal">
         <div class="modal-content">
             <div class="modal-header">
-                <h3>เพิ่มงานใหม่</h3>
+                <div class="modal-title">
+                    <i class="fas fa-plus-circle"></i>
+                    <h3>เพิ่มงานใหม่</h3>
+                </div>
                 <button class="modal-close" id="addTaskModalClose">
                     <i class="fas fa-times"></i>
                 </button>
             </div>
             <div class="modal-body">
                 <form id="addTaskForm">
-                    <div class="form-row">
+                    <!-- ข้อมูลพื้นฐาน -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-info-circle"></i>
+                            <h4>ข้อมูลพื้นฐาน</h4>
+                        </div>
                         <div class="form-group">
-                            <label><input type="checkbox" id="requireAttachment"> ต้องแนบไฟล์เมื่อส่งงาน</label>
+                            <label for="taskTitle">
+                                <i class="fas fa-tag"></i>
+                                ชื่องาน *
+                            </label>
+                            <input type="text" id="taskTitle" name="title" required placeholder="กรอกชื่องาน">
+                        </div>
+                        <div class="form-group">
+                            <label for="taskDescription">
+                                <i class="fas fa-align-left"></i>
+                                รายละเอียด
+                            </label>
+                            <textarea id="taskDescription" name="description" rows="3" placeholder="อธิบายรายละเอียดงาน (ไม่บังคับ)"></textarea>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="recurrenceType">ชนิดงาน (ปกติ/ประจำ)</label>
-                            <select id="recurrenceType">
-                                <option value="none">งานปกติ (ครั้งเดียว)</option>
-                                <option value="weekly">งานประจำรายสัปดาห์</option>
-                                <option value="monthly">งานประจำรายเดือน</option>
-                                <option value="quarterly">งานประจำรายไตรมาส</option>
-                            </select>
+
+                    <!-- การตั้งค่า -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-cog"></i>
+                            <h4>การตั้งค่า</h4>
                         </div>
-                        <div class="form-group" id="recurrenceConfig" style="display:none;">
-                            <label id="recurrenceConfigLabel">ตั้งค่า Recurrence</label>
-                            <div style="display:flex; gap:8px;">
-                                <select id="weekDaySelect" style="display:none;">
-                                    <option value="1">จันทร์</option>
-                                    <option value="2">อังคาร</option>
-                                    <option value="3">พุธ</option>
-                                    <option value="4">พฤหัสบดี</option>
-                                    <option value="5">ศุกร์</option>
-                                    <option value="6">เสาร์</option>
-                                    <option value="0">อาทิตย์</option>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="taskPriority">
+                                    <i class="fas fa-flag"></i>
+                                    ระดับความสำคัญ
+                                </label>
+                                <select id="taskPriority" name="priority">
+                                    <option value="low">ต่ำ</option>
+                                    <option value="medium" selected>ปานกลาง</option>
+                                    <option value="high">สูง</option>
                                 </select>
-                                <input type="number" id="dayOfMonthInput" min="1" max="31" placeholder="วันที่ของเดือน" style="display:none;" />
-                                <input type="time" id="timeOfDayInput" value="09:00" />
+                            </div>
+                            <div class="form-group">
+                                <label for="reviewerSelect">
+                                    <i class="fas fa-user-check"></i>
+                                    ผู้ตรวจ (ผู้สั่งงาน)
+                                </label>
+                                <select id="reviewerSelect"></select>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label class="checkbox-label">
+                                <input type="checkbox" id="requireAttachment">
+                                <span class="checkmark"></span>
+                                <i class="fas fa-paperclip"></i>
+                                ต้องแนบไฟล์เมื่อส่งงาน
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- กำหนดเวลา -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-clock"></i>
+                            <h4>กำหนดเวลา</h4>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskDueDate">
+                                <i class="fas fa-calendar-alt"></i>
+                                วันที่ครบกำหนด *
+                            </label>
+                            <input type="datetime-local" id="taskDueDate" name="dueDate" required>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="recurrenceType">
+                                    <i class="fas fa-redo"></i>
+                                    ชนิดงาน
+                                </label>
+                                <select id="recurrenceType">
+                                    <option value="none">งานปกติ (ครั้งเดียว)</option>
+                                    <option value="weekly">งานประจำรายสัปดาห์</option>
+                                    <option value="monthly">งานประจำรายเดือน</option>
+                                    <option value="quarterly">งานประจำรายไตรมาส</option>
+                                </select>
+                            </div>
+                            <div class="form-group" id="recurrenceConfig" style="display:none;">
+                                <label id="recurrenceConfigLabel">
+                                    <i class="fas fa-calendar-week"></i>
+                                    ตั้งค่าการทำซ้ำ
+                                </label>
+                                <div class="recurrence-inputs">
+                                    <select id="weekDaySelect" style="display:none;">
+                                        <option value="1">จันทร์</option>
+                                        <option value="2">อังคาร</option>
+                                        <option value="3">พุธ</option>
+                                        <option value="4">พฤหัสบดี</option>
+                                        <option value="5">ศุกร์</option>
+                                        <option value="6">เสาร์</option>
+                                        <option value="0">อาทิตย์</option>
+                                    </select>
+                                    <input type="number" id="dayOfMonthInput" min="1" max="31" placeholder="วันที่ของเดือน" style="display:none;" />
+                                    <input type="time" id="timeOfDayInput" value="09:00" />
+                                </div>
                             </div>
                         </div>
                     </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="reviewerSelect">ผู้ตรวจ (ผู้สั่งงาน)</label>
-                            <select id="reviewerSelect"></select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="taskTitle">ชื่องาน *</label>
-                        <input type="text" id="taskTitle" name="title" required>
-                    </div>
-                    <div class="form-group">
-                        <label for="taskDescription">รายละเอียด</label>
-                        <textarea id="taskDescription" name="description" rows="3"></textarea>
-                    </div>
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="taskDueDate">วันที่ครบกำหนด *</label>
-                            <input type="datetime-local" id="taskDueDate" name="dueDate" required>
+
+                    <!-- ผู้รับผิดชอบและแท็ก -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-users"></i>
+                            <h4>ผู้รับผิดชอบและแท็ก</h4>
                         </div>
                         <div class="form-group">
-                            <label for="taskPriority">ระดับความสำคัญ</label>
-                            <select id="taskPriority" name="priority">
-                                <option value="low">ต่ำ</option>
-                                <option value="medium" selected>ปานกลาง</option>
-                                <option value="high">สูง</option>
+                            <label for="taskAssignees">
+                                <i class="fas fa-user-friends"></i>
+                                ผู้รับผิดชอบ
+                            </label>
+                            <select id="taskAssignees" name="assignees" multiple>
+                                <!-- จะใส่ด้วย JavaScript -->
                             </select>
+                            <div class="form-hint">กด Ctrl (หรือ Cmd) เพื่อเลือกหลายคน</div>
+                            <!-- แสดงข้อมูล source ของข้อมูลสมาชิก -->
+                            <div id="membersSourceInfo" class="info-text" style="display: none; margin-top: 8px; font-size: 12px; color: #6b7280;">
+                                <!-- จะใส่ด้วย JavaScript -->
+                            </div>
+                            <!-- แสดงข้อมูลสมาชิกใหม่ -->
+                            <div id="newMemberInfo" class="info-text" style="display: none; margin-top: 8px; font-size: 12px;">
+                                <!-- จะใส่ด้วย JavaScript -->
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label for="taskTags">
+                                <i class="fas fa-tags"></i>
+                                แท็ก
+                            </label>
+                            <input type="text" id="taskTags" name="tags" placeholder="การเงิน, ประชุม, ด่วน (คั่นด้วยจุลภาค)">
                         </div>
                     </div>
-                    <div class="form-group">
-                        <label for="taskAssignees">ผู้รับผิดชอบ</label>
-                        <select id="taskAssignees" name="assignees" multiple>
-                            <!-- จะใส่ด้วย JavaScript -->
-                        </select>
-                        <!-- แสดงข้อมูล source ของข้อมูลสมาชิก -->
-                        <div id="membersSourceInfo" class="info-text" style="display: none; margin-top: 8px; font-size: 12px; color: #6b7280;">
-                            <!-- จะใส่ด้วย JavaScript -->
-                        </div>
-                        <!-- แสดงข้อมูลสมาชิกใหม่ -->
-                        <div id="newMemberInfo" class="info-text" style="display: none; margin-top: 8px; font-size: 12px;">
-                            <!-- จะใส่ด้วย JavaScript -->
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="taskTags">แท็ก (คั่นด้วยจุลภาค)</label>
-                        <input type="text" id="taskTags" name="tags" placeholder="การเงิน, ประชุม, ด่วน">
-                    </div>
+
                     <div class="form-actions">
-                        <button type="button" class="btn btn-outline" id="cancelAddTask">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary" id="addTaskSubmitBtn">เพิ่มงาน</button>
+                        <button type="button" class="btn btn-outline" id="cancelAddTask">
+                            <i class="fas fa-times"></i>
+                            ยกเลิก
+                        </button>
+                        <button type="submit" class="btn btn-primary" id="addTaskSubmitBtn">
+                            <i class="fas fa-plus"></i>
+                            เพิ่มงาน
+                        </button>
                     </div>
                 </form>
             </div>

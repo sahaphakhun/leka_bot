@@ -267,8 +267,12 @@ export class UserService {
    */
   public async getGroupMembers(groupId: string): Promise<Array<User & { role: string }>> {
     try {
-      // ค้นหา Group entity จาก LINE Group ID
-      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      // รองรับทั้ง LINE Group ID และ internal UUID
+      let group = null as Group | null;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      group = isUuid
+        ? await this.groupRepository.findOneBy({ id: groupId as any })
+        : await this.groupRepository.findOneBy({ lineGroupId: groupId as any });
       if (!group) {
         throw new Error(`Group not found for LINE ID: ${groupId}`);
       }
@@ -377,8 +381,12 @@ export class UserService {
     joinedThisMonth: number;
   }> {
     try {
-      // ค้นหา Group entity จาก LINE Group ID
-      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      // ค้นหา Group entity จาก LINE Group ID หรือ UUID
+      let group = null as Group | null;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      group = isUuid
+        ? await this.groupRepository.findOneBy({ id: groupId as any })
+        : await this.groupRepository.findOneBy({ lineGroupId: groupId as any });
       if (!group) {
         throw new Error(`Group not found for LINE ID: ${groupId}`);
       }
