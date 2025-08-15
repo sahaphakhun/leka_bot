@@ -2,9 +2,9 @@
 // ใช้ Design System เพื่อสร้างการ์ดที่สม่ำเสมอ
 
 import { FlexMessageDesignSystem, TaskCardData } from './FlexMessageDesignSystem';
-import { FlexMessage } from '@/types';
+import { FlexMessage } from '@line/bot-sdk';
 import moment from 'moment-timezone';
-import config from '@/utils/config';
+import { config } from '@/utils/config';
 
 export class FlexMessageTemplateService {
   /**
@@ -122,8 +122,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ดูประวัติ', 'postback', `action=history&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -153,7 +152,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูประวัติ', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`, 'secondary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(

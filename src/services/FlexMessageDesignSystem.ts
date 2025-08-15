@@ -1,7 +1,7 @@
 // Flex Message Design System - ระบบออกแบบการ์ดมาตรฐานสำหรับ LINE
 // จัดการสี ขนาด layout และ template มาตรฐาน
 
-import { FlexMessage } from '@/types';
+import { FlexMessage } from '@line/bot-sdk';
 
 export interface FlexMessageTemplate {
   type: 'flex';

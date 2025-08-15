@@ -584,10 +584,13 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
   private createPersonalTaskCreatedFlexMessage(task: any, group: any, assignee: any, creator: any, dueDate: string): any {
     const baseMessage = FlexMessageTemplateService.createNewTaskCard(task, group, creator, dueDate);
     
-    // เพิ่มปุ่มสำหรับผู้รับผิดชอบ
-    baseMessage.contents.footer.contents.push(
-      FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-    );
+    // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
+    const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
+    if (isAssignee) {
+      baseMessage.contents.footer.contents.push(
+        FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
+      );
+    }
 
     return baseMessage;
   }
@@ -679,10 +682,13 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
   private createPersonalTaskReminderFlexMessage(task: any, group: any, assignee: any, reminderType: string): any {
     const baseMessage = this.createTaskReminderFlexMessage(task, group, reminderType);
     
-    // เพิ่มปุ่มสำหรับผู้รับผิดชอบ
-    baseMessage.contents.footer.contents.push(
-      FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-    );
+    // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
+    const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
+    if (isAssignee) {
+      baseMessage.contents.footer.contents.push(
+        FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
+      );
+    }
 
     return baseMessage;
   }
@@ -700,10 +706,13 @@ ${task.description ? `📝 ${task.description}\n` : ''}${task.tags && task.tags.
   private createPersonalOverdueTaskFlexMessage(task: any, group: any, assignee: any, overdueHours: number): any {
     const baseMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
     
-    // เพิ่มปุ่มสำหรับผู้รับผิดชอบ
-    baseMessage.contents.footer.contents.push(
-      FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
-    );
+    // เพิ่มปุ่ม "เสร็จแล้ว" เฉพาะเมื่อผู้ใช้เป็นผู้รับผิดชอบงานนี้
+    const isAssignee = task.assignedUsers?.some((u: any) => u.id === assignee.id || u.lineUserId === assignee.lineUserId);
+    if (isAssignee) {
+      baseMessage.contents.footer.contents.push(
+        FlexMessageDesignSystem.createButton('เสร็จแล้ว', 'postback', `action=complete_task&taskId=${task.id}`, 'primary')
+      );
+    }
 
     return baseMessage;
   }

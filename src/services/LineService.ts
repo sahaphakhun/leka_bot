@@ -430,7 +430,7 @@ export class LineService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('แก้ไข', 'postback', `action=edit&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?taskId=${task.id}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
