@@ -13,6 +13,7 @@ import { config } from '@/utils/config';
 import { serviceContainer } from '@/utils/serviceContainer';
 import { logger } from '@/utils/logger';
 import { formatFileSize } from '@/utils/common';
+import moment from 'moment-timezone';
 
 export const webhookRouter = Router();
 
@@ -486,6 +487,43 @@ class WebhookController {
             await this.lineService.replyMessage(replyToken, taskFilesCard);
           } catch (err: any) {
             await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงไฟล์แนบได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'reject_task': {
+          const taskId = params.get('taskId')!;
+          try {
+            // ตีกลับงานและเลื่อนกำหนดไป 1 วัน
+            const tz = config.app.defaultTimezone;
+            const newDue = moment().tz(tz).add(1, 'day').toDate();
+            
+            await this.taskService.updateTask(taskId, {
+              dueTime: newDue,
+              reviewAction: 'revise',
+              reviewerUserId: userId,
+              reviewerComment: 'งานถูกตีกลับผ่านการกดปุ่มในแชท'
+            } as any);
+            
+            await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานเรียบร้อยแล้ว และกำหนดวันส่งใหม่เป็น ${moment(newDue).tz(tz).format('DD/MM/YYYY HH:mm')}`);
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถตีกลับงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'submit_task': {
+          const taskId = params.get('taskId')!;
+          try {
+            // ส่งการ์ดให้แนบไฟล์สำหรับงานที่ถูกตีกลับ
+            const task = await this.taskService.getTaskById(taskId);
+            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+            const assignee = await this.userService.findByLineUserId(userId);
+            
+            const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
+            await this.lineService.replyMessage(replyToken, fileAttachmentCard);
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
