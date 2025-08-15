@@ -297,10 +297,10 @@ export class NotificationService {
       // แจ้งผู้ตรวจให้ตรวจงาน
       const reviewerUserId = this.getTaskReviewer(task);
       if (reviewerUserId) {
-        const reviewer = await this.userService.findByInternalId(reviewerUserId);
+        const reviewer = await this.userService.findById(reviewerUserId);
         if (reviewer?.lineUserId) {
           // สร้างการ์ดแจ้งผู้ตรวจ
-          const reviewCard = FlexMessageTemplateService.createReviewRequestCard(task, group, submitterDisplayName, fileCount, links);
+          const reviewCard = FlexMessageTemplateService.createReviewRequestCard(task, group, { submitterDisplayName, fileCount, links }, moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm'));
           await this.lineService.pushMessage(reviewer.lineUserId, reviewCard);
         }
       }
@@ -356,6 +356,260 @@ export class NotificationService {
    */
   private createTaskRejectedFlexMessage(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): any {
     return FlexMessageTemplateService.createRejectedTaskCard(task, group, newDueTime, reviewerDisplayName);
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับการเตือนงาน
+   */
+  private createTaskReminderFlexMessage(task: any, group: any, reminderType: string): FlexMessage {
+    const reminderText = this.getReminderTimeText(reminderType);
+    const reminderEmoji = this.getReminderEmoji(reminderType);
+    const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
+
+    const content = [
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`🎯 ${this.getPriorityText(task.priority)}`, 'sm', this.getPriorityColor(task.priority), 'bold'),
+      ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      task.title,
+      reminderEmoji,
+      FlexMessageDesignSystem.colors.warning,
+      content,
+      buttons,
+      'compact'
+    );
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับการเตือนงานส่วนบุคคล
+   */
+  private createPersonalTaskReminderFlexMessage(task: any, group: any, assignee: any, reminderType: string): FlexMessage {
+    const reminderText = this.getReminderTimeText(reminderType);
+    const reminderEmoji = this.getReminderEmoji(reminderType);
+    const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+
+    const content = [
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`🎯 ${this.getPriorityText(task.priority)}`, 'sm', this.getPriorityColor(task.priority), 'bold'),
+      ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      `🔔 ${reminderText}: ${task.title}`,
+      reminderEmoji,
+      FlexMessageDesignSystem.colors.warning,
+      content,
+      buttons,
+      'compact'
+    );
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานเกินกำหนด
+   */
+  private createOverdueTaskFlexMessage(task: any, group: any, overdueHours: number): FlexMessage {
+    return FlexMessageTemplateService.createOverdueTaskCard(task, group, overdueHours);
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานเกินกำหนดส่วนบุคคล
+   */
+  private createPersonalOverdueTaskFlexMessage(task: any, group: any, assignee: any, overdueHours: number): FlexMessage {
+    const overdueText = overdueHours < 24 
+      ? `เกินกำหนด ${overdueHours} ชั่วโมง`
+      : `เกินกำหนด ${Math.floor(overdueHours / 24)} วัน ${overdueHours % 24} ชั่วโมง`;
+
+    const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+
+    const content = [
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`⏰ เวลาที่เกิน: ${overdueText}`, 'sm', FlexMessageDesignSystem.colors.danger, 'bold'),
+      FlexMessageDesignSystem.createText(`🎯 ${this.getPriorityText(task.priority)}`, 'sm', this.getPriorityColor(task.priority), 'bold'),
+      ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      `🚨 งานเกินกำหนด: ${task.title}`,
+      '🚨',
+      FlexMessageDesignSystem.colors.danger,
+      content,
+      buttons,
+      'compact'
+    );
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานใหม่
+   */
+  private createTaskCreatedFlexMessage(task: any, group: any, creator: any, dueDate: string): FlexMessage {
+    return FlexMessageTemplateService.createNewTaskCard(task, group, creator, dueDate);
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานใหม่ส่วนบุคคล
+   */
+  private createPersonalTaskCreatedFlexMessage(task: any, group: any, assignee: any, creator: any, dueDate: string): FlexMessage {
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
+    const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    const content = [
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`👤 ผู้สร้าง: ${creator?.displayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      ...(priorityText ? [FlexMessageDesignSystem.createText(`🎯 ${priorityText}`, 'sm', priorityColor, 'bold')] : []),
+      ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : []),
+      ...(tagsText ? [FlexMessageDesignSystem.createText(tagsText, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      `📋 งานใหม่: ${task.title}`,
+      '📋',
+      FlexMessageDesignSystem.colors.primary,
+      content,
+      buttons,
+      'compact'
+    );
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานสำเร็จ
+   */
+  private createTaskCompletedFlexMessage(task: any, group: any, completedBy: any): FlexMessage {
+    return FlexMessageTemplateService.createCompletedTaskCard(task, group, completedBy);
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานที่ถูกลบ
+   */
+  private createTaskDeletedFlexMessage(task: any, group: any): FlexMessage {
+    return FlexMessageTemplateService.createDeletedTaskCard(task, group);
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานที่อัปเดต
+   */
+  private createTaskUpdatedFlexMessage(task: any, group: any, changes: Record<string, any>, changedFields: string[]): FlexMessage {
+    return FlexMessageTemplateService.createUpdatedTaskCard(task, group, changes, changedFields);
+  }
+
+  /**
+   * ดึงผู้ตรวจงาน
+   */
+  private getTaskReviewer(task: any): string | null {
+    return task.reviewerUserId || task.createdByUserId || null;
+  }
+
+  /**
+   * ส่งรายงานรายสัปดาห์
+   */
+  public async sendWeeklyReport(group: any, stats: any, leaderboard: any[]): Promise<void> {
+    try {
+      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
+      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
+      
+      const flexMessage = this.createWeeklyReportFlexMessage(group, stats, leaderboard, weekStart, weekEnd);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+      
+      console.log(`✅ Sent weekly report to group: ${group.name}`);
+    } catch (error) {
+      console.error('❌ Error sending weekly report:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ส่งรายงานรายสัปดาห์ให้ admin
+   */
+  public async sendWeeklyReportToAdmins(group: any, stats: any, leaderboard: any[]): Promise<void> {
+    try {
+      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').format('DD/MM');
+      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').format('DD/MM');
+      
+      const flexMessage = this.createAdminWeeklyReportFlexMessage(group, stats, leaderboard, weekStart, weekEnd);
+      
+      // ส่งให้ admin ทุกคนในกลุ่ม
+      const admins = await this.userService.getGroupMembers(group.id);
+      const adminUsers = admins.filter(member => member.role === 'admin');
+      
+      for (const admin of adminUsers) {
+        if (admin.lineUserId) {
+          try {
+            await this.lineService.pushMessage(admin.lineUserId, flexMessage);
+            console.log(`✅ Sent admin weekly report to: ${admin.displayName}`);
+          } catch (err) {
+            console.warn('⚠️ Failed to send admin weekly report:', admin.lineUserId, err);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sending admin weekly report:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ส่งการแจ้งเตือนงานที่ถูกตีกลับ
+   */
+  public async sendTaskRejectedNotification(task: any, newDueTime: Date, reviewerDisplayName?: string): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const flexMessage = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      console.log(`✅ Sent task rejected notification for task: ${task.id}`);
+    } catch (error) {
+      console.error('❌ Error sending task rejected notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ส่งการขอตรวจงาน
+   */
+  public async sendReviewRequest(task: any, reviewerUserId: string, details: any): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const reviewer = await this.userService.findById(reviewerUserId);
+      if (!reviewer?.lineUserId) return;
+
+      const dueText = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+      const flexMessage = this.createReviewRequestFlexMessage(task, group, details, dueText);
+      
+      await this.lineService.pushMessage(reviewer.lineUserId, flexMessage);
+      console.log(`✅ Sent review request to: ${reviewer.displayName}`);
+    } catch (error) {
+      console.error('❌ Error sending review request:', error);
+      throw error;
+    }
   }
 
   /**
