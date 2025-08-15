@@ -279,16 +279,22 @@ export class FlexMessageTemplateService {
       const displayTasks = taskList.slice(0, maxItems);
       const remainingCount = taskList.length - maxItems;
       
-      const taskItems = displayTasks.map(task => {
+      const taskItems: any[] = [];
+      
+      // เพิ่มงานที่แสดง
+      for (const task of displayTasks) {
         const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
         const dueDate = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
         
-        return FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText(`• ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
-          FlexMessageDesignSystem.createText(`  👥 ${assigneeNames} | 📅 ${dueDate}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
-        ], 'small', 'small', '#F8F9FA', 'xs');
-      });
+        taskItems.push(
+          FlexMessageDesignSystem.createBox('vertical', [
+            FlexMessageDesignSystem.createText(`• ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
+            FlexMessageDesignSystem.createText(`  👥 ${assigneeNames} | 📅 ${dueDate}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          ], 'small', 'small', '#F8F9FA', 'xs')
+        );
+      }
       
+      // เพิ่มข้อความแสดงงานที่เหลือ
       if (remainingCount > 0) {
         taskItems.push(
           FlexMessageDesignSystem.createText(`... และอีก ${remainingCount} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
@@ -333,7 +339,9 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (สำคัญ)', 'md', FlexMessageDesignSystem.colors.danger, 'bold')
       );
       const overdueTaskItems = createTaskList(overdueTasks, 4);
-      contentItems.push(...overdueTaskItems);
+      for (const item of overdueTaskItems) {
+        contentItems.push(item);
+      }
     }
     
     // เพิ่มงานกำลังดำเนินการ
@@ -343,7 +351,9 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('⏳ งานกำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold')
       );
       const inProgressTaskItems = createTaskList(inProgressTasks, 4);
-      contentItems.push(...inProgressTaskItems);
+      for (const item of inProgressTaskItems) {
+        contentItems.push(item);
+      }
     }
     
     // เพิ่มงานรอดำเนินการ
@@ -353,7 +363,9 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('📝 งานรอดำเนินการ', 'md', FlexMessageDesignSystem.colors.primary, 'bold')
       );
       const pendingTaskItems = createTaskList(pendingTasks, 4);
-      contentItems.push(...pendingTaskItems);
+      for (const item of pendingTaskItems) {
+        contentItems.push(item);
+      }
     }
     
     // เพิ่ม Footer
@@ -393,16 +405,22 @@ export class FlexMessageTemplateService {
       const displayTasks = taskList.slice(0, maxItems);
       const remainingCount = taskList.length - maxItems;
       
-      const taskItems = displayTasks.map(task => {
+      const taskItems: any[] = [];
+      
+      // เพิ่มงานที่แสดง
+      for (const task of displayTasks) {
         const dueDate = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
         const priorityEmoji = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
         
-        return FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText(`• ${priorityEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
-          FlexMessageDesignSystem.createText(`  📅 ${dueDate} | 🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
-        ], 'small', 'small', '#F8F9FA', 'xs');
-      });
+        taskItems.push(
+          FlexMessageDesignSystem.createBox('vertical', [
+            FlexMessageDesignSystem.createText(`• ${priorityEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
+            FlexMessageDesignSystem.createText(`  📅 ${dueDate} | 🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          ], 'small', 'small', '#F8F9FA', 'xs')
+        );
+      }
       
+      // เพิ่มข้อความแสดงงานที่เหลือ
       if (remainingCount > 0) {
         taskItems.push(
           FlexMessageDesignSystem.createText(`... และอีก ${remainingCount} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
@@ -448,7 +466,9 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (ต้องทำด่วน!)', 'md', FlexMessageDesignSystem.colors.danger, 'bold')
       );
       const overdueTaskItems = createPersonalTaskList(overdueTasks, 5);
-      contentItems.push(...overdueTaskItems);
+      for (const item of overdueTaskItems) {
+        contentItems.push(item);
+      }
     }
     
     // เพิ่มงานกำลังดำเนินการ
@@ -458,7 +478,9 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('⏳ งานกำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold')
       );
       const inProgressTaskItems = createPersonalTaskList(inProgressTasks, 4);
-      contentItems.push(...inProgressTaskItems);
+      for (const item of inProgressTaskItems) {
+        contentItems.push(item);
+      }
     }
     
     // เพิ่มงานรอดำเนินการ
@@ -468,7 +490,9 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('📝 งานรอดำเนินการ', 'md', FlexMessageDesignSystem.colors.primary, 'bold')
       );
       const pendingTaskItems = createPersonalTaskList(pendingTasks, 4);
-      contentItems.push(...pendingTaskItems);
+      for (const item of pendingTaskItems) {
+        contentItems.push(item);
+      }
     }
     
     // เพิ่มคำแนะนำ
