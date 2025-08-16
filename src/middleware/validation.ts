@@ -29,29 +29,33 @@ export const validateRequest = (schema: ValidationSchema) => {
         params: req.params
       });
 
-      const { error, value } = schema.body.validate(req.body, { abortEarly: false });
-      
-      if (error) {
-        console.error('❌ Validation failed:', error.details);
+      // Validate body if schema exists
+      if (schema.body) {
+        const { error, value } = schema.body.validate(req.body, { abortEarly: false });
         
-        const validationErrors: ValidationError[] = error.details.map((detail: any) => ({
-          field: detail.path.join('.'),
-          message: detail.message,
-          value: detail.context?.value
-        }));
-        
-        console.error('❌ Validation errors:', validationErrors);
-        
-        return res.status(400).json({
-          success: false,
-          error: 'Validation failed',
-          details: validationErrors
-        });
+        if (error) {
+          console.error('❌ Validation failed:', error.details);
+          
+          const validationErrors: ValidationError[] = error.details.map((detail: any) => ({
+            field: detail.path.join('.'),
+            message: detail.message,
+            value: detail.context?.value
+          }));
+          
+          console.error('❌ Validation errors:', validationErrors);
+          
+          return res.status(400).json({
+            success: false,
+            error: 'Validation failed',
+            details: validationErrors
+          });
+        }
+
+        // Validation passed
+        console.log('✅ Validation passed');
+        req.body = value;
       }
 
-      // Validation passed
-      console.log('✅ Validation passed');
-      req.body = value;
       next();
     } catch (err) {
       console.error('❌ Validation middleware error:', err);
