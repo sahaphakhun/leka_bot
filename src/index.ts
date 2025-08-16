@@ -16,6 +16,7 @@ import { LineService } from './services/LineService';
 import { CronService } from './services/CronService';
 import { logger } from './utils/logger';
 import { getCurrentTime } from './utils/common';
+import { autoMigration } from './utils/autoMigration';
 
 class Server {
   private app: Application;
@@ -61,12 +62,31 @@ class Server {
   private configureRoutes(): void {
     // Health check
     this.app.get('/health', (req: Request, res: Response) => {
-              res.json({
+      res.json({
+        status: 'OK',
+        timestamp: getCurrentTime(),
+        version: process.env.npm_package_version || '1.0.0',
+        environment: config.nodeEnv
+      });
+    });
+
+    // Migration status check
+    this.app.get('/migration-status', async (req: Request, res: Response) => {
+      try {
+        const needsMigration = await autoMigration.checkMigrationNeeded();
+        res.json({
           status: 'OK',
+          needsMigration,
           timestamp: getCurrentTime(),
-          version: process.env.npm_package_version || '1.0.0',
-          environment: config.nodeEnv
+          message: needsMigration ? 'Database needs migration' : 'Database schema is up to date'
         });
+      } catch (error) {
+        res.status(500).json({
+          status: 'ERROR',
+          error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: getCurrentTime()
+        });
+      }
     });
 
     // Main routes
@@ -166,6 +186,19 @@ class Server {
       // Initialize database
       await initializeDatabase();
       logger.info('Database connected');
+
+      // Run auto-migration if needed
+      try {
+        const needsMigration = await autoMigration.checkMigrationNeeded();
+        if (needsMigration) {
+          logger.info('🔄 ตรวจพบว่าจำเป็นต้องรัน migration...');
+          await autoMigration.runAutoMigration();
+        } else {
+          logger.info('✅ Database schema ครบถ้วน ไม่ต้องรัน migration');
+        }
+      } catch (error) {
+        logger.warn('⚠️ Auto-migration ล้มเหลว แต่ server จะยังคงทำงานต่อ:', error);
+      }
 
       // Initialize LINE service และ Cron jobs (เฉพาะเมื่อเปิดใช้ LINE integration)
       if (features.lineEnabled) {
