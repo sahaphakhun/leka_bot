@@ -1207,6 +1207,97 @@ export class TaskService {
   }
 
   /**
+   * อนุมัติการตรวจงาน
+   */
+  public async approveReview(taskId: string, approvedBy: string): Promise<Task> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'attachedFiles', 'group', 'createdByUser']
+      });
+
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      // แปลง LINE User ID → internal user id หากส่งมาเป็น LINE ID
+      let approvedByInternalId = approvedBy;
+      if (approvedByInternalId && approvedByInternalId.startsWith('U')) {
+        const user = await this.userRepository.findOneBy({ lineUserId: approvedByInternalId });
+        if (!user) {
+          throw new Error('ApprovedBy user not found');
+        }
+        approvedByInternalId = user.id;
+      }
+
+      // ตรวจสอบสิทธิ์ - ต้องเป็นผู้ตรวจหรือผู้สร้าง
+      if (!this.checkApprovalPermission(task, approvedByInternalId)) {
+        throw new Error('Only task reviewers or creators can approve reviews');
+      }
+
+      // อัปเดตเวิร์กโฟลว์
+      const now = new Date();
+      task.workflow = {
+        ...(task.workflow || {}),
+        review: {
+          ...(task.workflow as any)?.review,
+          status: 'approved',
+          reviewedAt: now
+        },
+        history: [
+          ...((task.workflow as any)?.history || []),
+          { 
+            action: 'review_approved', 
+            byUserId: approvedByInternalId, 
+            at: now, 
+            note: 'งานผ่านการตรวจแล้ว' 
+          }
+        ]
+      } as any;
+
+      // เปลี่ยนสถานะงานเป็น reviewed
+      task.status = 'reviewed';
+
+      const updatedTask = await this.taskRepository.save(task);
+
+      // อัปเดตใน Google Calendar
+      try {
+        await this.googleService.updateTaskInCalendar(task, { 
+          status: 'reviewed'
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to update reviewed task in Google Calendar:', error);
+      }
+
+      // ตรวจสอบว่าผู้ตรวจเป็นผู้สั่งงานหรือไม่
+      const isReviewerCreator = approvedByInternalId === task.createdBy;
+      
+      if (isReviewerCreator) {
+        // ถ้าผู้ตรวจเป็นผู้สั่งงาน ให้อนุมัติการปิดงานทันที
+        console.log(`✅ Reviewer is creator, auto-approving completion for task: ${task.title}`);
+        return await this.completeTask(taskId, approvedByInternalId);
+      } else {
+        // ส่งการ์ดขออนุมัติการปิดงานให้ผู้สั่งงาน
+        try {
+          const reviewer = await this.userRepository.findOneBy({ id: approvedByInternalId });
+          if (reviewer && task.createdByUser) {
+            await this.notificationService.sendApprovalRequest(updatedTask, task.createdBy, reviewer);
+            console.log(`📤 Sent approval request to task creator: ${task.createdByUser.displayName}`);
+          }
+        } catch (err) {
+          console.warn('⚠️ Failed to send approval request:', err);
+        }
+      }
+
+      return updatedTask;
+
+    } catch (error) {
+      console.error('❌ Error approving review:', error);
+      throw error;
+    }
+  }
+
+  /**
    * อนุมัติงานอัตโนมัติหลังจากครบกำหนดตรวจ 2 วัน
    */
   public async autoApproveTaskAfterDeadline(taskId: string): Promise<Task> {

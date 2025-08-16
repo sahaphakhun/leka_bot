@@ -281,6 +281,13 @@ export class NotificationService {
     links: string[]
   ): Promise<void> {
     try {
+      // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
+      const notificationKey = `task_submitted_${task.id}`;
+      if (this._sentNotifications.has(notificationKey)) {
+        console.log(`⚠️ Task submitted notification already sent for task: ${task.id}`);
+        return;
+      }
+
       const group = task.group;
       if (!group?.lineGroupId) return;
 
@@ -300,6 +307,14 @@ export class NotificationService {
           await this.lineService.pushMessage(reviewer.lineUserId, reviewCard);
         }
       }
+
+      // บันทึกว่าส่งการแจ้งเตือนแล้ว
+      this._sentNotifications.add(notificationKey);
+      
+      // ลบออกหลังจาก 1 ชั่วโมง (สำหรับการแจ้งเตือนการส่งงาน)
+      setTimeout(() => {
+        this._sentNotifications.delete(notificationKey);
+      }, 60 * 60 * 1000);
 
     } catch (error) {
       console.error('❌ Error sending task submitted notification:', error);
@@ -657,6 +672,27 @@ export class NotificationService {
       console.log(`✅ Sent review request to: ${reviewer.displayName}`);
     } catch (error) {
       console.error('❌ Error sending review request:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ส่งการขออนุมัติการปิดงาน
+   */
+  public async sendApprovalRequest(task: any, approverUserId: string, reviewer: any): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const approver = await this.userService.findById(approverUserId);
+      if (!approver?.lineUserId) return;
+
+      const flexMessage = FlexMessageTemplateService.createApprovalRequestCard(task, group, reviewer);
+      
+      await this.lineService.pushMessage(approver.lineUserId, flexMessage);
+      console.log(`✅ Sent approval request to: ${approver.displayName}`);
+    } catch (error) {
+      console.error('❌ Error sending approval request:', error);
       throw error;
     }
   }
@@ -1061,7 +1097,9 @@ export class NotificationService {
               
               // สร้างการ์ดรวมงานเกินกำหนด
               const tz = group.timezone || config.app.defaultTimezone;
-              const summaryCard = FlexMessageTemplateService.createOverdueTasksSummaryCard(assignee, tasks, tz);
+              // คำนวณชั่วโมงที่เกินกำหนดเฉลี่ย
+              const avgOverdueHours = Math.round(tasks.reduce((sum, t) => sum + moment().diff(moment(t.dueTime), 'hours'), 0) / tasks.length);
+              const summaryCard = FlexMessageTemplateService.createOverdueTaskCard(assignee, tasks[0], avgOverdueHours);
               
               // ส่งการแจ้งเตือนส่วนตัว
               await this.lineService.pushMessage(assignee.lineUserId, summaryCard);

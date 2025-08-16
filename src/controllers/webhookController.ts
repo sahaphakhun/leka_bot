@@ -353,31 +353,38 @@ class WebhookController {
           break;
         }
 
-        case 'reject_task': {
-          const taskId3 = params.get('taskId');
-          const extensionDays = parseInt(params.get('extensionDays') || '3');
-          if (taskId3) {
+        case 'approve_review': {
+          const taskId = params.get('taskId');
+          if (taskId) {
             try {
-              await this.taskService.rejectTaskAndExtendDeadline(taskId3, userId, extensionDays);
-              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานและขยายเวลาออกไป ${extensionDays} วันเรียบร้อย`);
+              await this.taskService.approveReview(taskId, userId);
+              await this.lineService.replyMessage(replyToken, '✅ อนุมัติการตรวจเรียบร้อยแล้ว');
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.lineService.replyMessage(replyToken, `❌ อนุมัติการตรวจไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          }
+          break;
+        }
+
+        case 'approve_completion': {
+          const taskId = params.get('taskId');
+          if (taskId) {
+            try {
+              await this.taskService.completeTask(taskId, userId);
+              await this.lineService.replyMessage(replyToken, '✅ อนุมัติการปิดงานเรียบร้อยแล้ว');
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ อนุมัติการปิดงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
         }
 
         case 'submit_task': {
-          const taskId4 = params.get('taskId');
-          if (taskId4) {
+          const taskId = params.get('taskId');
+          if (taskId) {
             try {
-              // ส่งการ์ดให้แนบไฟล์สำหรับการส่งงานใหม่
-              const task = await this.taskService.getTaskById(taskId4);
-              if (!task) {
-                await this.lineService.replyMessage(replyToken, '❌ ไม่พบงานที่ระบุ');
-                return;
-              }
-              
+              // ส่งการ์ดให้แนบไฟล์สำหรับงานที่ถูกตีกลับ
+              const task = await this.taskService.getTaskById(taskId);
               const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
               const assignee = await this.userService.findByLineUserId(userId);
               
@@ -385,6 +392,20 @@ class WebhookController {
               await this.lineService.replyMessage(replyToken, fileAttachmentCard);
             } catch (err: any) {
               await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          }
+          break;
+        }
+
+        case 'reject_task': {
+          const taskId = params.get('taskId');
+          const extensionDays = parseInt(params.get('extensionDays') || '3');
+          if (taskId) {
+            try {
+              await this.taskService.rejectTaskAndExtendDeadline(taskId, userId, extensionDays);
+              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานและขยายเวลาออกไป ${extensionDays} วันเรียบร้อย`);
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -509,42 +530,9 @@ class WebhookController {
           break;
         }
 
-        case 'reject_task': {
-          const taskId = params.get('taskId')!;
-          try {
-            // ตีกลับงานและเลื่อนกำหนดไป 1 วัน
-            const tz = config.app.defaultTimezone;
-            const newDue = moment().tz(tz).add(1, 'day').toDate();
-            
-            await this.taskService.updateTask(taskId, {
-              dueTime: newDue,
-              reviewAction: 'revise',
-              reviewerUserId: userId,
-              reviewerComment: 'งานถูกตีกลับผ่านการกดปุ่มในแชท'
-            } as any);
-            
-            await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานเรียบร้อยแล้ว และกำหนดวันส่งใหม่เป็น ${moment(newDue).tz(tz).format('DD/MM/YYYY HH:mm')}`);
-          } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถตีกลับงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
-          }
-          break;
-        }
 
-        case 'submit_task': {
-          const taskId = params.get('taskId')!;
-          try {
-            // ส่งการ์ดให้แนบไฟล์สำหรับงานที่ถูกตีกลับ
-            const task = await this.taskService.getTaskById(taskId);
-            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
-            const assignee = await this.userService.findByLineUserId(userId);
-            
-            const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
-            await this.lineService.replyMessage(replyToken, fileAttachmentCard);
-          } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
-          }
-          break;
-        }
+
+
 
         case 'view_details': {
           const taskId = params.get('taskId');
