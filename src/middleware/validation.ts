@@ -69,7 +69,7 @@ export const taskSchemas = {
       customReminders: Joi.array().items(Joi.string()).optional(),
       requireAttachment: Joi.boolean().optional(),
       reviewerUserId: Joi.string().pattern(/^[U][a-zA-Z0-9]+$/).optional()
-    })
+    }).unknown() // Allow unknown fields
   },
   
   update: {
@@ -82,7 +82,7 @@ export const taskSchemas = {
       startTime: Joi.date().optional(),
       tags: Joi.array().items(Joi.string()).optional(),
       customReminders: Joi.array().items(Joi.string()).optional()
-    })
+    }).unknown() // Allow unknown fields
   },
 
   list: {
@@ -94,7 +94,7 @@ export const taskSchemas = {
       endDate: Joi.string().optional(), // Accept string for date parsing
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(20)
-    })
+    }).unknown() // Allow unknown fields
   }
 };
 
@@ -106,13 +106,13 @@ export const fileSchemas = {
       search: Joi.string().optional(),
       page: Joi.number().integer().min(1).default(1),
       limit: Joi.number().integer().min(1).max(100).default(20)
-    })
+    }).unknown() // Allow unknown fields
   },
 
   addTags: {
     body: Joi.object({
       tags: Joi.array().items(Joi.string()).min(1).required()
-    })
+    }).unknown() // Allow unknown fields
   }
 };
 
@@ -122,14 +122,14 @@ export const userSchemas = {
       realName: Joi.string().max(100).optional(),
       email: Joi.string().email().optional(),
       timezone: Joi.string().optional()
-    })
+    }).unknown() // Allow unknown fields
   },
 
   linkEmail: {
     body: Joi.object({
       email: Joi.string().email().required(),
       verificationCode: Joi.string().optional()
-    })
+    }).unknown() // Allow unknown fields
   }
 };
 
@@ -148,7 +148,7 @@ export const groupSchemas = {
           end: Joi.string().pattern(/^\d{2}:\d{2}$/).optional()
         }).optional()
       }).optional()
-    })
+    }).unknown() // Allow unknown fields
   }
 };
 
@@ -156,14 +156,14 @@ export const kpiSchemas = {
   leaderboard: {
     query: Joi.object({
       period: Joi.string().valid('weekly', 'monthly', 'all').default('weekly')
-    })
+    }).unknown() // Allow unknown fields
   },
 
   userStats: {
     query: Joi.object({
       groupId: Joi.string().uuid().required(),
       period: Joi.string().valid('weekly', 'monthly', 'all').default('all')
-    })
+    }).unknown() // Allow unknown fields
   },
 
   export: {
@@ -171,7 +171,7 @@ export const kpiSchemas = {
       startDate: Joi.date().required(),
       endDate: Joi.date().required(),
       format: Joi.string().valid('json', 'csv').default('json')
-    })
+    }).unknown() // Allow unknown fields
   }
 };
 
@@ -180,31 +180,31 @@ export const paramSchemas = {
   uuid: {
     params: Joi.object({
       id: Joi.string().uuid().required()
-    })
+    }).unknown() // Allow unknown fields
   },
 
   groupId: {
     params: Joi.object({
       groupId: Joi.string().uuid().required()
-    })
+    }).unknown() // Allow unknown fields
   },
 
   taskId: {
     params: Joi.object({
       taskId: Joi.string().uuid().required()
-    })
+    }).unknown() // Allow unknown fields
   },
 
   fileId: {
     params: Joi.object({
       fileId: Joi.string().uuid().required()
-    })
+    }).unknown() // Allow unknown fields
   },
 
   userId: {
     params: Joi.object({
       userId: Joi.string().uuid().required()
-    })
+    }).unknown() // Allow unknown fields
   }
 };
 

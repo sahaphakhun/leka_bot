@@ -912,13 +912,16 @@ class Dashboard {
     this._isCreatingTask = true;
     
     try {
-      // เพิ่ม unique identifier เพื่อป้องกันการสร้างงานซ้ำ
-      const taskId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-      taskData._tempId = taskId;
+      // สร้าง copy ของ taskData โดยไม่มี _tempId
+      const cleanTaskData = { ...taskData };
+      delete cleanTaskData._tempId;
+      
+      // Debug logging
+      console.log('📝 Sending task data to API:', cleanTaskData);
       
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks`, {
         method: 'POST',
-        body: JSON.stringify(taskData)
+        body: JSON.stringify(cleanTaskData)
       });
       
       this.showToast('เพิ่มงานใหม่สำเร็จ', 'success');
@@ -946,6 +949,9 @@ class Dashboard {
         errorMessage = error.message;
       } else if (error.message.includes('Missing required field')) {
         errorMessage = 'กรุณากรอกข้อมูลให้ครบถ้วน';
+      } else if (error.message.includes('Validation failed')) {
+        errorMessage = 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบข้อมูลที่กรอก';
+        console.error('Validation error details:', error);
       } else {
         errorMessage = error.message || 'ไม่สามารถเพิ่มงานได้';
       }
