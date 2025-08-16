@@ -312,7 +312,7 @@ export class TaskService {
             reviewerDisplayName = reviewer?.displayName;
           }
           if (updates.dueTime) {
-            await this.notificationService.sendTaskRejectedNotification(updatedTask as any, updates.dueTime, reviewerDisplayName);
+            await this.notificationService.sendTaskRejectedNotification(updatedTask as any, reviewerDisplayName || 'ไม่ระบุ', updates.dueTime.toISOString());
           }
         }
       } catch (err) {
