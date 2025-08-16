@@ -267,13 +267,23 @@ export class FlexMessageTemplateService {
    * สร้างการ์ดรายงานรายวัน
    */
   static createDailySummaryCard(group: any, tasks: any[], timezone: string): FlexMessage {
-    const overdueTasks = tasks.filter(t => t.status === 'overdue');
-    const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-    const pendingTasks = tasks.filter(t => t.status === 'pending');
+    // งานที่กำลังดำเนินการ = ทุกงานที่ยังไม่เลยกำหนดและยังไม่ส่ง
+    const inProgressTasks = tasks.filter(t => 
+      t.status === 'in_progress' || 
+      t.status === 'pending' || 
+      (t.status === 'submitted' && !t.isCompleted)
+    );
+    
+    // งานที่ดำเนินการแล้ว = งานที่เสร็จแล้วหรือส่งแล้ว
+    const completedTasks = tasks.filter(t => 
+      t.status === 'completed' || 
+      (t.status === 'submitted' && t.isCompleted)
+    );
+    
     const date = moment().tz(timezone).format('DD/MM/YYYY');
 
-    // สร้างรายการงานย่อสำหรับแต่ละสถานะ
-    const createTaskList = (taskList: any[], maxItems: number = 4) => {
+    // สร้างรายการงานย่อสำหรับงานที่กำลังดำเนินการ
+    const createInProgressTaskList = (taskList: any[], maxItems: number = 6) => {
       if (taskList.length === 0) return [];
       
       const displayTasks = taskList.slice(0, maxItems);
@@ -285,10 +295,11 @@ export class FlexMessageTemplateService {
       for (const task of displayTasks) {
         const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
         const dueDate = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
+        const priorityEmoji = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
         
         taskItems.push(
           FlexMessageDesignSystem.createBox('vertical', [
-            FlexMessageDesignSystem.createText(`• ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
+            FlexMessageDesignSystem.createText(`• ${priorityEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
             FlexMessageDesignSystem.createText(`  👥 ${assigneeNames} | 📅 ${dueDate}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
           ], 'small', 'small', '#F8F9FA', 'xs')
         );
@@ -307,87 +318,64 @@ export class FlexMessageTemplateService {
     // สร้าง content array ที่ถูกต้อง
     const contentItems: any[] = [
       // Header
-      FlexMessageDesignSystem.createText(`🗓️ สรุปรายวัน - ${date}`, 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold', undefined, 'large'),
+      FlexMessageDesignSystem.createText(`📅 สรุปรายวัน - งานทั้งหมด`, 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold', undefined, 'large'),
       FlexMessageDesignSystem.createText(`📋 กลุ่ม: ${group.name}`, 'md', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createText(`🗓️ วันที่ ${date}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
       FlexMessageDesignSystem.createSeparator('medium'),
       
-      // สถิติรวม
+      // สถิติ
+      FlexMessageDesignSystem.createText('📊 สถิติ', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
       FlexMessageDesignSystem.createBox('horizontal', [
         { ...FlexMessageDesignSystem.createBox('vertical', [
           FlexMessageDesignSystem.createText('📊 รวม', 'xs', FlexMessageDesignSystem.colors.textSecondary),
           FlexMessageDesignSystem.createText(tasks.length.toString(), 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
         ]), flex: 1 },
         { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('⚠️ เกินกำหนด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(overdueTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.danger, 'bold')
-        ]), flex: 1 },
-        { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('⏳ กำลังทำ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText('⏳ กำลังดำเนินการ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
           FlexMessageDesignSystem.createText(inProgressTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.warning, 'bold')
         ]), flex: 1 },
         { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('📝 รอดำเนินการ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(pendingTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.primary, 'bold')
+          FlexMessageDesignSystem.createText('✅ ดำเนินการแล้ว', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(completedTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.success, 'bold')
         ]), flex: 1 }
-      ], 'medium')
+      ], 'medium'),
+      
+      FlexMessageDesignSystem.createSeparator('medium')
     ];
 
-    // เพิ่มงานเกินกำหนด (สำคัญที่สุด)
-    if (overdueTasks.length > 0) {
-      contentItems.push(
-        FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (สำคัญ)', 'md', FlexMessageDesignSystem.colors.danger, 'bold')
-      );
-      const overdueTaskItems = createTaskList(overdueTasks, 4);
-      for (const item of overdueTaskItems) {
-        contentItems.push(item);
-      }
-    }
-    
-    // เพิ่มงานกำลังดำเนินการ
+    // เพิ่มงานที่กำลังดำเนินการ
     if (inProgressTasks.length > 0) {
       contentItems.push(
-        FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('⏳ งานกำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold')
+        FlexMessageDesignSystem.createText('⏳ งานที่กำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.warning, 'bold'),
+        ...createInProgressTaskList(inProgressTasks, 6)
       );
-      const inProgressTaskItems = createTaskList(inProgressTasks, 4);
-      for (const item of inProgressTaskItems) {
-        contentItems.push(item);
-      }
-    }
-    
-    // เพิ่มงานรอดำเนินการ
-    if (pendingTasks.length > 0) {
+    } else {
       contentItems.push(
-        FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText('📝 งานรอดำเนินการ', 'md', FlexMessageDesignSystem.colors.primary, 'bold')
+        FlexMessageDesignSystem.createText('🎉 ไม่มีงานที่กำลังดำเนินการ', 'md', FlexMessageDesignSystem.colors.success, 'bold')
       );
-      const pendingTaskItems = createTaskList(pendingTasks, 4);
-      for (const item of pendingTaskItems) {
-        contentItems.push(item);
-      }
     }
     
     // เพิ่ม Footer
     contentItems.push(
       FlexMessageDesignSystem.createSeparator('medium'),
+      FlexMessageDesignSystem.createText(`📋 งานที่กำลังดำเนินการ ${inProgressTasks.length} งาน`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
       FlexMessageDesignSystem.createText('💡 คลิกปุ่มด้านล่างเพื่อดูรายละเอียดเพิ่มเติม', 'sm', FlexMessageDesignSystem.colors.textSecondary)
     );
 
-    const buttons = [
-      FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}#tasks`, 'secondary')
-    ];
+      const buttons = [
+        FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}`, 'primary'),
+        FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}#tasks`, 'secondary')
+      ];
 
-    return FlexMessageDesignSystem.createStandardTaskCard(
-      '📅 สรุปรายวัน - งานค้างทั้งหมด',
-      '📅',
-      FlexMessageDesignSystem.colors.info,
-      contentItems,
-      buttons,
-      'extraLarge'
-    );
-  }
+      return FlexMessageDesignSystem.createStandardTaskCard(
+        '📅 สรุปรายวัน - งานทั้งหมด',
+        '📅',
+        FlexMessageDesignSystem.colors.info,
+        contentItems,
+        buttons,
+        'extraLarge'
+      );
+    }
 
   /**
    * สร้างการ์ดรายงานส่วนบุคคล
@@ -503,7 +491,7 @@ export class FlexMessageTemplateService {
 
     const buttons = [
       FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}`, 'primary'),
-      FlexMessageDesignSystem.createButton('📋 ดูงานของฉัน', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}#my-tasks`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมดของฉัน', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}#my-tasks`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -787,7 +775,7 @@ export class FlexMessageTemplateService {
 
     const buttons = [
       FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}`, 'primary'),
-      FlexMessageDesignSystem.createButton('📋 ดูงานของฉัน', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}#my-tasks`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมดของฉัน', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}#my-tasks`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(

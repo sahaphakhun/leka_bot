@@ -85,11 +85,7 @@ export class NotificationService {
       const group = task.group;
       if (!group) return;
 
-      // สร้าง Flex Message สำหรับงานเกินกำหนด (ส่งเฉพาะการ์ด ไม่ส่งข้อความธรรมดา)
-      const flexMessage = this.createOverdueTaskFlexMessage(task, group, overdueHours);
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
-
-      // ส่งการแจ้งเตือนส่วนตัวให้ผู้รับผิดชอบ
+      // ส่งการแจ้งเตือนส่วนตัวให้ผู้รับผิดชอบเท่านั้น (ไม่ส่งในกลุ่ม)
       const assignees = task.assignedUsers || [];
       for (const assignee of assignees) {
         try {
@@ -1076,23 +1072,8 @@ export class NotificationService {
             }
           }
           
-          // ส่งการแจ้งเตือนรวมลงกลุ่ม (ถ้ามีงานเกินกำหนด)
-          if (overdueTasks.length > 0) {
-            try {
-              const tz = group.timezone || config.app.defaultTimezone;
-              const groupSummaryCard = FlexMessageTemplateService.createOverdueTasksSummaryCard(
-                { displayName: group.name, groupId: group.id },
-                overdueTasks,
-                tz
-              );
-              
-              await this.lineService.pushMessage(group.lineGroupId, groupSummaryCard);
-              console.log(`✅ Sent hourly overdue summary to group: ${group.name} (${overdueTasks.length} tasks)`);
-              
-            } catch (err) {
-              console.warn('⚠️ Failed to send hourly overdue summary to group:', group.lineGroupId, err);
-            }
-          }
+          // ไม่ส่งการแจ้งเตือนงานเกินกำหนดลงกลุ่ม (ส่งเฉพาะส่วนตัว)
+          console.log(`ℹ️ Skipped sending overdue summary to group: ${group.name} (${overdueTasks.length} tasks) - only personal notifications`);
           
         } catch (err) {
           console.warn('⚠️ Failed to process group for hourly overdue summary:', group.id, err);
