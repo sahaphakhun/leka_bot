@@ -6,50 +6,47 @@ import Joi from 'joi';
 /**
  * Validation Middleware Factory
  */
-export const validateRequest = (schema: {
-  body?: Joi.ObjectSchema;
-  query?: Joi.ObjectSchema;
-  params?: Joi.ObjectSchema;
-}) => {
+export const validateRequest = (schema: ValidationSchema) => {
   return (req: Request, res: Response, next: NextFunction) => {
-    const validationErrors: string[] = [];
-
-    // Validate body
-    if (schema.body) {
-      const { error } = schema.body.validate(req.body);
-      if (error) {
-        validationErrors.push(`Body: ${error.details.map(d => d.message).join(', ')}`);
-      }
-    }
-
-    // Validate query
-    if (schema.query) {
-      const { error } = schema.query.validate(req.query);
-      if (error) {
-        validationErrors.push(`Query: ${error.details.map(d => d.message).join(', ')}`);
-      }
-    }
-
-    // Validate params
-    if (schema.params) {
-      const { error } = schema.params.validate(req.params);
-      if (error) {
-        validationErrors.push(`Params: ${error.details.map(d => d.message).join(', ')}`);
-      }
-    }
-
-    if (validationErrors.length > 0) {
-      console.warn('⚠️ Validation failed:', validationErrors);
-      res.status(400).json({
-        success: false,
-        error: 'Validation failed',
-        details: validationErrors,
-        message: 'ข้อมูลที่ส่งไม่ตรงตามรูปแบบที่กำหนด'
+    try {
+      // Log request data for debugging
+      console.log('🔍 Validation middleware - Request data:', {
+        body: req.body,
+        query: req.query,
+        params: req.params
       });
-      return;
-    }
 
-    next();
+      const { error, value } = schema.body.validate(req.body, { abortEarly: false });
+      
+      if (error) {
+        console.error('❌ Validation failed:', error.details);
+        
+        const validationErrors = error.details.map(detail => ({
+          field: detail.path.join('.'),
+          message: detail.message,
+          value: detail.context?.value
+        }));
+        
+        console.error('❌ Validation errors:', validationErrors);
+        
+        return res.status(400).json({
+          success: false,
+          error: 'Validation failed',
+          details: validationErrors
+        });
+      }
+
+      // Validation passed
+      console.log('✅ Validation passed');
+      req.body = value;
+      next();
+    } catch (err) {
+      console.error('❌ Validation middleware error:', err);
+      return res.status(500).json({
+        success: false,
+        error: 'Validation middleware error'
+      });
+    }
   };
 };
 

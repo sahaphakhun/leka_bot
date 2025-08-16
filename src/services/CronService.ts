@@ -91,6 +91,14 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
+    // ตรวจสอบงานที่ครบกำหนดตรวจและอนุมัติอัตโนมัติทุก 6 ชั่วโมง
+    const autoApproveJob = cron.schedule('0 */6 * * *', async () => {
+      await this.processAutoApproveTasks();
+    }, {
+      scheduled: false,
+      timezone: config.app.defaultTimezone
+    });
+
     // เก็บ jobs ไว้สำหรับ shutdown
     this.jobs.set('reminderOneDay', reminderOneDayJob);
     this.jobs.set('overdue', overdueJob);
@@ -100,6 +108,7 @@ export class CronService {
     this.jobs.set('supervisorSummary', supervisorSummaryJob);
     this.jobs.set('kpiUpdate', kpiUpdateJob);
     this.jobs.set('recurring', recurringJob);
+    this.jobs.set('autoApprove', autoApproveJob);
 
     // เริ่มงานทั้งหมด
     this.jobs.forEach((job, name) => {
@@ -547,6 +556,29 @@ export class CronService {
 
     } catch (error) {
       console.error('❌ Error processing recurring tasks:', error);
+    }
+  }
+
+  /**
+   * ตรวจสอบงานที่ครบกำหนดตรวจและอนุมัติอัตโนมัติทุก 6 ชั่วโมง
+   */
+  private async processAutoApproveTasks(): Promise<void> {
+    try {
+      console.log('🔄 Processing auto-approved tasks...');
+
+      const tasks = await this.taskService.getTasksLateForReview();
+
+      for (const task of tasks) {
+        try {
+          await this.taskService.autoApproveTaskAfterDeadline(task.id);
+          console.log(`✅ Auto-approved task: ${task.title}`);
+        } catch (error) {
+          console.error(`❌ Failed to auto-approve task ${task.id}:`, error);
+        }
+      }
+
+    } catch (error) {
+      console.error('❌ Error processing auto-approved tasks:', error);
     }
   }
 

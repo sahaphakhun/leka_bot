@@ -352,6 +352,37 @@ export class NotificationService {
   }
 
   /**
+   * สร้าง Flex Message สำหรับงานที่อนุมัติอัตโนมัติ
+   */
+  private createTaskAutoApprovedFlexMessage(task: any, group: any): FlexMessage {
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
+    const completedDate = moment(task.completedAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+
+    const content = [
+      FlexMessageDesignSystem.createText('🤖 งานถูกอนุมัติอัตโนมัติ', 'md', FlexMessageDesignSystem.colors.success, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`✅ อนุมัติเมื่อ: ${completedDate}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('ระบบอนุมัติงานอัตโนมัติหลังจากครบกำหนดตรวจ 2 วัน', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '🤖 งานถูกอนุมัติอัตโนมัติ',
+      '🤖',
+      FlexMessageDesignSystem.colors.success,
+      content,
+      buttons,
+      'large'
+    );
+  }
+
+  /**
    * สร้าง Flex Message สำหรับงานที่ถูกปฏิเสธ
    */
   private createTaskRejectedFlexMessage(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): FlexMessage {
@@ -590,6 +621,24 @@ export class NotificationService {
       console.log(`✅ Sent task rejected notification for task: ${task.id}`);
     } catch (error) {
       console.error('❌ Error sending task rejected notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ส่งการแจ้งเตือนงานที่อนุมัติอัตโนมัติ
+   */
+  public async sendTaskAutoApprovedNotification(task: any): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group) return;
+
+      const flexMessage = this.createTaskAutoApprovedFlexMessage(task, group);
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      console.log(`✅ Sent task auto-approved notification for task: ${task.id}`);
+    } catch (error) {
+      console.error('❌ Error sending task auto-approved notification:', error);
       throw error;
     }
   }

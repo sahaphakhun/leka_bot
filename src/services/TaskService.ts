@@ -613,28 +613,46 @@ export class TaskService {
       // แจ้งผู้ตรวจให้ตรวจภายใน 2 วัน
       try {
         const reviewerInternalId = this.getTaskReviewer(saved);
+        console.log(`🔍 Looking for reviewer with ID: ${reviewerInternalId}`);
+        
         const reviewer = await this.userRepository.findOneBy({ id: reviewerInternalId });
         if (reviewer) {
+          console.log(`✅ Found reviewer: ${reviewer.displayName} (${reviewer.lineUserId})`);
+          
           await this.notificationService.sendReviewRequest(saved as any, reviewer.lineUserId, {
             submitterDisplayName: submitter.displayName,
             fileCount: fileIds.length,
             links: (links && links.length > 0) ? links : fileLinks
           } as any);
+          
+          console.log(`📤 Review request sent to reviewer: ${reviewer.displayName}`);
+        } else {
+          console.warn(`⚠️ Reviewer not found for ID: ${reviewerInternalId}`);
         }
       } catch (err) {
-        console.warn('⚠️ Failed to send review request notification:', err);
+        console.error('❌ Failed to send review request notification:', err);
+        // ไม่ throw error เพราะไม่ต้องการให้การส่งงานล้มเหลว
       }
 
       // แจ้งในกลุ่มว่ามีการส่งงาน
       try {
-        await this.notificationService.sendTaskSubmittedNotification(
-          { ...saved, group: task.group } as any,
-          submitter.displayName,
-          fileIds.length,
-          links && links.length > 0 ? links : fileLinks
-        );
+        if (task.group) {
+          console.log(`📢 Sending task submitted notification to group: ${task.group.name || task.group.id}`);
+          
+          await this.notificationService.sendTaskSubmittedNotification(
+            { ...saved, group: task.group } as any,
+            submitter.displayName,
+            fileIds.length,
+            links && links.length > 0 ? links : fileLinks
+          );
+          
+          console.log(`✅ Task submitted notification sent to group`);
+        } else {
+          console.warn(`⚠️ Task has no group, skipping group notification`);
+        }
       } catch (err) {
-        console.warn('⚠️ Failed to send task submitted notification:', err);
+        console.error('❌ Failed to send task submitted notification:', err);
+        // ไม่ throw error เพราะไม่ต้องการให้การส่งงานล้มเหลว
       }
 
       return saved;
@@ -1189,6 +1207,85 @@ export class TaskService {
   }
 
   /**
-   * ปิดงาน
+   * อนุมัติงานอัตโนมัติหลังจากครบกำหนดตรวจ 2 วัน
+   */
+  public async autoApproveTaskAfterDeadline(taskId: string): Promise<Task> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'attachedFiles', 'group']
+      });
+      
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      const wf: any = task.workflow || {};
+      if (!wf.review || wf.review.status !== 'pending') {
+        throw new Error('Task is not pending review');
+      }
+
+      // ตรวจสอบว่าครบกำหนดตรวจ 2 วันแล้วหรือไม่
+      const now = new Date();
+      const reviewDue = new Date(wf.review.reviewDueAt);
+      if (now < reviewDue) {
+        throw new Error('Review deadline not reached yet');
+      }
+
+      // อนุมัติงานอัตโนมัติ
+      task.status = 'completed';
+      task.completedAt = new Date();
+      
+      // อัปเดตเวิร์กโฟลว์
+      task.workflow = {
+        ...wf,
+        review: {
+          ...wf.review,
+          status: 'auto_approved',
+          reviewedAt: now,
+          autoApproved: true
+        },
+        history: [
+          ...(wf.history || []),
+          { 
+            action: 'auto_approve', 
+            byUserId: 'system', 
+            at: now, 
+            note: 'อนุมัติอัตโนมัติหลังจากครบกำหนดตรวจ 2 วัน' 
+          }
+        ]
+      };
+
+      const updatedTask = await this.taskRepository.save(task);
+
+      // อัปเดตใน Google Calendar
+      try {
+        await this.googleService.updateTaskInCalendar(task, { 
+          status: 'completed',
+          completedAt: task.completedAt 
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to update auto-approved task in Google Calendar:', error);
+      }
+
+      // แจ้งในกลุ่มว่าอนุมัติอัตโนมัติแล้ว
+      try {
+        if (task.group) {
+          await this.notificationService.sendTaskAutoApprovedNotification({ ...updatedTask, group: task.group } as any);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to send task auto-approved notification:', err);
+      }
+
+      return updatedTask;
+
+    } catch (error) {
+      console.error('❌ Error auto-approving task:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ดึงงานในกลุ่ม
    */
 }
