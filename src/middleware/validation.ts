@@ -2,7 +2,6 @@
 
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
-import { logger } from '@/utils/logger';
 
 /**
  * Validation Middleware Factory
@@ -40,7 +39,7 @@ export const validateRequest = (schema: {
     }
 
     if (validationErrors.length > 0) {
-      logger.warn('⚠️ Validation failed:', validationErrors);
+      console.warn('⚠️ Validation failed:', validationErrors);
       res.status(400).json({
         success: false,
         error: 'Validation failed',
