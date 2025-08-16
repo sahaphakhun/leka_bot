@@ -113,13 +113,29 @@ class ApiController {
       const { groupId } = req.params;
       const taskData = req.body;
 
+      // Debug logging
+      logger.info('📝 Creating task with data:', {
+        groupId,
+        title: taskData.title,
+        assigneeIds: taskData.assigneeIds,
+        createdBy: taskData.createdBy,
+        dueTime: taskData.dueTime,
+        hasDescription: !!taskData.description,
+        priority: taskData.priority,
+        tags: taskData.tags,
+        requireAttachment: taskData.requireAttachment,
+        reviewerUserId: taskData.reviewerUserId
+      });
+
       // ตรวจสอบ required fields
       const requiredFields = ['title', 'assigneeIds', 'createdBy', 'dueTime'];
       for (const field of requiredFields) {
         if (!taskData[field]) {
+          logger.warn(`⚠️ Missing required field: ${field}`);
           res.status(400).json({
             success: false,
-            error: `Missing required field: ${field}`
+            error: `Missing required field: ${field}`,
+            details: `Field '${field}' is required but not provided`
           });
           return;
         }

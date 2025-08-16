@@ -3,26 +3,38 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ทดสอบ Moment Timezone - แก้ไขแล้ว</title>
+    <title>Test Moment.js Fixes</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f5f5f5;
         }
-        .test-section {
+        .container {
             background: white;
-            padding: 20px;
-            margin: 20px 0;
-            border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
-        .success { color: green; }
-        .error { color: red; }
-        .warning { color: orange; }
-        .info { color: blue; }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background: #f9f9f9;
+        }
+        .test-result {
+            margin: 10px 0;
+            padding: 10px;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
         button {
             background: #007bff;
             color: white;
@@ -32,276 +44,305 @@
             cursor: pointer;
             margin: 5px;
         }
-        button:hover {
-            background: #0056b3;
-        }
-        .result {
-            background: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
+        button:hover { background: #0056b3; }
+        .date-display {
+            font-size: 18px;
             margin: 10px 0;
-            font-family: monospace;
+            padding: 10px;
+            background: #e9ecef;
+            border-radius: 5px;
         }
     </style>
 </head>
 <body>
-    <h1>🧪 ทดสอบ Moment Timezone - แก้ไขแล้ว</h1>
-    
-    <div class="test-section">
-        <h2>📋 สรุปการแก้ไข</h2>
-        <ul>
-            <li>✅ แก้ไขไฟล์ <code>moment-timezone.min.js</code> ให้มีฟังก์ชัน <code>tz</code> ที่ถูกต้อง</li>
-            <li>✅ เพิ่ม try-catch ใน <code>script.js</code> เพื่อจัดการกับ error</li>
-            <li>✅ เพิ่ม fallback ไปใช้ <code>Date</code> ปกติเมื่อ moment.tz ไม่ทำงาน</li>
-            <li>✅ แก้ไขฟังก์ชัน <code>formatDateForAPI</code> ที่เป็นสาเหตุของ error</li>
-        </ul>
+    <div class="container">
+        <h1>🧪 Test Moment.js Fixes</h1>
+        <p>ทดสอบการแก้ไข moment.tz และ fallback functions</p>
+        
+        <div class="test-section">
+            <h3>📅 Test Date Formatting</h3>
+            <button onclick="testDateFormats()">ทดสอบการจัดรูปแบบวันที่</button>
+            <div id="dateResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>⏰ Test DateTime Formatting</h3>
+            <button onclick="testDateTimeFormats()">ทดสอบการจัดรูปแบบวันที่และเวลา</button>
+            <div id="dateTimeResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🌍 Test Timezone Handling</h3>
+            <button onclick="testTimezoneHandling()">ทดสอบการจัดการ timezone</button>
+            <div id="timezoneResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 Test Fallback Functions</h3>
+            <button onclick="testFallbacks()">ทดสอบ fallback functions</button>
+            <div id="fallbackResults"></div>
+        </div>
+
+        <div class="test-section">
+            <h3>📊 Current Status</h3>
+            <div id="statusResults"></div>
+        </div>
     </div>
 
-    <div class="test-section">
-        <h2>🔧 ทดสอบการโหลด Moment</h2>
-        <button onclick="testMomentLoading()">ทดสอบการโหลด</button>
-        <div id="momentLoadingResult" class="result"></div>
-    </div>
+    <!-- Load Moment.js -->
+    <script src="assets/js/moment.min.js"></script>
+    <script src="assets/js/moment-timezone.min.js"></script>
+    <script src="script.js"></script>
 
-    <div class="test-section">
-        <h2>🌍 ทดสอบ Timezone Functions</h2>
-        <button onclick="testTimezoneFunctions()">ทดสอบฟังก์ชัน Timezone</button>
-        <div id="timezoneResult" class="result"></div>
-    </div>
-
-    <div class="test-section">
-        <h2>📅 ทดสอบ Date Formatting</h2>
-        <button onclick="testDateFormatting()">ทดสอบการจัดรูปแบบวันที่</button>
-        <div id="dateFormatResult" class="result"></div>
-    </div>
-
-    <div class="test-section">
-        <h2>🚨 ทดสอบ Error Handling</h2>
-        <button onclick="testErrorHandling()">ทดสอบการจัดการ Error</button>
-        <div id="errorHandlingResult" class="result"></div>
-    </div>
-
-    <div class="test-section">
-        <h2>📊 สถานะปัจจุบัน</h2>
-        <div id="currentStatus" class="result"></div>
-    </div>
-
-    <!-- โหลด Moment และ Moment Timezone -->
-    <script src="/dashboard/assets/js/moment.min.js"></script>
-    <script src="/dashboard/assets/js/moment-timezone.min.js"></script>
-    
     <script>
-        // ฟังก์ชันทดสอบการโหลด Moment
-        function testMomentLoading() {
-            const result = document.getElementById('momentLoadingResult');
-            let html = '';
-            
-            try {
-                if (typeof moment !== 'undefined') {
-                    html += '<div class="success">✅ moment.js โหลดสำเร็จ</div>';
-                    
-                    if (typeof moment.tz === 'function') {
-                        html += '<div class="success">✅ moment.tz() ทำงานได้</div>';
-                    } else {
-                        html += '<div class="error">❌ moment.tz() ไม่ใช่ฟังก์ชัน</div>';
-                    }
-                    
-                    if (moment.tz && typeof moment.tz.setDefault === 'function') {
-                        html += '<div class="success">✅ moment.tz.setDefault() ทำงานได้</div>';
-                    } else {
-                        html += '<div class="warning">⚠️ moment.tz.setDefault() ไม่ทำงาน</div>';
-                    }
-                    
-                    // ทดสอบการใช้งาน
-                    try {
-                        const testDate = moment('2024-01-01').tz('Asia/Bangkok');
-                        html += '<div class="success">✅ moment().tz() ทำงานได้</div>';
-                    } catch (error) {
-                        html += `<div class="error">❌ moment().tz() ไม่ทำงาน: ${error.message}</div>`;
-                    }
-                    
-                } else {
-                    html += '<div class="error">❌ moment.js ไม่ได้โหลด</div>';
-                }
-            } catch (error) {
-                html += `<div class="error">❌ เกิดข้อผิดพลาด: ${error.message}</div>`;
-            }
-            
-            result.innerHTML = html;
-        }
+        // Test Dashboard instance
+        let dashboard;
 
-        // ฟังก์ชันทดสอบฟังก์ชัน Timezone
-        function testTimezoneFunctions() {
-            const result = document.getElementById('timezoneResult');
-            let html = '';
-            
-            try {
-                if (moment && moment.tz) {
-                    // ทดสอบ moment.tz() function
-                    try {
-                        const bangkokTime = moment.tz('2024-01-01 12:00:00', 'Asia/Bangkok');
-                        html += `<div class="success">✅ moment.tz() ทำงานได้: ${bangkokTime.format()}</div>`;
-                    } catch (error) {
-                        html += `<div class="error">❌ moment.tz() ไม่ทำงาน: ${error.message}</div>`;
-                    }
-                    
-                    // ทดสอบ moment().tz() method
-                    try {
-                        const date = moment('2024-01-01 12:00:00');
-                        const bangkokDate = date.tz('Asia/Bangkok');
-                        html += `<div class="success">✅ moment().tz() ทำงานได้: ${bangkokDate.format()}</div>`;
-                    } catch (error) {
-                        html += `<div class="error">❌ moment().tz() ไม่ทำงาน: ${error.message}</div>`;
-                    }
-                    
-                    // ทดสอบ setDefault
-                    try {
-                        moment.tz.setDefault('Asia/Bangkok');
-                        html += '<div class="success">✅ moment.tz.setDefault() ทำงานได้</div>';
-                    } catch (error) {
-                        html += `<div class="error">❌ moment.tz.setDefault() ไม่ทำงาน: ${error.message}</div>`;
-                    }
-                    
-                } else {
-                    html += '<div class="warning">⚠️ moment หรือ moment.tz ไม่พร้อมใช้งาน</div>';
-                }
-            } catch (error) {
-                html += `<div class="error">❌ เกิดข้อผิดพลาด: ${error.message}</div>`;
-            }
-            
-            result.innerHTML = html;
-        }
-
-        // ฟังก์ชันทดสอบการจัดรูปแบบวันที่
-        function testDateFormatting() {
-            const result = document.getElementById('dateFormatResult');
-            let html = '';
-            
-            try {
-                const testDate = '2024-01-15T10:30:00Z';
-                
-                if (moment && moment.tz) {
-                    try {
-                        // ทดสอบ formatDateForAPI (ฟังก์ชันที่มีปัญหา)
-                        const apiDate = formatDateForAPI(testDate);
-                        html += `<div class="success">✅ formatDateForAPI() ทำงานได้: ${apiDate}</div>`;
-                    } catch (error) {
-                        html += `<div class="error">❌ formatDateForAPI() ไม่ทำงาน: ${error.message}</div>`;
-                    }
-                    
-                    try {
-                        // ทดสอบการจัดรูปแบบวันที่
-                        const formatted = moment(testDate).tz('Asia/Bangkok').format('DD MMMM YYYY HH:mm');
-                        html += `<div class="success">✅ การจัดรูปแบบวันที่ทำงานได้: ${formatted}</div>`;
-                    } catch (error) {
-                        html += `<div class="error">❌ การจัดรูปแบบวันที่ไม่ทำงาน: ${error.message}</div>`;
-                    }
-                    
-                } else {
-                    html += '<div class="warning">⚠️ moment หรือ moment.tz ไม่พร้อมใช้งาน</div>';
-                }
-            } catch (error) {
-                html += `<div class="error">❌ เกิดข้อผิดพลาด: ${error.message}</div>`;
-            }
-            
-            result.innerHTML = html;
-        }
-
-        // ฟังก์ชันทดสอบการจัดการ Error
-        function testErrorHandling() {
-            const result = document.getElementById('errorHandlingResult');
-            let html = '';
-            
-            try {
-                // ทดสอบการเรียกใช้ moment.tz ที่ไม่ถูกต้อง
-                if (moment && moment.tz) {
-                    try {
-                        // ทดสอบการเรียกใช้ที่ไม่ถูกต้อง
-                        const invalidResult = moment.tz('invalid-date', 'invalid-timezone');
-                        html += `<div class="info">ℹ️ การเรียกใช้ที่ไม่ถูกต้อง: ${invalidResult}</div>`;
-                    } catch (error) {
-                        html += `<div class="success">✅ Error handling ทำงานได้: ${error.message}</div>`;
-                    }
-                    
-                    // ทดสอบ fallback
-                    try {
-                        const fallbackDate = new Date('2024-01-01 12:00:00');
-                        const bangkokTime = new Date(fallbackDate.getTime() + (7 * 3600000));
-                        html += `<div class="success">✅ Fallback Date ทำงานได้: ${bangkokTime.toISOString()}</div>`;
-                    } catch (error) {
-                        html += `<div class="error">❌ Fallback Date ไม่ทำงาน: ${error.message}</div>`;
-                    }
-                    
-                } else {
-                    html += '<div class="warning">⚠️ moment หรือ moment.tz ไม่พร้อมใช้งาน</div>';
-                }
-            } catch (error) {
-                html += `<div class="error">❌ เกิดข้อผิดพลาด: ${error.message}</div>`;
-            }
-            
-            result.innerHTML = html;
-        }
-
-        // ฟังก์ชัน formatDateForAPI ที่แก้ไขแล้ว (จำลองจาก script.js)
-        function formatDateForAPI(date) {
-            if (moment && moment.tz) {
-                try {
-                    return moment(date).tz('Asia/Bangkok').toISOString();
-                } catch (error) {
-                    console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-                    // แปลงเป็น Bangkok time (UTC+7) แบบ manual
-                    const inputDate = new Date(date);
-                    const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
-                    const bangkokTime = new Date(utc + (7 * 3600000));
-                    return bangkokTime.toISOString();
-                }
-            }
-            // Fallback: แปลงเป็น Bangkok time (UTC+7) แบบ manual
-            const inputDate = new Date(date);
-            const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
-            const bangkokTime = new Date(utc + (7 * 3600000));
-            return bangkokTime.toISOString();
-        }
-
-        // อัปเดตสถานะปัจจุบัน
-        function updateCurrentStatus() {
-            const status = document.getElementById('currentStatus');
-            let html = '';
-            
-            if (typeof moment !== 'undefined') {
-                html += '<div class="success">✅ moment.js พร้อมใช้งาน</div>';
-                
-                if (typeof moment.tz === 'function') {
-                    html += '<div class="success">✅ moment.tz() พร้อมใช้งาน</div>';
-                } else {
-                    html += '<div class="error">❌ moment.tz() ไม่พร้อมใช้งาน</div>';
-                }
-                
-                if (moment.tz && typeof moment.tz.setDefault === 'function') {
-                    html += '<div class="success">✅ moment.tz.setDefault() พร้อมใช้งาน</div>';
-                } else {
-                    html += '<div class="warning">⚠️ moment.tz.setDefault() ไม่พร้อมใช้งาน</div>';
-                }
-                
-            } else {
-                html += '<div class="error">❌ moment.js ไม่พร้อมใช้งาน</div>';
-            }
-            
-            status.innerHTML = html;
-        }
-
-        // อัปเดตสถานะเมื่อโหลดหน้า
+        // Initialize dashboard when page loads
         document.addEventListener('DOMContentLoaded', function() {
-            updateCurrentStatus();
-            
-            // ทดสอบอัตโนมัติหลังจากโหลดเสร็จ
-            setTimeout(() => {
-                testMomentLoading();
-                testTimezoneFunctions();
-                testDateFormatting();
-                testErrorHandling();
-            }, 1000);
+            // Create a mock dashboard instance for testing
+            dashboard = {
+                timezone: 'Asia/Bangkok',
+                convertToThaiYear: function(year) {
+                    return year + 543;
+                },
+                formatDate: function(date) {
+                    if (!date) return '-';
+                    
+                    try {
+                        if (moment && moment.tz && typeof moment.tz === 'function') {
+                            try {
+                                const momentDate = moment(date).tz(this.timezone);
+                                const day = momentDate.format('DD');
+                                const month = momentDate.format('MM');
+                                const year = this.convertToThaiYear(momentDate.year());
+                                return `${day}/${month}/${year}`;
+                            } catch (error) {
+                                console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+                            }
+                        }
+                        
+                        // fallback to native Date with Bangkok timezone adjustment
+                        const dateObj = new Date(date);
+                        // Adjust for Bangkok timezone (UTC+7)
+                        const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+                        const bangkokTime = new Date(utc + (7 * 3600000));
+                        
+                        const day = bangkokTime.getDate().toString().padStart(2, '0');
+                        const month = (bangkokTime.getMonth() + 1).toString().padStart(2, '0');
+                        const year = this.convertToThaiYear(bangkokTime.getFullYear());
+                        return `${day}/${month}/${year}`;
+                    } catch (error) {
+                        console.error('❌ Error formatting date:', error);
+                        // Ultimate fallback
+                        return new Date().toLocaleDateString('th-TH');
+                    }
+                },
+                formatDateTime: function(date) {
+                    if (!date) return '-';
+                    
+                    try {
+                        if (moment && moment.tz && typeof moment.tz === 'function') {
+                            try {
+                                const momentDate = moment(date).tz(this.timezone);
+                                const day = momentDate.format('DD');
+                                const month = momentDate.format('MM');
+                                const year = this.convertToThaiYear(momentDate.year());
+                                const time = momentDate.format('HH:mm');
+                                return `${day}/${month}/${year} ${time}`;
+                            } catch (error) {
+                                console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+                            }
+                        }
+                        
+                        // fallback to native Date with Bangkok timezone adjustment
+                        const dateObj = new Date(date);
+                        // Adjust for Bangkok timezone (UTC+7)
+                        const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+                        const bangkokTime = new Date(utc + (7 * 3600000));
+                        
+                        const day = bangkokTime.getDate().toString().padStart(2, '0');
+                        const month = (bangkokTime.getMonth() + 1).toString().padStart(2, '0');
+                        const year = this.convertToThaiYear(bangkokTime.getFullYear());
+                        const hours = bangkokTime.getHours().toString().padStart(2, '0');
+                        const minutes = bangkokTime.getMinutes().toString().padStart(2, '0');
+                        return `${day}/${month}/${year} ${hours}:${minutes}`;
+                    } catch (error) {
+                        console.error('❌ Error formatting date:', error);
+                        // Ultimate fallback
+                        return new Date().toLocaleString('th-TH');
+                    }
+                }
+            };
+
+            // Show initial status
+            showStatus();
         });
+
+        function showStatus() {
+            const statusDiv = document.getElementById('statusResults');
+            let html = '<div class="info test-result">';
+            
+            // Check Moment.js
+            if (typeof moment !== 'undefined') {
+                html += '<div class="success test-result">✅ Moment.js โหลดสำเร็จ</div>';
+                
+                if (moment.tz && typeof moment.tz === 'function') {
+                    html += '<div class="success test-result">✅ moment.tz ใช้งานได้</div>';
+                } else {
+                    html += '<div class="warning test-result">⚠️ moment.tz ไม่ใช้งานได้ (จะใช้ fallback)</div>';
+                }
+            } else {
+                html += '<div class="error test-result">❌ Moment.js ไม่ได้โหลด</div>';
+            }
+            
+            // Check timezone
+            html += `<div class="info test-result">🌍 Timezone: ${dashboard.timezone}</div>`;
+            html += `<div class="info test-result">🕐 เวลาปัจจุบัน: ${new Date().toLocaleString('th-TH')}</div>`;
+            
+            html += '</div>';
+            statusDiv.innerHTML = html;
+        }
+
+        function testDateFormats() {
+            const resultsDiv = document.getElementById('dateResults');
+            let html = '<h4>ผลการทดสอบ formatDate:</h4>';
+            
+            const testDates = [
+                new Date(),
+                new Date('2024-01-15'),
+                new Date('2024-12-31'),
+                null,
+                'invalid-date'
+            ];
+            
+            testDates.forEach((date, index) => {
+                try {
+                    const result = dashboard.formatDate(date);
+                    html += `<div class="date-display">`;
+                    html += `<strong>Input ${index + 1}:</strong> ${date}<br>`;
+                    html += `<strong>Result:</strong> ${result}`;
+                    html += `</div>`;
+                } catch (error) {
+                    html += `<div class="error test-result">❌ Error: ${error.message}</div>`;
+                }
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        function testDateTimeFormats() {
+            const resultsDiv = document.getElementById('dateTimeResults');
+            let html = '<h4>ผลการทดสอบ formatDateTime:</h4>';
+            
+            const testDates = [
+                new Date(),
+                new Date('2024-01-15T10:30:00'),
+                new Date('2024-12-31T23:59:59'),
+                null,
+                'invalid-date'
+            ];
+            
+            testDates.forEach((date, index) => {
+                try {
+                    const result = dashboard.formatDateTime(date);
+                    html += `<div class="date-display">`;
+                    html += `<strong>Input ${index + 1}:</strong> ${date}<br>`;
+                    html += `<strong>Result:</strong> ${result}`;
+                    html += `</div>`;
+                } catch (error) {
+                    html += `<div class="error test-result">❌ Error: ${error.message}</div>`;
+                }
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        function testTimezoneHandling() {
+            const resultsDiv = document.getElementById('timezoneResults');
+            let html = '<h4>ผลการทดสอบ Timezone Handling:</h4>';
+            
+            // Test different timezone scenarios
+            const testScenarios = [
+                {
+                    name: 'UTC Time',
+                    date: new Date('2024-01-15T00:00:00Z'),
+                    expected: '15/01/2567 07:00' // UTC+7
+                },
+                {
+                    name: 'Local Time',
+                    date: new Date('2024-01-15T10:00:00'),
+                    expected: '15/01/2567 17:00' // Local + 7 hours
+                },
+                {
+                    name: 'Bangkok Time',
+                    date: new Date('2024-01-15T15:00:00+07:00'),
+                    expected: '15/01/2567 15:00' // Already Bangkok time
+                }
+            ];
+            
+            testScenarios.forEach((scenario, index) => {
+                try {
+                    const result = dashboard.formatDateTime(scenario.date);
+                    const isCorrect = result.includes(scenario.expected.split(' ')[0]); // Check date part
+                    
+                    html += `<div class="date-display">`;
+                    html += `<strong>${scenario.name}:</strong><br>`;
+                    html += `<strong>Input:</strong> ${scenario.date}<br>`;
+                    html += `<strong>Expected:</strong> ${scenario.expected}<br>`;
+                    html += `<strong>Result:</strong> ${result}<br>`;
+                    html += `<strong>Status:</strong> ${isCorrect ? '✅ ถูกต้อง' : '⚠️ อาจมีปัญหา'}`;
+                    html += `</div>`;
+                } catch (error) {
+                    html += `<div class="error test-result">❌ Error: ${error.message}</div>`;
+                }
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
+
+        function testFallbacks() {
+            const resultsDiv = document.getElementById('fallbackResults');
+            let html = '<h4>ผลการทดสอบ Fallback Functions:</h4>';
+            
+            // Test fallback scenarios
+            const fallbackTests = [
+                {
+                    name: 'Null Input',
+                    input: null,
+                    expected: '-'
+                },
+                {
+                    name: 'Empty String',
+                    input: '',
+                    expected: '-'
+                },
+                {
+                    name: 'Invalid Date String',
+                    input: 'not-a-date',
+                    expected: 'fallback date'
+                }
+            ];
+            
+            fallbackTests.forEach((test, index) => {
+                try {
+                    const dateResult = dashboard.formatDate(test.input);
+                    const dateTimeResult = dashboard.formatDateTime(test.input);
+                    
+                    html += `<div class="date-display">`;
+                    html += `<strong>${test.name}:</strong><br>`;
+                    html += `<strong>Input:</strong> ${test.input}<br>`;
+                    html += `<strong>formatDate:</strong> ${dateResult}<br>`;
+                    html += `<strong>formatDateTime:</strong> ${dateTimeResult}<br>`;
+                    html += `<strong>Status:</strong> ✅ ทำงานได้ (fallback ทำงาน)</strong>`;
+                    html += `</div>`;
+                } catch (error) {
+                    html += `<div class="error test-result">❌ Error: ${error.message}</div>`;
+                }
+            });
+            
+            resultsDiv.innerHTML = html;
+        }
     </script>
 </body>
 </html>

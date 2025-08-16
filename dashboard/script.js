@@ -470,50 +470,70 @@ class Dashboard {
   formatDate(date) {
     if (!date) return '-';
     
-    if (moment && moment.tz && typeof moment.tz === 'function') {
-      try {
-        const momentDate = moment(date).tz(this.timezone);
-        const day = momentDate.format('DD');
-        const month = momentDate.format('MM');
-        const year = this.convertToThaiYear(momentDate.year());
-        return `${day}/${month}/${year}`;
-      } catch (error) {
-        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+    try {
+      if (moment && moment.tz && typeof moment.tz === 'function') {
+        try {
+          const momentDate = moment(date).tz(this.timezone);
+          const day = momentDate.format('DD');
+          const month = momentDate.format('MM');
+          const year = this.convertToThaiYear(momentDate.year());
+          return `${day}/${month}/${year}`;
+        } catch (error) {
+          console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        }
       }
+      
+      // fallback to native Date with Bangkok timezone adjustment
+      const dateObj = new Date(date);
+      // Adjust for Bangkok timezone (UTC+7)
+      const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+      const bangkokTime = new Date(utc + (7 * 3600000));
+      
+      const day = bangkokTime.getDate().toString().padStart(2, '0');
+      const month = (bangkokTime.getMonth() + 1).toString().padStart(2, '0');
+      const year = this.convertToThaiYear(bangkokTime.getFullYear());
+      return `${day}/${month}/${year}`;
+    } catch (error) {
+      console.error('❌ Error formatting date:', error);
+      // Ultimate fallback
+      return new Date().toLocaleDateString('th-TH');
     }
-    
-    // fallback to native Date
-    const dateObj = new Date(date);
-    const day = dateObj.getDate().toString().padStart(2, '0');
-    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-    const year = this.convertToThaiYear(dateObj.getFullYear());
-    return `${day}/${month}/${year}`;
   }
 
   formatDateTime(date) {
     if (!date) return '-';
     
-    if (moment && moment.tz && typeof moment.tz === 'function') {
-      try {
-        const momentDate = moment(date).tz(this.timezone);
-        const day = momentDate.format('DD');
-        const month = momentDate.format('MM');
-        const year = this.convertToThaiYear(momentDate.year());
-        const time = momentDate.format('HH:mm');
-        return `${day}/${month}/${year} ${time}`;
-      } catch (error) {
-        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+    try {
+      if (moment && moment.tz && typeof moment.tz === 'function') {
+        try {
+          const momentDate = moment(date).tz(this.timezone);
+          const day = momentDate.format('DD');
+          const month = momentDate.format('MM');
+          const year = this.convertToThaiYear(momentDate.year());
+          const time = momentDate.format('HH:mm');
+          return `${day}/${month}/${year} ${time}`;
+        } catch (error) {
+          console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+        }
       }
+      
+      // fallback to native Date with Bangkok timezone adjustment
+      const dateObj = new Date(date);
+      // Adjust for Bangkok timezone (UTC+7)
+      const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+      const bangkokTime = new Date(utc + (7 * 3600000));
+      
+      const day = bangkokTime.getDate().toString().padStart(2, '0');
+      const month = (bangkokTime.getMonth() + 1).toString().padStart(2, '0');
+      const year = this.convertToThaiYear(bangkokTime.getFullYear());
+      const hours = bangkokTime.getHours().toString().padStart(2, '0');
+      const minutes = bangkokTime.getMinutes().toString().padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    } catch (error) {
+      console.error('❌ Error formatting date:', error);
+      // Ultimate fallback
+      return new Date().toLocaleString('th-TH');
     }
-    
-    // fallback to native Date
-    const dateObj = new Date(date);
-    const day = dateObj.getDate().toString().padStart(2, '0');
-    const month = (dateObj.getMonth() + 1).toString().padStart(2, '0');
-    const year = this.convertToThaiYear(dateObj.getFullYear());
-    const hours = dateObj.getHours().toString().padStart(2, '0');
-    const minutes = dateObj.getMinutes().toString().padStart(2, '0');
-    return `${day}/${month}/${year} ${hours}:${minutes}`;
   }
 
   // ==================== 
@@ -2010,13 +2030,22 @@ class Dashboard {
         return;
       }
       
+      // ตรวจสอบ assignees
+      const assigneeIds = Array.from(document.querySelectorAll('#taskAssignees .assignee-checkbox:checked'))
+        .map(input => input.value);
+      
+      if (assigneeIds.length === 0) {
+        this.showFieldError('taskAssignees', 'กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน');
+        this.showToast('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน', 'error');
+        return;
+      }
+      
       const taskData = {
         title: title,
         description: formData.get('description')?.trim() || '',
         dueTime: this.formatDateForAPI(dueDate),
         priority: (document.getElementById('taskPriority')?.value || 'medium'),
-        assigneeIds: Array.from(document.querySelectorAll('#taskAssignees .assignee-checkbox:checked'))
-          .map(input => input.value),
+        assigneeIds: assigneeIds,
         tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag) : [],
         createdBy: this.currentUserId || 'unknown',
         requireAttachment: document.getElementById('requireAttachment').checked,
