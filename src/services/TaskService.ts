@@ -444,13 +444,13 @@ export class TaskService {
         }
       }
 
-      // บังคับต้องแนบไฟล์ถ้าระบุ requireAttachment
-      if (task.requireAttachment) {
-        const hasFile = (task.attachedFiles && task.attachedFiles.length > 0);
-        if (!hasFile) {
-          throw new Error('Attachment required to complete this task');
-        }
-      }
+      // ตรวจสอบ requireAttachment ในขั้นตอนการส่งงานแล้ว ไม่ต้องตรวจสอบที่นี่
+      // if (task.requireAttachment) {
+      //   const hasFile = (task.attachedFiles && task.attachedFiles.length > 0);
+      //   if (!hasFile) {
+      //     throw new Error('Attachment required to complete this task');
+      //   }
+      // }
 
       task.status = 'completed';
       task.completedAt = new Date();
@@ -559,6 +559,11 @@ export class TaskService {
         } catch (e) {
           console.warn('⚠️ linkFileToTask failed:', fid, e);
         }
+      }
+
+      // ตรวจสอบ requireAttachment
+      if (task.requireAttachment && fileIds.length === 0) {
+        throw new Error('งานนี้ต้องแนบไฟล์เพื่อส่งงาน กรุณาแนบไฟล์ก่อนส่งงาน');
       }
 
       // อัปเดตเวิร์กโฟลว์
@@ -1095,4 +1100,95 @@ export class TaskService {
       console.error('❌ Error updating recurring task next run time:', error);
     }
   }
+
+  /**
+   * ตีกลับงานและขยายเวลา
+   */
+  public async rejectTaskAndExtendDeadline(taskId: string, rejectedBy: string, extensionDays: number = 3): Promise<Task> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'attachedFiles', 'group']
+      });
+
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      // แปลง LINE User ID → internal user id หากส่งมาเป็น LINE ID
+      let rejectedByInternalId = rejectedBy;
+      if (rejectedByInternalId && rejectedByInternalId.startsWith('U')) {
+        const user = await this.userRepository.findOneBy({ lineUserId: rejectedByInternalId });
+        if (!user) {
+          throw new Error('RejectedBy user not found');
+        }
+        rejectedByInternalId = user.id;
+      }
+
+      // ตรวจสอบสิทธิ์ - ต้องเป็นผู้ตรวจหรือผู้สร้าง
+      if (!this.checkApprovalPermission(task, rejectedByInternalId)) {
+        throw new Error('Only task reviewers or creators can reject tasks');
+      }
+
+      // ขยายเวลาออกไป
+      const newDueTime = new Date(task.dueTime.getTime() + extensionDays * 24 * 60 * 60 * 1000);
+      task.dueTime = newDueTime;
+
+      // อัปเดตเวิร์กโฟลว์
+      const now = new Date();
+      task.workflow = {
+        ...(task.workflow || {}),
+        review: {
+          ...(task.workflow as any)?.review,
+          status: 'rejected',
+          reviewedAt: now,
+          rejectionReason: `ตีกลับโดย ${rejectedByInternalId} และขยายเวลาออกไป ${extensionDays} วัน`
+        },
+        history: [
+          ...((task.workflow as any)?.history || []),
+          { 
+            action: 'reject', 
+            byUserId: rejectedByInternalId, 
+            at: now, 
+            note: `extend_deadline_${extensionDays}_days` 
+          }
+        ]
+      } as any;
+
+      // รีเซ็ตสถานะงานกลับเป็น pending
+      task.status = 'pending';
+
+      const updatedTask = await this.taskRepository.save(task);
+
+      // อัปเดตใน Google Calendar
+      try {
+        await this.googleService.updateTaskInCalendar(task, { 
+          status: 'pending',
+          dueTime: newDueTime
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to update rejected task in Google Calendar:', error);
+      }
+
+      // แจ้งเตือนผู้รับผิดชอบว่าถูกตีกลับและขยายเวลา
+      try {
+        const rejectedByUser = await this.userRepository.findOneBy({ id: rejectedByInternalId });
+        if (rejectedByUser) {
+          await this.notificationService.sendTaskRejectedNotification({ ...updatedTask, group: task.group } as any, rejectedByUser as any, extensionDays.toString());
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to send task rejected notification:', err);
+      }
+
+      return updatedTask;
+
+    } catch (error) {
+      console.error('❌ Error rejecting task and extending deadline:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ปิดงาน
+   */
 }

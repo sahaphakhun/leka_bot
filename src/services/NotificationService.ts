@@ -575,10 +575,14 @@ export class NotificationService {
   /**
    * ส่งการแจ้งเตือนงานที่ถูกตีกลับ
    */
-  public async sendTaskRejectedNotification(task: any, newDueTime: Date, reviewerDisplayName?: string): Promise<void> {
+  public async sendTaskRejectedNotification(task: any, reviewer: any, extensionDays: string): Promise<void> {
     try {
       const group = task.group;
       if (!group) return;
+
+      // คำนวณเวลากำหนดส่งใหม่
+      const newDueTime = new Date(task.dueTime.getTime() + parseInt(extensionDays) * 24 * 60 * 60 * 1000);
+      const reviewerDisplayName = reviewer?.displayName || 'ไม่ระบุ';
 
       const flexMessage = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName);
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);

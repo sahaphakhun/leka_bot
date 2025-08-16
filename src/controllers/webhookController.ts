@@ -244,10 +244,29 @@ class WebhookController {
           const taskId = params.get('taskId');
           if (taskId) {
             try {
-              await this.taskService.completeTask(taskId, userId);
-              await this.lineService.replyMessage(replyToken, '✅ ปิดงานเรียบร้อยแล้ว');
+              // ดึงข้อมูลงานเพื่อตรวจสอบ requireAttachment
+              const task = await this.taskService.getTaskById(taskId);
+              
+              if (!task) {
+                await this.lineService.replyMessage(replyToken, '❌ ไม่พบงานที่ระบุ');
+                return;
+              }
+              
+              // ตรวจสอบว่าต้องแนบไฟล์หรือไม่
+              if (task.requireAttachment) {
+                // ถ้าต้องแนบไฟล์ ให้แสดงการ์ดให้แนบไฟล์ก่อน
+                const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+                const assignee = await this.userService.findByLineUserId(userId);
+                
+                const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
+                await this.lineService.replyMessage(replyToken, fileAttachmentCard);
+              } else {
+                // ถ้าไม่ต้องแนบไฟล์ ให้ส่งงานทันที
+                const submittedTask = await this.taskService.recordSubmission(taskId, userId, [], 'ส่งงานผ่านการกดปุ่มทำเครื่องหมายเสร็จ');
+                await this.lineService.replyMessage(replyToken, '✅ ส่งงานเรียบร้อยแล้ว ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน');
+              }
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถปิดงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถส่งงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -329,6 +348,43 @@ class WebhookController {
               await this.lineService.replyMessage(replyToken, '✅ อนุมัติและปิดงานเรียบร้อย');
             } catch (err: any) {
               await this.lineService.replyMessage(replyToken, `❌ อนุมัติไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          }
+          break;
+        }
+
+        case 'reject_task': {
+          const taskId3 = params.get('taskId');
+          const extensionDays = parseInt(params.get('extensionDays') || '3');
+          if (taskId3) {
+            try {
+              await this.taskService.rejectTaskAndExtendDeadline(taskId3, userId, extensionDays);
+              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานและขยายเวลาออกไป ${extensionDays} วันเรียบร้อย`);
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          }
+          break;
+        }
+
+        case 'submit_task': {
+          const taskId4 = params.get('taskId');
+          if (taskId4) {
+            try {
+              // ส่งการ์ดให้แนบไฟล์สำหรับการส่งงานใหม่
+              const task = await this.taskService.getTaskById(taskId4);
+              if (!task) {
+                await this.lineService.replyMessage(replyToken, '❌ ไม่พบงานที่ระบุ');
+                return;
+              }
+              
+              const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+              const assignee = await this.userService.findByLineUserId(userId);
+              
+              const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
+              await this.lineService.replyMessage(replyToken, fileAttachmentCard);
+            } catch (err: any) {
+              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
