@@ -3,6 +3,19 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
 
+// Type definitions
+interface ValidationSchema {
+  body?: Joi.ObjectSchema;
+  query?: Joi.ObjectSchema;
+  params?: Joi.ObjectSchema;
+}
+
+interface ValidationError {
+  field: string;
+  message: string;
+  value?: any;
+}
+
 /**
  * Validation Middleware Factory
  */
@@ -21,7 +34,7 @@ export const validateRequest = (schema: ValidationSchema) => {
       if (error) {
         console.error('❌ Validation failed:', error.details);
         
-        const validationErrors = error.details.map(detail => ({
+        const validationErrors: ValidationError[] = error.details.map((detail: any) => ({
           field: detail.path.join('.'),
           message: detail.message,
           value: detail.context?.value
