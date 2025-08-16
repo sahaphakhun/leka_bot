@@ -34,17 +34,17 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
-    // ตรวจสอบงานที่เกินกำหนดทุกชั่วโมง
-    const overdueJob = cron.schedule('0 * * * *', async () => {
+    // ตรวจสอบงานที่เกินกำหนดทุกวันเวลา 9:00 น. (เปลี่ยนจากทุกชั่วโมง)
+    const overdueJob = cron.schedule('0 9 * * *', async () => {
       await this.processOverdueTasks();
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
     });
 
-    // ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกชั่วโมง
-    const hourlyOverdueSummaryJob = cron.schedule('0 * * * *', async () => {
-      await this.sendHourlyOverdueSummary();
+    // ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกวันเวลา 9:00 น.
+    const dailyOverdueSummaryJob = cron.schedule('0 9 * * *', async () => {
+      await this.sendDailyOverdueSummary();
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
@@ -102,7 +102,7 @@ export class CronService {
     // เก็บ jobs ไว้สำหรับ shutdown
     this.jobs.set('reminderOneDay', reminderOneDayJob);
     this.jobs.set('overdue', overdueJob);
-    this.jobs.set('hourlyOverdueSummary', hourlyOverdueSummaryJob);
+    this.jobs.set('dailyOverdueSummary', dailyOverdueSummaryJob);
     this.jobs.set('weeklyReport', weeklyReportJob);
     this.jobs.set('dailySummary', dailySummaryJob);
     this.jobs.set('supervisorSummary', supervisorSummaryJob);
@@ -608,14 +608,14 @@ export class CronService {
   }
 
   /**
-   * ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกชั่วโมง
+   * ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกวัน
    */
-  private async sendHourlyOverdueSummary(): Promise<void> {
+  private async sendDailyOverdueSummary(): Promise<void> {
     try {
-      console.log('🕐 Starting hourly overdue tasks summary...');
-      await this.notificationService.sendHourlyOverdueSummary();
+      console.log('🕐 Starting daily overdue tasks summary...');
+      await this.notificationService.sendDailyOverdueSummary();
     } catch (error) {
-      console.error('❌ Error in hourly overdue summary job:', error);
+      console.error('❌ Error in daily overdue summary job:', error);
     }
   }
 

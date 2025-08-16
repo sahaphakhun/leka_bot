@@ -1018,11 +1018,11 @@ export class NotificationService {
   }
 
   /**
-   * ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกชั่วโมง
+   * ส่งการแจ้งเตือนงานเกินกำหนดแบบรวมทุกวัน
    */
-  public async sendHourlyOverdueSummary(): Promise<void> {
+  public async sendDailyOverdueSummary(): Promise<void> {
     try {
-      console.log('🕐 Starting hourly overdue tasks summary...');
+      console.log('🕐 Starting daily overdue tasks summary...');
       
       // ใช้ TaskService เพื่อดึงข้อมูล
       const taskService = new (await import('./TaskService')).TaskService();
@@ -1065,10 +1065,10 @@ export class NotificationService {
               
               // ส่งการแจ้งเตือนส่วนตัว
               await this.lineService.pushMessage(assignee.lineUserId, summaryCard);
-              console.log(`✅ Sent hourly overdue summary to: ${assignee.displayName} (${tasks.length} tasks)`);
+              console.log(`✅ Sent daily overdue summary to: ${assignee.displayName} (${tasks.length} tasks)`);
               
             } catch (err) {
-              console.warn('⚠️ Failed to send hourly overdue summary to assignee:', assigneeId, err);
+              console.warn('⚠️ Failed to send daily overdue summary to assignee:', assigneeId, err);
             }
           }
           
@@ -1076,14 +1076,14 @@ export class NotificationService {
           console.log(`ℹ️ Skipped sending overdue summary to group: ${group.name} (${overdueTasks.length} tasks) - only personal notifications`);
           
         } catch (err) {
-          console.warn('⚠️ Failed to process group for hourly overdue summary:', group.id, err);
+          console.warn('⚠️ Failed to process group for daily overdue summary:', group.id, err);
         }
       }
       
-      console.log('✅ Hourly overdue tasks summary completed');
+      console.log('✅ Daily overdue tasks summary completed');
       
     } catch (error) {
-      console.error('❌ Error sending hourly overdue summary:', error);
+      console.error('❌ Error sending daily overdue summary:', error);
       throw error;
     }
   }

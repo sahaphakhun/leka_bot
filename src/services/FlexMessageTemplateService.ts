@@ -217,8 +217,8 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('อนุมัติ', 'postback', `action=approve_task&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ตีกลับ', 'postback', `action=reject_task&taskId=${task.id}`, 'secondary'),
+      FlexMessageDesignSystem.createButton('✅ อนุมัติการตรวจ', 'postback', `action=approve_review&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('❌ ตีกลับงาน', 'postback', `action=reject_task&taskId=${task.id}`, 'secondary'),
       FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
     ];
 
