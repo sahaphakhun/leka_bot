@@ -890,6 +890,28 @@ export class TaskService {
     }
   }
 
+  /** ดึงงานที่ผู้ใช้เป็นผู้รับผิดชอบและยังไม่เสร็จ */
+  public async getUserIncompleteTasks(lineUserId: string): Promise<Task[]> {
+    try {
+      // หา user จาก LINE User ID
+      const user = await this.userRepository.findOneBy({ lineUserId });
+      if (!user) {
+        return [];
+      }
+
+      return await this.taskRepository.createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('assignee.id = :userId', { userId: user.id })
+        .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue', 'submitted', 'reviewed'] })
+        .orderBy('task.dueTime', 'ASC')
+        .getMany();
+    } catch (error) {
+      console.error('❌ Error getting user incomplete tasks:', error);
+      throw error;
+    }
+  }
+
   /** ดึงงานที่ยังไม่เสร็จของกลุ่ม (pending, in_progress, overdue) โดยระบุ LINE Group ID */
   public async getIncompleteTasksOfGroup(lineGroupId: string): Promise<Task[]> {
     try {

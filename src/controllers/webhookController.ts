@@ -113,21 +113,28 @@ class WebhookController {
   private async handleMessageEvent(event: MessageEvent): Promise<void> {
     const { message, source, replyToken } = event;
 
-    // ตรวจสอบว่าเป็นกลุ่มหรือไม่
-    if (source.type !== 'group') {
-      await this.lineService.replyMessage(replyToken!, 
-        'บอทนี้ใช้งานได้เฉพาะในกลุ่ม LINE เท่านั้นค่ะ');
+    // ตรวจสอบประเภทของ source
+    if (source.type === 'group') {
+      // แชทกลุ่ม
+      const groupId = source.groupId!;
+      const userId = source.userId!;
+
+      // ตรวจสอบและสร้าง user/group record ถ้าไม่มี
+      await this.ensureUserAndGroup(userId, groupId);
+
+      // ตรวจสอบและบันทึกสมาชิกใหม่ที่ส่งข้อความ
+      await this.checkAndSaveNewMemberFromMessage(groupId, userId);
+    } else if (source.type === 'user') {
+      // แชทส่วนตัว
+      const userId = source.userId!;
+      
+      // ตรวจสอบและสร้าง user record ถ้าไม่มี
+      await this.ensureUserExists(userId);
+    } else {
+      // ไม่รองรับ source type อื่นๆ
+      console.log('⚠️ Unsupported source type:', source.type);
       return;
     }
-
-    const groupId = source.groupId!;
-    const userId = source.userId!;
-
-    // ตรวจสอบและสร้าง user/group record ถ้าไม่มี
-    await this.ensureUserAndGroup(userId, groupId);
-
-    // ตรวจสอบและบันทึกสมาชิกใหม่ที่ส่งข้อความ
-    await this.checkAndSaveNewMemberFromMessage(groupId, userId);
 
     switch (message.type) {
       case 'text':
@@ -153,6 +160,15 @@ class WebhookController {
     const { source, replyToken } = event;
     
     console.log('📝 Processing text message:', text);
+    
+    // ตรวจสอบประเภทของ source
+    if (source.type === 'user') {
+      // แชทส่วนตัว - ตรวจสอบข้อความ "งาน"
+      if (text.trim().toLowerCase() === 'งาน') {
+        await this.handlePersonalTaskRequest(event);
+        return;
+      }
+    }
     
     // แยกวิเคราะห์คำสั่ง
     const command = this.lineService.parseCommand(text, event);
@@ -593,6 +609,174 @@ class WebhookController {
    */
   private async handleMemberLeftEvent(event: WebhookEvent): Promise<void> {
     // TODO: อัปเดตสถานะสมาชิก
+  }
+
+  /**
+   * จัดการคำขอดูงานในแชทส่วนตัว
+   */
+  private async handlePersonalTaskRequest(event: MessageEvent): Promise<void> {
+    try {
+      const { source, replyToken } = event;
+      const userId = source.userId!;
+
+      // ดึงงานทั้งหมดที่ผู้ใช้เป็นผู้รับผิดชอบและยังไม่เสร็จ
+      const userTasks = await this.taskService.getUserIncompleteTasks(userId);
+      
+      if (userTasks.length === 0) {
+        await this.lineService.replyMessage(event.replyToken!, 
+          '📋 คุณไม่มีงานที่ต้องทำในขณะนี้ค่ะ\n\n💡 งานจะแสดงที่นี่เมื่อคุณได้รับมอบหมายงานใหม่');
+        return;
+      }
+
+      // จัดกลุ่มงานตามกลุ่ม
+      const tasksByGroup = this.groupTasksByGroup(userTasks);
+      
+      // สร้าง Flex Message แสดงงานทั้งหมด
+      const flexMessage = this.createPersonalTasksFlexMessage(tasksByGroup);
+      
+      await this.lineService.replyMessage(event.replyToken!, flexMessage);
+      
+          } catch (error) {
+        console.error('❌ Error handling personal task request:', error);
+        await this.lineService.replyMessage(event.replyToken!, 
+          'เกิดข้อผิดพลาดในการดึงข้อมูลงาน กรุณาลองใหม่อีกครั้ง');
+      }
+  }
+
+  /**
+   * จัดกลุ่มงานตามกลุ่ม
+   */
+  private groupTasksByGroup(tasks: any[]): { [groupId: string]: { groupName: string; tasks: any[] } } {
+    const grouped: { [groupId: string]: { groupName: string; tasks: any[] } } = {};
+    
+    for (const task of tasks) {
+      const groupId = task.groupId;
+      if (!grouped[groupId]) {
+        grouped[groupId] = {
+          groupName: task.group?.name || `กลุ่ม ${groupId.substring(0, 8)}`,
+          tasks: []
+        };
+      }
+      grouped[groupId].tasks.push(task);
+    }
+    
+    return grouped;
+  }
+
+    /**
+   * สร้าง Flex Message แสดงงานส่วนตัว
+   */
+  private createPersonalTasksFlexMessage(tasksByGroup: { [groupId: string]: { groupName: string; tasks: any[] } }): any {
+    const groupEntries = Object.entries(tasksByGroup);
+    
+    const content: any[] = [
+      FlexMessageDesignSystem.createText(
+        `📋 งานที่ต้องทำของคุณ (${Object.values(tasksByGroup).reduce((total, group) => total + group.tasks.length, 0)} รายการ)`,
+        'lg',
+        FlexMessageDesignSystem.colors.textPrimary,
+        undefined,
+        true
+      )
+    ];
+
+    // เพิ่มงานแต่ละกลุ่ม
+    for (const [groupId, groupData] of groupEntries) {
+      // หัวข้อกลุ่ม
+      content.push(
+        FlexMessageDesignSystem.createText(
+          `🏷️ ${groupData.groupName}`,
+          'md',
+          FlexMessageDesignSystem.colors.primary,
+          undefined,
+          true
+        )
+      );
+
+              // งานในกลุ่ม
+        for (const task of groupData.tasks.slice(0, 10)) { // แสดง 10 งานแรก
+          const statusEmoji = this.getTaskStatusEmoji(task.status);
+          const dueDate = task.dueTime ? moment(task.dueTime).format('DD/MM HH:mm') : 'ไม่มีกำหนด';
+          
+          content.push(
+            FlexMessageDesignSystem.createText(`${statusEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+          );
+          content.push(
+            FlexMessageDesignSystem.createText(`⏰ ${dueDate}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          );
+        }
+
+        // แสดงจำนวนงานที่เหลือ
+        if (groupData.tasks.length > 10) {
+          content.push(
+            FlexMessageDesignSystem.createText(
+              `... และอีก ${groupData.tasks.length - 10} งาน`,
+              'xs',
+              FlexMessageDesignSystem.colors.textSecondary,
+              undefined,
+              true
+            )
+          );
+        }
+
+      // เพิ่มเส้นคั่นระหว่างกลุ่ม
+      if (groupEntries.indexOf([groupId, groupData]) < groupEntries.length - 1) {
+        content.push({
+          type: 'separator',
+          margin: 'md'
+        });
+      }
+    }
+
+    // ปุ่มดูงานทั้งหมด
+    const buttons = [
+      FlexMessageDesignSystem.createButton(
+        'ดูงานทั้งหมดในเว็บ',
+        'uri',
+        `${config.baseUrl}/dashboard/my-tasks`,
+        'primary'
+      )
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📋 งานที่ต้องทำของคุณ',
+      '📋',
+      FlexMessageDesignSystem.colors.primary,
+      content,
+      buttons,
+      'large'
+    );
+  }
+
+  /**
+   * ได้ emoji สถานะงาน
+   */
+  private getTaskStatusEmoji(status: string): string {
+    switch (status) {
+      case 'pending': return '⏳';
+      case 'in_progress': return '🔄';
+      case 'submitted': return '📤';
+      case 'reviewed': return '👀';
+      default: return '📋';
+    }
+  }
+
+  /**
+   * ตรวจสอบและสร้าง User record (สำหรับแชทส่วนตัว)
+   */
+  private async ensureUserExists(userId: string): Promise<void> {
+    try {
+      // ตรวจสอบ user
+      let user = await this.userService.findByLineUserId(userId);
+      if (!user) {
+        const profile = await this.lineService.getUserProfile(userId);
+        user = await this.userService.createUser({
+          lineUserId: userId,
+          displayName: profile.displayName
+        });
+      }
+    } catch (error) {
+      console.error('❌ Error ensuring user exists:', error);
+    }
   }
 
   /**
