@@ -563,14 +563,20 @@ class WebhookController {
               const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
               
                              if (tasks.length > 0) {
-                 // แสดงงานแรกที่ต้องส่งพร้อมไฟล์
-                 const task = tasks[0];
-                 const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
-                 await this.lineService.replyMessage(replyToken, taskWithFilesCard);
-                 
-                 // แสดงการ์ดรายการไฟล์พร้อม taskId
-                 const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user, task.id);
-                 await this.lineService.replyMessage(replyToken, fileListCard);
+                 if (tasks.length === 1) {
+                   // ถ้ามีงานเดียว แสดงงานนั้นพร้อมไฟล์
+                   const task = tasks[0];
+                   const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
+                   await this.lineService.replyMessage(replyToken, taskWithFilesCard);
+                   
+                   // แสดงการ์ดรายการไฟล์พร้อม taskId
+                   const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user, task.id);
+                   await this.lineService.replyMessage(replyToken, fileListCard);
+                 } else {
+                   // ถ้ามีหลายงาน แสดงรายการงานทั้งหมด
+                   const taskListCard = FlexMessageTemplateService.createPersonalTaskListCard(tasks, files, user);
+                   await this.lineService.replyMessage(replyToken, taskListCard);
+                 }
                } else {
                  await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
                }
@@ -659,6 +665,53 @@ class WebhookController {
             }
           } catch (err: any) {
             await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'show_all_personal_tasks': {
+          try {
+            // แสดงงานทั้งหมดที่ต้องส่ง
+            const user = await this.userService.findByLineUserId(userId);
+            if (user) {
+              const personalGroupId = user.id;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
+              const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+              if (tasks.length > 0) {
+                const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, files, user);
+                await this.lineService.replyMessage(replyToken, allTasksCard);
+              } else {
+                await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
+              }
+            }
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'show_more_personal_tasks': {
+          try {
+            // แสดงงานเพิ่มเติม (ถ้ามีมากกว่า 5 งาน)
+            const user = await this.userService.findByLineUserId(userId);
+            if (user) {
+              const personalGroupId = user.id;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
+              const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+              if (tasks.length > 5) {
+                const remainingTasks = tasks.slice(5);
+                const moreTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(remainingTasks, files, user);
+                await this.lineService.replyMessage(replyToken, moreTasksCard);
+              } else {
+                await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานเพิ่มเติมแล้วค่ะ');
+              }
+            }
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }

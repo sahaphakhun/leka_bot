@@ -846,4 +846,91 @@ export class FlexMessageTemplateService {
       'large'
     );
   }
+
+  /**
+   * สร้างการ์ดแสดงรายการงานที่ต้องส่ง
+   */
+  static createPersonalTaskListCard(tasks: any[], files: any[], user: any): FlexMessage {
+    const content = [
+      FlexMessageDesignSystem.createText('📋 งานที่ต้องส่ง', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`👤 ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📝 งานทั้งหมด: ${tasks.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      ...tasks.slice(0, 3).map((task, index) => [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText(`${index + 1}. ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+        FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
+        FlexMessageDesignSystem.createText(`📎 ไฟล์ที่ส่งมาแล้ว: ${files.length} รายการ`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ]).flat(),
+      ...(tasks.length > 3 ? [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText(`และอีก ${tasks.length - 3} งาน...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ] : []),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่ง หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📎 ดูรายการไฟล์', 'postback', 'action=show_personal_files', 'primary'),
+      ...tasks.slice(0, 3).map((task, index) => 
+        FlexMessageDesignSystem.createButton(
+          `ส่งงาน ${index + 1}: ${task.title.substring(0, 15)}...`, 
+          'postback', 
+          `action=submit_with_personal_files&taskId=${task.id}`, 
+          'secondary'
+        )
+      ),
+      ...(tasks.length > 3 ? [
+        FlexMessageDesignSystem.createButton('ดูงานทั้งหมด', 'postback', 'action=show_all_personal_tasks', 'secondary')
+      ] : [])
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📋 รายการงานที่ต้องส่ง',
+      '📋',
+      FlexMessageDesignSystem.colors.success,
+      content,
+      buttons,
+      'extraLarge'
+    );
+  }
+
+  /**
+   * สร้างการ์ดแสดงงานทั้งหมดพร้อมปุ่มเลือก
+   */
+  static createAllPersonalTasksCard(tasks: any[], files: any[], user: any): FlexMessage {
+    const content = [
+      FlexMessageDesignSystem.createText('📋 งานทั้งหมดที่ต้องส่ง', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`👤 ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📝 งานทั้งหมด: ${tasks.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`📎 ไฟล์ที่ส่งมาแล้ว: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่ง หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📎 ดูรายการไฟล์', 'postback', 'action=show_personal_files', 'primary'),
+      ...tasks.map((task, index) => 
+        FlexMessageDesignSystem.createButton(
+          `${index + 1}. ${task.title.substring(0, 20)}...`, 
+          'postback', 
+          `action=submit_with_personal_files&taskId=${task.id}`, 
+          'secondary'
+        )
+      ).slice(0, 5), // แสดงสูงสุด 5 ปุ่ม
+      ...(tasks.length > 5 ? [
+        FlexMessageDesignSystem.createButton('ดูงานเพิ่มเติม', 'postback', 'action=show_more_personal_tasks', 'secondary')
+      ] : [])
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📋 งานทั้งหมดที่ต้องส่ง',
+      '📋',
+      FlexMessageDesignSystem.colors.success,
+      content,
+      buttons,
+      'extraLarge'
+    );
+  }
 }
