@@ -1255,15 +1255,15 @@ export class TaskService {
         ]
       } as any;
 
-      // เปลี่ยนสถานะงานเป็น reviewed
-      task.status = 'reviewed';
+      // เปลี่ยนสถานะงานเป็น submitted (แทน reviewed เพื่อให้เข้ากันได้กับฐานข้อมูล)
+      task.status = 'submitted';
 
       const updatedTask = await this.taskRepository.save(task);
 
       // อัปเดตใน Google Calendar
       try {
         await this.googleService.updateTaskInCalendar(task, { 
-          status: 'reviewed'
+          status: 'submitted'
         });
       } catch (error) {
         console.warn('⚠️ Failed to update reviewed task in Google Calendar:', error);
