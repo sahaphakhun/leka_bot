@@ -10,16 +10,19 @@ import { serviceContainer } from '@/utils/serviceContainer';
 import { logger } from '@/utils/logger';
 import { formatFileSize } from '@/utils/common';
 import { UrlBuilder } from '@/utils/urlBuilder';
+import { KPIService } from './KPIService';
 
 export class CommandService {
   private taskService: TaskService;
   private userService: UserService;
   private fileService: FileService;
+  private kpiService: KPIService;
 
   constructor() {
     this.taskService = serviceContainer.get<TaskService>('TaskService');
     this.userService = serviceContainer.get<UserService>('UserService');
     this.fileService = serviceContainer.get<FileService>('FileService');
+    this.kpiService = serviceContainer.get<KPIService>('KPIService');
   }
 
   /**
@@ -38,6 +41,16 @@ export class CommandService {
 
         case '/whoami':
           return await this.handleWhoAmICommand(command);
+
+        case '/leaderboard':
+        case '/kpi':
+        case '/คะแนน':
+        case '/สถิติ':
+          return await this.handleLeaderboardCommand(command);
+
+        case '/stats':
+        case '/สถิติรายสัปดาห์':
+          return await this.handleWeeklyStatsCommand(command);
 
         case 'เซฟไฟล์':
         case '/เซฟไฟล์':
@@ -149,6 +162,10 @@ ${supervisorNames}
 • /setup – เปิด Dashboard กลุ่ม: งาน/งานประจำ/ไฟล์/Leaderboard/ตั้งค่า
 • /setup @นายเอ @นายบี – ตั้งค่าผู้บังคับบัญชา (ส่งสรุปงานทุกวันจันทร์ 08:00)
 • /whoami – ดูข้อมูลของฉัน (อีเมล/เขตเวลา/บทบาท)
+
+📊 KPI & อันดับ
+• /leaderboard หรือ /kpi หรือ /คะแนน หรือ /สถิติ – ดูอันดับ KPI และคะแนนของกลุ่ม
+• /stats หรือ /สถิติรายสัปดาห์ – ดูสถิติรายสัปดาห์ของกลุ่ม
 
 📋 งาน (ในแชท)
 • เพิ่มงาน "ชื่องาน" @คน @me due 25/12 14:00 – สร้างงานเร็ว
@@ -386,6 +403,184 @@ ${supervisorNames}
     } catch (error) {
       logger.error('Error in whoami command:', error);
       return 'เกิดข้อผิดพลาดในการดึงข้อมูล';
+    }
+  }
+
+  /**
+   * คำสั่ง /leaderboard, /kpi, /คะแนน, /สถิติ - แสดง KPI และ Leaderboard
+   */
+  private async handleLeaderboardCommand(command: BotCommand): Promise<string | any> {
+    try {
+      const groupId = command.groupId;
+      
+      // ดึงข้อมูล Leaderboard สัปดาห์นี้
+      const leaderboard = await this.kpiService.getGroupLeaderboard(groupId, 'weekly');
+      
+      if (!leaderboard || leaderboard.length === 0) {
+        return `📊 ยังไม่มีข้อมูล KPI ในกลุ่มนี้
+
+💡 เคล็ดลับ: เริ่มสร้างงานและปิดงานเพื่อสร้างคะแนน KPI
+📱 ใช้คำสั่ง "เพิ่มงาน" เพื่อสร้างงานใหม่`;
+      }
+
+      // สร้าง Flex Message แสดง Leaderboard
+      const content: any[] = [
+        FlexMessageDesignSystem.createText('🏆 อันดับ KPI สัปดาห์นี้', 'lg', FlexMessageDesignSystem.colors.primary, 'bold'),
+        FlexMessageDesignSystem.createText('คะแนนเฉลี่ยจากการทำงานเสร็จ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+      ];
+
+      // แสดงอันดับ 1-3
+      const topUsers = leaderboard.slice(0, 3);
+      topUsers.forEach((user: any, index: number) => {
+        const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
+        const points = user.totalPoints || 0;
+        const tasks = user.tasksCompleted || 0;
+        
+        content.push(
+          FlexMessageDesignSystem.createBox('horizontal', [
+            FlexMessageDesignSystem.createText(`${rank} ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+            FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • ${tasks} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          ])
+        );
+      });
+
+      // แสดงอันดับของผู้ใช้ปัจจุบัน
+      const currentUser = leaderboard.find((u: any) => u.userId === command.userId);
+      if (currentUser) {
+        const rank = currentUser.rank;
+        const points = currentUser.totalPoints || 0;
+        const tasks = currentUser.tasksCompleted || 0;
+        
+        content.push(
+          FlexMessageDesignSystem.createText('', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(`👤 อันดับของคุณ: อันดับที่ ${rank}`, 'sm', FlexMessageDesignSystem.colors.primary),
+          FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • เสร็จ ${tasks} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        );
+      }
+
+      const buttons = [
+        FlexMessageDesignSystem.createButton(
+          'ดูรายละเอียดทั้งหมด',
+          'uri',
+          `${config.baseUrl}/dashboard?groupId=${groupId}&view=leaderboard`,
+          'primary'
+        ),
+        FlexMessageDesignSystem.createButton(
+          'ดูสถิติรายสัปดาห์',
+          'postback',
+          `action=view_weekly_stats&groupId=${groupId}`,
+          'secondary'
+        )
+      ];
+
+      const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
+        '🏆 อันดับ KPI สัปดาห์นี้',
+        '📊',
+        FlexMessageDesignSystem.colors.success,
+        content,
+        buttons,
+        'compact'
+      );
+
+      return flexMessage;
+
+    } catch (error) {
+      logger.error('Error in leaderboard command:', error);
+      return 'เกิดข้อผิดพลาดในการดึงข้อมูล KPI กรุณาลองใหม่อีกครั้ง';
+    }
+  }
+
+  /**
+   * คำสั่ง /stats, /สถิติรายสัปดาห์ - แสดงสถิติรายสัปดาห์ของกลุ่ม
+   */
+  private async handleWeeklyStatsCommand(command: BotCommand): Promise<string | any> {
+    try {
+      const groupId = command.groupId;
+      
+      // ดึงข้อมูลสถิติรายสัปดาห์
+      const stats = await this.kpiService.getWeeklyStats(groupId);
+      
+      if (!stats) {
+        return `📊 ยังไม่มีข้อมูลสถิติในกลุ่มนี้
+
+💡 เคล็ดลับ: เริ่มสร้างงานและปิดงานเพื่อสร้างสถิติ
+📱 ใช้คำสั่ง "เพิ่มงาน" เพื่อสร้างงานใหม่`;
+      }
+
+      // สร้าง Flex Message แสดงสถิติ
+      const content: any[] = [
+        FlexMessageDesignSystem.createText('📊 สถิติรายสัปดาห์', 'lg', FlexMessageDesignSystem.colors.primary, 'bold'),
+        FlexMessageDesignSystem.createText('สรุปการทำงานของกลุ่ม', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+      ];
+
+      // แสดงสถิติหลัก
+      content.push(
+        FlexMessageDesignSystem.createBox('horizontal', [
+          FlexMessageDesignSystem.createText('📋 งานทั้งหมด', 'sm', FlexMessageDesignSystem.colors.textPrimary),
+          FlexMessageDesignSystem.createText(`${stats.totalTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.primary)
+        ]),
+        FlexMessageDesignSystem.createBox('horizontal', [
+          FlexMessageDesignSystem.createText('✅ งานเสร็จ', 'sm', FlexMessageDesignSystem.colors.success),
+          FlexMessageDesignSystem.createText(`${stats.completedTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.success)
+        ]),
+        FlexMessageDesignSystem.createBox('horizontal', [
+          FlexMessageDesignSystem.createText('⏳ งานค้าง', 'sm', FlexMessageDesignSystem.colors.warning),
+          FlexMessageDesignSystem.createText(`${stats.pendingTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.warning)
+        ]),
+        FlexMessageDesignSystem.createBox('horizontal', [
+          FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด', 'sm', FlexMessageDesignSystem.colors.danger),
+          FlexMessageDesignSystem.createText(`${stats.overdueTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.danger)
+        ])
+      );
+
+      // แสดงผู้ทำงานดีที่สุด
+      if (stats.topPerformer && stats.topPerformer !== 'ไม่มีข้อมูล') {
+        content.push(
+          FlexMessageDesignSystem.createText('', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText('🏆 ผู้ทำงานดีที่สุด', 'sm', FlexMessageDesignSystem.colors.primary),
+          FlexMessageDesignSystem.createText(stats.topPerformer, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+        );
+      }
+
+      // แสดงเวลาเฉลี่ย
+      if (stats.avgCompletionTime && stats.avgCompletionTime > 0) {
+        content.push(
+          FlexMessageDesignSystem.createBox('horizontal', [
+            FlexMessageDesignSystem.createText('⏱️ เวลาเฉลี่ย', 'sm', FlexMessageDesignSystem.colors.textPrimary),
+            FlexMessageDesignSystem.createText(`${stats.avgCompletionTime} ชม.`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+          ])
+        );
+      }
+
+      const buttons = [
+        FlexMessageDesignSystem.createButton(
+          'ดูรายละเอียดทั้งหมด',
+          'uri',
+          `${config.baseUrl}/dashboard?groupId=${groupId}&view=reports`,
+          'primary'
+        ),
+        FlexMessageDesignSystem.createButton(
+          'ดูอันดับ KPI',
+          'postback',
+          `action=view_leaderboard&groupId=${groupId}`,
+          'secondary'
+        )
+      ];
+
+      const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
+        '📊 สถิติรายสัปดาห์',
+        '📈',
+        FlexMessageDesignSystem.colors.info,
+        content,
+        buttons,
+        'compact'
+      );
+
+      return flexMessage;
+
+    } catch (error) {
+      logger.error('Error in weekly stats command:', error);
+      return 'เกิดข้อผิดพลาดในการดึงข้อมูลสถิติ กรุณาลองใหม่อีกครั้ง';
     }
   }
 }

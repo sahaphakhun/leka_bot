@@ -727,11 +727,33 @@ class Dashboard {
 
   async loadLeaderboard(period = 'weekly') {
     try {
+      console.log(`🔄 กำลังโหลด Leaderboard (${period})...`);
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=${period}`);
       console.log('📊 Leaderboard data received:', response.data);
-      this.updateLeaderboard(response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        this.updateLeaderboard(response.data);
+      } else {
+        console.warn('⚠️ Leaderboard data is not an array:', response.data);
+        this.updateLeaderboard([]);
+      }
     } catch (error) {
       console.error('Failed to load leaderboard:', error);
+      
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      if (error.message && error.message.includes('500')) {
+        console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลอันดับ');
+        this.showToast('เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่ในภายหลัง', 'error');
+      } else {
+        console.error(`❌ ไม่สามารถดึงข้อมูลอันดับได้: ${error.message}`);
+        this.showToast('ไม่สามารถโหลดข้อมูลอันดับได้', 'error');
+      }
+      
+      // แสดงข้อความในหน้า dashboard
+      const container = document.getElementById('leaderboardList');
+      if (container) {
+        container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #6b7280;">ไม่สามารถโหลดข้อมูลอันดับได้</div>';
+      }
     }
   }
 
@@ -1143,15 +1165,24 @@ class Dashboard {
 
   async loadMiniLeaderboard() {
     try {
+      console.log('🔄 กำลังโหลด Mini Leaderboard...');
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=weekly&limit=3`);
-      this.updateMiniLeaderboard(response.data);
+      
+      if (response.data && Array.isArray(response.data)) {
+        this.updateMiniLeaderboard(response.data);
+      } else {
+        console.warn('⚠️ Mini leaderboard data is not an array:', response.data);
+        this.updateMiniLeaderboard([]);
+      }
     } catch (error) {
       console.error('Failed to load mini leaderboard:', error);
       // แสดงข้อความ error ที่ชัดเจนขึ้น
-      if (error.message.includes('500')) {
+      if (error.message && error.message.includes('500')) {
         console.error('❌ เซิร์ฟเวอร์มีปัญหาในการดึงข้อมูลอันดับ');
+        this.showToast('เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่ในภายหลัง', 'error');
       } else {
         console.error(`❌ ไม่สามารถดึงข้อมูลอันดับได้: ${error.message}`);
+        this.showToast('ไม่สามารถโหลดข้อมูลอันดับได้', 'error');
       }
       // แสดงข้อความในหน้า dashboard
       const container = document.getElementById('miniLeaderboard');
@@ -1433,7 +1464,7 @@ class Dashboard {
 
     container.innerHTML = leaderboard.map((user, index) => {
       // Safe handling of numeric values that might be null, undefined, or NaN
-      const totalPoints = user.totalPoints;
+      const totalPoints = user.totalPoints || user.averagePoints || user.weeklyPoints || 0;
       const safeTotalPoints = (totalPoints !== null && totalPoints !== undefined && !isNaN(totalPoints)) ? totalPoints : 0;
       const safeTasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
       
@@ -1697,7 +1728,7 @@ class Dashboard {
 
     container.innerHTML = users.map((user, index) => {
       // Safe handling of numeric values that might be null, undefined, or NaN
-      const totalPoints = user.totalPoints;
+      const totalPoints = user.totalPoints || user.averagePoints || user.weeklyPoints || 0;
       const safeTotalPoints = (totalPoints !== null && totalPoints !== undefined && !isNaN(totalPoints)) ? totalPoints : 0;
       const safeTasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
       const safeTasksEarly = user.tasksEarly || 0;
@@ -2620,6 +2651,169 @@ class Dashboard {
   // ==================== */
   // Enhanced Form Handling */
   // ==================== */
+
+  async loadDashboardData() {
+    try {
+      console.log('🔄 กำลังโหลดข้อมูล Dashboard...');
+      
+      // โหลดข้อมูลพร้อมกัน
+      const [groupResponse, membersResponse, tasksResponse, statsResponse, leaderboardResponse] = await Promise.allSettled([
+        this.apiRequest(`/api/groups/${this.currentGroupId}`),
+        this.apiRequest(`/api/groups/${this.currentGroupId}/members`),
+        this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?limit=10`),
+        this.apiRequest(`/api/groups/${this.currentGroupId}/stats`),
+        this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=weekly&limit=3`)
+      ]);
+
+      // อัปเดตข้อมูลกลุ่ม
+      if (groupResponse.status === 'fulfilled' && groupResponse.value?.data) {
+        this.updateGroupInfo(groupResponse.value.data);
+      }
+
+      // อัปเดตข้อมูลสมาชิก
+      if (membersResponse.status === 'fulfilled' && membersResponse.value?.data) {
+        this.updateMembersList(membersResponse.value.data);
+      }
+
+      // อัปเดตรายการงานล่าสุด
+      if (tasksResponse.status === 'fulfilled' && tasksResponse.value?.data) {
+        this.updateRecentTasks(tasksResponse.value.data.tasks || []);
+      }
+
+      // อัปเดตสถิติ
+      if (statsResponse.status === 'fulfilled' && statsResponse.value?.data) {
+        this.updateDashboardStats(statsResponse.value.data);
+      }
+
+      // อัปเดต Mini Leaderboard
+      if (leaderboardResponse.status === 'fulfilled' && leaderboardResponse.value?.data) {
+        this.updateMiniLeaderboard(leaderboardResponse.value.data);
+      } else if (leaderboardResponse.status === 'rejected') {
+        console.warn('⚠️ ไม่สามารถโหลด Leaderboard ได้:', leaderboardResponse.reason);
+        // แสดงข้อความในหน้า dashboard
+        const container = document.getElementById('miniLeaderboard');
+        if (container) {
+          container.innerHTML = '<p class="text-muted">ไม่สามารถโหลดข้อมูลอันดับได้</p>';
+        }
+      }
+
+      console.log('✅ Dashboard data loaded successfully');
+
+    } catch (error) {
+      console.error('❌ Error loading dashboard data:', error);
+      this.showToast('เกิดข้อผิดพลาดในการโหลดข้อมูล', 'error');
+    }
+  }
+
+  updateDashboardStats(stats) {
+    try {
+      console.log('🔄 Updating dashboard stats:', stats);
+      
+      // อัปเดตสถิติหลัก
+      const totalTasksEl = document.getElementById('totalTasks');
+      const completedTasksEl = document.getElementById('completedTasks');
+      const pendingTasksEl = document.getElementById('pendingTasks');
+      const overdueTasksEl = document.getElementById('overdueTasks');
+      
+      if (totalTasksEl) totalTasksEl.textContent = stats.totalTasks || 0;
+      if (completedTasksEl) completedTasksEl.textContent = stats.completedTasks || 0;
+      if (pendingTasksEl) pendingTasksEl.textContent = stats.pendingTasks || 0;
+      if (overdueTasksEl) overdueTasksEl.textContent = stats.overdueTasks || 0;
+      
+      // อัปเดตสถิติ KPI
+      const completionRateEl = document.getElementById('completionRate');
+      const avgCompletionTimeEl = document.getElementById('avgCompletionTime');
+      const topPerformerEl = document.getElementById('topPerformer');
+      
+      if (completionRateEl) {
+        const rate = stats.completionRate || 0;
+        completionRateEl.textContent = `${rate.toFixed(1)}%`;
+      }
+      
+      if (avgCompletionTimeEl) {
+        const time = stats.avgCompletionTime || 0;
+        avgCompletionTimeEl.textContent = `${time.toFixed(1)} ชม.`;
+      }
+      
+      if (topPerformerEl) {
+        topPerformerEl.textContent = stats.topPerformer || 'ไม่มีข้อมูล';
+      }
+      
+      console.log('✅ Dashboard stats updated successfully');
+      
+    } catch (error) {
+      console.error('❌ Error updating dashboard stats:', error);
+    }
+  }
+
+  updateRecentTasks(tasks) {
+    try {
+      console.log('🔄 Updating recent tasks:', tasks.length);
+      
+      const container = document.getElementById('recentTasks');
+      if (!container) return;
+      
+      if (!tasks || tasks.length === 0) {
+        container.innerHTML = '<p class="text-muted">ยังไม่มีงานในกลุ่มนี้</p>';
+        return;
+      }
+      
+      container.innerHTML = tasks.map(task => {
+        const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
+        const statusClass = this.getStatusClass(task.status);
+        const priorityClass = this.getPriorityClass(task.priority);
+        const hasAttachments = task.attachedFiles && task.attachedFiles.length > 0;
+        
+        return `
+          <div class="task-item" style="background: white; border-radius: 8px; padding: 12px; margin-bottom: 8px; box-shadow: 0 1px 2px rgba(0,0,0,0.1); cursor: pointer;" 
+               onclick="app.openTaskModal('${task.id}')" data-task-id="${task.id}">
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px;">
+              <div style="flex: 1;">
+                <h4 style="margin: 0 0 4px 0; font-size: 1rem; font-weight: 600;">${task.title}</h4>
+                <p style="margin: 0; color: #6b7280; font-size: 0.875rem; line-height: 1.4;">${task.description || 'ไม่มีรายละเอียด'}</p>
+              </div>
+              <div style="display: flex; gap: 6px; align-items: center;">
+                ${hasAttachments ? '<span style="color: #3b82f6; font-size: 0.75rem;">📎</span>' : ''}
+                <span class="status ${statusClass}" style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 500;">${this.getStatusText(task.status)}</span>
+                <span class="priority ${priorityClass}" style="padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; font-weight: 500;">${this.getPriorityText(task.priority)}</span>
+              </div>
+            </div>
+            
+            <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.75rem; color: #6b7280;">
+              <div style="display: flex; gap: 12px;">
+                <span>👥 ${assignees}</span>
+                <span>📅 ${this.formatDate(task.dueTime)}</span>
+                ${hasAttachments ? `<span>📎 ${task.attachedFiles.length} ไฟล์</span>` : ''}
+              </div>
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      console.log('✅ Recent tasks updated successfully');
+      
+    } catch (error) {
+      console.error('❌ Error updating recent tasks:', error);
+    }
+  }
+
+  updateGroupInfo(group) {
+    try {
+      console.log('🔄 Updating group info:', group);
+      
+      // อัปเดตชื่อกลุ่ม
+      const groupNameEl = document.getElementById('currentGroupName');
+      if (groupNameEl && group.name) {
+        groupNameEl.textContent = group.name;
+      }
+      
+      // อัปเดตข้อมูลกลุ่มอื่นๆ ตามต้องการ
+      console.log('✅ Group info updated successfully');
+      
+    } catch (error) {
+      console.error('❌ Error updating group info:', error);
+    }
+  }
 }
 
 // Initialize Dashboard
