@@ -808,6 +808,24 @@ export class TaskService {
   }
 
   /**
+   * ดึงงานของผู้ใช้ตามสถานะที่ระบุ
+   */
+  public async getUserTasks(userId: string, statuses: string[] = ['pending', 'in_progress']): Promise<Task[]> {
+    try {
+      return await this.taskRepository.createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('assignee.id = :userId', { userId })
+        .andWhere('task.status IN (:...statuses)', { statuses })
+        .orderBy('task.dueTime', 'ASC')
+        .getMany();
+    } catch (error) {
+      console.error('❌ Error getting user tasks:', error);
+      throw error;
+    }
+  }
+
+  /**
    * ดึงงานทั้งหมดที่ยังไม่เสร็จ เพื่อใช้เตือนซ้ำทุกเช้า (08:00)
    * รวมสถานะ: pending, in_progress, overdue
    */
