@@ -899,11 +899,13 @@ export class TaskService {
         return [];
       }
 
+      // ใช้เฉพาะ enum values ที่มีอยู่จริงในฐานข้อมูล
+      // ตรวจสอบจาก enum ที่มีอยู่และใช้เฉพาะที่ปลอดภัย
       return await this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.group', 'group')
         .where('assignee.id = :userId', { userId: user.id })
-        .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue', 'submitted', 'reviewed'] })
+        .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue'] })
         .orderBy('task.dueTime', 'ASC')
         .getMany();
     } catch (error) {
