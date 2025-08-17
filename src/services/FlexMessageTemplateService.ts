@@ -542,15 +542,18 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText('📎 การแนบไฟล์สำหรับงาน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
       FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('กรุณาพิมพ์ข้อความแนบ (ถ้ามี) และส่งไฟล์ที่ต้องการแนบในแชทนี้และกดส่ง', 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true),
+      FlexMessageDesignSystem.createText('💡 ส่งไฟล์หลายไฟล์ได้เลย ระบบจะแสดงรายการไฟล์ทั้งหมด', 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true),
+      FlexMessageDesignSystem.createText('📤 เมื่อส่งไฟล์แล้ว กดปุ่ม "ดูรายการไฟล์" เพื่อตรวจสอบ', 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
       FlexMessageDesignSystem.createText('⚠️ ต้องมีไฟล์อย่างน้อย 1 ไฟล์', 'xs', FlexMessageDesignSystem.colors.warning, 'bold'),
       FlexMessageDesignSystem.createSeparator('small'),
       FlexMessageDesignSystem.createText('📤 ไฟล์ที่ส่งจะถูกแนบกับงานโดยอัตโนมัติ', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ส่ง', 'postback', `action=submit_with_files&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ยกเลิก', 'postback', `action=submit_cancel&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('📎 ดูรายการไฟล์', 'postback', `action=show_personal_files`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋 ดูงานที่ต้องส่ง', 'postback', `action=show_personal_tasks`, 'secondary'),
+      FlexMessageDesignSystem.createButton('❌ ยกเลิก', 'postback', `action=submit_cancel&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
