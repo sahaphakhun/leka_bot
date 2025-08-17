@@ -757,4 +757,87 @@ export class FlexMessageTemplateService {
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
+
+  /**
+   * สร้างการ์ดแสดงรายการไฟล์ในแชทส่วนตัว
+   */
+  static createPersonalFileListCard(files: any[], user: any): FlexMessage {
+    const content = [
+      FlexMessageDesignSystem.createText('📎 รายการไฟล์ที่ส่งมา', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`👤 ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📦 ไฟล์ทั้งหมด: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      ...(files.length > 0 ? [
+        FlexMessageDesignSystem.createSeparator('small'),
+        ...files.slice(0, 5).map(file => [
+          FlexMessageDesignSystem.createText(`${this.getFileIcon(file.mimeType)} ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textPrimary),
+          FlexMessageDesignSystem.createText(`📦 ${this.formatFileSize(file.size)} • 📅 ${moment(file.uploadedAt).format('HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ]).flat(),
+        ...(files.length > 5 ? [
+          FlexMessageDesignSystem.createSeparator('small'),
+          FlexMessageDesignSystem.createText(`และอีก ${files.length - 5} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      ] : [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText('ยังไม่มีไฟล์ที่ส่งมา', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+      ]),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 ส่งไฟล์เพิ่มเติมได้เลย หรือกดปุ่มด้านล่างเพื่อดูงานที่ต้องส่ง', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📋 ดูงานที่ต้องส่ง', 'postback', 'action=show_personal_tasks', 'primary'),
+      FlexMessageDesignSystem.createButton('🗑️ ล้างไฟล์ทั้งหมด', 'postback', 'action=clear_personal_files', 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📎 รายการไฟล์ส่วนตัว',
+      '📎',
+      FlexMessageDesignSystem.colors.info,
+      content,
+      buttons,
+      'large'
+    );
+  }
+
+  /**
+   * สร้างการ์ดแสดงงานที่ต้องส่งพร้อมไฟล์ที่แนบได้
+   */
+  static createPersonalTaskWithFilesCard(task: any, files: any[], user: any): FlexMessage {
+    const content = [
+      FlexMessageDesignSystem.createText('📋 งานที่ต้องส่ง', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`📝 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📎 ไฟล์ที่ส่งมาแล้ว: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      ...(files.length > 0 ? [
+        FlexMessageDesignSystem.createSeparator('small'),
+        ...files.slice(0, 3).map(file => 
+          FlexMessageDesignSystem.createText(`• ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ),
+        ...(files.length > 3 ? [
+          FlexMessageDesignSystem.createText(`และอีก ${files.length - 3} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      ] : [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText('ยังไม่มีไฟล์ที่ส่งมา', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ]),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 ส่งไฟล์เพิ่มเติมได้เลย หรือกดปุ่มส่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📤 ส่งงาน', 'postback', `action=submit_with_personal_files&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📎 ดูไฟล์ทั้งหมด', 'postback', 'action=show_personal_files', 'secondary'),
+      FlexMessageDesignSystem.createButton('❌ ยกเลิก', 'postback', 'action=submit_cancel', 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📋 ส่งงานพร้อมไฟล์',
+      '📋',
+      FlexMessageDesignSystem.colors.success,
+      content,
+      buttons,
+      'large'
+    );
+  }
 }

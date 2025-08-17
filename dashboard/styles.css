@@ -1427,6 +1427,21 @@ body {
   margin-top: var(--spacing-1);
 }
 
+.field-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-400);
+  margin-top: var(--spacing-1);
+  font-style: italic;
+}
+
+.optional-field {
+  border-color: var(--color-gray-200);
+}
+
+.optional-field:focus {
+  border-color: var(--color-primary);
+}
+
 .form-actions {
   display: flex;
   gap: var(--spacing-3);

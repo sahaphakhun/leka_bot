@@ -227,18 +227,54 @@ class WebhookController {
 
   /**
    * จัดการไฟล์ที่อัปโหลด
-   * ไม่บันทึกอัตโนมัติและไม่ตอบกลับอะไร
    */
   private async handleFileMessage(event: MessageEvent, message: ImageMessage | VideoMessage | AudioMessage | any): Promise<void> {
-    // ไม่ทำอะไรกับไฟล์ที่ส่งมา - ไม่บันทึก ไม่ตอบกลับ ไม่แจ้งเตือน
-    // ระบบจะเงียบๆ เมื่อมีการส่งไฟล์ในแชทกลุ่ม
-    logger.info('File message received but ignored (auto-save disabled)', {
-      messageId: (message as any).id,
-      messageType: message.type,
-      fileName: (message as any).fileName || 'unknown'
-    });
+    const { source, replyToken } = event;
     
-    // ไม่ต้องทำอะไรเพิ่มเติม - ระบบจะเงียบๆ
+    // ตรวจสอบประเภทของ source
+    if (source.type === 'user') {
+      // แชทส่วนตัว - บันทึกไฟล์และแสดงรายการไฟล์
+      const userId = source.userId!;
+      
+      try {
+        // บันทึกไฟล์
+        const savedFile = await this.fileService.saveFileFromLine(message, userId, 'personal_chat');
+        
+        if (savedFile) {
+          // หาไฟล์ทั้งหมดที่ส่งล่าสุด (24 ชม.)
+          const user = await this.userService.findByLineUserId(userId);
+          if (user) {
+            const personalGroupId = `personal_${user.id}`;
+            const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+            const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+            
+            // สร้างการ์ดแสดงรายการไฟล์
+            const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user);
+            await this.lineService.replyMessage(replyToken!, fileListCard);
+            
+            logger.info('File saved and file list shown:', {
+              fileId: savedFile.id,
+              fileName: savedFile.originalName,
+              totalFiles: files.length,
+              userId: userId
+            });
+          }
+        }
+      } catch (error) {
+        logger.error('Error saving file in personal chat:', error);
+        await this.lineService.replyMessage(replyToken!, 
+          '❌ ไม่สามารถบันทึกไฟล์ได้ กรุณาลองใหม่อีกครั้ง'
+        );
+      }
+    } else if (source.type === 'group') {
+      // แชทกลุ่ม - ไม่บันทึกอัตโนมัติ
+      logger.info('File message received in group chat but ignored (auto-save disabled)', {
+        messageId: (message as any).id,
+        messageType: message.type,
+        fileName: (message as any).fileName || 'unknown',
+        groupId: source.groupId
+      });
+    }
   }
 
   /**
@@ -271,7 +307,17 @@ class WebhookController {
               // ตรวจสอบว่าต้องแนบไฟล์หรือไม่
               if (task.requireAttachment) {
                 // ถ้าต้องแนบไฟล์ ให้แสดงการ์ดให้แนบไฟล์ก่อน
-                const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+                let groupIdToUse = groupId;
+                let groupName = 'กลุ่ม';
+                if (source.type === 'user') {
+                  const user = await this.userService.findByLineUserId(userId);
+                  if (user) {
+                    groupIdToUse = `personal_${user.id}`;
+                    groupName = 'แชทส่วนตัว';
+                  }
+                }
+                
+                const group = { id: groupIdToUse, lineGroupId: groupIdToUse, name: groupName };
                 const assignee = await this.userService.findByLineUserId(userId);
                 
                 const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
@@ -292,8 +338,24 @@ class WebhookController {
           const fileIds = params.get('fileIds')?.split(',').filter(Boolean) || [];
           const note = params.get('note') || '';
           try {
-            const task = await this.taskService.recordSubmission(taskId, userId, fileIds, note);
-            await this.lineService.replyMessage(replyToken, `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ สำเร็จแล้วค่ะ`);
+            // ในแชทส่วนตัว ให้หาไฟล์ที่ส่งล่าสุด (24 ชม.) ถ้าไม่มี fileIds
+            let finalFileIds = fileIds;
+            if (source.type === 'user' && fileIds.length === 0) {
+              const user = await this.userService.findByLineUserId(userId);
+              if (user) {
+                const personalGroupId = `personal_${user.id}`;
+                const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                try {
+                  const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                  finalFileIds = result.files?.map((f: any) => f.id) || [];
+                } catch (error) {
+                  console.warn('Could not get personal chat files:', error);
+                }
+              }
+            }
+            
+            const task = await this.taskService.recordSubmission(taskId, userId, finalFileIds, note);
+            await this.lineService.replyMessage(replyToken, `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${finalFileIds.length} ไฟล์ สำเร็จแล้วค่ะ`);
           } catch (err: any) {
             await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
@@ -304,8 +366,28 @@ class WebhookController {
           const taskId = params.get('taskId')!;
           const note = params.get('note') || '';
           try {
-            const task = await this.taskService.recordSubmission(taskId, userId, [], note);
-            await this.lineService.replyMessage(replyToken, `📥 บันทึกการส่งงาน (ไม่มีไฟล์แนบ) ให้ "${task.title}" แล้วค่ะ`);
+            // ในแชทส่วนตัว ให้หาไฟล์ที่ส่งล่าสุด (24 ชม.) เพื่อแนบ
+            let fileIds: string[] = [];
+            if (source.type === 'user') {
+              const user = await this.userService.findByLineUserId(userId);
+              if (user) {
+                const personalGroupId = `personal_${user.id}`;
+                const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                try {
+                  const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                  fileIds = result.files?.map((f: any) => f.id) || [];
+                } catch (error) {
+                  console.warn('Could not get personal chat files:', error);
+                }
+              }
+            }
+            
+            const task = await this.taskService.recordSubmission(taskId, userId, fileIds, note);
+            if (fileIds.length > 0) {
+              await this.lineService.replyMessage(replyToken, `📥 บันทึกการส่งงาน "${task.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ แล้วค่ะ`);
+            } else {
+              await this.lineService.replyMessage(replyToken, `📥 บันทึกการส่งงาน (ไม่มีไฟล์แนบ) ให้ "${task.title}" แล้วค่ะ`);
+            }
           } catch (err: any) {
             await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
@@ -321,7 +403,19 @@ class WebhookController {
           try {
             // ส่งการ์ดให้แนบไฟล์
             const task = await this.taskService.getTaskById(taskId);
-            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
+            
+            // ในแชทส่วนตัว ให้ใช้ personal chat group
+            let groupIdToUse = groupId;
+            let groupName = 'กลุ่ม';
+            if (source.type === 'user') {
+              const user = await this.userService.findByLineUserId(userId);
+              if (user) {
+                groupIdToUse = `personal_${user.id}`;
+                groupName = 'แชทส่วนตัว';
+              }
+            }
+            
+            const group = { id: groupIdToUse, lineGroupId: groupIdToUse, name: groupName };
             const assignee = await this.userService.findByLineUserId(userId);
             
             const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
@@ -337,11 +431,35 @@ class WebhookController {
           try {
             // ส่งการ์ดยืนยันการส่งงาน
             const task = await this.taskService.getTaskById(taskId);
-            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
             
-            // หาไฟล์ที่ผู้ใช้ส่งล่าสุด (24 ชม.)
-            const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-            const { files } = await this.fileService.getGroupFiles(groupId, { startDate: since });
+            // ในแชทส่วนตัว ให้หาไฟล์จาก personal chat ของผู้ใช้
+            let files: any[] = [];
+            if (source.type === 'user') {
+              // แชทส่วนตัว - หาไฟล์จาก personal chat
+              const user = await this.userService.findByLineUserId(userId);
+              if (user) {
+                const personalGroupId = `personal_${user.id}`;
+                const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                try {
+                  const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                  files = result.files || [];
+                } catch (error) {
+                  console.warn('Could not get personal chat files:', error);
+                  files = [];
+                }
+              }
+            } else {
+              // แชทกลุ่ม - หาไฟล์จากกลุ่ม
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const result = await this.fileService.getGroupFiles(groupId, { startDate: since });
+              files = result.files || [];
+            }
+            
+            const group = { 
+              id: source.type === 'user' ? `personal_${userId}` : groupId, 
+              lineGroupId: source.type === 'user' ? `personal_${userId}` : groupId, 
+              name: source.type === 'user' ? 'แชทส่วนตัว' : 'กลุ่ม' 
+            };
             
             const submitConfirmationCard = FlexMessageTemplateService.createSubmitConfirmationCard(
               task, 

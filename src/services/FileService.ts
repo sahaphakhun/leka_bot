@@ -4,6 +4,8 @@ import { Repository } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { File, Group, User } from '@/models';
 import { config } from '@/utils/config';
+import { serviceContainer } from '@/utils/serviceContainer';
+import { LineService } from '@/services/LineService';
 import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
@@ -13,11 +15,13 @@ export class FileService {
   private fileRepository: Repository<File>;
   private groupRepository: Repository<Group>;
   private userRepository: Repository<User>;
+  private lineService: LineService;
 
   constructor() {
     this.fileRepository = AppDataSource.getRepository(File);
     this.groupRepository = AppDataSource.getRepository(Group);
     this.userRepository = AppDataSource.getRepository(User);
+    this.lineService = serviceContainer.get<LineService>('LineService');
     // ตั้งค่า Cloudinary ถ้ามีค่า env
     if (config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret) {
       cloudinary.config({
@@ -195,6 +199,66 @@ export class FileService {
     } catch (error) {
       console.error('❌ Error unlinking file from task:', error);
       throw error;
+    }
+  }
+
+  /**
+   * บันทึกไฟล์จาก LINE Message ในแชทส่วนตัว
+   */
+  public async saveFileFromLine(message: any, lineUserId: string, context: string = 'personal_chat'): Promise<File | null> {
+    try {
+      // ดึงข้อมูลไฟล์จาก LINE
+      const content = await this.lineService.downloadContent(message.id);
+      if (!content) {
+        throw new Error('Cannot get file content from LINE');
+      }
+
+      // หา user ในระบบ
+      const user = await this.userRepository.findOne({ where: { lineUserId } });
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // สร้าง group จำลองสำหรับแชทส่วนตัว (ใช้ user ID เป็น group ID)
+      const tempGroupId = `personal_${user.id}`;
+
+      // บันทึกไฟล์
+      const fileData = {
+        groupId: tempGroupId,
+        uploadedBy: user.id,
+        messageId: message.id,
+        content: content,
+        originalName: message.fileName || `file_${message.id}`,
+        mimeType: message.type === 'image' ? 'image/jpeg' : 
+                  message.type === 'video' ? 'video/mp4' : 
+                  message.type === 'audio' ? 'audio/mp3' : 'application/octet-stream',
+        folderStatus: 'in_progress' as const
+      };
+
+      // ตรวจสอบว่า group นี้มีอยู่หรือไม่ ถ้าไม่มีให้สร้าง
+      let group = await this.groupRepository.findOne({ where: { id: tempGroupId } });
+      if (!group) {
+        group = this.groupRepository.create({
+          id: tempGroupId,
+          lineGroupId: tempGroupId,
+          name: `แชทส่วนตัว - ${user.displayName}`,
+          description: 'แชทส่วนตัวสำหรับการแนบไฟล์',
+          isActive: true,
+          createdBy: user.id
+        });
+        await this.groupRepository.save(group);
+      }
+
+      const savedFile = await this.saveFile(fileData);
+      
+      // เพิ่มแท็กเพื่อระบุว่าเป็นไฟล์จากแชทส่วนตัว
+      await this.addFileTags(savedFile.id, [context, 'personal_chat']);
+      
+      return savedFile;
+
+    } catch (error) {
+      console.error('❌ Error saving file from LINE:', error);
+      return null;
     }
   }
 
@@ -593,6 +657,9 @@ export class FileService {
     // ถ้าเป็น UUID แล้ว ให้ส่งกลับทันที
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
     if (isUuid) return groupId;
+
+    // ถ้าเป็น personal chat ให้ส่งกลับทันที
+    if (groupId.startsWith('personal_')) return groupId;
 
     // ลองหา group จาก LINE Group ID
     const group = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });

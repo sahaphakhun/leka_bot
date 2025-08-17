@@ -69,28 +69,35 @@
 
 // เพิ่ม moment-timezone สำหรับการจัดการเวลา (local version)
 let moment;
-
-// รอให้ DOM โหลดเสร็จก่อน
-document.addEventListener('DOMContentLoaded', function() {
+if (typeof require !== 'undefined') {
+  // Node.js environment
+  moment = require('moment-timezone');
+} else if (typeof window !== 'undefined' && window.moment) {
+  // Browser environment - ใช้ moment ที่โหลดจาก local
+  moment = window.moment;
+  
   // ตรวจสอบว่า moment-timezone โหลดสำเร็จหรือไม่
-  if (typeof window.moment !== 'undefined' && window.moment.tz) {
-    moment = window.moment;
+  if (moment && moment.tz) {
     console.log('✅ moment-timezone โหลดสำเร็จ (local version)');
     // ตั้งค่า timezone เริ่มต้น
     moment.tz.setDefault('Asia/Bangkok');
-    console.log('✅ Timezone ตั้งค่าเป็น:', moment.tz.guess());
   } else {
     console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
-    // สร้าง mock moment object เพื่อป้องกัน error
-    moment = {
-      format: (format) => new Date().toLocaleString('th-TH'),
-      tz: (timezone) => new Date().toLocaleString('th-TH'),
-      setDefault: () => {},
-      utc: () => new Date(),
-      unix: (timestamp) => new Date(timestamp * 1000)
-    };
+    // ใช้ moment ปกติแทน
+    moment = window.moment;
   }
-});
+} else {
+  // Browser environment - ต้องโหลด moment จาก local
+  console.warn('⚠️ moment ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
+  // สร้าง mock moment object เพื่อป้องกัน error
+  moment = {
+    format: (format) => new Date().toLocaleString('th-TH'),
+    tz: (timezone) => new Date().toLocaleString('th-TH'),
+    setDefault: () => {},
+    utc: () => new Date(),
+    unix: (timestamp) => new Date(timestamp * 1000)
+  };
+}
 
 class Dashboard {
   constructor() {
@@ -930,6 +937,25 @@ class Dashboard {
       // สร้าง copy ของ taskData โดยไม่มี _tempId
       const cleanTaskData = { ...taskData };
       delete cleanTaskData._tempId;
+      
+      // ลบฟิลด์ที่ไม่มีค่า (undefined, null, empty string) ออก
+      Object.keys(cleanTaskData).forEach(key => {
+        if (cleanTaskData[key] === undefined || cleanTaskData[key] === null || cleanTaskData[key] === '') {
+          console.log(`🗑️ Removing empty field: ${key}`);
+          delete cleanTaskData[key];
+        }
+      });
+      
+      // ตรวจสอบว่าฟิลด์ที่จำเป็นมีครบหรือไม่
+      if (!cleanTaskData.title || !cleanTaskData.dueTime || !cleanTaskData.assigneeIds || !cleanTaskData.createdBy) {
+        console.error('❌ Missing required fields:', {
+          title: !!cleanTaskData.title,
+          dueTime: !!cleanTaskData.dueTime,
+          assigneeIds: !!cleanTaskData.assigneeIds,
+          createdBy: !!cleanTaskData.createdBy
+        });
+        throw new Error('Missing required fields: title, dueTime, assigneeIds, or createdBy');
+      }
       
       // Debug logging
       console.log('📝 Sending task data to API:', cleanTaskData);
@@ -2070,30 +2096,71 @@ class Dashboard {
         return;
       }
       
-      const taskData = {
-        title: title,
-        description: formData.get('description')?.trim() || '',
-        dueTime: this.formatDateForAPI(dueDate),
-        priority: (document.getElementById('taskPriority')?.value || 'medium'),
-        assigneeIds: assigneeIds,
-        tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag) : [],
-        createdBy: this.currentUserId || 'unknown',
-        requireAttachment: document.getElementById('requireAttachment').checked,
-        reviewerUserId: document.getElementById('reviewerSelect')?.value || this.currentUserId || undefined
-      };
+      // แสดงสถานะ success สำหรับ assignees
+      this.showFieldSuccess('taskAssignees');
+
+      // ตรวจสอบ description - ถ้าเป็นค่าว่างให้ส่งเป็น undefined แทน
+      const description = formData.get('description')?.trim();
+      if (description === '') {
+        console.log('⚠️ Description is empty, will send as undefined');
+        // แสดง hint ให้ผู้ใช้รู้ว่า description ไม่บังคับ
+        this.showFieldSuccess('taskDescription');
+      } else if (description) {
+        // ถ้ามี description ให้แสดงสถานะ success
+        this.showFieldSuccess('taskDescription');
+      }
+      
+      // สร้าง taskData โดยไม่รวมฟิลด์ที่ไม่มีค่า
+      const taskData = {};
+      
+      // เพิ่มฟิลด์ที่จำเป็น
+      taskData.title = title;
+      taskData.dueTime = this.formatDateForAPI(dueDate);
+      taskData.priority = document.getElementById('taskPriority')?.value || 'medium';
+      taskData.assigneeIds = assigneeIds;
+      taskData.createdBy = this.currentUserId || 'unknown';
+      taskData.requireAttachment = document.getElementById('requireAttachment').checked;
+      
+      // แสดงสถานะ success สำหรับฟิลด์ที่จำเป็น
+      this.showFieldSuccess('taskTitle');
+      this.showFieldSuccess('taskDueDate');
+      this.showFieldSuccess('taskPriority');
+      this.showFieldSuccess('requireAttachment');
+      
+      // เพิ่มฟิลด์ที่ไม่จำเป็นเฉพาะเมื่อมีค่า
+      if (description) {
+        taskData.description = description;
+      }
+      
+      const tags = formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag) : [];
+      if (tags.length > 0) {
+        taskData.tags = tags;
+        console.log('📝 Tags added:', tags);
+        // แสดงสถานะ success สำหรับ tags
+        this.showFieldSuccess('taskTags');
+      }
+      
+      const reviewerUserId = document.getElementById('reviewerSelect')?.value || this.currentUserId;
+      if (reviewerUserId && reviewerUserId !== this.currentUserId) {
+        taskData.reviewerUserId = reviewerUserId;
+        console.log('📝 Reviewer added:', reviewerUserId);
+        // แสดงสถานะ success สำหรับ reviewer
+        this.showFieldSuccess('reviewerSelect');
+      }
+      
+      // Debug logging
+      console.log('📝 Task data before API call:', taskData);
       
       // ถ้าเลือกเป็นงานประจำ ให้สร้าง recurring template แทน
       const recurrenceType = document.getElementById('recurrenceType')?.value || 'none';
       if (recurrenceType !== 'none') {
         try {
+          // สร้าง payload สำหรับ recurring task โดยไม่รวมฟิลด์ที่ไม่มีค่า
           const payload = {
             title: taskData.title,
-            description: taskData.description,
             assigneeLineUserIds: taskData.assigneeIds, // รองรับ LINE IDs ได้ใน backend
-            reviewerLineUserId: taskData.reviewerUserId,
             requireAttachment: taskData.requireAttachment,
             priority: taskData.priority,
-            tags: taskData.tags,
             recurrence: recurrenceType, // 'weekly' | 'monthly' | 'quarterly'
             weekDay: recurrenceType === 'weekly' ? parseInt(document.getElementById('weekDaySelect').value || '1', 10) : undefined,
             dayOfMonth: (recurrenceType === 'monthly' || recurrenceType === 'quarterly') ? parseInt(document.getElementById('dayOfMonthInput').value || '1', 10) : undefined,
@@ -2101,6 +2168,20 @@ class Dashboard {
             timezone: this.timezone, // ใช้ timezone ที่ตั้งค่าไว้ใน class
             createdBy: this.currentUserId || 'unknown'
           };
+          
+          // เพิ่มฟิลด์ที่ไม่จำเป็นเฉพาะเมื่อมีค่า
+          if (taskData.description) {
+            payload.description = taskData.description;
+          }
+          
+          if (taskData.reviewerUserId) {
+            payload.reviewerLineUserId = taskData.reviewerUserId;
+          }
+          
+          if (taskData.tags && taskData.tags.length > 0) {
+            payload.tags = taskData.tags;
+          }
+          console.log('📝 Creating recurring task with payload:', payload);
           await this.apiRequest(`/groups/${this.currentGroupId}/recurring`, {
             method: 'POST',
             body: JSON.stringify(payload)
@@ -2114,15 +2195,46 @@ class Dashboard {
           this.showToast('สร้างงานประจำไม่สำเร็จ', 'error');
         }
       } else {
+        console.log('📝 Creating regular task with data:', taskData);
         await this.createTask(taskData);
       }
       
       // รีเซ็ตฟอร์มหลังจากสร้างงานสำเร็จ
       form.reset();
       
+      // แสดงข้อความสำเร็จ
+      this.showToast('สร้างงานสำเร็จ', 'success');
+      
+      // รีเซ็ตสถานะฟอร์ม
+      this.clearFormErrors();
+      
+      // ปิด modal
+      this.closeModal('addTaskModal');
+      
+      // รีเฟรชข้อมูล
+      this.refreshCurrentView();
+      
     } catch (error) {
       console.error('handleAddTask error:', error);
-      this.showToast('เกิดข้อผิดพลาดในการสร้างงาน', 'error');
+      
+      // แสดงข้อความ error ที่ชัดเจนขึ้น
+      let errorMessage = 'เกิดข้อผิดพลาดในการสร้างงาน';
+      if (error.message.includes('Validation failed')) {
+        errorMessage = 'ข้อมูลไม่ถูกต้อง กรุณาตรวจสอบข้อมูลที่กรอก';
+        console.error('❌ Validation error details:', error);
+      } else if (error.message.includes('Missing required fields')) {
+        errorMessage = 'ข้อมูลไม่ครบถ้วน กรุณาตรวจสอบข้อมูลที่กรอก';
+        console.error('❌ Missing fields error details:', error);
+      } else if (error.message.includes('Group not found')) {
+        errorMessage = 'ไม่พบกลุ่มที่ระบุ';
+      } else if (error.message.includes('Creator user not found')) {
+        errorMessage = 'ไม่พบผู้สร้างงาน';
+      }
+      
+      this.showToast(errorMessage, 'error');
+      
+      // แสดง error ในฟอร์ม
+      this.showFormErrors(error);
     } finally {
       // รีเซ็ตสถานะและปุ่ม
       this._isHandlingAddTask = false;
@@ -2638,6 +2750,29 @@ class Dashboard {
     const errorMessage = formGroup.querySelector('.error-message');
     if (errorMessage) {
       errorMessage.remove();
+    }
+  }
+
+  showFormErrors(error) {
+    // ล้าง error ทั้งหมดก่อน
+    this.clearFormErrors();
+    
+    // แสดง error สำหรับฟิลด์ที่เกี่ยวข้อง
+    if (error.message.includes('Validation failed')) {
+      // แสดง error สำหรับฟิลด์ที่ validation fail
+      if (error.details) {
+        error.details.forEach((detail) => {
+          if (detail.field === 'description') {
+            this.showFieldError('taskDescription', detail.message);
+          } else if (detail.field === 'title') {
+            this.showFieldError('taskTitle', detail.message);
+          } else if (detail.field === 'dueTime') {
+            this.showFieldError('taskDueDate', detail.message);
+          } else if (detail.field === 'assigneeIds') {
+            this.showFieldError('taskAssignees', detail.message);
+          }
+        });
+      }
     }
   }
 
