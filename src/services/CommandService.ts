@@ -47,6 +47,10 @@ export class CommandService {
         case 'add':
           return await this.handleAddTaskCommand(command);
 
+        case '/delete':
+        case 'delete':
+          return await this.handleDeleteAllTasksCommand(command);
+
         default:
           return `ไม่พบคำสั่ง "${command.command}" ค่ะ\nพิมพ์ "@เลขา /help" เพื่อดูคำสั่งทั้งหมด`;
       }
@@ -287,6 +291,52 @@ ${supervisorNames}
     } catch (error) {
       logger.error('Error in save files command:', error);
       return 'เกิดข้อผิดพลาดในการเซฟไฟล์ กรุณาลองใหม่อีกครั้ง';
+    }
+  }
+
+  /**
+   * คำสั่ง /delete - ลบงานทั้งหมดในกลุ่ม (รีเซต)
+   */
+  private async handleDeleteAllTasksCommand(command: BotCommand): Promise<string> {
+    try {
+      const groupId = command.groupId;
+      const userId = command.userId;
+
+      // ตรวจสอบสิทธิ์ (เฉพาะ admin เท่านั้นที่ลบงานทั้งหมดได้)
+      const isAdmin = await this.userService.isUserAdminInGroup(userId, groupId);
+      if (!isAdmin) {
+        return '❌ คุณไม่มีสิทธิ์ในการลบงานทั้งหมด (ต้องเป็น admin เท่านั้น)';
+      }
+
+      // ตรวจสอบว่ามีงานในกลุ่มหรือไม่
+      const tasks = await this.taskService.getTasksByGroup(groupId);
+      if (tasks.length === 0) {
+        return '📋 ไม่มีงานในกลุ่มนี้ให้ลบค่ะ';
+      }
+
+      // ลบงานทั้งหมดในกลุ่ม
+      let deletedCount = 0;
+      for (const task of tasks) {
+        try {
+          await this.taskService.deleteTask(task.id);
+          deletedCount++;
+        } catch (error) {
+          logger.warn(`Failed to delete task ${task.id}:`, error);
+        }
+      }
+
+      return `🗑️ ลบงานทั้งหมดเรียบร้อยแล้ว!
+
+📊 สรุป:
+• ลบงานสำเร็จ: ${deletedCount} รายการ
+• งานทั้งหมดในกลุ่มถูกลบแล้ว
+• ระบบถูกรีเซตเรียบร้อย
+
+💡 หมายเหตุ: การลบงานจะลบข้อมูลทั้งหมดรวมถึงไฟล์ที่แนบมาด้วย`;
+
+    } catch (error) {
+      logger.error('Error in delete all tasks command:', error);
+      return 'เกิดข้อผิดพลาดในการลบงาน กรุณาลองใหม่อีกครั้ง';
     }
   }
 
