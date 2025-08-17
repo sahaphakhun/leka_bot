@@ -627,7 +627,7 @@ class WebhookController {
         }
 
         case 'submit_with_personal_files': {
-          const taskId = params.get('taskId')!;
+          const taskId = params.get('taskId');
           try {
             // ส่งงานพร้อมไฟล์จากแชทส่วนตัว
             const user = await this.userService.findByLineUserId(userId);
@@ -636,13 +636,26 @@ class WebhookController {
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
-              const fileIds = files.map((f: any) => f.id);
-              const task = await this.taskService.recordSubmission(taskId, userId, fileIds, 'ส่งงานพร้อมไฟล์จากแชทส่วนตัว');
-              
-              await this.lineService.replyMessage(replyToken, 
-                `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ สำเร็จแล้วค่ะ\n\n` +
-                `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
-              );
+              if (taskId) {
+                // ส่งงานเฉพาะที่ระบุ
+                const fileIds = files.map((f: any) => f.id);
+                const task = await this.taskService.recordSubmission(taskId, userId, fileIds, 'ส่งงานพร้อมไฟล์จากแชทส่วนตัว');
+                
+                await this.lineService.replyMessage(replyToken, 
+                  `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ สำเร็จแล้วค่ะ\n\n` +
+                  `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
+                );
+              } else {
+                // ถ้าไม่มี taskId ให้แสดงงานที่ต้องส่ง
+                const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+                if (tasks.length > 0) {
+                  const task = tasks[0];
+                  const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
+                  await this.lineService.replyMessage(replyToken, taskWithFilesCard);
+                } else {
+                  await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
+                }
+              }
             }
           } catch (err: any) {
             await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
