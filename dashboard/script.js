@@ -69,35 +69,28 @@
 
 // เพิ่ม moment-timezone สำหรับการจัดการเวลา (local version)
 let moment;
-if (typeof require !== 'undefined') {
-  // Node.js environment
-  moment = require('moment-timezone');
-} else if (typeof window !== 'undefined' && window.moment) {
-  // Browser environment - ใช้ moment ที่โหลดจาก local
-  moment = window.moment;
-  
+
+// รอให้ DOM โหลดเสร็จก่อน
+document.addEventListener('DOMContentLoaded', function() {
   // ตรวจสอบว่า moment-timezone โหลดสำเร็จหรือไม่
-  if (moment && moment.tz) {
+  if (typeof window.moment !== 'undefined' && window.moment.tz) {
+    moment = window.moment;
     console.log('✅ moment-timezone โหลดสำเร็จ (local version)');
     // ตั้งค่า timezone เริ่มต้น
     moment.tz.setDefault('Asia/Bangkok');
+    console.log('✅ Timezone ตั้งค่าเป็น:', moment.tz.guess());
   } else {
     console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
-    // ใช้ moment ปกติแทน
-    moment = window.moment;
+    // สร้าง mock moment object เพื่อป้องกัน error
+    moment = {
+      format: (format) => new Date().toLocaleString('th-TH'),
+      tz: (timezone) => new Date().toLocaleString('th-TH'),
+      setDefault: () => {},
+      utc: () => new Date(),
+      unix: (timestamp) => new Date(timestamp * 1000)
+    };
   }
-} else {
-  // Browser environment - ต้องโหลด moment จาก local
-  console.warn('⚠️ moment ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
-  // สร้าง mock moment object เพื่อป้องกัน error
-  moment = {
-    format: (format) => new Date().toLocaleString('th-TH'),
-    tz: (timezone) => new Date().toLocaleString('th-TH'),
-    setDefault: () => {},
-    utc: () => new Date(),
-    unix: (timestamp) => new Date(timestamp * 1000)
-  };
-}
+});
 
 class Dashboard {
   constructor() {
