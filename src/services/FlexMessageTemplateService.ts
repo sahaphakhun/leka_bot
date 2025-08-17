@@ -788,13 +788,13 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText('💡 ส่งไฟล์เพิ่มเติมได้เลย หรือกดปุ่มด้านล่างเพื่อดูงานที่ต้องส่ง', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
-          const buttons = [
-        FlexMessageDesignSystem.createButton('📋 ดูงานที่ต้องส่ง', 'postback', 'action=show_personal_tasks', 'primary'),
-        ...(files.length > 0 ? [
-          FlexMessageDesignSystem.createButton('📤 ส่งงานพร้อมไฟล์', 'postback', 'action=submit_with_personal_files', 'primary')
-        ] : []),
-        FlexMessageDesignSystem.createButton('🗑️ ล้างไฟล์ทั้งหมด', 'postback', 'action=clear_personal_files', 'secondary')
-      ];
+              const buttons = [
+      FlexMessageDesignSystem.createButton('📋 ดูงานที่ต้องส่ง', 'postback', 'action=show_personal_tasks', 'primary'),
+      ...(files.length > 0 && taskId ? [
+        FlexMessageDesignSystem.createButton('📤 ส่งงานพร้อมไฟล์', 'postback', `action=submit_with_personal_files&taskId=${taskId}`, 'primary')
+      ] : []),
+      FlexMessageDesignSystem.createButton('🗑️ ล้างไฟล์ทั้งหมด', 'postback', 'action=clear_personal_files', 'secondary')
+    ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
       '📎 รายการไฟล์ส่วนตัว',

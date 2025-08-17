@@ -249,7 +249,7 @@ class WebhookController {
             const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
             
             // สร้างการ์ดแสดงรายการไฟล์
-            const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user);
+            const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user, undefined);
             await this.lineService.replyMessage(replyToken!, fileListCard);
             
             logger.info('File saved and file list shown:', {
@@ -562,14 +562,18 @@ class WebhookController {
               // หางานที่ต้องส่ง (pending, in_progress)
               const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
               
-              if (tasks.length > 0) {
-                // แสดงงานแรกที่ต้องส่งพร้อมไฟล์
-                const task = tasks[0];
-                const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
-                await this.lineService.replyMessage(replyToken, taskWithFilesCard);
-              } else {
-                await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
-              }
+                             if (tasks.length > 0) {
+                 // แสดงงานแรกที่ต้องส่งพร้อมไฟล์
+                 const task = tasks[0];
+                 const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
+                 await this.lineService.replyMessage(replyToken, taskWithFilesCard);
+                 
+                 // แสดงการ์ดรายการไฟล์พร้อม taskId
+                 const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user, task.id);
+                 await this.lineService.replyMessage(replyToken, fileListCard);
+               } else {
+                 await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
+               }
             }
           } catch (err: any) {
             await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
@@ -586,7 +590,7 @@ class WebhookController {
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
-              const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user);
+              const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user, undefined);
               await this.lineService.replyMessage(replyToken, fileListCard);
             }
           } catch (err: any) {
