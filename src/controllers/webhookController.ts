@@ -672,9 +672,17 @@ class WebhookController {
     const content: any[] = [
       FlexMessageDesignSystem.createText(
         `📋 งานที่ต้องทำของคุณ (${Object.values(tasksByGroup).reduce((total, group) => total + group.tasks.length, 0)} รายการ)`,
-        'xl',
+        'lg',
         FlexMessageDesignSystem.colors.textPrimary,
         'bold',
+        true
+      ),
+      // เพิ่มคำอธิบายสถานะงาน
+      FlexMessageDesignSystem.createText(
+        '⏳ รอทำ | 🔄 กำลังทำ | ⚠️ เกินกำหนด',
+        'xs',
+        FlexMessageDesignSystem.colors.textSecondary,
+        undefined,
         true
       )
     ];
@@ -685,7 +693,7 @@ class WebhookController {
       content.push(
         FlexMessageDesignSystem.createText(
           `🏷️ ${groupData.groupName}`,
-          'lg',
+          'md',
           FlexMessageDesignSystem.colors.primary,
           'bold',
           true
@@ -701,24 +709,24 @@ class WebhookController {
         content.push(
           FlexMessageDesignSystem.createText(
             `${statusEmoji} ${task.title} | ⏰ ${dueDate}`,
-            'md',
+            'sm',
             FlexMessageDesignSystem.colors.textPrimary
           )
         );
       }
 
-      // แสดงจำนวนงานที่เหลือ
-      if (groupData.tasks.length > 10) {
-        content.push(
-          FlexMessageDesignSystem.createText(
-            `... และอีก ${groupData.tasks.length - 10} งาน`,
-            'sm',
-            FlexMessageDesignSystem.colors.textSecondary,
-            undefined,
-            true
-          )
-        );
-      }
+              // แสดงจำนวนงานที่เหลือ
+        if (groupData.tasks.length > 10) {
+          content.push(
+            FlexMessageDesignSystem.createText(
+              `... และอีก ${groupData.tasks.length - 10} งาน`,
+              'xs',
+              FlexMessageDesignSystem.colors.textSecondary,
+              undefined,
+              true
+            )
+          );
+        }
 
       // เพิ่มเส้นคั่นระหว่างกลุ่ม
       if (groupEntries.indexOf([groupId, groupData]) < groupEntries.length - 1) {
