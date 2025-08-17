@@ -32,6 +32,8 @@ class WebhookController {
     this.commandService = serviceContainer.get<CommandService>('CommandService');
   }
 
+
+
   /**
    * จัดการ Webhook Event จาก LINE
    */
@@ -194,7 +196,7 @@ class WebhookController {
             }
           }
         } catch (err: any) {
-          await this.lineService.replyMessage(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          await this.safeReplyError(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
         }
         return;
       } else if (trimmedText === 'งาน') {
@@ -226,7 +228,7 @@ class WebhookController {
             }
           }
         } catch (err: any) {
-          await this.lineService.replyMessage(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          await this.safeReplyError(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
         }
         return;
       }
@@ -260,7 +262,7 @@ class WebhookController {
         }
       } catch (error) {
         console.error('❌ Error executing command:', error);
-        await this.lineService.replyMessage(replyToken!, 
+        await this.safeReplyError(replyToken!, 
           'เกิดข้อผิดพลาดในการประมวลผลคำสั่ง กรุณาลองใหม่อีกครั้ง');
       }
     } else {
@@ -362,7 +364,7 @@ class WebhookController {
               const task = await this.taskService.getTaskById(taskId);
               
               if (!task) {
-                await this.lineService.replyMessage(replyToken, '❌ ไม่พบงานที่ระบุ');
+                await this.safeReplyError(replyToken, '❌ ไม่พบงานที่ระบุ');
                 return;
               }
               
@@ -390,7 +392,7 @@ class WebhookController {
                 await this.lineService.replyMessage(replyToken, '✅ ส่งงานเรียบร้อยแล้ว ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน');
               }
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถส่งงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถส่งงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -419,7 +421,7 @@ class WebhookController {
             const task = await this.taskService.recordSubmission(taskId, userId, finalFileIds, note);
             await this.lineService.replyMessage(replyToken, `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${finalFileIds.length} ไฟล์ สำเร็จแล้วค่ะ`);
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -451,7 +453,7 @@ class WebhookController {
               await this.lineService.replyMessage(replyToken, `📥 บันทึกการส่งงาน (ไม่มีไฟล์แนบ) ให้ "${task.title}" แล้วค่ะ`);
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -483,7 +485,7 @@ class WebhookController {
             const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
             await this.lineService.replyMessage(replyToken, fileAttachmentCard);
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -531,7 +533,7 @@ class WebhookController {
             );
             await this.lineService.replyMessage(replyToken, submitConfirmationCard);
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดยืนยันได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงการ์ดยืนยันได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -543,7 +545,7 @@ class WebhookController {
               await this.taskService.completeTask(taskId2, userId);
               await this.lineService.replyMessage(replyToken, '✅ อนุมัติและปิดงานเรียบร้อย');
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ อนุมัติไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ อนุมัติไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -556,7 +558,7 @@ class WebhookController {
               await this.taskService.approveReview(taskId, userId);
               await this.lineService.replyMessage(replyToken, '✅ อนุมัติการตรวจเรียบร้อยแล้ว');
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ อนุมัติการตรวจไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ อนุมัติการตรวจไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -569,7 +571,7 @@ class WebhookController {
               await this.taskService.approveCompletion(taskId, userId);
               await this.lineService.replyMessage(replyToken, '✅ อนุมัติการปิดงานเรียบร้อยแล้ว');
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ อนุมัติการปิดงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ อนุมัติการปิดงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -587,7 +589,7 @@ class WebhookController {
               const fileAttachmentCard = FlexMessageTemplateService.createFileAttachmentCard(task, group, assignee);
               await this.lineService.replyMessage(replyToken, fileAttachmentCard);
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงการ์ดแนบไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -599,9 +601,9 @@ class WebhookController {
           if (taskId) {
             try {
               await this.taskService.rejectTaskAndExtendDeadline(taskId, userId, extensionDays);
-              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานและขยายเวลาออกไป ${extensionDays} วันเรียบร้อย`);
+              await this.safeReplyError(replyToken, `❌ ตีกลับงานและขยายเวลาออกไป ${extensionDays} วันเรียบร้อย`);
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ ตีกลับงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ ตีกลับงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -644,7 +646,7 @@ class WebhookController {
                }
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -662,7 +664,7 @@ class WebhookController {
               await this.lineService.replyMessage(replyToken, fileListCard);
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -689,7 +691,7 @@ class WebhookController {
               await this.lineService.replyMessage(replyToken, `🗑️ ล้างไฟล์เก่า ${oldFiles.length} ไฟล์เรียบร้อยแล้วค่ะ`);
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถล้างไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถล้างไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -726,7 +728,7 @@ class WebhookController {
               }
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -753,7 +755,7 @@ class WebhookController {
                       `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
                     );
                   } else {
-                    await this.lineService.replyMessage(replyToken, '❌ ไม่พบไฟล์ที่ส่งมา กรุณาส่งไฟล์ก่อนค่ะ');
+                    await this.safeReplyError(replyToken, '❌ ไม่พบไฟล์ที่ส่งมา กรุณาส่งไฟล์ก่อนค่ะ');
                   }
                 } else {
                   // ถ้าไม่มีไฟล์ ส่งงานเลย
@@ -764,11 +766,11 @@ class WebhookController {
                   );
                 }
               } else {
-                await this.lineService.replyMessage(replyToken, '❌ ไม่พบงานที่ระบุ');
+                await this.safeReplyError(replyToken, '❌ ไม่พบงานที่ระบุ');
               }
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -791,7 +793,7 @@ class WebhookController {
               }
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -815,7 +817,7 @@ class WebhookController {
               }
             }
           } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
         }
@@ -883,7 +885,7 @@ class WebhookController {
               }
               await this.lineService.replyMessage(replyToken, '✅ ผูกไฟล์กับงานเรียบร้อยแล้ว');
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถผูกไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถผูกไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -937,7 +939,7 @@ class WebhookController {
               
               await this.lineService.replyMessage(replyToken, message);
             } catch (err: any) {
-              await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงรายละเอียดงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงรายละเอียดงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -949,7 +951,36 @@ class WebhookController {
 
     } catch (error) {
       console.error('❌ Error handling postback:', error);
-      await this.lineService.replyMessage(replyToken, 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+      
+      // ตรวจสอบ replyToken ก่อนส่งข้อความ
+      await this.safeReplyError(replyToken, 'เกิดข้อผิดพลาด กรุณาลองใหม่');
+    }
+  }
+
+  /**
+   * ส่งข้อความ error ไปยัง LINE อย่างปลอดภัย
+   */
+  private async safeReplyError(replyToken: string, errorMessage: string): Promise<void> {
+    try {
+      // ตรวจสอบ replyToken
+      if (!replyToken || replyToken.trim() === '') {
+        console.warn('⚠️ No valid replyToken to send error message');
+        return;
+      }
+
+      // ตรวจสอบข้อความ error
+      if (!errorMessage || errorMessage.trim() === '') {
+        errorMessage = 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+      }
+
+      // จำกัดความยาวข้อความเพื่อป้องกันปัญหา
+      if (errorMessage.length > 1000) {
+        errorMessage = errorMessage.substring(0, 997) + '...';
+      }
+
+      await this.lineService.replyMessage(replyToken, errorMessage);
+    } catch (lineError) {
+      console.error('❌ Failed to send error message to LINE:', lineError);
     }
   }
 

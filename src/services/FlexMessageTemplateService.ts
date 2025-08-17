@@ -213,13 +213,15 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText(`🔗 ลิงก์: ${details.links.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
       ] : []),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText(`📅 กำหนดตรวจภายใน: ${dueText}`, 'sm', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText(`📅 กำหนดตรวจภายใน: ${dueText}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 ✅ อนุมัติการตรวจ | ❌ ตีกลับงาน | 📋 ดูรายละเอียด', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('✅ อนุมัติการตรวจ', 'postback', `action=approve_review&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('❌ ตีกลับงาน', 'postback', `action=reject_task&taskId=${task.id}`, 'secondary'),
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('✅', 'postback', `action=approve_review&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('❌', 'postback', `action=reject_task&taskId=${task.id}`, 'secondary'),
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -244,12 +246,14 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`✅ ตรวจเมื่อ: ${moment().tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
       FlexMessageDesignSystem.createSeparator('small'),
       FlexMessageDesignSystem.createText('📝 ขั้นตอนต่อไป: กรุณาอนุมัติการปิดงานเพื่อให้งานเสร็จสิ้น', 'sm', FlexMessageDesignSystem.colors.textSecondary),
-      FlexMessageDesignSystem.createText('💡 หมายเหตุ: งานผ่านการตรวจแล้ว แต่ยังต้องรอการอนุมัติการปิดงานจากผู้สั่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 หมายเหตุ: งานผ่านการตรวจแล้ว แต่ยังต้องรอการอนุมัติการปิดงานจากผู้สั่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 ✅ อนุมัติการปิดงาน | 📋 ดูรายละเอียด', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('✅ อนุมัติการปิดงาน', 'postback', `action=approve_completion&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('✅', 'postback', `action=approve_completion&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -275,12 +279,14 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`👤 ผู้ตรวจ: ${reviewerDisplayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`📅 กำหนดส่งใหม่: ${newDueText}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('กรุณาตรวจสอบข้อผิดพลาดและส่งงานใหม่ตามกำหนด', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('กรุณาตรวจสอบข้อผิดพลาดและส่งงานใหม่ตามกำหนด', 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📋 ดูรายละเอียด | 📤 ส่งงานใหม่', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ส่งงานใหม่', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -388,7 +394,7 @@ export class FlexMessageTemplateService {
     // เพิ่ม Footer
     contentItems.push(
       FlexMessageDesignSystem.createSeparator('medium'),
-      FlexMessageDesignSystem.createText(`📋 งานที่กำลังดำเนินการ ${inProgressTasks.length} งาน`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
+      FlexMessageDesignSystem.createText(`�� งานที่กำลังดำเนินการ ${inProgressTasks.length} งาน`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
       FlexMessageDesignSystem.createText('💡 คลิกปุ่มด้านล่างเพื่อดูรายละเอียดเพิ่มเติม', 'sm', FlexMessageDesignSystem.colors.textSecondary)
     );
 
@@ -547,13 +553,15 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createSeparator('small'),
       FlexMessageDesignSystem.createText('⚠️ ต้องมีไฟล์อย่างน้อย 1 ไฟล์', 'xs', FlexMessageDesignSystem.colors.warning, 'bold'),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('📤 ไฟล์ที่ส่งจะถูกแนบกับงานโดยอัตโนมัติ', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('📤 ไฟล์ที่ส่งจะถูกแนบกับงานโดยอัตโนมัติ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📎 ดูรายการไฟล์ | 📋 ดูงานที่ต้องส่ง | ❌ ยกเลิก', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📎 ดูรายการไฟล์', 'postback', `action=show_personal_files`, 'primary'),
-      FlexMessageDesignSystem.createButton('📋 ดูงานที่ต้องส่ง', 'postback', `action=show_personal_tasks`, 'secondary'),
-      FlexMessageDesignSystem.createButton('❌ ยกเลิก', 'postback', `action=submit_cancel&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('📎', 'postback', `action=show_personal_files`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋', 'postback', `action=show_personal_tasks`, 'secondary'),
+      FlexMessageDesignSystem.createButton('❌', 'postback', `action=submit_cancel&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -674,12 +682,14 @@ export class FlexMessageTemplateService {
         )
       ] : []),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('กด "ยืนยัน" เพื่อส่งงานพร้อมไฟล์', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('กด "ยืนยัน" เพื่อส่งงานพร้อมไฟล์', 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 ✅ ยืนยัน | ❌ ยกเลิก', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ยืนยัน', 'postback', `action=confirm_submit&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ยกเลิก', 'postback', `action=submit_cancel&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('✅', 'postback', `action=confirm_submit&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('❌', 'postback', `action=submit_cancel&taskId=${task.id}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -785,15 +795,17 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('ยังไม่มีไฟล์ที่ส่งมา', 'sm', FlexMessageDesignSystem.colors.textSecondary)
       ]),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 ส่งไฟล์เพิ่มเติมได้เลย หรือกดปุ่มด้านล่างเพื่อดูงานที่ต้องส่ง', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 ส่งไฟล์เพิ่มเติมได้เลย หรือกดปุ่มด้านล่างเพื่อดูงานที่ต้องส่ง', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📋 ดูงานที่ต้องส่ง | 📤 ส่งงานพร้อมไฟล์ | 🗑️ ล้างไฟล์ทั้งหมด', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
-              const buttons = [
-      FlexMessageDesignSystem.createButton('📋 ดูงานที่ต้องส่ง', 'postback', 'action=show_personal_tasks', 'primary'),
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📋', 'postback', 'action=show_personal_tasks', 'primary'),
       ...(files.length > 0 && taskId ? [
-        FlexMessageDesignSystem.createButton('📤 ส่งงานพร้อมไฟล์', 'postback', `action=submit_with_personal_files&taskId=${taskId}`, 'primary')
+        FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_with_personal_files&taskId=${taskId}`, 'primary')
       ] : []),
-      FlexMessageDesignSystem.createButton('🗑️ ล้างไฟล์ทั้งหมด', 'postback', 'action=clear_personal_files', 'secondary')
+      FlexMessageDesignSystem.createButton('🗑️', 'postback', 'action=clear_personal_files', 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -828,13 +840,15 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('ยังไม่มีไฟล์ที่ส่งมา', 'xs', FlexMessageDesignSystem.colors.textSecondary)
       ]),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 ส่งไฟล์เพิ่มเติมได้เลย หรือกดปุ่มส่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 ส่งไฟล์เพิ่มเติมได้เลย หรือกดปุ่มส่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📤 ส่งงาน | 📎 ดูไฟล์ทั้งหมด | ❌ ยกเลิก', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📤 ส่งงาน', 'postback', `action=submit_with_personal_files&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('📎 ดูไฟล์ทั้งหมด', 'postback', 'action=show_personal_files', 'secondary'),
-      FlexMessageDesignSystem.createButton('❌ ยกเลิก', 'postback', 'action=submit_cancel', 'secondary')
+      FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_with_personal_files&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📎', 'postback', 'action=show_personal_files', 'secondary'),
+      FlexMessageDesignSystem.createButton('❌', 'postback', 'action=submit_cancel', 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -867,21 +881,23 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText(`และอีก ${tasks.length - 3} งาน...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
       ] : []),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่ง หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่ง หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📎 ดูรายการไฟล์ | 📤 ส่งงานต่างๆ', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📎 ดูรายการไฟล์', 'postback', 'action=show_personal_files', 'primary'),
+      FlexMessageDesignSystem.createButton('📎', 'postback', 'action=show_personal_files', 'primary'),
       ...tasks.slice(0, 3).map((task, index) => 
         FlexMessageDesignSystem.createButton(
-          `ส่งงาน ${index + 1}: ${task.title.substring(0, 15)}...`, 
+          `📤${index + 1}`, 
           'postback', 
           `action=submit_with_personal_files&taskId=${task.id}`, 
           'secondary'
         )
       ),
       ...(tasks.length > 3 ? [
-        FlexMessageDesignSystem.createButton('ดูงานทั้งหมด', 'postback', 'action=show_all_personal_tasks', 'secondary')
+        FlexMessageDesignSystem.createButton('📋', 'postback', 'action=show_all_personal_tasks', 'secondary')
       ] : [])
     ];
 
@@ -906,21 +922,23 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`📝 งานทั้งหมด: ${tasks.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
       FlexMessageDesignSystem.createText(`📎 ไฟล์ที่ส่งมาแล้ว: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่ง หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่ง หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📎 ดูรายการไฟล์ | 📤 ส่งงานต่างๆ', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📎 ดูรายการไฟล์', 'postback', 'action=show_personal_files', 'primary'),
+      FlexMessageDesignSystem.createButton('📎', 'postback', 'action=show_personal_files', 'primary'),
       ...tasks.map((task, index) => 
         FlexMessageDesignSystem.createButton(
-          `${index + 1}. ${task.title.substring(0, 20)}...`, 
+          `📤${index + 1}`, 
           'postback', 
           `action=submit_with_personal_files&taskId=${task.id}`, 
           'secondary'
         )
       ).slice(0, 5), // แสดงสูงสุด 5 ปุ่ม
       ...(tasks.length > 5 ? [
-        FlexMessageDesignSystem.createButton('ดูงานเพิ่มเติม', 'postback', 'action=show_more_personal_tasks', 'secondary')
+        FlexMessageDesignSystem.createButton('📋', 'postback', 'action=show_more_personal_tasks', 'secondary')
       ] : [])
     ];
 
@@ -959,15 +977,17 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText('ยังไม่มีไฟล์ที่ส่งมา', 'xs', FlexMessageDesignSystem.colors.textSecondary)
       ]),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 เลือกวิธีการส่งงานด้านล่าง', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 เลือกวิธีการส่งงานด้านล่าง', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📎 ส่งงานพร้อมไฟล์ | 📤 ส่งงานโดยไม่มีไฟล์ | ❌ ยกเลิก', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
       ...(files.length > 0 ? [
-        FlexMessageDesignSystem.createButton('📎 ส่งงานพร้อมไฟล์', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=true`, 'primary')
+        FlexMessageDesignSystem.createButton('📎', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=true`, 'primary')
       ] : []),
-      FlexMessageDesignSystem.createButton('📤 ส่งงานโดยไม่มีไฟล์', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=false`, 'secondary'),
-      FlexMessageDesignSystem.createButton('❌ ยกเลิก', 'postback', 'action=submit_cancel', 'secondary')
+      FlexMessageDesignSystem.createButton('📤', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=false`, 'secondary'),
+      FlexMessageDesignSystem.createButton('❌', 'postback', 'action=submit_cancel', 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(

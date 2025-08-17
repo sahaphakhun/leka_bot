@@ -15,6 +15,9 @@ export class LineService {
       channelAccessToken: config.line.channelAccessToken,
       channelSecret: config.line.channelSecret,
     });
+
+    // เพิ่มการ configure เพื่อจัดการปัญหา LINE API Error 400
+    // LINE Bot SDK จะจัดการ HTTP configuration ภายใน
   }
 
   public async initialize(): Promise<void> {
@@ -216,12 +219,75 @@ export class LineService {
   }
 
   /**
+   * ตรวจสอบความถูกต้องของ message object
+   */
+  private validateMessage(message: any): boolean {
+    try {
+      if (typeof message === 'string') {
+        const trimmedMessage = message.trim();
+        return trimmedMessage.length > 0 && trimmedMessage.length <= 5000; // LINE limit
+      }
+      
+      if (typeof message === 'object' && message !== null) {
+        if (message.type === 'text') {
+          const text = message.text?.trim();
+          return text && text.length > 0 && text.length <= 5000; // LINE limit
+        }
+        
+        if (message.type === 'flex') {
+          return message.altText && message.contents;
+        }
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('❌ Message validation failed:', error);
+      return false;
+    }
+  }
+
+  /**
+   * ทำความสะอาดข้อความเพื่อป้องกันปัญหา LINE API
+   */
+  private sanitizeMessage(message: string): string {
+    try {
+      // ลบอักขระควบคุมที่ไม่ปลอดภัย
+      let sanitized = message
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // ลบ control characters
+        .replace(/\uFFFE|\uFFFF/g, '') // ลบ BOM characters
+        .trim();
+
+      // จำกัดความยาว
+      if (sanitized.length > 5000) {
+        sanitized = sanitized.substring(0, 4997) + '...';
+      }
+
+      return sanitized;
+    } catch (error) {
+      console.error('❌ Message sanitization failed:', error);
+      return 'เกิดข้อผิดพลาด กรุณาลองใหม่';
+    }
+  }
+
+  /**
    * ส่งข้อความ reply
    */
   public async replyMessage(replyToken: string, message: string | FlexMessage): Promise<void> {
     try {
+      // ตรวจสอบ replyToken
+      if (!replyToken || replyToken.trim() === '') {
+        console.error('❌ Invalid replyToken:', replyToken);
+        throw new Error('Invalid replyToken');
+      }
+
+      // ตรวจสอบ message
+      if (!this.validateMessage(message)) {
+        console.error('❌ Invalid message:', message);
+        throw new Error('Invalid message format');
+      }
+
       const messageObj = typeof message === 'string' 
-        ? { type: 'text', text: message } as TextMessage
+        ? { type: 'text', text: this.sanitizeMessage(message) } as TextMessage
         : message;
 
       // เพิ่ม logging เพื่อตรวจสอบ Flex Message
@@ -239,6 +305,14 @@ export class LineService {
       console.log('✅ Message sent successfully');
     } catch (error) {
       console.error('❌ Failed to reply message:', error);
+      
+      // เพิ่มการ log ข้อมูลเพิ่มเติมเพื่อ debug
+      console.error('❌ Debug info:', {
+        replyToken: replyToken?.substring(0, 10) + '...',
+        messageType: typeof message,
+        messageLength: typeof message === 'string' ? message.length : 'N/A'
+      });
+      
       throw error;
     }
   }
@@ -248,13 +322,34 @@ export class LineService {
    */
   public async pushMessage(groupId: string, message: string | FlexMessage): Promise<void> {
     try {
+      // ตรวจสอบ groupId
+      if (!groupId || groupId.trim() === '') {
+        console.error('❌ Invalid groupId:', groupId);
+        throw new Error('Invalid groupId');
+      }
+
+      // ตรวจสอบ message
+      if (!this.validateMessage(message)) {
+        console.error('❌ Invalid message:', message);
+        throw new Error('Invalid message format');
+      }
+
       const messageObj = typeof message === 'string' 
-        ? { type: 'text', text: message } as TextMessage
+        ? { type: 'text', text: this.sanitizeMessage(message) } as TextMessage
         : message;
 
       await this.client.pushMessage(groupId, messageObj);
+      console.log('✅ Push message sent successfully to group:', groupId.substring(0, 10) + '...');
     } catch (error) {
       console.error('❌ Failed to push message:', error);
+      
+      // เพิ่มการ log ข้อมูลเพิ่มเติมเพื่อ debug
+      console.error('❌ Debug info:', {
+        groupId: groupId?.substring(0, 10) + '...',
+        messageType: typeof message,
+        messageLength: typeof message === 'string' ? message.length : 'N/A'
+      });
+      
       throw error;
     }
   }
