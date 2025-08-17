@@ -243,7 +243,8 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`👤 ผู้ตรวจ: ${reviewer.displayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`✅ ตรวจเมื่อ: ${moment().tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('กรุณาอนุมัติการปิดงานเพื่อให้งานเสร็จสิ้น', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('📝 ขั้นตอนต่อไป: กรุณาอนุมัติการปิดงานเพื่อให้งานเสร็จสิ้น', 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createText('💡 หมายเหตุ: งานผ่านการตรวจแล้ว แต่ยังต้องรอการอนุมัติการปิดงานจากผู้สั่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [

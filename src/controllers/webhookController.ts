@@ -370,7 +370,7 @@ class WebhookController {
           const taskId = params.get('taskId');
           if (taskId) {
             try {
-              await this.taskService.completeTask(taskId, userId);
+              await this.taskService.approveCompletion(taskId, userId);
               await this.lineService.replyMessage(replyToken, '✅ อนุมัติการปิดงานเรียบร้อยแล้ว');
             } catch (err: any) {
               await this.lineService.replyMessage(replyToken, `❌ อนุมัติการปิดงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);

@@ -1255,15 +1255,16 @@ export class TaskService {
         ]
       } as any;
 
-      // เปลี่ยนสถานะงานเป็น reviewed (หลังจากเพิ่ม enum แล้ว)
-      task.status = 'reviewed';
+      // ไม่เปลี่ยนสถานะงาน เพื่อหลีกเลี่ยงปัญหา enum
+      // เก็บข้อมูลการอนุมัติการตรวจไว้ใน workflow เท่านั้น
+      // สถานะจะยังคงเป็น 'submitted' หรือ 'in_progress' ตามเดิม
 
       const updatedTask = await this.taskRepository.save(task);
 
-      // อัปเดตใน Google Calendar
+      // อัปเดตใน Google Calendar (ไม่เปลี่ยนสถานะ)
       try {
         await this.googleService.updateTaskInCalendar(task, { 
-          status: 'reviewed'
+          // ไม่เปลี่ยนสถานะ เก็บสถานะเดิมไว้
         });
       } catch (error) {
         console.warn('⚠️ Failed to update reviewed task in Google Calendar:', error);
@@ -1293,6 +1294,95 @@ export class TaskService {
 
     } catch (error) {
       console.error('❌ Error approving review:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * อนุมัติการปิดงาน (หลังจากผ่านการตรวจแล้ว)
+   */
+  public async approveCompletion(taskId: string, approvedBy: string): Promise<Task> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['assignedUsers', 'attachedFiles', 'group', 'createdByUser']
+      });
+
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      // แปลง LINE User ID → internal user id หากส่งมาเป็น LINE ID
+      let approvedByInternalId = approvedBy;
+      if (approvedByInternalId && approvedByInternalId.startsWith('U')) {
+        const user = await this.userRepository.findOneBy({ lineUserId: approvedByInternalId });
+        if (!user) {
+          throw new Error('ApprovedBy user not found');
+        }
+        approvedByInternalId = user.id;
+      }
+
+      // ตรวจสอบสิทธิ์ - ต้องเป็นผู้สั่งงาน (ผู้สร้างงาน)
+      if (approvedByInternalId !== task.createdBy) {
+        throw new Error('Only task creator can approve completion');
+      }
+
+      // ตรวจสอบว่างานผ่านการตรวจแล้วหรือไม่
+      const reviewStatus = (task.workflow as any)?.review?.status;
+      if (reviewStatus !== 'approved') {
+        throw new Error('Task must be reviewed before completion can be approved');
+      }
+
+      // อัปเดตเวิร์กโฟลว์
+      const now = new Date();
+      task.workflow = {
+        ...(task.workflow || {}),
+        approval: {
+          ...(task.workflow as any)?.approval,
+          status: 'approved',
+          approvedAt: now
+        },
+        history: [
+          ...((task.workflow as any)?.history || []),
+          { 
+            action: 'completion_approved', 
+            byUserId: approvedByInternalId, 
+            at: now, 
+            note: 'อนุมัติการปิดงานแล้ว' 
+          }
+        ]
+      } as any;
+
+      // เปลี่ยนสถานะงานเป็น completed (สถานะนี้มีอยู่แล้วในฐานข้อมูล)
+      task.status = 'completed';
+      task.completedAt = now;
+
+      const updatedTask = await this.taskRepository.save(task);
+
+      // อัปเดตใน Google Calendar
+      try {
+        await this.googleService.updateTaskInCalendar(task, { 
+          status: 'completed',
+          completedAt: now
+        });
+      } catch (error) {
+        console.warn('⚠️ Failed to update completed task in Google Calendar:', error);
+      }
+
+      // แจ้งเตือนในกลุ่มว่าอนุมัติการปิดงานแล้ว
+      try {
+        const approvedByUser = await this.userRepository.findOneBy({ id: approvedByInternalId });
+        if (approvedByUser) {
+          await this.notificationService.sendTaskCompletedNotification({ ...updatedTask, group: task.group } as any, approvedByUser as any);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to send task completed notification:', err);
+      }
+
+      return updatedTask;
+
+    } catch (error) {
+      console.error('❌ Error approving completion:', error);
       throw error;
     }
   }
