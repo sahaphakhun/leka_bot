@@ -242,9 +242,16 @@ export class FileService {
           id: tempGroupId,
           lineGroupId: tempGroupId,
           name: `แชทส่วนตัว - ${user.displayName}`,
-          description: 'แชทส่วนตัวสำหรับการแนบไฟล์',
-          isActive: true,
-          createdBy: user.id
+          timezone: 'Asia/Bangkok',
+          settings: {
+            reminderIntervals: [],
+            enableLeaderboard: false,
+            defaultReminders: [],
+            workingHours: {
+              start: '09:00',
+              end: '18:00'
+            }
+          }
         });
         await this.groupRepository.save(group);
       }
