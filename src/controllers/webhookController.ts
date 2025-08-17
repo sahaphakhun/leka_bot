@@ -163,9 +163,71 @@ class WebhookController {
     
     // ตรวจสอบประเภทของ source
     if (source.type === 'user') {
-      // แชทส่วนตัว - ตรวจสอบข้อความ "งาน"
-      if (text.trim().toLowerCase() === 'งาน') {
+      const userId = source.userId!;
+      const trimmedText = text.trim();
+      
+      // ตรวจสอบคำสั่งพิเศษในแชทส่วนตัว
+      if (trimmedText === 'ส่งงาน') {
+        try {
+          const user = await this.userService.findByLineUserId(userId);
+          if (user) {
+            const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+            if (tasks.length > 0) {
+              // แสดงการ์ดใหญ่แสดงงานทั้งหมด
+              const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, [], user);
+              await this.lineService.replyMessage(replyToken!, allTasksCard);
+              
+              // แสดงคำแนะนำ
+              await this.lineService.replyMessage(replyToken!, 
+                '💡 **วิธีการส่งงาน:**\n\n' +
+                `📝 เลือกงานที่ต้องการส่งโดยพิมพ์เลข 1-${tasks.length} ในแชท\n\n` +
+                '📎 **ถ้าต้องการแนบไฟล์:**\n' +
+                '1. ส่งไฟล์ในแชทก่อน\n' +
+                '2. เลือกงานที่ต้องการส่ง\n' +
+                '3. เลือก "แนบไฟล์" ในการ์ดยืนยัน\n\n' +
+                '📤 **ถ้าไม่ต้องการแนบไฟล์:**\n' +
+                '1. เลือกงานที่ต้องการส่ง\n' +
+                '2. เลือก "ไม่แนบไฟล์" ในการ์ดยืนยัน'
+              );
+            } else {
+              await this.lineService.replyMessage(replyToken!, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
+            }
+          }
+        } catch (err: any) {
+          await this.lineService.replyMessage(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+        }
+        return;
+      } else if (trimmedText === 'งาน') {
         await this.handlePersonalTaskRequest(event);
+        return;
+      } else if (/^\d+$/.test(trimmedText)) {
+        // ตรวจสอบว่าเป็นตัวเลขหรือไม่
+        try {
+          const user = await this.userService.findByLineUserId(userId);
+          if (user) {
+            const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+            const taskIndex = parseInt(trimmedText) - 1;
+            
+            if (taskIndex >= 0 && taskIndex < tasks.length) {
+              const selectedTask = tasks[taskIndex];
+              const personalGroupId = user.id;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
+              // แสดงการ์ดยืนยันการส่งงาน
+              const confirmationCard = FlexMessageTemplateService.createTaskSubmissionConfirmationCard(selectedTask, files, user);
+              await this.lineService.replyMessage(replyToken!, confirmationCard);
+            } else {
+              await this.lineService.replyMessage(replyToken!, 
+                `❌ เลขที่ระบุไม่ถูกต้อง\n\n` +
+                `📝 กรุณาพิมพ์เลข 1-${tasks.length} เท่านั้น\n\n` +
+                `💡 พิมพ์ "ส่งงาน" เพื่อดูรายการงานใหม่`
+              );
+            }
+          }
+        } catch (err: any) {
+          await this.lineService.replyMessage(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+        }
         return;
       }
     }
@@ -661,6 +723,48 @@ class WebhookController {
                 } else {
                   await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
                 }
+              }
+            }
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'confirm_task_submission': {
+          const taskId = params.get('taskId');
+          const hasFiles = params.get('hasFiles') === 'true';
+          try {
+            const user = await this.userService.findByLineUserId(userId);
+            if (user && taskId) {
+              const task = await this.taskService.getTaskById(taskId);
+              if (task) {
+                if (hasFiles) {
+                  // ถ้ามีไฟล์ ให้แนบไฟล์ก่อน
+                  const personalGroupId = user.id;
+                  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                  const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                  
+                  if (files.length > 0) {
+                    const fileIds = files.map((f: any) => f.id);
+                    const submittedTask = await this.taskService.recordSubmission(taskId, userId, fileIds, 'ส่งงานพร้อมไฟล์จากแชทส่วนตัว');
+                    await this.lineService.replyMessage(replyToken, 
+                      `✅ ส่งงาน "${submittedTask.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ สำเร็จแล้วค่ะ\n\n` +
+                      `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
+                    );
+                  } else {
+                    await this.lineService.replyMessage(replyToken, '❌ ไม่พบไฟล์ที่ส่งมา กรุณาส่งไฟล์ก่อนค่ะ');
+                  }
+                } else {
+                  // ถ้าไม่มีไฟล์ ส่งงานเลย
+                  const submittedTask = await this.taskService.recordSubmission(taskId, userId, [], 'ส่งงานโดยไม่มีไฟล์แนบ');
+                  await this.lineService.replyMessage(replyToken, 
+                    `✅ ส่งงาน "${submittedTask.title}" สำเร็จแล้วค่ะ (ไม่มีไฟล์แนบ)\n\n` +
+                    `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
+                  );
+                }
+              } else {
+                await this.lineService.replyMessage(replyToken, '❌ ไม่พบงานที่ระบุ');
               }
             }
           } catch (err: any) {

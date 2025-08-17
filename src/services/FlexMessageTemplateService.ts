@@ -933,4 +933,50 @@ export class FlexMessageTemplateService {
       'extraLarge'
     );
   }
+
+  /**
+   * สร้างการ์ดยืนยันการส่งงาน
+   */
+  static createTaskSubmissionConfirmationCard(task: any, files: any[], user: any): FlexMessage {
+    const content = [
+      FlexMessageDesignSystem.createText('📋 ยืนยันการส่งงาน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`📝 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`👤 ผู้รับผิดชอบ: ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📎 ไฟล์ที่ส่งมาแล้ว: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      ...(files.length > 0 ? [
+        FlexMessageDesignSystem.createSeparator('small'),
+        ...files.slice(0, 3).map(file =>
+          FlexMessageDesignSystem.createText(`• ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ),
+        ...(files.length > 3 ? [
+          FlexMessageDesignSystem.createText(`และอีก ${files.length - 3} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      ] : [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText('ยังไม่มีไฟล์ที่ส่งมา', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ]),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 เลือกวิธีการส่งงานด้านล่าง', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      ...(files.length > 0 ? [
+        FlexMessageDesignSystem.createButton('📎 ส่งงานพร้อมไฟล์', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=true`, 'primary')
+      ] : []),
+      FlexMessageDesignSystem.createButton('📤 ส่งงานโดยไม่มีไฟล์', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=false`, 'secondary'),
+      FlexMessageDesignSystem.createButton('❌ ยกเลิก', 'postback', 'action=submit_cancel', 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📋 ยืนยันการส่งงาน',
+      '📋',
+      FlexMessageDesignSystem.colors.info,
+      content,
+      buttons,
+      'large'
+    );
+  }
 }
