@@ -549,6 +549,104 @@ class WebhookController {
           // TODO: ส่งลิงก์ไปยังหน้าเว็บสำหรับแก้ไข
           break;
 
+        case 'show_personal_tasks': {
+          try {
+            // แสดงงานที่ต้องส่งในแชทส่วนตัว
+            const user = await this.userService.findByLineUserId(userId);
+            if (user) {
+              // หาไฟล์ที่ส่งล่าสุด (24 ชม.)
+              const personalGroupId = `personal_${user.id}`;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
+              // หางานที่ต้องส่ง (pending, in_progress)
+              const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+              
+              if (tasks.length > 0) {
+                // แสดงงานแรกที่ต้องส่งพร้อมไฟล์
+                const task = tasks[0];
+                const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
+                await this.lineService.replyMessage(replyToken, taskWithFilesCard);
+              } else {
+                await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
+              }
+            }
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'show_personal_files': {
+          try {
+            // แสดงรายการไฟล์ทั้งหมดในแชทส่วนตัว
+            const user = await this.userService.findByLineUserId(userId);
+            if (user) {
+              const personalGroupId = `personal_${user.id}`;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
+              const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user);
+              await this.lineService.replyMessage(replyToken, fileListCard);
+            }
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'clear_personal_files': {
+          try {
+            // ล้างไฟล์ทั้งหมดในแชทส่วนตัว (ลบไฟล์เก่าเกิน 24 ชม.)
+            const user = await this.userService.findByLineUserId(userId);
+            if (user) {
+              const personalGroupId = `personal_${user.id}`;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
+              // ลบไฟล์เก่าเกิน 24 ชม.
+              const oldFiles = files.filter((f: any) => new Date(f.uploadedAt) < since);
+              for (const file of oldFiles) {
+                try {
+                  await this.fileService.deleteFile(file.id);
+                } catch (error) {
+                  console.warn('Could not delete old file:', file.id, error);
+                }
+              }
+              
+              await this.lineService.replyMessage(replyToken, `🗑️ ล้างไฟล์เก่า ${oldFiles.length} ไฟล์เรียบร้อยแล้วค่ะ`);
+            }
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถล้างไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+
+        case 'submit_with_personal_files': {
+          const taskId = params.get('taskId')!;
+          try {
+            // ส่งงานพร้อมไฟล์จากแชทส่วนตัว
+            const user = await this.userService.findByLineUserId(userId);
+            if (user) {
+              const personalGroupId = `personal_${user.id}`;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
+              const fileIds = files.map((f: any) => f.id);
+              const task = await this.taskService.recordSubmission(taskId, userId, fileIds, 'ส่งงานพร้อมไฟล์จากแชทส่วนตัว');
+              
+              await this.lineService.replyMessage(replyToken, 
+                `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ สำเร็จแล้วค่ะ\n\n` +
+                `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
+              );
+            }
+          } catch (err: any) {
+            await this.lineService.replyMessage(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
+          break;
+
         case 'link_file':
           const fileId = params.get('fileId');
           if (fileId) {
