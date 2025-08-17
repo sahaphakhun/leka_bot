@@ -3,6 +3,7 @@
 import { LineService } from './LineService';
 import { UserService } from './UserService';
 import { EmailService } from './EmailService';
+import { FileService } from './FileService';
 import { FlexMessageTemplateService } from './FlexMessageTemplateService';
 import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { Task, Group, User, NotificationPayload, Leaderboard } from '@/types';
@@ -14,12 +15,14 @@ export class NotificationService {
   private lineService: LineService;
   private userService: UserService;
   private emailService: EmailService;
+  private fileService: FileService;
   private _sentNotifications: Set<string>;
 
   constructor() {
     this.lineService = new LineService();
     this.userService = new UserService();
     this.emailService = new EmailService();
+    this.fileService = new FileService();
     this._sentNotifications = new Set();
   }
 
@@ -292,7 +295,7 @@ export class NotificationService {
       if (!group?.lineGroupId) return;
 
       // สร้าง Flex Message สำหรับการแจ้งเตือนการส่งงาน
-      const flexMessage = this.createTaskSubmittedFlexMessage(task, group, submitterDisplayName, fileCount, links);
+      const flexMessage = await this.createTaskSubmittedFlexMessage(task, group, submitterDisplayName, fileCount, links);
       
       // ส่งการแจ้งเตือนในกลุ่ม
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
@@ -324,14 +327,30 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับการแจ้งเตือนการส่งงาน
    */
-  private createTaskSubmittedFlexMessage(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[]): FlexMessage {
+  private async createTaskSubmittedFlexMessage(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[]): Promise<FlexMessage> {
+    // ดึงข้อมูลไฟล์แนบเพื่อแสดงตัวอย่าง
+    let files: any[] = [];
+    if (fileCount > 0) {
+      try {
+        files = await this.fileService.getTaskFiles(task.id);
+      } catch (error) {
+        console.warn('ไม่สามารถดึงข้อมูลไฟล์แนบได้:', error);
+      }
+    }
+
     const content = [
       FlexMessageDesignSystem.createText('📤 มีการส่งงานใหม่', 'md', FlexMessageDesignSystem.colors.success, 'bold'),
       FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createSeparator('small'),
       FlexMessageDesignSystem.createText(`👤 ผู้ส่ง: ${submitterDisplayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       ...(fileCount > 0 ? [
-        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+        ...files.slice(0, 2).map(file => [
+          FlexMessageDesignSystem.createText(`• ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ]).flat(),
+        ...(files.length > 2 ? [
+          FlexMessageDesignSystem.createText(`และอีก ${files.length - 2} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
       ] : []),
       ...(links && links.length > 0 ? [
         FlexMessageDesignSystem.createText(`🔗 ลิงก์: ${links.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
@@ -342,7 +361,9 @@ export class NotificationService {
 
     const buttons = [
       FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ดูไฟล์แนบ', 'postback', `action=view_task_files&taskId=${task.id}`, 'secondary')
+      ...(fileCount > 0 ? [
+        FlexMessageDesignSystem.createButton('ดูไฟล์แนบทั้งหมด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+      ] : [])
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -351,7 +372,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'compact'
+      'large'
     );
   }
 

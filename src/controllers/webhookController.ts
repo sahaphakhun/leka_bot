@@ -515,20 +515,7 @@ class WebhookController {
           break;
         }
 
-        case 'view_task_files': {
-          const taskId = params.get('taskId')!;
-          try {
-            const task = await this.taskService.getTaskById(taskId);
-            const group = { id: groupId, lineGroupId: groupId, name: 'กลุ่ม' };
-            const files = await this.fileService.getTaskFiles(taskId);
-            
-            const taskFilesCard = FlexMessageTemplateService.createTaskFilesCard(task, files, group);
-            await this.lineService.replyMessage(replyToken, taskFilesCard);
-          } catch (err: any) {
-            await this.lineService.replyMessage(replyToken, `❌ ไม่สามารถแสดงไฟล์แนบได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
-          }
-          break;
-        }
+
 
 
 
