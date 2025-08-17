@@ -663,7 +663,7 @@ class WebhookController {
     return grouped;
   }
 
-    /**
+      /**
    * สร้าง Flex Message แสดงงานส่วนตัว
    */
   private createPersonalTasksFlexMessage(tasksByGroup: { [groupId: string]: { groupName: string; tasks: any[] } }): any {
@@ -672,57 +672,59 @@ class WebhookController {
     const content: any[] = [
       FlexMessageDesignSystem.createText(
         `📋 งานที่ต้องทำของคุณ (${Object.values(tasksByGroup).reduce((total, group) => total + group.tasks.length, 0)} รายการ)`,
-        'lg',
+        'xl',
         FlexMessageDesignSystem.colors.textPrimary,
-        undefined,
+        'bold',
         true
       )
     ];
 
     // เพิ่มงานแต่ละกลุ่ม
     for (const [groupId, groupData] of groupEntries) {
-      // หัวข้อกลุ่ม
+      // หัวข้อกลุ่ม - ใช้ชื่อกลุ่มจริง
       content.push(
         FlexMessageDesignSystem.createText(
           `🏷️ ${groupData.groupName}`,
-          'md',
+          'lg',
           FlexMessageDesignSystem.colors.primary,
-          undefined,
+          'bold',
           true
         )
       );
 
-              // งานในกลุ่ม
-        for (const task of groupData.tasks.slice(0, 10)) { // แสดง 10 งานแรก
-          const statusEmoji = this.getTaskStatusEmoji(task.status);
-          const dueDate = task.dueTime ? moment(task.dueTime).format('DD/MM HH:mm') : 'ไม่มีกำหนด';
-          
-          content.push(
-            FlexMessageDesignSystem.createText(`${statusEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
-          );
-          content.push(
-            FlexMessageDesignSystem.createText(`⏰ ${dueDate}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
-          );
-        }
+      // งานในกลุ่ม
+      for (const task of groupData.tasks.slice(0, 10)) { // แสดง 10 งานแรก
+        const statusEmoji = this.getTaskStatusEmoji(task.status);
+        const dueDate = task.dueTime ? moment(task.dueTime).format('DD/MM HH:mm') : 'ไม่มีกำหนด';
+        
+        // ใช้ "|" ขีดคั่นบอกสถานะงาน
+        content.push(
+          FlexMessageDesignSystem.createText(
+            `${statusEmoji} ${task.title} | ⏰ ${dueDate}`,
+            'md',
+            FlexMessageDesignSystem.colors.textPrimary
+          )
+        );
+      }
 
-        // แสดงจำนวนงานที่เหลือ
-        if (groupData.tasks.length > 10) {
-          content.push(
-            FlexMessageDesignSystem.createText(
-              `... และอีก ${groupData.tasks.length - 10} งาน`,
-              'xs',
-              FlexMessageDesignSystem.colors.textSecondary,
-              undefined,
-              true
-            )
-          );
-        }
+      // แสดงจำนวนงานที่เหลือ
+      if (groupData.tasks.length > 10) {
+        content.push(
+          FlexMessageDesignSystem.createText(
+            `... และอีก ${groupData.tasks.length - 10} งาน`,
+            'sm',
+            FlexMessageDesignSystem.colors.textSecondary,
+            undefined,
+            true
+          )
+        );
+      }
 
       // เพิ่มเส้นคั่นระหว่างกลุ่ม
       if (groupEntries.indexOf([groupId, groupData]) < groupEntries.length - 1) {
         content.push({
           type: 'separator',
-          margin: 'md'
+          margin: 'lg'
         });
       }
     }
@@ -743,7 +745,7 @@ class WebhookController {
       FlexMessageDesignSystem.colors.primary,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
