@@ -357,7 +357,7 @@ export class KPIRecord {
   @JoinColumn({ name: 'groupId' })
   group: Group;
 
-  @ManyToOne(() => Task, task => task.kpiRecords)
+  @ManyToOne(() => Task, task => task.kpiRecords, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'taskId' })
   task: Task;
 }
