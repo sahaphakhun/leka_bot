@@ -662,7 +662,16 @@ export class NotificationService {
       const group = task.group;
       if (!group) return;
 
-      const reviewer = await this.userService.findById(reviewerUserId);
+      // ตรวจสอบว่า reviewerUserId เป็น LINE User ID หรือ database UUID
+      let reviewer: User | null;
+      if (reviewerUserId.startsWith('U')) {
+        // เป็น LINE User ID
+        reviewer = await this.userService.findByLineUserId(reviewerUserId);
+      } else {
+        // เป็น database UUID
+        reviewer = await this.userService.findById(reviewerUserId);
+      }
+
       if (!reviewer?.lineUserId) return;
 
       const dueText = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
@@ -684,7 +693,16 @@ export class NotificationService {
       const group = task.group;
       if (!group) return;
 
-      const approver = await this.userService.findById(approverUserId);
+      // ตรวจสอบว่า approverUserId เป็น LINE User ID หรือ database UUID
+      let approver: User | null;
+      if (approverUserId.startsWith('U')) {
+        // เป็น LINE User ID
+        approver = await this.userService.findByLineUserId(approverUserId);
+      } else {
+        // เป็น database UUID
+        approver = await this.userService.findById(approverUserId);
+      }
+
       if (!approver?.lineUserId) return;
 
       const flexMessage = FlexMessageTemplateService.createApprovalRequestCard(task, group, reviewer);
