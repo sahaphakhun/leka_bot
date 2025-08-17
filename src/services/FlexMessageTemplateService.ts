@@ -922,16 +922,27 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`📝 งานทั้งหมด: ${tasks.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
       FlexMessageDesignSystem.createText(`📎 ไฟล์ที่ส่งมาแล้ว: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่ง หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      ...tasks.slice(0, 5).map((task, index) => [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText(`${index + 1}. ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+        FlexMessageDesignSystem.createText(`   📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
+        FlexMessageDesignSystem.createText(`   🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ]).flat(),
+      ...(tasks.length > 5 ? [
+        FlexMessageDesignSystem.createSeparator('small'),
+        FlexMessageDesignSystem.createText(`และอีก ${tasks.length - 5} งาน...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ] : []),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 📎 ดูรายการไฟล์ | 📤 ส่งงานต่างๆ', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่งโดยกดปุ่มเลข หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📎 ดูรายการไฟล์ | เลข 1-5 เลือกงาน | 📋 ดูงานเพิ่มเติม', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
       FlexMessageDesignSystem.createButton('📎', 'postback', 'action=show_personal_files', 'primary'),
       ...tasks.map((task, index) => 
         FlexMessageDesignSystem.createButton(
-          `📤${index + 1}`, 
+          `${index + 1}`, 
           'postback', 
           `action=submit_with_personal_files&taskId=${task.id}`, 
           'secondary'
