@@ -312,7 +312,7 @@ class WebhookController {
                 if (source.type === 'user') {
                   const user = await this.userService.findByLineUserId(userId);
                   if (user) {
-                    groupIdToUse = `personal_${user.id}`;
+                    groupIdToUse = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
                     groupName = 'แชทส่วนตัว';
                   }
                 }
@@ -340,19 +340,19 @@ class WebhookController {
           try {
             // ในแชทส่วนตัว ให้หาไฟล์ที่ส่งล่าสุด (24 ชม.) ถ้าไม่มี fileIds
             let finalFileIds = fileIds;
-            if (source.type === 'user' && fileIds.length === 0) {
-              const user = await this.userService.findByLineUserId(userId);
-              if (user) {
-                const personalGroupId = `personal_${user.id}`;
-                const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                try {
-                  const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
-                  finalFileIds = result.files?.map((f: any) => f.id) || [];
-                } catch (error) {
-                  console.warn('Could not get personal chat files:', error);
-                }
-              }
-            }
+                         if (source.type === 'user' && fileIds.length === 0) {
+               const user = await this.userService.findByLineUserId(userId);
+               if (user) {
+                 const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
+                 const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                 try {
+                   const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                   finalFileIds = result.files?.map((f: any) => f.id) || [];
+                 } catch (error) {
+                   console.warn('Could not get personal chat files:', error);
+                 }
+               }
+             }
             
             const task = await this.taskService.recordSubmission(taskId, userId, finalFileIds, note);
             await this.lineService.replyMessage(replyToken, `✅ ส่งงาน "${task.title}" พร้อมไฟล์แนบ ${finalFileIds.length} ไฟล์ สำเร็จแล้วค่ะ`);
@@ -368,19 +368,19 @@ class WebhookController {
           try {
             // ในแชทส่วนตัว ให้หาไฟล์ที่ส่งล่าสุด (24 ชม.) เพื่อแนบ
             let fileIds: string[] = [];
-            if (source.type === 'user') {
-              const user = await this.userService.findByLineUserId(userId);
-              if (user) {
-                const personalGroupId = `personal_${user.id}`;
-                const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                try {
-                  const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
-                  fileIds = result.files?.map((f: any) => f.id) || [];
-                } catch (error) {
-                  console.warn('Could not get personal chat files:', error);
-                }
-              }
-            }
+                         if (source.type === 'user') {
+               const user = await this.userService.findByLineUserId(userId);
+               if (user) {
+                 const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
+                 const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                 try {
+                   const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                   fileIds = result.files?.map((f: any) => f.id) || [];
+                 } catch (error) {
+                   console.warn('Could not get personal chat files:', error);
+                 }
+               }
+             }
             
             const task = await this.taskService.recordSubmission(taskId, userId, fileIds, note);
             if (fileIds.length > 0) {
@@ -407,13 +407,13 @@ class WebhookController {
             // ในแชทส่วนตัว ให้ใช้ personal chat group
             let groupIdToUse = groupId;
             let groupName = 'กลุ่ม';
-            if (source.type === 'user') {
-              const user = await this.userService.findByLineUserId(userId);
-              if (user) {
-                groupIdToUse = `personal_${user.id}`;
-                groupName = 'แชทส่วนตัว';
-              }
-            }
+                           if (source.type === 'user') {
+                 const user = await this.userService.findByLineUserId(userId);
+                 if (user) {
+                   groupIdToUse = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
+                   groupName = 'แชทส่วนตัว';
+                 }
+               }
             
             const group = { id: groupIdToUse, lineGroupId: groupIdToUse, name: groupName };
             const assignee = await this.userService.findByLineUserId(userId);
@@ -437,17 +437,17 @@ class WebhookController {
             if (source.type === 'user') {
               // แชทส่วนตัว - หาไฟล์จาก personal chat
               const user = await this.userService.findByLineUserId(userId);
-              if (user) {
-                const personalGroupId = `personal_${user.id}`;
-                const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                try {
-                  const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
-                  files = result.files || [];
-                } catch (error) {
-                  console.warn('Could not get personal chat files:', error);
-                  files = [];
-                }
-              }
+                           if (user) {
+               const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
+               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+               try {
+                 const result = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                 files = result.files || [];
+               } catch (error) {
+                 console.warn('Could not get personal chat files:', error);
+                 files = [];
+               }
+             }
             } else {
               // แชทกลุ่ม - หาไฟล์จากกลุ่ม
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
@@ -456,7 +456,7 @@ class WebhookController {
             }
             
             const group = { 
-              id: source.type === 'user' ? `personal_${userId}` : groupId, 
+              id: source.type === 'user' ? userId : groupId, 
               lineGroupId: source.type === 'user' ? `personal_${userId}` : groupId, 
               name: source.type === 'user' ? 'แชทส่วนตัว' : 'กลุ่ม' 
             };
@@ -586,7 +586,7 @@ class WebhookController {
             // แสดงรายการไฟล์ทั้งหมดในแชทส่วนตัว
             const user = await this.userService.findByLineUserId(userId);
             if (user) {
-              const personalGroupId = `personal_${user.id}`;
+              const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
@@ -604,7 +604,7 @@ class WebhookController {
             // ล้างไฟล์ทั้งหมดในแชทส่วนตัว (ลบไฟล์เก่าเกิน 24 ชม.)
             const user = await this.userService.findByLineUserId(userId);
             if (user) {
-              const personalGroupId = `personal_${user.id}`;
+              const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
@@ -632,8 +632,8 @@ class WebhookController {
             // ส่งงานพร้อมไฟล์จากแชทส่วนตัว
             const user = await this.userService.findByLineUserId(userId);
             if (user) {
-              const personalGroupId = `personal_${user.id}`;
-              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
+              const since = new Date(Date.now() - 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
               if (taskId) {

@@ -219,8 +219,8 @@ export class FileService {
         throw new Error('User not found');
       }
 
-      // สร้าง group จำลองสำหรับแชทส่วนตัว (ใช้ user ID เป็น group ID)
-      const tempGroupId = `personal_${user.id}`;
+      // สร้าง group จำลองสำหรับแชทส่วนตัว (ใช้ UUID ที่ถูกต้อง)
+      const tempGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
 
       // บันทึกไฟล์
       const fileData = {
@@ -240,7 +240,7 @@ export class FileService {
       if (!group) {
         group = this.groupRepository.create({
           id: tempGroupId,
-          lineGroupId: tempGroupId,
+          lineGroupId: `personal_${user.lineUserId}`, // ใช้ LINE User ID สำหรับ lineGroupId
           name: `แชทส่วนตัว - ${user.displayName}`,
           timezone: 'Asia/Bangkok',
           settings: {
