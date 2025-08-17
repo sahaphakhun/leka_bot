@@ -244,7 +244,7 @@ class WebhookController {
           // หาไฟล์ทั้งหมดที่ส่งล่าสุด (24 ชม.)
           const user = await this.userService.findByLineUserId(userId);
           if (user) {
-            const personalGroupId = `personal_${user.id}`;
+            const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
             const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
             const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
             
@@ -555,7 +555,7 @@ class WebhookController {
             const user = await this.userService.findByLineUserId(userId);
             if (user) {
               // หาไฟล์ที่ส่งล่าสุด (24 ชม.)
-              const personalGroupId = `personal_${user.id}`;
+              const personalGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
