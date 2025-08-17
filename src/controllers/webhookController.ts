@@ -821,6 +821,33 @@ class WebhookController {
           }
           break;
         }
+
+        case 'show_task_files': {
+          const taskId = params.get('taskId');
+          const groupId = params.get('groupId');
+          try {
+            if (taskId && groupId) {
+              // ดึงข้อมูลงานและไฟล์
+              const task = await this.taskService.getTaskById(taskId);
+              const files = await this.fileService.getTaskFiles(taskId);
+              
+              if (task && files.length > 0) {
+                // สร้างการ์ดแสดงไฟล์ของงาน
+                const taskFilesCard = FlexMessageTemplateService.createTaskFilesCard(task, files, { id: groupId });
+                await this.lineService.replyMessage(replyToken, taskFilesCard);
+              } else if (task) {
+                await this.lineService.replyMessage(replyToken, `📋 งาน "${task.title}" ไม่มีไฟล์แนบค่ะ`);
+              } else {
+                await this.lineService.replyMessage(replyToken, '❌ ไม่พบงานที่ระบุ');
+              }
+            } else {
+              await this.lineService.replyMessage(replyToken, '❌ ข้อมูลไม่ครบถ้วน');
+            }
+          } catch (err: any) {
+            await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+          }
+          break;
+        }
           break;
 
         case 'link_file':

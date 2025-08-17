@@ -362,7 +362,7 @@ export class NotificationService {
     const buttons = [
       FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
       ...(fileCount > 0 ? [
-        FlexMessageDesignSystem.createButton('ดูไฟล์แนบทั้งหมด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+        FlexMessageDesignSystem.createButton('ดูไฟล์แนบทั้งหมด', 'postback', `action=show_task_files&taskId=${task.id}&groupId=${group.id}`, 'secondary')
       ] : [])
     ];
 

@@ -559,7 +559,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📎', 'postback', `action=show_personal_files`, 'primary'),
+      FlexMessageDesignSystem.createButton('📎', 'postback', `action=show_task_files&taskId=${task.id}&groupId=${group.id}`, 'primary'),
       FlexMessageDesignSystem.createButton('📋', 'postback', `action=show_personal_tasks`, 'secondary'),
       FlexMessageDesignSystem.createButton('❌', 'postback', `action=submit_cancel&taskId=${task.id}`, 'secondary')
     ];
@@ -595,9 +595,9 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดาวน์โหลด', 'uri', `${config.baseUrl}/api/files/${file.id}/download`, 'primary'),
+      FlexMessageDesignSystem.createButton('📥', 'uri', `${config.baseUrl}/api/files/${file.id}/download`, 'primary'),
       ...(this.isPreviewable(file.mimeType) ? [
-        FlexMessageDesignSystem.createButton('ดูตัวอย่าง', 'uri', `${config.baseUrl}/api/files/${file.id}/preview`, 'secondary')
+        FlexMessageDesignSystem.createButton('👁️', 'uri', `${config.baseUrl}/api/files/${file.id}/preview`, 'secondary')
       ] : [])
     ];
 
@@ -627,7 +627,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText('ไม่มีไฟล์แนบ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
         ],
         [
-          FlexMessageDesignSystem.createButton('ดูในเว็บ', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
         ],
         'large'
       );
@@ -646,14 +646,24 @@ export class FlexMessageTemplateService {
       ...(files.length > 3 ? [
         FlexMessageDesignSystem.createSeparator('small'),
         FlexMessageDesignSystem.createText(`และอีก ${files.length - 3} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
-      ] : [])
+      ] : []),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 กดปุ่มด้านล่างเพื่อดาวน์โหลดหรือดูไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
+    // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
+    const fileButtons = files.slice(0, 3).map(file => 
+      FlexMessageDesignSystem.createButton(
+        `📥 ${file.originalName.substring(0, 8)}...`, 
+        'uri', 
+        `${config.baseUrl}/api/files/${file.id}/download`, 
+        'primary'
+      )
+    );
+
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูทั้งหมดในเว็บ', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'primary'),
-      ...(files.length === 1 ? [
-        FlexMessageDesignSystem.createButton('ดาวน์โหลด', 'uri', `${config.baseUrl}/api/files/${files[0].id}/download`, 'secondary')
-      ] : [])
+      ...fileButtons, // ปุ่มดาวน์โหลดไฟล์แต่ละไฟล์
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -800,11 +810,22 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText('💡 📋 ดูงานที่ต้องส่ง | 📤 ส่งงานพร้อมไฟล์ | 🗑️ ล้างไฟล์ทั้งหมด', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
+    // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
+    const fileButtons = files.slice(0, 3).map(file => 
+      FlexMessageDesignSystem.createButton(
+        `📥 ${file.originalName.substring(0, 10)}...`, 
+        'uri', 
+        `${config.baseUrl}/api/files/${file.id}/download`, 
+        'secondary'
+      )
+    );
+
     const buttons = [
       FlexMessageDesignSystem.createButton('📋', 'postback', 'action=show_personal_tasks', 'primary'),
       ...(files.length > 0 && taskId ? [
         FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_with_personal_files&taskId=${taskId}`, 'primary')
       ] : []),
+      ...fileButtons, // เพิ่มปุ่มไฟล์แต่ละไฟล์
       FlexMessageDesignSystem.createButton('🗑️', 'postback', 'action=clear_personal_files', 'secondary')
     ];
 
@@ -845,9 +866,20 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText('💡 📤 ส่งงาน | 📎 ดูไฟล์ทั้งหมด | ❌ ยกเลิก', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
+    // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
+    const fileButtons = files.slice(0, 3).map(file => 
+      FlexMessageDesignSystem.createButton(
+        `📥 ${file.originalName.substring(0, 8)}...`, 
+        'uri', 
+        `${config.baseUrl}/api/files/${file.id}/download`, 
+        'secondary'
+      )
+    );
+
     const buttons = [
       FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_with_personal_files&taskId=${task.id}`, 'primary'),
       FlexMessageDesignSystem.createButton('📎', 'postback', 'action=show_personal_files', 'secondary'),
+      ...fileButtons, // เพิ่มปุ่มไฟล์แต่ละไฟล์
       FlexMessageDesignSystem.createButton('❌', 'postback', 'action=submit_cancel', 'secondary')
     ];
 
@@ -933,9 +965,7 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createText(`และอีก ${tasks.length - 5} งาน...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
       ] : []),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่งโดยกดปุ่มเลข หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-      FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 📎 ดูรายการไฟล์ | เลข 1-5 เลือกงาน | 📋 ดูงานเพิ่มเติม', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่งโดยกดปุ่มเลข หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
@@ -993,11 +1023,22 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText('💡 📎 ส่งงานพร้อมไฟล์ | 📤 ส่งงานโดยไม่มีไฟล์ | ❌ ยกเลิก', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
+    // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
+    const fileButtons = files.slice(0, 3).map(file => 
+      FlexMessageDesignSystem.createButton(
+        `📥 ${file.originalName.substring(0, 8)}...`, 
+        'uri', 
+        `${config.baseUrl}/api/files/${file.id}/download`, 
+        'secondary'
+      )
+    );
+
     const buttons = [
       ...(files.length > 0 ? [
         FlexMessageDesignSystem.createButton('📎', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=true`, 'primary')
       ] : []),
       FlexMessageDesignSystem.createButton('📤', 'postback', `action=confirm_task_submission&taskId=${task.id}&hasFiles=false`, 'secondary'),
+      ...fileButtons, // เพิ่มปุ่มไฟล์แต่ละไฟล์
       FlexMessageDesignSystem.createButton('❌', 'postback', 'action=submit_cancel', 'secondary')
     ];
 
