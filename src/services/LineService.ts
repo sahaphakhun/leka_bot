@@ -6,15 +6,18 @@ import { BotCommand } from '@/types';
 import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { createHmac, timingSafeEqual } from 'crypto';
 import moment from 'moment-timezone';
+import { UserService } from './UserService';
 
 export class LineService {
   private client: Client;
+  private userService: UserService;
 
   constructor() {
     this.client = new Client({
       channelAccessToken: config.line.channelAccessToken,
       channelSecret: config.line.channelSecret,
     });
+    this.userService = new UserService();
 
     // เพิ่มการ configure เพื่อจัดการปัญหา LINE API Error 400
     // LINE Bot SDK จะจัดการ HTTP configuration ภายใน
@@ -703,14 +706,24 @@ export class LineService {
     try {
       console.log(`📊 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} ทั้งหมดจากฐานข้อมูล`);
       
-      // TODO: เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
-      // const members = await this.userService.getAllGroupMembers(groupId);
+      // เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
+      const members = await this.userService.getGroupMembers(groupId);
       
-      // สำหรับตอนนี้ ให้ส่งคืนข้อมูลตัวอย่าง
-      console.warn('⚠️ ฟังก์ชันนี้ยังไม่ได้เชื่อมต่อกับฐานข้อมูล');
-      console.warn('⚠️ กรุณาเพิ่มการเชื่อมต่อฐานข้อมูลเพื่อดึงข้อมูลสมาชิก');
-      
-      return [];
+      if (members.length > 0) {
+        console.log(`✅ พบสมาชิก ${members.length} คนในฐานข้อมูล`);
+        
+        // แปลงข้อมูลให้ตรงกับ format ที่ต้องการ
+        return members.map(member => ({
+          userId: member.lineUserId,
+          displayName: member.displayName,
+          pictureUrl: undefined, // User model ไม่มี profilePictureUrl
+          source: 'database',
+          lastUpdated: member.updatedAt || member.createdAt
+        }));
+      } else {
+        console.log(`ℹ️ ไม่พบสมาชิกในฐานข้อมูลสำหรับกลุ่ม ${groupId}`);
+        return [];
+      }
     } catch (error) {
       console.error('❌ Failed to get all group members from database:', error);
       return [];
@@ -728,14 +741,23 @@ export class LineService {
     lastUpdated: Date;
   } | null> {
     try {
-      // TODO: เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
-      // const member = await this.userService.getGroupMember(groupId, userId);
+      // เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
+      const members = await this.userService.getGroupMembers(groupId);
+      const member = members.find(m => m.lineUserId === userId);
       
-      // สำหรับตอนนี้ ให้ส่งคืน null (ไม่พบสมาชิก)
-      console.log(`🔍 ค้นหาสมาชิกในฐานข้อมูล: ${userId}`);
-      console.warn('⚠️ ฟังก์ชันนี้ยังไม่ได้เชื่อมต่อกับฐานข้อมูล');
-      
-      return null;
+      if (member) {
+        console.log(`✅ พบสมาชิกในฐานข้อมูล: ${member.displayName}`);
+        return {
+          userId: member.lineUserId,
+          displayName: member.displayName,
+          pictureUrl: undefined, // User model ไม่มี profilePictureUrl
+          source: 'database',
+          lastUpdated: member.updatedAt || member.createdAt
+        };
+      } else {
+        console.log(`ℹ️ ไม่พบสมาชิก ${userId} ในฐานข้อมูล`);
+        return null;
+      }
       
     } catch (error) {
       console.error('❌ Failed to get member from database:', error);
@@ -754,8 +776,49 @@ export class LineService {
     lastUpdated: Date;
   }): Promise<void> {
     try {
-      // TODO: เรียกใช้ UserService เพื่อบันทึกข้อมูลลงฐานข้อมูล
-      // await this.userService.saveGroupMember(groupId, member);
+      // เรียกใช้ UserService เพื่อบันทึกข้อมูลลงฐานข้อมูล
+      // ตรวจสอบว่าผู้ใช้มีอยู่แล้วหรือไม่
+      let user = await this.userService.findByLineUserId(member.userId);
+      
+      if (!user) {
+        // สร้างผู้ใช้ใหม่
+        user = await this.userService.createUser({
+          lineUserId: member.userId,
+          displayName: member.displayName,
+          realName: member.displayName
+        });
+        console.log(`✅ สร้างผู้ใช้ใหม่: ${member.displayName}`);
+      } else {
+        // อัปเดตข้อมูลผู้ใช้ (ไม่รวม profilePictureUrl เพราะไม่มีใน User model)
+        await this.userService.updateUser(user.id, {
+          displayName: member.displayName
+        });
+        console.log(`✅ อัปเดตข้อมูลผู้ใช้: ${member.displayName}`);
+      }
+      
+      // ตรวจสอบว่ากลุ่มมีอยู่แล้วหรือไม่
+      let group = await this.userService.findGroupByLineId(groupId);
+      
+      if (!group) {
+        // สร้างกลุ่มใหม่ (ไม่รวม description เพราะไม่มีใน createGroup parameters)
+        group = await this.userService.createGroup({
+          lineGroupId: groupId,
+          name: `กลุ่ม ${groupId}`
+        });
+        console.log(`✅ สร้างกลุ่มใหม่: ${groupId}`);
+      }
+      
+      // เพิ่มสมาชิกในกลุ่ม (หากยังไม่มี)
+      try {
+        await this.userService.addGroupMember(group.id, user.id);
+        console.log(`✅ เพิ่มสมาชิกในกลุ่ม: ${member.displayName}`);
+      } catch (error: any) {
+        if (error.message.includes('already exists')) {
+          console.log(`ℹ️ สมาชิก ${member.displayName} มีอยู่ในกลุ่มแล้ว`);
+        } else {
+          throw error;
+        }
+      }
       
       console.log(`💾 บันทึกข้อมูลสมาชิกลงฐานข้อมูล: ${member.userId} - ${member.displayName} (${member.source})`);
       
@@ -831,10 +894,9 @@ export class LineService {
   }
 
   /**
-   * ตรวจสอบและบันทึกสมาชิกใหม่ที่ส่งข้อความ
-   * ใช้เมื่อมีคนส่งข้อความแต่ยังไม่ได้บันทึกในฐานข้อมูล
+   * ตรวจสอบและบันทึกข้อมูลสมาชิกใหม่จากข้อความ
    */
-  public async checkAndSaveNewMemberFromMessage(groupId: string, userId: string): Promise<{
+  public async checkAndSaveNewMember(groupId: string, userId: string): Promise<{
     isNewMember: boolean;
     memberInfo?: {
       userId: string;
@@ -845,24 +907,19 @@ export class LineService {
     };
   }> {
     try {
-      console.log(`🔍 ตรวจสอบสมาชิกใหม่จากข้อความ: ${userId} ในกลุ่ม ${groupId}`);
-      
-      // ตรวจสอบว่าสมาชิกนี้มีในฐานข้อมูลหรือไม่
+      // ตรวจสอบว่าสมาชิกมีอยู่ในฐานข้อมูลแล้วหรือไม่
       const existingMember = await this.getMemberFromDatabase(groupId, userId);
       
       if (existingMember) {
-        console.log(`✅ สมาชิกมีอยู่แล้วในฐานข้อมูล: ${existingMember.displayName}`);
+        console.log(`ℹ️ สมาชิก ${existingMember.displayName} มีอยู่ในฐานข้อมูลแล้ว`);
         return {
-          isNewMember: false,
-          memberInfo: existingMember
+          isNewMember: false
         };
       }
       
-      // สมาชิกใหม่ - ลองดึงข้อมูลจาก LINE API
-      console.log(`🆕 พบสมาชิกใหม่: ${userId} - เริ่มดึงข้อมูลจาก LINE API`);
-      
+      // ลองดึงข้อมูล profile จาก LINE API
       try {
-        const profile = await this.getGroupMemberProfile(groupId, userId);
+        const profile = await this.client.getProfile(userId);
         
         const newMember = {
           userId,
@@ -872,7 +929,6 @@ export class LineService {
           lastUpdated: new Date()
         };
         
-        // บันทึกลงฐานข้อมูล
         await this.saveMemberToDatabase(groupId, newMember);
         
         console.log(`✅ บันทึกข้อมูลสมาชิกใหม่จากข้อความ: ${profile.displayName}`);
