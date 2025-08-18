@@ -471,33 +471,42 @@ export class LineService {
     pictureUrl?: string;
   }>> {
     try {
-      // ดึงรายชื่อสมาชิกทั้งหมดในกลุ่ม
-      const userIds = await this.getGroupMemberUserIds(groupId);
+      console.log(`🔄 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} จาก LINE API`);
       
-      // ดึงข้อมูลรายละเอียดของแต่ละสมาชิก
+      // ดึง user IDs จากกลุ่ม
+      const userIds = await this.getGroupMemberUserIds(groupId);
+      console.log(`📊 พบ user IDs: ${userIds.length} คน`);
+      
+      // ดึงข้อมูล profile ของแต่ละคน
       const memberPromises = userIds.map(async (userId) => {
         try {
-          const profile = await this.getGroupMemberProfile(groupId, userId);
+          const profile = await this.client.getProfile(userId);
           return {
             userId,
             displayName: profile.displayName,
             pictureUrl: profile.pictureUrl
           };
-        } catch (error) {
-          console.error(`❌ Failed to get profile for user ${userId}:`, error);
-          // ส่งคืนข้อมูลพื้นฐานถ้าไม่สามารถดึงข้อมูลได้
-          return {
-            userId,
-            displayName: `User ${userId}`,
-            pictureUrl: undefined
-          };
+        } catch (error: any) {
+          if (error.status === 403) {
+            console.log('🚫 LINE API 403: ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+            return {
+              userId,
+              displayName: `User ${userId}`,
+              pictureUrl: undefined
+            };
+          }
+          throw error;
         }
       });
 
       const members = await Promise.all(memberPromises);
       return members;
-    } catch (error) {
-      console.error('❌ Failed to get all group members:', error);
+    } catch (error: any) {
+      if (error.status === 403) {
+        console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม');
+      } else {
+        console.error('❌ Failed to get all group members:', error);
+      }
       throw error;
     }
   }
@@ -573,10 +582,10 @@ export class LineService {
       return membersWithSource;
       
     } catch (error: any) {
-      console.warn('⚠️ LINE API ไม่ทำงาน เปลี่ยนไปใช้ฐานข้อมูลแทน');
-      
       if (error.status === 403) {
-        console.log('🚫 Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ไม่ใช่ Verified/Premium Bot)');
+        console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม');
+      } else {
+        console.warn('⚠️ LINE API ไม่ทำงาน เปลี่ยนไปใช้ฐานข้อมูลแทน');
       }
       
       // Fallback ไปใช้ฐานข้อมูล
@@ -593,7 +602,7 @@ export class LineService {
         
         return membersWithCorrectSource;
       } else {
-        console.warn('⚠️ ไม่มีข้อมูลในฐานข้อมูล ส่งคืน array ว่าง');
+        console.log('ℹ️ ไม่มีข้อมูลในฐานข้อมูล ส่งคืน array ว่าง');
         return [];
       }
     }
@@ -624,7 +633,7 @@ export class LineService {
           lineMembers = await this.getAllGroupMembers(groupId);
         } catch (error: any) {
           if (error.status === 403) {
-            console.log('🚫 Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ไม่ใช่ Verified/Premium Bot)');
+            console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม');
             console.log('⏭️ ข้ามการ sync จาก LINE API');
             return {
               success: false,
@@ -869,7 +878,7 @@ export class LineService {
           
         } catch (error: any) {
           if (error.status === 403) {
-            console.log('🚫 ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+            console.log('🚫 LINE API 403: ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
             
             const basicMember = {
               userId,
@@ -947,7 +956,7 @@ export class LineService {
         
       } catch (error: any) {
         if (error.status === 403) {
-          console.log('🚫 ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+          console.log('🚫 LINE API 403: ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
           
           // บันทึกข้อมูลพื้นฐาน
           const basicMember = {
