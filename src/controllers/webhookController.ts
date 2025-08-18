@@ -1223,14 +1223,32 @@ class WebhookController {
    */
   private async ensureUserExists(userId: string): Promise<void> {
     try {
+      console.log(`🔍 ตรวจสอบและสร้าง User record สำหรับแชทส่วนตัว: ${userId}`);
+      
       // ตรวจสอบ user
       let user = await this.userService.findByLineUserId(userId);
       if (!user) {
-        const profile = await this.lineService.getUserProfile(userId);
-        user = await this.userService.createUser({
-          lineUserId: userId,
-          displayName: profile.displayName
-        });
+        try {
+          const profile = await this.lineService.getUserProfile(userId);
+          user = await this.userService.createUser({
+            lineUserId: userId,
+            displayName: profile.displayName
+          });
+          console.log(`✅ สร้างผู้ใช้ใหม่สำหรับแชทส่วนตัว: ${profile.displayName}`);
+        } catch (error: any) {
+          if (error.status === 403) {
+            console.warn('⚠️ ไม่สามารถดึงข้อมูล profile ได้ ใช้ชื่อพื้นฐานแทน');
+            user = await this.userService.createUser({
+              lineUserId: userId,
+              displayName: `User ${userId.substring(0, 8)}`
+            });
+            console.log(`✅ สร้างผู้ใช้ใหม่ด้วยชื่อพื้นฐาน: ${user.displayName}`);
+          } else {
+            throw error;
+          }
+        }
+      } else {
+        console.log(`ℹ️ ผู้ใช้มีอยู่ในฐานข้อมูลแล้ว: ${user.displayName}`);
       }
     } catch (error) {
       console.error('❌ Error ensuring user exists:', error);
@@ -1242,29 +1260,25 @@ class WebhookController {
    */
   private async ensureUserAndGroup(userId: string, groupId: string): Promise<void> {
     try {
-      // ตรวจสอบ user
-      let user = await this.userService.findByLineUserId(userId);
-      if (!user) {
-        const profile = await this.lineService.getUserProfile(userId);
-        user = await this.userService.createUser({
-          lineUserId: userId,
-          displayName: profile.displayName
-        });
+      console.log(`🔍 ตรวจสอบและสร้าง User/Group record: ${userId} ในกลุ่ม ${groupId}`);
+      
+      // ใช้ LineService.checkAndSaveNewMember เพื่อให้ได้ข้อมูลที่ครบถ้วน
+      const result = await this.lineService.checkAndSaveNewMember(groupId, userId);
+      
+      if (result.isNewMember) {
+        console.log(`✅ เพิ่มสมาชิกใหม่ลงฐานข้อมูล: ${result.memberInfo?.displayName || userId}`);
+      } else {
+        console.log(`ℹ️ สมาชิกมีอยู่ในฐานข้อมูลแล้ว: ${userId}`);
       }
-
-      // ตรวจสอบ group
+      
+      // ตรวจสอบว่ากลุ่มมีอยู่ในฐานข้อมูลหรือไม่
       let group = await this.userService.findGroupByLineId(groupId);
       if (!group) {
         group = await this.userService.createGroup({
           lineGroupId: groupId,
           name: `กลุ่ม ${groupId.substring(0, 8)}`
         });
-      }
-
-      // ตรวจสอบ membership
-      const membership = await this.userService.findGroupMembership(user.id, group.id);
-      if (!membership) {
-        await this.userService.addGroupMember(group.id, user.id);
+        console.log(`✅ สร้างกลุ่มใหม่: ${group.name}`);
       }
 
     } catch (error) {
@@ -1277,15 +1291,15 @@ class WebhookController {
    */
   private async checkAndSaveNewMemberFromMessage(groupId: string, userId: string): Promise<void> {
     try {
-      // ตรวจสอบว่าสมาชิกมีอยู่ในฐานข้อมูลหรือไม่
-      const existingMember = await this.userService.findByLineUserId(userId);
-      if (!existingMember) {
-        // บันทึกสมาชิกใหม่
-        // สร้าง user record ใหม่
-        await this.userService.createUser({
-          lineUserId: userId,
-          displayName: 'ไม่ทราบ'
-        });
+      console.log(`🔍 ตรวจสอบสมาชิกใหม่ที่ส่งข้อความ: ${userId} ในกลุ่ม ${groupId}`);
+      
+      // ใช้ LineService.checkAndSaveNewMember แทน เพื่อให้ได้ข้อมูลที่ครบถ้วน
+      const result = await this.lineService.checkAndSaveNewMember(groupId, userId);
+      
+      if (result.isNewMember) {
+        console.log(`✅ เพิ่มสมาชิกใหม่ลงฐานข้อมูล: ${result.memberInfo?.displayName || userId}`);
+      } else {
+        console.log(`ℹ️ สมาชิกมีอยู่ในฐานข้อมูลแล้ว: ${userId}`);
       }
     } catch (error) {
       console.warn('⚠️ Failed to check/save new member:', error);
