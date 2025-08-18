@@ -576,7 +576,7 @@ export class LineService {
       console.warn('⚠️ LINE API ไม่ทำงาน เปลี่ยนไปใช้ฐานข้อมูลแทน');
       
       if (error.status === 403) {
-        console.warn('⚠️ Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ไม่ใช่ Verified/Premium Bot)');
+        console.log('🚫 Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ไม่ใช่ Verified/Premium Bot)');
       }
       
       // Fallback ไปใช้ฐานข้อมูล
@@ -624,8 +624,8 @@ export class LineService {
           lineMembers = await this.getAllGroupMembers(groupId);
         } catch (error: any) {
           if (error.status === 403) {
-            console.warn('⚠️ Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (อาจไม่ใช่ Verified/Premium Bot)');
-            console.warn('⚠️ ข้ามการ sync จาก LINE API');
+            console.log('🚫 Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ไม่ใช่ Verified/Premium Bot)');
+            console.log('⏭️ ข้ามการ sync จาก LINE API');
             return {
               success: false,
               totalMembers: 0,
@@ -704,7 +704,7 @@ export class LineService {
     lastUpdated: Date;
   }>> {
     try {
-      console.log(`📊 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} ทั้งหมดจากฐานข้อมูล`);
+      console.log(`📊 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} จากฐานข้อมูล`);
       
       // เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
       const members = await this.userService.getGroupMembers(groupId);
@@ -851,41 +851,48 @@ export class LineService {
       console.log(`🔄 อัปเดตข้อมูลสมาชิกจาก webhook: ${eventType} - ${userId} ในกลุ่ม ${groupId}`);
       
       if (eventType === 'join') {
-        // เมื่อมีสมาชิกใหม่เข้ากลุ่ม
+        // สมาชิกใหม่เข้ากลุ่ม
         try {
-          // ลองดึงข้อมูล profile จาก LINE API
-          const profile = await this.getGroupMemberProfile(groupId, userId);
+          const profile = await this.client.getProfile(userId);
           
-          // บันทึกลงฐานข้อมูล
-          await this.saveMemberToDatabase(groupId, {
+          const newMember = {
             userId,
             displayName: profile.displayName,
             pictureUrl: profile.pictureUrl,
             source: 'webhook',
             lastUpdated: new Date()
-          });
+          };
           
-          console.log(`✅ บันทึกข้อมูลสมาชิกใหม่: ${profile.displayName}`);
+          await this.saveMemberToDatabase(groupId, newMember);
+          
+          console.log(`✅ บันทึกข้อมูลสมาชิกใหม่จาก webhook: ${profile.displayName}`);
           
         } catch (error: any) {
           if (error.status === 403) {
-            console.warn('⚠️ ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
-            // บันทึกข้อมูลพื้นฐาน
-            await this.saveMemberToDatabase(groupId, {
+            console.log('🚫 ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+            
+            const basicMember = {
               userId,
               displayName: `User ${userId}`,
               pictureUrl: undefined,
-              source: 'webhook',
+              source: 'webhook_basic',
               lastUpdated: new Date()
-            });
+            };
+            
+            await this.saveMemberToDatabase(groupId, basicMember);
+            
           } else {
             throw error;
           }
         }
+        
       } else if (eventType === 'leave') {
-        // เมื่อสมาชิกออกจากกลุ่ม
-        await this.removeMemberFromDatabase(groupId, userId);
-        console.log(`✅ ลบข้อมูลสมาชิกที่ออกจากกลุ่ม: ${userId}`);
+        // สมาชิกออกจากกลุ่ม
+        console.log(`👋 สมาชิก ${userId} ออกจากกลุ่ม ${groupId}`);
+        
+        // TODO: อัปเดตสถานะสมาชิกในฐานข้อมูล (เช่น ตั้งเป็น inactive)
+        // await this.userService.updateMemberStatus(groupId, userId, 'inactive');
+        
       }
       
     } catch (error) {
@@ -940,7 +947,7 @@ export class LineService {
         
       } catch (error: any) {
         if (error.status === 403) {
-          console.warn('⚠️ ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+          console.log('🚫 ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
           
           // บันทึกข้อมูลพื้นฐาน
           const basicMember = {
