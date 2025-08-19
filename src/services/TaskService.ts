@@ -2,7 +2,7 @@
 
 import { Repository, In, MoreThanOrEqual } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
-import { Task, Group, User } from '@/models';
+import { Task, Group, User, File } from '@/models';
 import { Task as TaskType, CalendarEvent } from '@/types';
 import moment from 'moment-timezone';
 import { config } from '@/utils/config';
@@ -19,6 +19,7 @@ export class TaskService {
   private notificationService: NotificationService;
   private fileService: FileService;
   private lineService: LineService;
+  private fileRepository: Repository<File>;
 
   constructor() {
     this.taskRepository = AppDataSource.getRepository(Task);
@@ -28,6 +29,7 @@ export class TaskService {
     this.notificationService = new NotificationService();
     this.fileService = new FileService();
     this.lineService = new LineService();
+    this.fileRepository = AppDataSource.getRepository(File);
   }
 
   /** ดึงงานตาม ID พร้อม relations หลัก */
@@ -552,10 +554,16 @@ export class TaskService {
       const submitter = await this.userRepository.findOneBy({ lineUserId: submitterLineUserId });
       if (!submitter) throw new Error('Submitter not found');
 
-      // ผูกไฟล์เข้ากับงาน
+      // ผูกไฟล์เข้ากับงานและอัปเดตข้อมูลไฟล์
       for (const fid of fileIds) {
         try {
           await this.fileService.linkFileToTask(fid, task.id);
+          const file = await this.fileRepository.findOneBy({ id: fid });
+          if (file) {
+            file.groupId = task.groupId;
+            file.folderStatus = 'completed';
+            await this.fileRepository.save(file);
+          }
         } catch (e) {
           console.warn('⚠️ linkFileToTask failed:', fid, e);
         }
