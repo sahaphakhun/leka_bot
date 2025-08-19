@@ -16,6 +16,7 @@ export class CronService {
   private notificationService: NotificationService;
   private kpiService: KPIService;
   private jobs: Map<string, cron.ScheduledTask> = new Map();
+  private isStarted = false;
 
   constructor() {
     this.taskService = new TaskService();
@@ -24,6 +25,11 @@ export class CronService {
   }
 
   public start(): void {
+    if (this.isStarted) {
+      console.log('🔄 Cron jobs already running, restarting...');
+      this.stop();
+    }
+
     console.log('🕐 Starting cron jobs...');
 
     // เตือนก่อนถึงกำหนด 1 วัน: รันทุกชั่วโมงเพื่อตรวจช่วง 1 วันก่อน
@@ -115,6 +121,8 @@ export class CronService {
       job.start();
       console.log(`✅ Started cron job: ${name}`);
     });
+
+    this.isStarted = true;
   }
 
   public stop(): void {
@@ -126,6 +134,7 @@ export class CronService {
     });
     
     this.jobs.clear();
+    this.isStarted = false;
   }
 
   /**
