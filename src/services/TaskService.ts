@@ -438,9 +438,9 @@ export class TaskService {
           throw new Error('Only task reviewers or creators can approve tasks');
         }
       } else {
-        // กรณีงานเสร็จแล้ว - ต้องเป็นผู้รับผิดชอบเพื่อปิดงาน
+        // กรณีงานเสร็จแล้ว - ต้องเป็นผู้ตรวจเพื่อปิดงาน
         if (!this.checkCompletionPermission(task, completedByInternalId)) {
-          throw new Error('Only task assignees can complete tasks');
+          throw new Error('Only task reviewers can complete tasks');
         }
       }
 
@@ -511,8 +511,8 @@ export class TaskService {
    * ตรวจสอบสิทธิ์การปิดงาน
    */
   private checkCompletionPermission(task: Task, userId: string): boolean {
-    const isAssignee = task.assignedUsers.some(user => user.id === userId);
-    return isAssignee;
+    const reviewerUserId = (task.workflow as any)?.review?.reviewerUserId;
+    return reviewerUserId === userId;
   }
 
   /**
