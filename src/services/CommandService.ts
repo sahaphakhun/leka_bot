@@ -83,8 +83,10 @@ export class CommandService {
         return await this.handleSetupSupervisors(command);
       }
 
-      // สร้างลิงก์ Dashboard (ทุกคนในกลุ่มสามารถใช้ได้)
-      const dashboardUrl = UrlBuilder.getDashboardUrl(command.groupId);
+      // สร้างลิงก์ Dashboard พร้อมระบุตัวตนผู้ใช้เพื่อใช้งานฟีเจอร์ที่ต้องการ userId
+      const dashboardUrl = UrlBuilder.getDashboardUrl(command.groupId, {
+        userId: command.userId
+      });
 
       return `🔧 Dashboard เลขาบอท
 
@@ -222,7 +224,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.createButton(
           'เปิด Dashboard กลุ่ม',
           'uri',
-          UrlBuilder.getDashboardUrl(command.groupId),
+          UrlBuilder.getDashboardUrl(command.groupId, { userId: command.userId }),
           'secondary'
         )
       ];
