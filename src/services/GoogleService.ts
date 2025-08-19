@@ -1,9 +1,11 @@
 // Google Service - รวมบริการต่างๆ ของ Google
 
+import { google } from 'googleapis';
 import { GoogleCalendarService } from './GoogleCalendarService';
 import { UserService } from './UserService';
 import { Task, Group, User } from '@/types';
 import { Task as TaskEntity } from '@/models';
+import { config } from '@/utils/config';
 
 export class GoogleService {
   private calendarService: GoogleCalendarService;
@@ -249,13 +251,24 @@ export class GoogleService {
    */
   public async handleOAuthCallback(code: string, groupId: string): Promise<void> {
     try {
-      // TODO: Implement OAuth token exchange
-      // 1. แลกเปลี่ยน code กับ access token
-      // 2. เก็บ refresh token ในฐานข้อมูล
-      // 3. ตั้งค่า credentials สำหรับ API calls
-      
-      console.log('📝 TODO: Implement OAuth callback handling');
+      const oauth2Client = new google.auth.OAuth2(
+        config.google.clientId,
+        config.google.clientSecret,
+        config.google.redirectUri
+      );
 
+      const { tokens } = await oauth2Client.getToken(code);
+      if (!tokens.refresh_token) {
+        throw new Error('No refresh token returned from Google');
+      }
+
+      await this.userService.updateGroupSettings(groupId, {
+        googleRefreshToken: tokens.refresh_token
+      });
+
+      this.calendarService.setCredentials(tokens);
+
+      console.log('✅ Google OAuth credentials set for group');
     } catch (error) {
       console.error('❌ Error handling OAuth callback:', error);
       throw error;

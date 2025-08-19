@@ -14,6 +14,7 @@ export interface GroupSettings {
   reminderIntervals: string[]; // เช่น ['7d', '1d', '3h']
   enableLeaderboard: boolean;
   googleCalendarId?: string;
+  googleRefreshToken?: string;
   defaultReminders: string[];
   workingHours: {
     start: string; // 'HH:mm'
