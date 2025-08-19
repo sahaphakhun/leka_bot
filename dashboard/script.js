@@ -1726,6 +1726,11 @@ class Dashboard {
         <div class="file-meta" style="font-size: 0.875rem; color: #6b7280;">
           ${this.formatFileSize(file.size)} • ${this.formatDate(file.uploadedAt)}
         </div>
+        ${file.taskNames && file.taskNames.length > 0 ? `
+          <div class="file-task" style="font-size: 0.875rem; color: #374151; margin-top: 4px;">
+            จากงาน: ${file.taskNames.join(', ')}
+          </div>
+        ` : ''}
         ${file.tags && file.tags.length > 0 ? `
           <div class="file-tags" style="margin-top: 8px;">
             ${file.tags.map(tag => `<span style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px;">#${tag}</span>`).join('')}

@@ -345,9 +345,6 @@ export class NotificationService {
       FlexMessageDesignSystem.createText(`👤 ผู้ส่ง: ${submitterDisplayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       ...(fileCount > 0 ? [
         FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
-        ...files.slice(0, 2).map(file => [
-          FlexMessageDesignSystem.createText(`• ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
-        ]).flat(),
         ...(files.length > 2 ? [
           FlexMessageDesignSystem.createText(`และอีก ${files.length - 2} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
         ] : [])
@@ -359,11 +356,23 @@ export class NotificationService {
       FlexMessageDesignSystem.createText('📅 กำหนดตรวจภายใน: 2 วัน', 'sm', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
+    const fileButtons = fileCount > 0
+      ? files.slice(0, 2).map(file =>
+          FlexMessageDesignSystem.createButton(
+            `📥 ${file.originalName.substring(0, 8)}...`,
+            'uri',
+            this.fileService.generateDownloadUrl(group.id, file.id),
+            'secondary'
+          )
+        )
+      : [];
+
     const buttons = [
       FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
       ...(fileCount > 0 ? [
         FlexMessageDesignSystem.createButton('ดูไฟล์แนบทั้งหมด', 'postback', `action=show_task_files&taskId=${task.id}&groupId=${group.id}`, 'secondary')
-      ] : [])
+      ] : []),
+      ...fileButtons
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
