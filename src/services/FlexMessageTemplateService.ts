@@ -5,6 +5,8 @@ import { FlexMessageDesignSystem, TaskCardData } from './FlexMessageDesignSystem
 import { FlexMessage } from '@line/bot-sdk';
 import moment from 'moment';
 import { config } from '@/utils/config';
+import { serviceContainer } from '@/utils/serviceContainer';
+import { FileService } from './FileService';
 
 export class FlexMessageTemplateService {
   /**
@@ -594,10 +596,11 @@ export class FlexMessageTemplateService {
       ] : [])
     ];
 
+    const fileService = serviceContainer.get<FileService>('FileService');
     const buttons = [
-      FlexMessageDesignSystem.createButton('📥', 'uri', `${config.baseUrl}/api/files/${file.id}/download`, 'primary'),
+      FlexMessageDesignSystem.createButton('📥', 'uri', fileService.generateDownloadUrl(group.id, file.id), 'primary'),
       ...(this.isPreviewable(file.mimeType) ? [
-        FlexMessageDesignSystem.createButton('👁️', 'uri', `${config.baseUrl}/api/files/${file.id}/preview`, 'secondary')
+        FlexMessageDesignSystem.createButton('👁️', 'uri', fileService.generatePreviewUrl(group.id, file.id), 'secondary')
       ] : [])
     ];
 
@@ -652,11 +655,12 @@ export class FlexMessageTemplateService {
     ];
 
     // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
-    const fileButtons = files.slice(0, 3).map(file => 
+    const fileService = serviceContainer.get<FileService>('FileService');
+    const fileButtons = files.slice(0, 3).map(file =>
       FlexMessageDesignSystem.createButton(
-        `📥 ${file.originalName.substring(0, 8)}...`, 
-        'uri', 
-        `${config.baseUrl}/api/files/${file.id}/download`, 
+        `📥 ${file.originalName.substring(0, 8)}...`,
+        'uri',
+        fileService.generateDownloadUrl(group.id, file.id),
         'primary'
       )
     );
@@ -811,11 +815,12 @@ export class FlexMessageTemplateService {
     ];
 
     // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
-    const fileButtons = files.slice(0, 3).map(file => 
+    const fileService = serviceContainer.get<FileService>('FileService');
+    const fileButtons = files.slice(0, 3).map(file =>
       FlexMessageDesignSystem.createButton(
-        `📥 ${file.originalName.substring(0, 10)}...`, 
-        'uri', 
-        `${config.baseUrl}/api/files/${file.id}/download`, 
+        `📥 ${file.originalName.substring(0, 10)}...`,
+        'uri',
+        fileService.generateDownloadUrl(file.groupId, file.id),
         'secondary'
       )
     );
@@ -867,11 +872,12 @@ export class FlexMessageTemplateService {
     ];
 
     // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
-    const fileButtons = files.slice(0, 3).map(file => 
+    const fileService = serviceContainer.get<FileService>('FileService');
+    const fileButtons = files.slice(0, 3).map(file =>
       FlexMessageDesignSystem.createButton(
-        `📥 ${file.originalName.substring(0, 8)}...`, 
-        'uri', 
-        `${config.baseUrl}/api/files/${file.id}/download`, 
+        `📥 ${file.originalName.substring(0, 8)}...`,
+        'uri',
+        fileService.generateDownloadUrl(file.groupId, file.id),
         'secondary'
       )
     );
@@ -1024,11 +1030,12 @@ export class FlexMessageTemplateService {
     ];
 
     // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
-    const fileButtons = files.slice(0, 3).map(file => 
+    const fileService = serviceContainer.get<FileService>('FileService');
+    const fileButtons = files.slice(0, 3).map(file =>
       FlexMessageDesignSystem.createButton(
-        `📥 ${file.originalName.substring(0, 8)}...`, 
-        'uri', 
-        `${config.baseUrl}/api/files/${file.id}/download`, 
+        `📥 ${file.originalName.substring(0, 8)}...`,
+        'uri',
+        fileService.generateDownloadUrl(file.groupId, file.id),
         'secondary'
       )
     );

@@ -616,15 +616,15 @@ export class FileService {
   /**
    * สร้าง URL สำหรับดาวน์โหลดไฟล์
    */
-  public generateDownloadUrl(fileId: string): string {
-    return `${config.baseUrl}/api/files/${fileId}/download`;
+  public generateDownloadUrl(groupId: string, fileId: string): string {
+    return `${config.baseUrl}/api/groups/${groupId}/files/${fileId}/download`;
   }
 
   /**
    * สร้าง URL สำหรับแสดงตัวอย่างไฟล์
    */
-  public generatePreviewUrl(fileId: string): string {
-    return `${config.baseUrl}/api/files/${fileId}/preview`;
+  public generatePreviewUrl(groupId: string, fileId: string): string {
+    return `${config.baseUrl}/api/groups/${groupId}/files/${fileId}/preview`;
   }
 
   /**
