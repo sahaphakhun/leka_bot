@@ -225,6 +225,7 @@ class DashboardController {
    */
   private generateTaskDetailHtml(data: any): string {
     const { task, group, assignee, files } = data;
+    const groupIdForDownload = (group && (group as any).id) ? (group as any).id : task.groupId;
     
     return `
 <!DOCTYPE html>
@@ -413,9 +414,12 @@ class DashboardController {
     ${files && files.length > 0 ? `
     <div class="files-section">
       <h3>📎 ไฟล์แนบ (${files.length})</h3>
-      ${files.map((file: any) => 
+      ${files.map((file: any) =>
         '<div class="file-item">' +
-          '<strong>' + this.escapeAttr(file.originalName) + '</strong><br>' +
+          '<a href="' + this.fileService.generateDownloadUrl(groupIdForDownload, file.id) + '" ' +
+            'style="color: #1d4ed8; text-decoration: none;" download>' +
+            '<strong>' + this.escapeAttr(file.originalName) + '</strong>' +
+          '</a><br>' +
           '<small>ขนาด: ' + this.formatFileSize(file.size) + ' | อัปโหลด: ' + this.formatDate(file.uploadedAt) + '</small>' +
         '</div>'
       ).join('')}
