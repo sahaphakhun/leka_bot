@@ -3,14 +3,18 @@
 import { google, calendar_v3 } from 'googleapis';
 import { config } from '@/utils/config';
 import { Task, GoogleCalendarEvent } from '@/types';
-import { Task as TaskEntity } from '@/models';
+import { Task as TaskEntity, User } from '@/models';
 import moment from 'moment-timezone';
+import { UserService } from './UserService';
+import { serviceContainer } from '@/utils/serviceContainer';
 
 export class GoogleCalendarService {
   private calendar: calendar_v3.Calendar;
   private auth: any;
+  private userService: UserService;
 
-  constructor() {
+  constructor(userService: UserService = serviceContainer.get<UserService>('UserService')) {
+    this.userService = userService;
     this.initializeAuth();
     this.calendar = google.calendar({ version: 'v3', auth: this.auth });
   }
@@ -98,11 +102,12 @@ export class GoogleCalendarService {
    */
   public async createTaskEvent(task: Task | TaskEntity, calendarId: string): Promise<string> {
     try {
+      const attendees = await this.getTaskAttendees(task);
       const event: GoogleCalendarEvent = {
         summary: task.title,
         description: this.formatEventDescription(task),
         start: {
-          dateTime: task.startTime 
+          dateTime: task.startTime
             ? moment(task.startTime).toISOString()
             : moment(task.dueTime).subtract(1, 'hour').toISOString(),
           timeZone: config.app.defaultTimezone
@@ -111,7 +116,7 @@ export class GoogleCalendarService {
           dateTime: moment(task.dueTime).toISOString(),
           timeZone: config.app.defaultTimezone
         },
-        attendees: this.getTaskAttendees(task),
+        attendees,
         reminders: {
           useDefault: false,
           overrides: this.convertRemindersToCalendar(task.customReminders || ['P1D', 'PT3H'])
@@ -379,24 +384,31 @@ export class GoogleCalendarService {
   /**
    * แปลง Task เป็น attendees สำหรับ Google Calendar
    */
-  private getTaskAttendees(task: Task | TaskEntity): any[] {
-    // ถ้าเป็น interface (มี assignees)
-    if ('assignees' in task && task.assignees) {
-      return task.assignees.map(assigneeId => ({
-        email: `user-${assigneeId}@temp.local`, // จะต้องแทนที่ด้วยอีเมลจริง
-        displayName: `ผู้ใช้ ${assigneeId}`
-      }));
+  private async getTaskAttendees(task: Task | TaskEntity): Promise<any[]> {
+    const userIds: string[] = [];
+
+    if ('assignees' in task && Array.isArray(task.assignees)) {
+      userIds.push(...task.assignees);
+    } else if ('assignedUsers' in task && Array.isArray(task.assignedUsers)) {
+      for (const user of task.assignedUsers as any[]) {
+        if (typeof user === 'string') {
+          userIds.push(user);
+        } else if (user?.id) {
+          userIds.push(user.id);
+        }
+      }
     }
-    
-    // ถ้าเป็น entity (มี assignedUsers)
-    if ('assignedUsers' in task && task.assignedUsers) {
-      return task.assignedUsers.map((user: any) => ({
-        email: user.email || `user-${user.id}@temp.local`,
-        displayName: user.displayName || user.realName || `ผู้ใช้ ${user.id}`
+
+    if (userIds.length === 0) return [];
+
+    const users = await Promise.all(userIds.map(id => this.userService.findById(id)));
+
+    return users
+      .filter((user): user is User => !!user && !!user.email && user.isVerified)
+      .map(user => ({
+        email: user.email!,
+        displayName: user.realName || user.displayName || `ผู้ใช้ ${user.id}`
       }));
-    }
-    
-    return [];
   }
 
   /**
