@@ -1253,6 +1253,23 @@ class WebhookController {
         }
       } else {
         console.log(`ℹ️ ผู้ใช้มีอยู่ในฐานข้อมูลแล้ว: ${user.displayName}`);
+
+        // หากชื่อผู้ใช้ยังเป็นค่าเริ่มต้น เช่น "ไม่ทราบ" ให้ลองอัปเดตอีกครั้งจาก LINE
+        const unknownNames = ['ไม่ทราบ', 'ผู้ใช้ไม่ทราบชื่อ', ''];
+        if (unknownNames.includes(user.displayName)) {
+          try {
+            const profile = await this.lineService.getUserProfile(userId);
+            if (profile.displayName && !unknownNames.includes(profile.displayName)) {
+              await this.userService.updateUser(user.id, {
+                displayName: profile.displayName,
+                realName: profile.displayName
+              });
+              console.log(`🔄 อัปเดตชื่อผู้ใช้จาก 'ไม่ทราบ' เป็น ${profile.displayName}`);
+            }
+          } catch (error) {
+            console.warn('⚠️ ไม่สามารถอัปเดตชื่อผู้ใช้จาก LINE API ได้:', error);
+          }
+        }
       }
     } catch (error) {
       console.error('❌ Error ensuring user exists:', error);

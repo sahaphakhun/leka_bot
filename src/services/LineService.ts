@@ -928,8 +928,31 @@ export class LineService {
       
       if (existingMember) {
         console.log(`ℹ️ สมาชิก ${existingMember.displayName} มีอยู่ในฐานข้อมูลแล้ว`);
+
+        // หากชื่อผู้ใช้ยังเป็นค่าเริ่มต้น เช่น "ไม่ทราบ" ให้พยายามดึงข้อมูลจาก LINE อีกครั้ง
+        const unknownNames = ['ไม่ทราบ', 'ผู้ใช้ไม่ทราบชื่อ', ''];
+        if (unknownNames.includes(existingMember.displayName)) {
+          try {
+            const profile = await this.client.getProfile(userId);
+            if (profile.displayName && !unknownNames.includes(profile.displayName)) {
+              const userEntity = await this.userService.findByLineUserId(userId);
+              if (userEntity) {
+                await this.userService.updateUser(userEntity.id, {
+                  displayName: profile.displayName,
+                  realName: profile.displayName
+                });
+                existingMember.displayName = profile.displayName;
+                console.log(`🔄 อัปเดตชื่อผู้ใช้จาก 'ไม่ทราบ' เป็น ${profile.displayName}`);
+              }
+            }
+          } catch (error) {
+            console.warn('⚠️ ไม่สามารถอัปเดตชื่อผู้ใช้จาก LINE API ได้:', error);
+          }
+        }
+
         return {
-          isNewMember: false
+          isNewMember: false,
+          memberInfo: existingMember
         };
       }
       
