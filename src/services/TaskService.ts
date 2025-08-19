@@ -198,6 +198,21 @@ export class TaskService {
           // อัปเดต task ด้วย eventId
           savedTask.googleEventId = eventId;
           await this.taskRepository.save(savedTask);
+
+          // แชร์ปฏิทินกับผู้เกี่ยวข้อง (ผู้สร้าง ผู้รับผิดชอบ ผู้ตรวจ)
+          const participantIds = new Set<string>();
+          participantIds.add(creator.id);
+          if (reviewerInternalId) participantIds.add(reviewerInternalId);
+          if (savedTask.assignedUsers) {
+            for (const user of savedTask.assignedUsers) {
+              participantIds.add(user.id);
+            }
+          }
+
+          await this.googleService.shareCalendarWithMembers(
+            group.id,
+            Array.from(participantIds)
+          );
         }
       } catch (error) {
         console.warn('⚠️ Failed to sync task to Google Calendar:', error);
