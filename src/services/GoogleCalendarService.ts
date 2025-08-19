@@ -96,13 +96,17 @@ export class GoogleCalendarService {
   /**
    * สร้าง Event จากงาน
    */
-  public async createTaskEvent(task: Task | TaskEntity, calendarId: string): Promise<string> {
+  public async createTaskEvent(
+    task: Task | TaskEntity,
+    calendarId: string,
+    attendeeEmails: string[] = []
+  ): Promise<string> {
     try {
       const event: GoogleCalendarEvent = {
         summary: task.title,
         description: this.formatEventDescription(task),
         start: {
-          dateTime: task.startTime 
+          dateTime: task.startTime
             ? moment(task.startTime).toISOString()
             : moment(task.dueTime).subtract(1, 'hour').toISOString(),
           timeZone: config.app.defaultTimezone
@@ -111,7 +115,9 @@ export class GoogleCalendarService {
           dateTime: moment(task.dueTime).toISOString(),
           timeZone: config.app.defaultTimezone
         },
-        attendees: this.getTaskAttendees(task),
+        attendees: attendeeEmails.length
+          ? attendeeEmails.map(email => ({ email }))
+          : this.getTaskAttendees(task),
         reminders: {
           useDefault: false,
           overrides: this.convertRemindersToCalendar(task.customReminders || ['P1D', 'PT3H'])
@@ -126,7 +132,7 @@ export class GoogleCalendarService {
 
       const eventId = response.data.id;
       console.log(`✅ Created calendar event: ${task.title} (${eventId})`);
-      
+
       return eventId!;
 
     } catch (error) {

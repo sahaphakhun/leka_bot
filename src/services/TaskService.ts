@@ -10,6 +10,7 @@ import { GoogleService } from './GoogleService';
 import { NotificationService } from './NotificationService';
 import { FileService } from './FileService';
 import { LineService } from './LineService';
+import { UserService } from './UserService';
 
 export class TaskService {
   private taskRepository: Repository<Task>;
@@ -20,6 +21,7 @@ export class TaskService {
   private fileService: FileService;
   private lineService: LineService;
   private fileRepository: Repository<File>;
+  private userService: UserService;
 
   constructor() {
     this.taskRepository = AppDataSource.getRepository(Task);
@@ -30,6 +32,7 @@ export class TaskService {
     this.fileService = new FileService();
     this.lineService = new LineService();
     this.fileRepository = AppDataSource.getRepository(File);
+    this.userService = new UserService();
   }
 
   /** ดึงงานตาม ID พร้อม relations หลัก */
@@ -179,22 +182,57 @@ export class TaskService {
           });
         }
         
-        if (assignees.length !== data.assigneeIds.length) {
-          const foundIds = isLineUserIds 
-            ? assignees.map(u => u.lineUserId)
-            : assignees.map(u => u.id);
-          const missingIds = data.assigneeIds.filter(id => !foundIds.includes(id));
-          console.warn(`⚠️ Some assignees not found: ${missingIds.join(', ')}`);
+      if (assignees.length !== data.assigneeIds.length) {
+        const foundIds = isLineUserIds
+          ? assignees.map(u => u.lineUserId)
+          : assignees.map(u => u.id);
+        const missingIds = data.assigneeIds.filter(id => !foundIds.includes(id));
+        console.warn(`⚠️ Some assignees not found: ${missingIds.join(', ')}`);
+      }
+
+      savedTask.assignedUsers = assignees;
+      await this.taskRepository.save(savedTask);
+    }
+
+      // เตรียมรายชื่อผู้เข้าร่วมสำหรับ Google Calendar
+      let attendeeEmails: string[] = [];
+      try {
+        const attendeeSet = new Set<string>();
+
+        // เพิ่มอีเมลของผู้รับผิดชอบงาน
+        if (savedTask.assignedUsers) {
+          for (const user of savedTask.assignedUsers) {
+            if (user.email) {
+              attendeeSet.add(user.email);
+            }
+          }
         }
 
-        savedTask.assignedUsers = assignees;
-        await this.taskRepository.save(savedTask);
+        // ดึงอีเมลของผู้ตรวจงาน
+        const reviewer = await this.userService.findById(reviewerInternalId!);
+        if (reviewer?.email) {
+          attendeeSet.add(reviewer.email);
+        }
+
+        // ดึงอีเมลของผู้สร้างงาน
+        const creatorUser = await this.userService.findById(creator.id);
+        if (creatorUser?.email) {
+          attendeeSet.add(creatorUser.email);
+        }
+
+        attendeeEmails = Array.from(attendeeSet);
+      } catch (err) {
+        console.warn('⚠️ Failed to collect attendee emails:', err);
       }
 
       // ซิงค์ไปยัง Google Calendar
       try {
         if (group.settings.googleCalendarId) {
-          const eventId = await this.googleService.syncTaskToCalendar(savedTask, group.settings.googleCalendarId);
+          const eventId = await this.googleService.syncTaskToCalendar(
+            savedTask,
+            group.settings.googleCalendarId,
+            attendeeEmails
+          );
           // อัปเดต task ด้วย eventId
           savedTask.googleEventId = eventId;
           await this.taskRepository.save(savedTask);
