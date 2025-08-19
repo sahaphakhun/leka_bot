@@ -23,11 +23,18 @@ export class GoogleService {
     try {
       // สร้าง Calendar ใหม่
       const calendarId = await this.calendarService.createGroupCalendar(groupName, timezone);
-      
+
       // อัปเดตการตั้งค่ากลุ่ม
       await this.userService.updateGroupSettings(groupId, {
         googleCalendarId: calendarId
       });
+
+      // แชร์ปฏิทินกับสมาชิกในกลุ่ม
+      try {
+        await this.shareCalendarWithMembers(groupId);
+      } catch (err) {
+        console.warn('⚠️ Failed to share calendar during setup:', err);
+      }
 
       console.log(`✅ Setup Google Calendar for group: ${groupName}`);
       return calendarId;
@@ -116,17 +123,21 @@ export class GoogleService {
   /**
    * แชร์ Calendar กับสมาชิกในกลุ่ม
    */
-  public async shareCalendarWithMembers(groupId: string): Promise<void> {
+  public async shareCalendarWithMembers(groupId: string, userIds?: string[]): Promise<void> {
     try {
-      const group = await this.userService.findGroupByLineId(groupId);
+      const group = await this.userService.findGroupById(groupId);
       if (!group?.settings.googleCalendarId) {
         throw new Error('Group calendar not configured');
       }
 
       const members = await this.userService.getGroupMembers(group.id);
-      const verifiedMembers = members.filter(member => member.email && member.isVerified);
+      let targetMembers = members.filter(member => member.email && member.isVerified);
 
-      for (const member of verifiedMembers) {
+      if (userIds && userIds.length > 0) {
+        targetMembers = targetMembers.filter(member => userIds.includes(member.id));
+      }
+
+      for (const member of targetMembers) {
         try {
           await this.calendarService.shareCalendarWithUser(
             group.settings.googleCalendarId,
@@ -138,7 +149,7 @@ export class GoogleService {
         }
       }
 
-      console.log(`✅ Shared calendar with ${verifiedMembers.length} members`);
+      console.log(`✅ Shared calendar with ${targetMembers.length} members`);
 
     } catch (error) {
       console.error('❌ Error sharing calendar with members:', error);
