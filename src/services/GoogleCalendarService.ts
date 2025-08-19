@@ -57,6 +57,17 @@ export class GoogleCalendarService {
   }
 
   /**
+   * ตั้งค่า OAuth credentials หลังจากแลกเปลี่ยน token แล้ว
+   */
+  public setCredentials(tokens: any): void {
+    try {
+      this.auth?.setCredentials(tokens);
+    } catch (error) {
+      console.error('❌ Error setting OAuth credentials:', error);
+    }
+  }
+
+  /**
    * สร้าง Calendar ใหม่สำหรับกลุ่ม
    */
   public async createGroupCalendar(groupName: string, timezone: string = config.app.defaultTimezone): Promise<string> {

@@ -21,6 +21,7 @@ export class Group {
     reminderIntervals: string[];
     enableLeaderboard: boolean;
     googleCalendarId?: string;
+    googleRefreshToken?: string;
     defaultReminders: string[];
     workingHours: {
       start: string;
