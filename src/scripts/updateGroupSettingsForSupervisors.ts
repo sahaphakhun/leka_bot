@@ -53,10 +53,18 @@ async function updateGroupSettingsForSupervisors() {
       await AppDataSource.destroy();
       console.log('🔌 Database connection closed');
     }
-    
-    process.exit(0);
   }
 }
 
-// รัน migration
-updateGroupSettingsForSupervisors();
+// รัน migration ถ้าเรียกไฟล์นี้โดยตรง
+if (require.main === module) {
+  updateGroupSettingsForSupervisors()
+    .then(() => {
+      process.exit(0);
+    })
+    .catch(() => {
+      process.exit(1);
+    });
+}
+
+export { updateGroupSettingsForSupervisors };
