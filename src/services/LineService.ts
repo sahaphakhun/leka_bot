@@ -226,22 +226,26 @@ export class LineService {
    */
   private validateMessage(message: any): boolean {
     try {
+      if (Array.isArray(message)) {
+        return message.length > 0 && message.every(m => this.validateMessage(m));
+      }
+
       if (typeof message === 'string') {
         const trimmedMessage = message.trim();
         return trimmedMessage.length > 0 && trimmedMessage.length <= 5000; // LINE limit
       }
-      
+
       if (typeof message === 'object' && message !== null) {
         if (message.type === 'text') {
           const text = message.text?.trim();
-          return text && text.length > 0 && text.length <= 5000; // LINE limit
+          return !!text && text.length > 0 && text.length <= 5000; // LINE limit
         }
-        
+
         if (message.type === 'flex') {
-          return message.altText && message.contents;
+          return !!(message.altText && message.contents);
         }
       }
-      
+
       return false;
     } catch (error) {
       console.error('❌ Message validation failed:', error);
@@ -275,7 +279,10 @@ export class LineService {
   /**
    * ส่งข้อความ reply
    */
-  public async replyMessage(replyToken: string, message: string | FlexMessage): Promise<void> {
+  public async replyMessage(
+    replyToken: string,
+    message: string | FlexMessage | Array<string | FlexMessage>
+  ): Promise<void> {
     try {
       // ตรวจสอบ replyToken
       if (!replyToken || replyToken.trim() === '') {
@@ -289,33 +296,42 @@ export class LineService {
         throw new Error('Invalid message format');
       }
 
-      const messageObj = typeof message === 'string' 
-        ? { type: 'text', text: this.sanitizeMessage(message) } as TextMessage
-        : message;
+      const messagesArray = Array.isArray(message) ? message : [message];
+      const formatted = messagesArray.map(msg =>
+        typeof msg === 'string'
+          ? { type: 'text', text: this.sanitizeMessage(msg) } as TextMessage
+          : msg
+      );
 
-      // เพิ่ม logging เพื่อตรวจสอบ Flex Message
-      if (typeof message !== 'string') {
-        console.log('🎴 Sending Flex Message:', {
-          type: message.type,
-          altText: message.altText,
-          hasContents: !!message.contents
-        });
-      } else {
-        console.log('📝 Sending Text Message:', message);
-      }
+      // เพิ่ม logging เพื่อตรวจสอบข้อความที่ส่งออก
+      formatted.forEach(msg => {
+        if (msg.type === 'text') {
+          console.log('📝 Sending Text Message:', msg.text);
+        } else {
+          console.log('🎴 Sending Flex Message:', {
+            type: msg.type,
+            altText: (msg as FlexMessage).altText,
+            hasContents: !!(msg as FlexMessage).contents,
+          });
+        }
+      });
 
-      await this.client.replyMessage(replyToken, messageObj);
+      await this.client.replyMessage(replyToken, formatted.length === 1 ? formatted[0] : formatted);
       console.log('✅ Message sent successfully');
     } catch (error) {
       console.error('❌ Failed to reply message:', error);
-      
+
       // เพิ่มการ log ข้อมูลเพิ่มเติมเพื่อ debug
       console.error('❌ Debug info:', {
         replyToken: replyToken?.substring(0, 10) + '...',
-        messageType: typeof message,
-        messageLength: typeof message === 'string' ? message.length : 'N/A'
+        messageType: Array.isArray(message) ? 'array' : typeof message,
+        messageLength: Array.isArray(message)
+          ? message.length
+          : typeof message === 'string'
+            ? message.length
+            : 'N/A',
       });
-      
+
       throw error;
     }
   }
