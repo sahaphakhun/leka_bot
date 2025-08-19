@@ -196,7 +196,16 @@ class ApiController {
     try {
       const { groupId, taskId } = req.params;
       const { userId, comment, links } = (req.body || {});
-      const files = (req as any).files as any[];
+      const files = ((req as any).files as any[]) || [];
+
+      const ALLOWED_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'application/pdf',
+        'text/plain'
+      ];
+      const MAX_ATTACHMENTS = 5;
 
       if (!userId) {
         res.status(400).json({ success: false, error: 'Missing userId (LINE User ID)' });
@@ -204,20 +213,32 @@ class ApiController {
       }
       // อนุญาตให้ส่งงานได้แม้ไม่มีไฟล์/ลิงก์ (จะถือเป็นการส่งหมายเหตุอย่างเดียว)
 
-      // บันทึกไฟล์ทั้งหมด แล้วได้ fileIds
-      const savedFileIds: string[] = [];
-      for (const f of (files || [])) {
-        const saved = await this.fileService.saveFile({
-          groupId,
-          uploadedBy: userId,
-          messageId: f.originalname,
-          content: f.buffer,
-          originalName: f.originalname,
-          mimeType: f.mimetype,
-          folderStatus: 'in_progress'
-        });
-        savedFileIds.push(saved.id);
+      if (files.length > MAX_ATTACHMENTS) {
+        res.status(400).json({ success: false, error: `Maximum ${MAX_ATTACHMENTS} attachments allowed` });
+        return;
       }
+
+      const invalidFile = files.find(f => !ALLOWED_MIME_TYPES.includes(f.mimetype));
+      if (invalidFile) {
+        res.status(400).json({ success: false, error: `Invalid file type: ${invalidFile.mimetype}` });
+        return;
+      }
+
+      // บันทึกไฟล์ทั้งหมด แล้วได้ fileIds
+      const savedFileIds: string[] = await Promise.all(
+        files.map(async f => {
+          const saved = await this.fileService.saveFile({
+            groupId,
+            uploadedBy: userId,
+            messageId: f.originalname,
+            content: f.buffer,
+            originalName: f.originalname,
+            mimeType: f.mimetype,
+            folderStatus: 'in_progress'
+          });
+          return saved.id;
+        })
+      );
 
       // บันทึกเป็นการส่งงาน
       const task = await this.taskService.recordSubmission(taskId, userId, savedFileIds, comment, links);
