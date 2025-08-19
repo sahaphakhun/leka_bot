@@ -939,7 +939,11 @@ class WebhookController {
                   const fileData = file[0];
                   response += `📄 ${fileData.originalName}\n`;
                   response += `📦 ${this.formatFileSize(fileData.size)}\n`;
-                  response += `👤 ${fileData.uploadedByUser?.displayName || 'ไม่ทราบ'}\n\n`;
+                  response += `👤 ${fileData.uploadedByUser?.displayName || 'ไม่ทราบ'}\n`;
+                  if (fileData.linkedTasks && fileData.linkedTasks.length > 0) {
+                    response += `📋 มาจากงาน: ${fileData.linkedTasks[0].title}\n`;
+                  }
+                  response += `\n`;
                 }
               } catch (error) {
                 console.error('Error getting file:', error);
