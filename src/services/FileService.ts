@@ -1,6 +1,6 @@
 // File Service - จัดการไฟล์และ File Vault
 
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { File, Group, User } from '@/models';
 import { config } from '@/utils/config';
@@ -278,7 +278,10 @@ export class FileService {
         return [];
       }
 
-      const files = await this.fileRepository.findByIds(fileIds);
+      const files = await this.fileRepository.find({
+        where: { id: In(fileIds) },
+        relations: ['uploadedByUser', 'linkedTasks']
+      });
       return files;
     } catch (error) {
       console.error('❌ Error getting files by IDs:', error);
@@ -301,7 +304,7 @@ export class FileService {
       limit?: number;
       offset?: number;
     } = {}
-  ): Promise<{ files: File[]; total: number }> {
+  ): Promise<{ files: (File & { taskNames?: string[] })[]; total: number }> {
     try {
       const internalGroupId = await this.resolveInternalGroupId(groupId);
       if (!internalGroupId) {
@@ -376,7 +379,15 @@ export class FileService {
         queryBuilder.offset(options.offset);
       }
 
-      const files = await queryBuilder.getMany();
+      const rawFiles = await queryBuilder.getMany();
+
+      const files = rawFiles.map(f => {
+        const plain: any = { ...f };
+        if (f.linkedTasks && f.linkedTasks.length > 0) {
+          plain.taskNames = f.linkedTasks.map(t => t.title);
+        }
+        return plain;
+      });
 
       return { files, total };
 
