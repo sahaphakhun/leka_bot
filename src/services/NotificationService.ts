@@ -150,7 +150,26 @@ export class NotificationService {
       }
 
       // ส่งอีเมลให้ผู้ที่มีอีเมล
-      const emailUsers = assignees.filter((user: any) => user.email && user.isVerified);
+      const reviewerId = this.getTaskReviewer(task);
+      let reviewer = (task as any).reviewerUser;
+      if (!reviewer && reviewerId) {
+        reviewer = await this.userService.findById(reviewerId);
+      }
+
+      const allUsers = [
+        ...assignees,
+        ...(reviewer ? [reviewer] : []),
+        ...(creator ? [creator] : []),
+      ];
+
+      const seenEmails = new Set<string>();
+      const emailUsers = allUsers.filter((user: any) => {
+        if (!user.email || !user.isVerified) return false;
+        if (seenEmails.has(user.email)) return false;
+        seenEmails.add(user.email);
+        return true;
+      });
+
       for (const user of emailUsers) {
         await this.emailService.sendTaskCreatedNotification(user, task);
       }

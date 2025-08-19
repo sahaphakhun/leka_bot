@@ -7,8 +7,10 @@ import moment from 'moment-timezone';
 
 export class EmailService {
   private transporter: nodemailer.Transporter;
+  private _sentTaskCreatedEmails: Set<string>;
 
   constructor() {
+    this._sentTaskCreatedEmails = new Set();
     if (features.emailNotifications) {
       this.transporter = nodemailer.createTransport({
         host: config.email.smtpHost,
@@ -88,8 +90,14 @@ export class EmailService {
         return;
       }
 
+      const dedupeKey = `${task.id}_${user.id || user.email}`;
+      if (this._sentTaskCreatedEmails.has(dedupeKey)) {
+        console.log(`⚠️ Duplicate task created email for: ${dedupeKey}`);
+        return;
+      }
+
       const template = this.createTaskCreatedTemplate(user, task);
-      
+
       await this.transporter.sendMail({
         from: `"เลขาบอท" <${config.email.smtpUser}>`,
         to: user.email,
@@ -98,6 +106,7 @@ export class EmailService {
         text: template.text,
       });
 
+      this._sentTaskCreatedEmails.add(dedupeKey);
       console.log(`✅ Sent task created email to: ${user.email}`);
 
     } catch (error) {
