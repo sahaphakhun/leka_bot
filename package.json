@@ -17,6 +17,7 @@
     "db:fix-kpi-foreign-key": "tsx src/scripts/fixKpiRecordsForeignKey.ts",
     "db:check-kpi-foreign-keys": "tsx src/scripts/checkKpiForeignKeys.ts",
     "db:check-schema": "tsx src/scripts/checkDatabaseSchema.ts",
+    "db:migrate-all": "tsx src/scripts/runFullMigration.ts",
     "test:rules": "tsx src/scripts/testProjectRules.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts",
