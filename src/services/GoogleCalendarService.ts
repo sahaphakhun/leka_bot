@@ -100,9 +100,15 @@ export class GoogleCalendarService {
   /**
    * สร้าง Event จากงาน
    */
-  public async createTaskEvent(task: Task | TaskEntity, calendarId: string): Promise<string> {
+  public async createTaskEvent(
+    task: Task | TaskEntity,
+    calendarId: string,
+    attendeeEmails?: string[]
+  ): Promise<string> {
     try {
-      const attendees = await this.getTaskAttendees(task);
+      const attendees = attendeeEmails
+        ? attendeeEmails.map(email => ({ email }))
+        : await this.getTaskAttendees(task);
       const event: GoogleCalendarEvent = {
         summary: task.title,
         description: this.formatEventDescription(task),

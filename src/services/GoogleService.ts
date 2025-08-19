@@ -48,14 +48,22 @@ export class GoogleService {
   /**
    * ซิงค์งานไปยัง Google Calendar
    */
-  public async syncTaskToCalendar(task: Task | TaskEntity, groupCalendarId: string): Promise<string> {
+  public async syncTaskToCalendar(
+    task: Task | TaskEntity,
+    groupCalendarId: string,
+    attendeeEmails?: string[]
+  ): Promise<string> {
     try {
       if (!groupCalendarId) {
         throw new Error('Group calendar not configured');
       }
 
       // สร้าง Event ใน Calendar
-      const eventId = await this.calendarService.createTaskEvent(task, groupCalendarId);
+      const eventId = await this.calendarService.createTaskEvent(
+        task,
+        groupCalendarId,
+        attendeeEmails
+      );
       
       // คืนค่า eventId เพื่อให้ TaskService update เอง (หลีกเลี่ยง circular dependency)
       return eventId;

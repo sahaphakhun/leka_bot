@@ -10,6 +10,7 @@ import { GoogleService } from './GoogleService';
 import { NotificationService } from './NotificationService';
 import { FileService } from './FileService';
 import { LineService } from './LineService';
+import { UserService } from './UserService';
 
 export class TaskService {
   private taskRepository: Repository<Task>;
@@ -20,6 +21,7 @@ export class TaskService {
   private fileService: FileService;
   private lineService: LineService;
   private fileRepository: Repository<File>;
+  private userService: UserService;
 
   constructor() {
     this.taskRepository = AppDataSource.getRepository(Task);
@@ -30,6 +32,7 @@ export class TaskService {
     this.fileService = new FileService();
     this.lineService = new LineService();
     this.fileRepository = AppDataSource.getRepository(File);
+    this.userService = new UserService();
   }
 
   /** ดึงงานตาม ID พร้อม relations หลัก */
@@ -194,12 +197,7 @@ export class TaskService {
       // ซิงค์ไปยัง Google Calendar
       try {
         if (group.settings.googleCalendarId) {
-          const eventId = await this.googleService.syncTaskToCalendar(savedTask, group.settings.googleCalendarId);
-          // อัปเดต task ด้วย eventId
-          savedTask.googleEventId = eventId;
-          await this.taskRepository.save(savedTask);
-
-          // แชร์ปฏิทินกับผู้เกี่ยวข้อง (ผู้สร้าง ผู้รับผิดชอบ ผู้ตรวจ)
+          // รวบรวมผู้เข้าร่วมทั้งหมด (ผู้สร้าง ผู้รับผิดชอบ ผู้ตรวจ)
           const participantIds = new Set<string>();
           participantIds.add(creator.id);
           if (reviewerInternalId) participantIds.add(reviewerInternalId);
@@ -208,6 +206,27 @@ export class TaskService {
               participantIds.add(user.id);
             }
           }
+
+          // ดึงอีเมลและลบซ้ำ
+          const attendeeUsers = await Promise.all(
+            Array.from(participantIds).map(id => this.userService.findById(id))
+          );
+          const attendeeEmails = Array.from(
+            new Set(
+              attendeeUsers
+                .filter(u => u && u.email && u.isVerified)
+                .map(u => u!.email!)
+            )
+          );
+
+          const eventId = await this.googleService.syncTaskToCalendar(
+            savedTask,
+            group.settings.googleCalendarId,
+            attendeeEmails
+          );
+          // อัปเดต task ด้วย eventId
+          savedTask.googleEventId = eventId;
+          await this.taskRepository.save(savedTask);
 
           await this.googleService.shareCalendarWithMembers(
             group.id,
