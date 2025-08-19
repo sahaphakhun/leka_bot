@@ -616,7 +616,7 @@ export class TaskService {
       const saved = await this.taskRepository.save(task);
 
       // เตรียมลิงก์ไฟล์สำหรับผู้ตรวจ
-      const fileLinks = fileIds.map(fid => this.fileService.generateDownloadUrl(fid));
+      const fileLinks = fileIds.map(fid => this.fileService.generateDownloadUrl(task.group.id, fid));
 
       // แจ้งผู้ตรวจให้ตรวจภายใน 2 วัน
       try {
