@@ -870,6 +870,9 @@ export class TaskService {
   /**
    * ดึงงานทั้งหมดที่ยังไม่เสร็จ เพื่อใช้เตือนซ้ำทุกเช้า (08:00)
    * รวมสถานะ: pending, in_progress, overdue
+   * 
+   * ⚠️ ฟังก์ชันนี้ไม่ได้ใช้งานแล้ว เนื่องจากเอาการเตือนตอนเช้า 08:00 น. ออกไปแล้ว
+   * @deprecated ใช้สำหรับการเตือนตอนเช้า 08:00 น. ที่ถูกลบออกไปแล้ว
    */
   public async getTasksForDailyMorningReminder(): Promise<Task[]> {
     try {
@@ -1288,6 +1291,63 @@ export class TaskService {
       console.error('❌ Error rejecting task and extending deadline:', error);
       throw error;
     }
+  }
+
+  /**
+   * ส่งการแจ้งเตือนการอนุมัติเลื่อนเวลา
+   */
+  public async sendExtensionApprovalNotification(taskId: string, newDueTime: Date): Promise<void> {
+    try {
+      const task = await this.taskRepository.findOne({
+        where: { id: taskId },
+        relations: ['group', 'assignedUsers', 'createdByUser']
+      });
+
+      if (!task) {
+        throw new Error('ไม่พบงานที่ระบุ');
+      }
+
+      // หาผู้ขอเลื่อนเวลาจาก workflow history
+      const extensionRequester = this.findExtensionRequester(task);
+      
+      if (extensionRequester) {
+        // ส่งการ์ดแจ้งเตือนการอนุมัติ
+        await this.notificationService.sendExtensionApprovedNotification(
+          task as any, 
+          extensionRequester, 
+          newDueTime
+        );
+      }
+
+    } catch (error) {
+      console.error('❌ Error sending extension approval notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * หาผู้ขอเลื่อนเวลาจาก workflow history
+   */
+  private findExtensionRequester(task: any): any {
+    try {
+      const workflow = task.workflow as any;
+      if (workflow && workflow.history) {
+        // หาการกระทำล่าสุดที่เป็น request_extension
+        const extensionRequest = workflow.history
+          .reverse()
+          .find((entry: any) => entry.action === 'request_extension');
+        
+        if (extensionRequest && extensionRequest.byUserId) {
+          // หา user จาก assignedUsers หรือ createdByUser
+          const requester = task.assignedUsers?.find((user: any) => user.id === extensionRequest.byUserId) ||
+                           (task.createdByUser?.id === extensionRequest.byUserId ? task.createdByUser : null);
+          return requester;
+        }
+      }
+    } catch (error) {
+      console.warn('⚠️ Could not find extension requester:', error);
+    }
+    return null;
   }
 
   /**

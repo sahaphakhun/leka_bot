@@ -635,59 +635,105 @@
             </div>
             <div class="modal-body">
                 <form id="editTaskForm">
-                    <div class="form-group">
-                        <label for="editTaskTitle">ชื่องาน</label>
-                        <input type="text" id="editTaskTitle" name="title" required>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editTaskDescription">รายละเอียด</label>
-                        <textarea id="editTaskDescription" name="description" rows="3"></textarea>
-                    </div>
-                    
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label for="editTaskDueDate">วันที่ครบกำหนด</label>
-                            <input type="date" id="editTaskDueDate" name="dueDate" required>
+                    <!-- ข้อมูลพื้นฐาน -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-info-circle"></i>
+                            <h4>ข้อมูลพื้นฐาน</h4>
                         </div>
                         <div class="form-group">
-                            <label for="editTaskDueTime">เวลา</label>
-                            <input type="time" id="editTaskDueTime" name="dueTime" value="23:59">
+                            <label for="editTaskTitle">
+                                <i class="fas fa-tag"></i>
+                                ชื่องาน *
+                            </label>
+                            <input type="text" id="editTaskTitle" name="title" required placeholder="กรอกชื่องาน">
+                        </div>
+                        <div class="form-group">
+                            <label for="editTaskDescription">
+                                <i class="fas fa-align-left"></i>
+                                รายละเอียด
+                            </label>
+                            <textarea id="editTaskDescription" name="description" rows="3" placeholder="อธิบายรายละเอียดงาน (ไม่บังคับ)" class="optional-field"></textarea>
+                            <small class="field-hint">ไม่บังคับ - สามารถเว้นว่างได้</small>
+                        </div>
+                    </div>
+
+                    <!-- การตั้งค่า -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-cog"></i>
+                            <h4>การตั้งค่า</h4>
+                        </div>
+                        <div class="form-group">
+                            <label for="editTaskPriority">
+                                <i class="fas fa-flag"></i>
+                                ระดับความสำคัญ
+                            </label>
+                            <select id="editTaskPriority" name="priority">
+                                <option value="low">ต่ำ</option>
+                                <option value="medium" selected>ปานกลาง</option>
+                                <option value="high">สูง</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <!-- กำหนดเวลา -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-clock"></i>
+                            <h4>กำหนดเวลา</h4>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label for="editTaskDueDate">
+                                    <i class="fas fa-calendar-alt"></i>
+                                    วันที่ครบกำหนด *
+                                </label>
+                                <input type="date" id="editTaskDueDate" name="dueDate" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="editTaskDueTime">
+                                    <i class="fas fa-clock"></i>
+                                    เวลา
+                                </label>
+                                <input type="time" id="editTaskDueTime" name="dueTime" value="23:59">
+                            </div>
                         </div>
                     </div>
                     
-                    <div class="form-group">
-                        <label for="editTaskPriority">ความสำคัญ</label>
-                        <div class="priority-selector" id="editTaskPrioritySelector">
-                            <button type="button" class="seg-btn" data-priority="low">
-                                <i class="fas fa-arrow-down"></i> ต่ำ
-                            </button>
-                            <button type="button" class="seg-btn active" data-priority="medium">
-                                <i class="fas fa-minus"></i> ปานกลาง
-                            </button>
-                            <button type="button" class="seg-btn" data-priority="high">
-                                <i class="fas fa-arrow-up"></i> สูง
-                            </button>
+                    <!-- ผู้รับผิดชอบและแท็ก -->
+                    <div class="form-section">
+                        <div class="section-header">
+                            <i class="fas fa-users"></i>
+                            <h4>ผู้รับผิดชอบและแท็ก</h4>
                         </div>
-                        <input type="hidden" id="editTaskPriority" name="priority" value="medium">
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editTaskAssignees">ผู้รับผิดชอบ <span id="editAssigneeCount"></span></label>
-                        <div id="editTaskAssignees" class="assignee-list">
-                            <!-- จะโหลดด้วย JavaScript -->
+                        <div class="form-group">
+                            <label for="editTaskAssignees">
+                                <i class="fas fa-user-friends"></i>
+                                ผู้รับผิดชอบ <span id="editAssigneeCount" class="text-muted"></span>
+                            </label>
+                            <div id="editTaskAssignees" class="checkbox-list" role="group" aria-label="ผู้รับผิดชอบ">
+                                <!-- จะโหลดด้วย JavaScript -->
+                            </div>
+                            <div class="form-hint">เลือกได้หลายคน</div>
                         </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="editTaskTags">แท็ก (คั่นด้วยเครื่องหมายจุลภาค)</label>
-                        <input type="text" id="editTaskTags" name="tags" placeholder="เช่น: สำคัญ, เร่งด่วน">
+                        <div class="form-group">
+                            <label for="editTaskTags">
+                                <i class="fas fa-tags"></i>
+                                แท็ก
+                            </label>
+                            <input type="text" id="editTaskTags" name="tags" placeholder="การเงิน, ประชุม, ด่วน (คั่นด้วยจุลภาค)">
+                        </div>
                     </div>
                     
                     <div class="form-actions">
-                        <button type="button" class="btn btn-outline" id="editTaskCancelBtn">ยกเลิก</button>
+                        <button type="button" class="btn btn-outline" id="editTaskCancelBtn">
+                            <i class="fas fa-times"></i>
+                            ยกเลิก
+                        </button>
                         <button type="submit" class="btn btn-primary" id="editTaskSubmitBtn">
-                            <i class="fas fa-save"></i> บันทึกการแก้ไข
+                            <i class="fas fa-save"></i>
+                            บันทึกการแก้ไข
                         </button>
                     </div>
                 </form>

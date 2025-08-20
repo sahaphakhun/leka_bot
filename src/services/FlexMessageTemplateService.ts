@@ -302,6 +302,72 @@ export class FlexMessageTemplateService {
   }
 
   /**
+   * สร้างการ์ดการอนุมัติเลื่อนเวลา
+   */
+  static createExtensionApprovedCard(task: any, group: any, newDueTime: Date, requesterDisplayName?: string): FlexMessage {
+    const newDueText = moment(newDueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    
+    const content = [
+      FlexMessageDesignSystem.createText('✅ อนุมัติการเลื่อนเวลา', 'md', FlexMessageDesignSystem.colors.success, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`👤 ผู้ขอเลื่อน: ${requesterDisplayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่งใหม่: ${newDueText}`, 'sm', FlexMessageDesignSystem.colors.success, 'bold'),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('คำขอเลื่อนเวลาได้รับการอนุมัติแล้ว กรุณาส่งงานตามกำหนดใหม่', 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📋 ดูรายละเอียด | 📤 ส่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '✅ อนุมัติการเลื่อนเวลา',
+      '✅',
+      FlexMessageDesignSystem.colors.success,
+      content,
+      buttons,
+      'large'
+    );
+  }
+
+  /**
+   * สร้างการ์ดการปฏิเสธเลื่อนเวลา
+   */
+  static createExtensionRejectedCard(task: any, group: any, requesterDisplayName?: string): FlexMessage {
+    const dueText = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    
+    const content = [
+      FlexMessageDesignSystem.createText('❌ ปฏิเสธการเลื่อนเวลา', 'md', FlexMessageDesignSystem.colors.danger, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`👤 ผู้ขอเลื่อน: ${requesterDisplayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่งเดิม: ${dueText}`, 'sm', FlexMessageDesignSystem.colors.danger, 'bold'),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('คำขอเลื่อนเวลาถูกปฏิเสธ กรุณาส่งงานตามกำหนดเวลาเดิม', 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 📋 ดูรายละเอียด | 📤 ส่งงาน', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '❌ ปฏิเสธการเลื่อนเวลา',
+      '❌',
+      FlexMessageDesignSystem.colors.danger,
+      content,
+      buttons,
+      'large'
+    );
+  }
+
+  /**
    * สร้างการ์ดรายงานรายวัน
    */
   static createDailySummaryCard(group: any, tasks: any[], timezone: string): FlexMessage {

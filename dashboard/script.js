@@ -2034,19 +2034,8 @@ class Dashboard {
       seg._bound = true;
     }
 
-    // Edit task priority segmented control
-    const editSeg = document.getElementById('editTaskPrioritySelector');
-    const editHiddenPriority = document.getElementById('editTaskPriority');
-    if (editSeg && editHiddenPriority && !editSeg._bound) {
-      editSeg.addEventListener('click', (e) => {
-        const btn = e.target.closest('.seg-btn');
-        if (!btn) return;
-        editSeg.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        editHiddenPriority.value = btn.dataset.priority;
-      });
-      editSeg._bound = true;
-    }
+    // Edit task priority dropdown (ใช้ select dropdown เหมือน add task modal)
+    // ไม่ต้องมี event listener เพิ่มเติม เพราะใช้ select element
 
     // Assignee count (นับจำนวน checkbox ที่ถูกเลือก)
     const assignees = document.getElementById('taskAssignees');
@@ -2217,9 +2206,10 @@ class Dashboard {
         
         if (assigneesContainer) {
           assigneesContainer.innerHTML = response.data.map(member => `
-            <label class="assignee-item">
+            <label class="checkbox-item">
               <input type="checkbox" class="assignee-checkbox" value="${member.userId}" name="assignees">
-              <span class="assignee-name">${member.displayName}</span>
+              <span class="checkmark"></span>
+              <span class="checkbox-label">${member.displayName}</span>
             </label>
           `).join('');
           
@@ -2254,14 +2244,11 @@ class Dashboard {
         document.getElementById('editTaskDueDate').value = this.formatDateForForm(task.dueTime);
         document.getElementById('editTaskDueTime').value = this.formatTimeForForm(task.dueTime);
         document.getElementById('editTaskDescription').value = task.description || '';
-        document.getElementById('editTaskPriority').value = task.priority;
         
-        // ตั้งค่า priority selector
-        const prioritySelector = document.getElementById('editTaskPrioritySelector');
-        if (prioritySelector) {
-          prioritySelector.querySelectorAll('.seg-btn').forEach(btn => {
-            btn.classList.toggle('active', btn.dataset.priority === task.priority);
-          });
+        // ตั้งค่า priority dropdown
+        const prioritySelect = document.getElementById('editTaskPriority');
+        if (prioritySelect) {
+          prioritySelect.value = task.priority || 'medium';
         }
         
         // เลือกผู้รับผิดชอบ
@@ -2554,7 +2541,28 @@ class Dashboard {
         body: JSON.stringify(updateData)
       });
 
-      this.showToast('อัปเดตงานเรียบร้อยแล้ว', 'success');
+      // ตรวจสอบว่าเป็นการ approve extension หรือไม่
+      const isExtensionApproval = this.initialAction === 'approve_extension';
+      
+      if (isExtensionApproval) {
+        // ส่งการแจ้งเตือนการอนุมัติเลื่อนเวลา
+        try {
+          await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks/${taskId}/approve-extension`, {
+            method: 'POST',
+            body: JSON.stringify({
+              newDueDate: formData.get('dueDate'),
+              newDueTime: formData.get('dueTime') || '23:59'
+            })
+          });
+          this.showToast('อนุมัติการเลื่อนเวลาและส่งแจ้งเตือนแล้ว', 'success');
+        } catch (notificationError) {
+          console.warn('Failed to send extension approval notification:', notificationError);
+          this.showToast('อัปเดตงานสำเร็จ แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
+        }
+      } else {
+        this.showToast('อัปเดตงานเรียบร้อยแล้ว', 'success');
+      }
+      
       this.closeModal('editTaskModal');
       this.refreshCurrentView();
 

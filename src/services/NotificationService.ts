@@ -450,6 +450,20 @@ export class NotificationService {
   }
 
   /**
+   * สร้าง Flex Message สำหรับการอนุมัติเลื่อนเวลา
+   */
+  private createExtensionApprovedFlexMessage(task: any, group: any, newDueTime: Date, requesterDisplayName?: string): FlexMessage {
+    return FlexMessageTemplateService.createExtensionApprovedCard(task, group, newDueTime, requesterDisplayName);
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับการปฏิเสธเลื่อนเวลา
+   */
+  private createExtensionRejectedFlexMessage(task: any, group: any, requesterDisplayName?: string): FlexMessage {
+    return FlexMessageTemplateService.createExtensionRejectedCard(task, group, requesterDisplayName);
+  }
+
+  /**
    * สร้าง Flex Message สำหรับการเตือนงาน
    */
   private createTaskReminderFlexMessage(task: any, group: any, reminderType: string): FlexMessage {
@@ -699,6 +713,56 @@ export class NotificationService {
   }
 
   /**
+   * ส่งการแจ้งเตือนการอนุมัติเลื่อนเวลา
+   */
+  public async sendExtensionApprovedNotification(task: any, requester: any, newDueTime: Date): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group || !requester?.lineUserId) return;
+
+      const requesterDisplayName = requester?.displayName || 'ไม่ระบุ';
+      
+      const flexMessage = this.createExtensionApprovedFlexMessage(task, group, newDueTime, requesterDisplayName);
+      
+      // ส่งให้ผู้ขอเลื่อนเวลา
+      await this.lineService.pushMessage(requester.lineUserId, flexMessage);
+      
+      // ส่งแจ้งในกลุ่มด้วย
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      console.log(`✅ Sent extension approved notification for task: ${task.id} to requester: ${requesterDisplayName}`);
+    } catch (error) {
+      console.error('❌ Error sending extension approved notification:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ส่งการแจ้งเตือนการปฏิเสธเลื่อนเวลา
+   */
+  public async sendExtensionRejectedNotification(task: any, requester: any): Promise<void> {
+    try {
+      const group = task.group;
+      if (!group || !requester?.lineUserId) return;
+
+      const requesterDisplayName = requester?.displayName || 'ไม่ระบุ';
+      
+      const flexMessage = this.createExtensionRejectedFlexMessage(task, group, requesterDisplayName);
+      
+      // ส่งให้ผู้ขอเลื่อนเวลา
+      await this.lineService.pushMessage(requester.lineUserId, flexMessage);
+      
+      // ส่งแจ้งในกลุ่มด้วย
+      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+
+      console.log(`✅ Sent extension rejected notification for task: ${task.id} to requester: ${requesterDisplayName}`);
+    } catch (error) {
+      console.error('❌ Error sending extension rejected notification:', error);
+      throw error;
+    }
+  }
+
+  /**
    * ส่งการแจ้งเตือนงานที่อนุมัติอัตโนมัติ
    */
   public async sendTaskAutoApprovedNotification(task: any): Promise<void> {
@@ -791,8 +855,6 @@ export class NotificationService {
       case 'PT3H':
       case '3h':
         return 'อีก 3 ชั่วโมง';
-      case 'daily_8am':
-        return 'เตือนความจำตอนเช้า 08:00 น.';
       case 'due':
         return 'ถึงเวลาแล้ว';
       default:
@@ -814,8 +876,6 @@ export class NotificationService {
       case 'PT3H':
       case '3h':
         return '⚡';
-      case 'daily_8am':
-        return '🌅';
       case 'due':
         return '🚨';
       default:

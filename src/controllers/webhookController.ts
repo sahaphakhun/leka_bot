@@ -1032,14 +1032,13 @@ class WebhookController {
                 return;
               }
 
-              // ส่งข้อความปฏิเสธไปยังผู้ขอ
+              // ส่งการ์ดปฏิเสธไปยังผู้ขอ
               const requester = await this.userService.findByLineUserId(requesterId);
               if (requester && requester.lineUserId) {
-                await this.lineService.pushMessage(requester.lineUserId, 
-                  `❌ คำขอเลื่อนเวลาถูกปฏิเสธ\n\n` +
-                  `📋 งาน: ${task.title}\n` +
-                  `📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}\n\n` +
-                  `💡 กรุณาส่งงานตามกำหนดเวลาที่กำหนดไว้`
+                // ส่งการ์ดแจ้งเตือนการปฏิเสธ
+                await this.notificationService.sendExtensionRejectedNotification(
+                  task as any, 
+                  requester as any
                 );
               }
 

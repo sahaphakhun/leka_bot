@@ -179,20 +179,8 @@ export class CronService {
         // เตือนซ้ำทุกเช้า 08:00 น. จนกว่างานจะเสร็จ: แยกไปรวมรอบเดียวหลังลูป เพื่อลด O(n^2) และคุมหน้าต่างเวลาให้ตรง
       }
 
-      // เตือนซ้ำทุกเช้า 08:00 น. สำหรับงานที่ยังไม่เสร็จทั้งหมด
-      const eightAmToday = now.clone().hour(8).minute(0).second(0).millisecond(0);
-      const isMorningWindow = now.isBetween(eightAmToday, eightAmToday.clone().add(60, 'minutes'));
-      if (isMorningWindow) {
-        const morningTasks = await this.taskService.getTasksForDailyMorningReminder();
-        for (const t of morningTasks) {
-          const alreadySentMorning = (t as any).remindersSent?.some(
-            (reminder: any) => reminder.type === 'daily_8am' && moment(reminder.sentAt).isSame(now, 'day')
-          );
-          if (!alreadySentMorning) {
-            await this.sendTaskReminder(t, 'daily_8am');
-          }
-        }
-      }
+      // เอาการเตือนตอนเช้า 08:00 น. ออกไปแล้ว
+      // ไม่มีการเตือนซ้ำทุกเช้า 08:00 น. สำหรับงานที่ยังไม่เสร็จทั้งหมด
 
     } catch (error) {
       console.error('❌ Error processing reminders:', error);
@@ -598,7 +586,8 @@ export class CronService {
     if (interval === 'P7D' || interval === '7d') return { amount: 7, unit: 'days' };
     if (interval === 'P1D' || interval === '1d') return { amount: 1, unit: 'days' };
     if (interval === 'PT3H' || interval === '3h') return { amount: 3, unit: 'hours' };
-    if (interval === 'daily_8am') return { amount: 0, unit: 'days' };
+    // เอาการเตือนตอนเช้า 08:00 น. ออกไปแล้ว
+    // if (interval === 'daily_8am') return { amount: 0, unit: 'days' };
     if (interval === 'due') return { amount: 0, unit: 'minutes' };
     
     // ค่าเริ่มต้น

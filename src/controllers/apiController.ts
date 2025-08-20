@@ -287,6 +287,49 @@ class ApiController {
   }
 
   /**
+   * POST /api/groups/:groupId/tasks/:taskId/approve-extension - อนุมัติการเลื่อนเวลา
+   */
+  public async approveExtension(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId, taskId } = req.params;
+      const { newDueDate, newDueTime } = req.body;
+
+      if (!newDueDate) {
+        res.status(400).json({
+          success: false,
+          error: 'กรุณาระบุวันที่ใหม่'
+        });
+        return;
+      }
+
+      // รวม date และ time เป็น datetime
+      const dueTimeString = newDueTime || '23:59';
+      const newDueDateTime = new Date(`${newDueDate}T${dueTimeString}:00.000+07:00`);
+
+      // อัปเดตงานด้วยวันที่ใหม่
+      const updatedTask = await this.taskService.updateTask(taskId, {
+        dueTime: newDueDateTime
+      });
+
+      // ส่งการแจ้งเตือนการอนุมัติเลื่อนเวลา
+      await this.taskService.sendExtensionApprovalNotification(taskId, newDueDateTime);
+
+      res.json({
+        success: true,
+        data: taskEntityToInterface(updatedTask),
+        message: 'อนุมัติการเลื่อนเวลาและส่งแจ้งเตือนเรียบร้อยแล้ว'
+      });
+
+    } catch (error) {
+      logger.error('❌ Error approving extension:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดในการอนุมัติการเลื่อนเวลา'
+      });
+    }
+  }
+
+  /**
    * POST /api/tasks/:taskId/complete - ปิดงาน
    */
   public async completeTask(req: Request, res: Response): Promise<void> {
@@ -1247,6 +1290,7 @@ apiRouter.get('/users/:userId/average-score/:groupId', apiController.getUserAver
 apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));
 apiRouter.put('/groups/:groupId/tasks/:taskId', apiController.updateTask.bind(apiController));
 apiRouter.post('/tasks/:taskId/complete', apiController.completeTask.bind(apiController));
+apiRouter.post('/groups/:groupId/tasks/:taskId/approve-extension', apiController.approveExtension.bind(apiController));
 
 // File-specific routes  
 apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));
