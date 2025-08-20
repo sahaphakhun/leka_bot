@@ -67,28 +67,28 @@
  * ===============================
  */
 
-// เพิ่ม moment-timezone สำหรับการจัดการเวลา (local version)
+// เพิ่ม moment-timezone สำหรับการจัดการเวลา (CDN version)
 let moment;
 if (typeof require !== 'undefined') {
   // Node.js environment
   moment = require('moment-timezone');
 } else if (typeof window !== 'undefined' && window.moment) {
-  // Browser environment - ใช้ moment ที่โหลดจาก local
+  // Browser environment - ใช้ moment ที่โหลดจาก CDN
   moment = window.moment;
   
   // ตรวจสอบว่า moment-timezone โหลดสำเร็จหรือไม่
   if (moment && moment.tz) {
-    console.log('✅ moment-timezone โหลดสำเร็จ (local version)');
+    console.log('✅ moment-timezone โหลดสำเร็จ (CDN version)');
     // ตั้งค่า timezone เริ่มต้น
     moment.tz.setDefault('Asia/Bangkok');
   } else {
-    console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
+    console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาตรวจสอบ CDN');
     // ใช้ moment ปกติแทน
     moment = window.moment;
   }
 } else {
-  // Browser environment - ต้องโหลด moment จาก local
-  console.warn('⚠️ moment ไม่ได้โหลด กรุณาตรวจสอบไฟล์ local');
+  // Browser environment - ต้องโหลด moment จาก CDN
+  console.warn('⚠️ moment ไม่ได้โหลด กรุณาตรวจสอบ CDN');
   // สร้าง mock moment object เพื่อป้องกัน error
   moment = {
     format: (format) => new Date().toLocaleString('th-TH'),
@@ -450,7 +450,7 @@ class Dashboard {
    * Safely get current time with fallback to native Date
    */
   getSafeCurrentTime() {
-    if (moment && moment.tz && typeof moment.tz === 'function') {
+    if (moment && typeof moment === 'function' && moment.tz && typeof moment.tz === 'function') {
       try {
         return moment().tz(this.timezone);
       } catch (error) {
@@ -467,11 +467,65 @@ class Dashboard {
     return year + 543;
   }
 
+  /**
+   * ตรวจสอบว่า moment.js พร้อมใช้งานหรือไม่
+   */
+  isMomentAvailable() {
+    return moment && typeof moment === 'function' && moment.tz && typeof moment.tz === 'function';
+  }
+
+  /**
+   * แปลงวันที่เป็น ISO string สำหรับ API
+   */
+  formatDateForAPI(date) {
+    if (!date) return null;
+    
+    try {
+      if (this.isMomentAvailable()) {
+        return moment(date).tz(this.timezone).toISOString();
+      } else {
+        // fallback to native Date
+        const dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) return null;
+        
+        // Adjust for Bangkok timezone
+        const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+        const bangkokTime = new Date(utc + (7 * 3600000));
+        return bangkokTime.toISOString();
+      }
+    } catch (error) {
+      console.error('❌ Error formatting date for API:', error);
+      return null;
+    }
+  }
+
+  /**
+   * แปลงวันที่จาก API เป็น Date object
+   */
+  parseDateFromAPI(dateString) {
+    if (!dateString) return null;
+    
+    try {
+      if (this.isMomentAvailable()) {
+        return moment(dateString).tz(this.timezone).toDate();
+      } else {
+        // fallback to native Date
+        const dateObj = new Date(dateString);
+        if (isNaN(dateObj.getTime())) return null;
+        return dateObj;
+      }
+    } catch (error) {
+      console.error('❌ Error parsing date from API:', error);
+      return null;
+    }
+  }
+
   formatDate(date) {
     if (!date) return '-';
     
     try {
-      if (moment && moment.tz && typeof moment.tz === 'function') {
+      // ตรวจสอบว่า moment.js โหลดสำเร็จและทำงานได้
+      if (moment && typeof moment === 'function' && moment.tz && typeof moment.tz === 'function') {
         try {
           const momentDate = moment(date).tz(this.timezone);
           const day = momentDate.format('DD');
@@ -485,6 +539,11 @@ class Dashboard {
       
       // fallback to native Date with Bangkok timezone adjustment
       const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        console.warn('⚠️ Invalid date input:', date);
+        return '-';
+      }
+      
       // Adjust for Bangkok timezone (UTC+7)
       const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
       const bangkokTime = new Date(utc + (7 * 3600000));
@@ -504,7 +563,8 @@ class Dashboard {
     if (!date) return '-';
     
     try {
-      if (moment && moment.tz && typeof moment.tz === 'function') {
+      // ตรวจสอบว่า moment.js โหลดสำเร็จและทำงานได้
+      if (moment && typeof moment === 'function' && moment.tz && typeof moment.tz === 'function') {
         try {
           const momentDate = moment(date).tz(this.timezone);
           const day = momentDate.format('DD');
@@ -519,6 +579,11 @@ class Dashboard {
       
       // fallback to native Date with Bangkok timezone adjustment
       const dateObj = new Date(date);
+      if (isNaN(dateObj.getTime())) {
+        console.warn('⚠️ Invalid date input:', date);
+        return '-';
+      }
+      
       // Adjust for Bangkok timezone (UTC+7)
       const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
       const bangkokTime = new Date(utc + (7 * 3600000));
@@ -1050,7 +1115,7 @@ class Dashboard {
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
       case 'calendar':
-        if (moment && moment.tz) {
+        if (this.isMomentAvailable()) {
           try {
             const now = moment().tz(this.timezone);
             this.loadCalendarEvents(now.month() + 1, now.year());
