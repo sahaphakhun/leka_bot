@@ -621,6 +621,80 @@
         </div>
     </div>
 
+    <!-- Edit Task Modal -->
+    <div id="editTaskModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <div class="modal-title">
+                    <i class="fas fa-edit"></i>
+                    <h3>แก้ไขงาน</h3>
+                </div>
+                <button class="modal-close" id="editTaskModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editTaskForm">
+                    <div class="form-group">
+                        <label for="editTaskTitle">ชื่องาน</label>
+                        <input type="text" id="editTaskTitle" name="title" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editTaskDescription">รายละเอียด</label>
+                        <textarea id="editTaskDescription" name="description" rows="3"></textarea>
+                    </div>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label for="editTaskDueDate">วันที่ครบกำหนด</label>
+                            <input type="date" id="editTaskDueDate" name="dueDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="editTaskDueTime">เวลา</label>
+                            <input type="time" id="editTaskDueTime" name="dueTime" value="23:59">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editTaskPriority">ความสำคัญ</label>
+                        <div class="priority-selector" id="editTaskPrioritySelector">
+                            <button type="button" class="seg-btn" data-priority="low">
+                                <i class="fas fa-arrow-down"></i> ต่ำ
+                            </button>
+                            <button type="button" class="seg-btn active" data-priority="medium">
+                                <i class="fas fa-minus"></i> ปานกลาง
+                            </button>
+                            <button type="button" class="seg-btn" data-priority="high">
+                                <i class="fas fa-arrow-up"></i> สูง
+                            </button>
+                        </div>
+                        <input type="hidden" id="editTaskPriority" name="priority" value="medium">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editTaskAssignees">ผู้รับผิดชอบ <span id="editAssigneeCount"></span></label>
+                        <div id="editTaskAssignees" class="assignee-list">
+                            <!-- จะโหลดด้วย JavaScript -->
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="editTaskTags">แท็ก (คั่นด้วยเครื่องหมายจุลภาค)</label>
+                        <input type="text" id="editTaskTags" name="tags" placeholder="เช่น: สำคัญ, เร่งด่วน">
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="editTaskCancelBtn">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary" id="editTaskSubmitBtn">
+                            <i class="fas fa-save"></i> บันทึกการแก้ไข
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container">
         <!-- จะใส่ด้วย JavaScript -->

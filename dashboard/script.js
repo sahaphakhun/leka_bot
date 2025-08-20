@@ -223,6 +223,18 @@ class Dashboard {
     document.getElementById('successModalClose')?.addEventListener('click', () => this.closeModal('successModal'));
     document.getElementById('stayHereBtn')?.addEventListener('click', () => this.closeModal('successModal'));
 
+    // Edit task modal handlers
+    document.getElementById('editTaskModalClose')?.addEventListener('click', () => {
+      this.closeModal('editTaskModal');
+    });
+    document.getElementById('editTaskCancelBtn')?.addEventListener('click', () => {
+      this.closeModal('editTaskModal');
+    });
+    document.getElementById('editTaskForm')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      this.handleEditTask();
+    });
+
     // Forms
     document.getElementById('addTaskForm').addEventListener('submit', (e) => {
       e.preventDefault();
@@ -528,7 +540,7 @@ class Dashboard {
     
     try {
       if (this.isMomentAvailable()) {
-        return moment(date).tz(this.timezone).format('YYYY-MM-DDTHH:mm');
+        return moment(date).tz(this.timezone).format('YYYY-MM-DD');
       } else {
         // fallback to native Date
         const dateObj = new Date(date);
@@ -541,14 +553,38 @@ class Dashboard {
         const year = bangkokTime.getFullYear();
         const month = (bangkokTime.getMonth() + 1).toString().padStart(2, '0');
         const day = bangkokTime.getDate().toString().padStart(2, '0');
-        const hours = bangkokTime.getHours().toString().padStart(2, '0');
-        const minutes = bangkokTime.getMinutes().toString().padStart(2, '0');
         
-        return `${year}-${month}-${day}T${hours}:${minutes}`;
+        return `${year}-${month}-${day}`;
       }
     } catch (error) {
       console.error('❌ Error formatting date for form:', error);
       return '';
+    }
+  }
+
+  formatTimeForForm(date) {
+    if (!date) return '23:59';
+    
+    try {
+      if (this.isMomentAvailable()) {
+        return moment(date).tz(this.timezone).format('HH:mm');
+      } else {
+        // fallback to native Date
+        const dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) return '23:59';
+        
+        // Adjust for Bangkok timezone
+        const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+        const bangkokTime = new Date(utc + (7 * 3600000));
+        
+        const hours = bangkokTime.getHours().toString().padStart(2, '0');
+        const minutes = bangkokTime.getMinutes().toString().padStart(2, '0');
+        
+        return `${hours}:${minutes}`;
+      }
+    } catch (error) {
+      console.error('❌ Error formatting time for form:', error);
+      return '23:59';
     }
   }
 
@@ -1998,6 +2034,20 @@ class Dashboard {
       seg._bound = true;
     }
 
+    // Edit task priority segmented control
+    const editSeg = document.getElementById('editTaskPrioritySelector');
+    const editHiddenPriority = document.getElementById('editTaskPriority');
+    if (editSeg && editHiddenPriority && !editSeg._bound) {
+      editSeg.addEventListener('click', (e) => {
+        const btn = e.target.closest('.seg-btn');
+        if (!btn) return;
+        editSeg.querySelectorAll('.seg-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        editHiddenPriority.value = btn.dataset.priority;
+      });
+      editSeg._bound = true;
+    }
+
     // Assignee count (นับจำนวน checkbox ที่ถูกเลือก)
     const assignees = document.getElementById('taskAssignees');
     const assigneeCount = document.getElementById('assigneeCount');
@@ -2143,6 +2193,9 @@ class Dashboard {
     // เปิด modal แก้ไขงาน
     document.getElementById('editTaskModal').classList.add('active');
     
+    // โหลดสมาชิกกลุ่มสำหรับการเลือกผู้รับผิดชอบ
+    this.loadGroupMembersForEdit();
+    
     // โหลดข้อมูลงานที่ต้องการแก้ไข
     const taskId = this.getTaskIdFromUrl();
     if (taskId) {
@@ -2155,6 +2208,41 @@ class Dashboard {
     return urlParams.get('taskId');
   }
 
+  async loadGroupMembersForEdit() {
+    try {
+      const response = await this.apiRequest(`/api/line/members/${this.currentGroupId}`);
+      if (response && response.data && response.data.length > 0) {
+        const assigneesContainer = document.getElementById('editTaskAssignees');
+        const assigneeCount = document.getElementById('editAssigneeCount');
+        
+        if (assigneesContainer) {
+          assigneesContainer.innerHTML = response.data.map(member => `
+            <label class="assignee-item">
+              <input type="checkbox" class="assignee-checkbox" value="${member.userId}" name="assignees">
+              <span class="assignee-name">${member.displayName}</span>
+            </label>
+          `).join('');
+          
+          // เพิ่ม event listener สำหรับนับจำนวน
+          if (assigneeCount && !assigneesContainer._boundEditCount) {
+            const updateCount = () => {
+              const count = assigneesContainer.querySelectorAll('.assignee-checkbox:checked').length;
+              assigneeCount.textContent = count > 0 ? `(${count} คน)` : '';
+            };
+            assigneesContainer.addEventListener('change', (e) => {
+              if (e.target && e.target.classList && e.target.classList.contains('assignee-checkbox')) {
+                updateCount();
+              }
+            });
+            assigneesContainer._boundEditCount = true;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error loading group members for edit:', error);
+    }
+  }
+
   async loadTaskForEdit(taskId) {
     try {
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks/${taskId}`);
@@ -2164,14 +2252,30 @@ class Dashboard {
         // เติมข้อมูลในฟอร์มแก้ไข
         document.getElementById('editTaskTitle').value = task.title;
         document.getElementById('editTaskDueDate').value = this.formatDateForForm(task.dueTime);
+        document.getElementById('editTaskDueTime').value = this.formatTimeForForm(task.dueTime);
         document.getElementById('editTaskDescription').value = task.description || '';
         document.getElementById('editTaskPriority').value = task.priority;
+        
+        // ตั้งค่า priority selector
+        const prioritySelector = document.getElementById('editTaskPrioritySelector');
+        if (prioritySelector) {
+          prioritySelector.querySelectorAll('.seg-btn').forEach(btn => {
+            btn.classList.toggle('active', btn.dataset.priority === task.priority);
+          });
+        }
         
         // เลือกผู้รับผิดชอบ
         const assigneeCheckboxes = document.querySelectorAll('#editTaskAssignees .assignee-checkbox');
         assigneeCheckboxes.forEach(checkbox => {
           checkbox.checked = task.assignedUsers?.some(user => user.id === checkbox.value);
         });
+        
+        // อัปเดตจำนวนผู้รับผิดชอบ
+        const assigneeCount = document.getElementById('editAssigneeCount');
+        if (assigneeCount) {
+          const count = document.querySelectorAll('#editTaskAssignees .assignee-checkbox:checked').length;
+          assigneeCount.textContent = count > 0 ? `(${count} คน)` : '';
+        }
         
         // เติมแท็ก
         document.getElementById('editTaskTags').value = task.tags?.join(', ') || '';

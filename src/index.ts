@@ -34,8 +34,26 @@ class Server {
   }
 
   private configureMiddleware(): void {
-    // Security middleware
-    this.app.use(helmet());
+    // Security middleware with CSP configuration for dashboard
+    this.app.use(helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: [
+            "'self'",
+            "'unsafe-inline'", // Required for inline scripts in dashboard
+            "https://cdnjs.cloudflare.com" // Allow moment.js from CDN
+          ],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", "data:", "https:"],
+          connectSrc: ["'self'"],
+          fontSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          mediaSrc: ["'self'"],
+          frameSrc: ["'none'"]
+        }
+      }
+    }));
     this.app.use(cors());
 
     // สำหรับ LINE Webhook - ต้องเป็น raw สำหรับ signature validation และไม่ชนกับ body-parser JSON
