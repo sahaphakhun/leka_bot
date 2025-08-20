@@ -1450,40 +1450,102 @@ class WebhookController {
     const requester = await this.userService.findByLineUserId(requesterId);
     const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
     
-    const content = [
-      FlexMessageDesignSystem.createText('⏰ คำขอเลื่อนเวลา', 'lg', FlexMessageDesignSystem.colors.warning, 'bold'),
-      FlexMessageDesignSystem.createSeparator('medium'),
-      FlexMessageDesignSystem.createText(`📋 งาน: ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
-      FlexMessageDesignSystem.createText(`📅 กำหนดส่งเดิม: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
-      FlexMessageDesignSystem.createText(`👤 ผู้ขอ: ${requester?.displayName || 'ไม่ทราบ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
-      FlexMessageDesignSystem.createText(`📝 เหตุผล: ขอเลื่อนเวลาส่งงาน`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
-      FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 กดปุ่มด้านล่างเพื่ออนุมัติและเลือกวันกำหนดงานใหม่', 'xs', FlexMessageDesignSystem.colors.textSecondary)
-    ];
-
-    const buttons = [
-      FlexMessageDesignSystem.createButton(
-        'อนุมัติและเลือกวันใหม่', 
-        'uri', 
-        `${config.baseUrl}/dashboard?groupId=${groupId}&taskId=${task.id}&action=approve_extension`, 
-        'primary'
-      ),
-      FlexMessageDesignSystem.createButton(
-        'ปฏิเสธ', 
-        'postback', 
-        `action=reject_extension&taskId=${task.id}&requesterId=${requesterId}`, 
-        'danger'
-      )
-    ];
-
-    return FlexMessageDesignSystem.createStandardTaskCard(
-      '⏰ คำขอเลื่อนเวลา',
-      '⏰',
-      FlexMessageDesignSystem.colors.warning,
-      content,
-      buttons,
-      'large'
-    );
+    // สร้าง Simple Flex Message แทน
+    return {
+      type: 'flex',
+      altText: '⏰ คำขอเลื่อนเวลา',
+      contents: {
+        type: 'bubble',
+        size: 'mega',
+        header: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: '⏰ คำขอเลื่อนเวลา',
+              weight: 'bold',
+              color: '#FF9500',
+              size: 'lg'
+            }
+          ],
+          backgroundColor: '#FFF8F0',
+          paddingAll: 'lg'
+        },
+        body: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'text',
+              text: `📋 งาน: ${task.title}`,
+              weight: 'bold',
+              size: 'sm',
+              wrap: true
+            },
+            {
+              type: 'text',
+              text: `📅 กำหนดส่งเดิม: ${dueDate}`,
+              size: 'sm',
+              color: '#666666',
+              margin: 'sm'
+            },
+            {
+              type: 'text',
+              text: `👤 ผู้ขอ: ${requester?.displayName || 'ไม่ทราบ'}`,
+              size: 'sm',
+              color: '#666666',
+              margin: 'sm'
+            },
+            {
+              type: 'separator',
+              margin: 'md'
+            },
+            {
+              type: 'text',
+              text: '💡 กดปุ่มด้านล่างเพื่ออนุมัติและเลือกวันกำหนดงานใหม่',
+              size: 'xs',
+              color: '#888888',
+              margin: 'md',
+              wrap: true
+            }
+          ],
+          paddingAll: 'lg'
+        },
+        footer: {
+          type: 'box',
+          layout: 'vertical',
+          contents: [
+            {
+              type: 'button',
+              text: 'อนุมัติและเลือกวันใหม่',
+              action: {
+                type: 'uri',
+                uri: `${config.baseUrl}/dashboard?groupId=${groupId}&taskId=${task.id}&action=approve_extension`
+              },
+              style: 'primary',
+              color: '#00BF63',
+              height: 'sm',
+              gravity: 'center'
+            },
+            {
+              type: 'button',
+              text: 'ปฏิเสธ',
+              action: {
+                type: 'postback',
+                data: `action=reject_extension&taskId=${task.id}&requesterId=${requesterId}`
+              },
+              style: 'secondary',
+              color: '#FF4444',
+              height: 'sm',
+              gravity: 'center',
+              margin: 'sm'
+            }
+          ],
+          paddingAll: 'lg'
+        }
+      }
+    };
   }
 }
 
