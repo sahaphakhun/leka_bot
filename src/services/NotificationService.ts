@@ -563,6 +563,12 @@ export class NotificationService {
     const priorityColor = this.getPriorityColor(task.priority);
     const priorityText = this.getPriorityText(task.priority);
 
+    // ตรวจสอบว่าเกิน 1 วันหรือไม่
+    const taskCreatedAt = new Date(task.createdAt);
+    const oneDayLater = new Date(taskCreatedAt.getTime() + 24 * 60 * 60 * 1000);
+    const now = new Date();
+    const canRequestExtension = now < oneDayLater;
+
     const content = [
       FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
@@ -573,9 +579,16 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('รายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('เสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
     ];
+
+    // เพิ่มปุ่มขอเลื่อนเฉพาะเมื่อยังไม่เกิน 1 วัน
+    if (canRequestExtension) {
+      buttons.push(
+        FlexMessageDesignSystem.createButton('ขอเลื่อน', 'postback', `action=request_extension&taskId=${task.id}&groupId=${group.id}`, 'secondary')
+      );
+    }
 
     return FlexMessageDesignSystem.createStandardTaskCard(
       `📋 งานใหม่: ${task.title}`,

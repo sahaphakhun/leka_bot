@@ -974,6 +974,85 @@ class WebhookController {
           break;
         }
 
+        case 'request_extension': {
+          const taskId = params.get('taskId');
+          const groupId = params.get('groupId');
+          
+          if (taskId && groupId) {
+            try {
+              // ตรวจสอบว่าเกิน 1 วันหรือไม่
+              const task = await this.taskService.getTaskById(taskId);
+              if (!task) {
+                await this.safeReplyError(replyToken, '❌ ไม่พบงานที่ระบุ');
+                return;
+              }
+
+              const taskCreatedAt = new Date(task.createdAt);
+              const oneDayLater = new Date(taskCreatedAt.getTime() + 24 * 60 * 60 * 1000);
+              const now = new Date();
+
+              if (now >= oneDayLater) {
+                await this.lineService.replyMessage(replyToken, '❌ เลย 1 วันแล้ว ไม่สามารถขอเลื่อนได้');
+                return;
+              }
+
+              // ส่งการ์ดขอเลื่อนไปยังผู้สร้างงาน
+              const creator = await this.userService.findById(task.createdBy);
+              if (creator && creator.lineUserId) {
+                const extensionCard = await this.createExtensionRequestCard(task, groupId, userId);
+                await this.lineService.pushMessage(creator.lineUserId, extensionCard);
+                
+                await this.lineService.replyMessage(replyToken, 
+                  `✅ ส่งคำขอเลื่อนเวลาไปยังผู้สร้างงานแล้ว\n\n` +
+                  `📋 งาน: ${task.title}\n` +
+                  `👤 ผู้สร้าง: ${creator.displayName}\n\n` +
+                  `⏰ รอการอนุมัติจากผู้สร้างงาน`
+                );
+              } else {
+                await this.safeReplyError(replyToken, '❌ ไม่พบผู้สร้างงาน');
+              }
+            } catch (err: any) {
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถส่งคำขอเลื่อนได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          } else {
+            await this.safeReplyError(replyToken, '❌ ข้อมูลไม่ครบถ้วน');
+          }
+          break;
+        }
+
+        case 'reject_extension': {
+          const taskId = params.get('taskId');
+          const requesterId = params.get('requesterId');
+          
+          if (taskId && requesterId) {
+            try {
+              const task = await this.taskService.getTaskById(taskId);
+              if (!task) {
+                await this.safeReplyError(replyToken, '❌ ไม่พบงานที่ระบุ');
+                return;
+              }
+
+              // ส่งข้อความปฏิเสธไปยังผู้ขอ
+              const requester = await this.userService.findByLineUserId(requesterId);
+              if (requester && requester.lineUserId) {
+                await this.lineService.pushMessage(requester.lineUserId, 
+                  `❌ คำขอเลื่อนเวลาถูกปฏิเสธ\n\n` +
+                  `📋 งาน: ${task.title}\n` +
+                  `📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}\n\n` +
+                  `💡 กรุณาส่งงานตามกำหนดเวลาที่กำหนดไว้`
+                );
+              }
+
+              await this.lineService.replyMessage(replyToken, '✅ ปฏิเสธคำขอเลื่อนเวลาแล้ว');
+            } catch (err: any) {
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถปฏิเสธคำขอได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          } else {
+            await this.safeReplyError(replyToken, '❌ ข้อมูลไม่ครบถ้วน');
+          }
+          break;
+        }
+
         default:
           console.log('ℹ️ Unhandled postback action:', action);
       }
@@ -1362,6 +1441,49 @@ class WebhookController {
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+  }
+
+  /**
+   * สร้างการ์ดขอเลื่อนเวลา
+   */
+  private async createExtensionRequestCard(task: any, groupId: string, requesterId: string): Promise<any> {
+    const requester = await this.userService.findByLineUserId(requesterId);
+    const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    
+    const content = [
+      FlexMessageDesignSystem.createText('⏰ คำขอเลื่อนเวลา', 'lg', FlexMessageDesignSystem.colors.warning, 'bold'),
+      FlexMessageDesignSystem.createSeparator('medium'),
+      FlexMessageDesignSystem.createText(`📋 งาน: ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่งเดิม: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`👤 ผู้ขอ: ${requester?.displayName || 'ไม่ทราบ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`📝 เหตุผล: ขอเลื่อนเวลาส่งงาน`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText('💡 กดปุ่มด้านล่างเพื่ออนุมัติและเลือกวันกำหนดงานใหม่', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton(
+        'อนุมัติและเลือกวันใหม่', 
+        'uri', 
+        `${config.baseUrl}/dashboard?groupId=${groupId}&taskId=${task.id}&action=approve_extension`, 
+        'primary'
+      ),
+      FlexMessageDesignSystem.createButton(
+        'ปฏิเสธ', 
+        'postback', 
+        `action=reject_extension&taskId=${task.id}&requesterId=${requesterId}`, 
+        'danger'
+      )
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '⏰ คำขอเลื่อนเวลา',
+      '⏰',
+      FlexMessageDesignSystem.colors.warning,
+      content,
+      buttons,
+      'large'
+    );
   }
 }
 

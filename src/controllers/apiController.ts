@@ -1245,6 +1245,7 @@ apiRouter.get('/users/:userId/average-score/:groupId', apiController.getUserAver
 
 // Task-specific routes
 apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));
+apiRouter.put('/groups/:groupId/tasks/:taskId', apiController.updateTask.bind(apiController));
 apiRouter.post('/tasks/:taskId/complete', apiController.completeTask.bind(apiController));
 
 // File-specific routes  
@@ -1263,6 +1264,18 @@ apiRouter.get('/line/members/:groupId', apiController.getLineMembers.bind(apiCon
 
 // New helper route: fetch single task detail by ID (for dashboard modal)
 apiRouter.get('/task/:taskId', async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const svc = new TaskService();
+    const task = await svc.getTaskById(taskId);
+    res.json({ success: true, data: task });
+  } catch (err) {
+    res.status(500).json({ success: false, error: 'Failed to get task' });
+  }
+});
+
+// Group-specific task detail route
+apiRouter.get('/groups/:groupId/tasks/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     const svc = new TaskService();

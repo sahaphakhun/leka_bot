@@ -520,6 +520,38 @@ class Dashboard {
     }
   }
 
+  /**
+   * แปลงวันที่เป็นรูปแบบสำหรับ input datetime-local
+   */
+  formatDateForForm(date) {
+    if (!date) return '';
+    
+    try {
+      if (this.isMomentAvailable()) {
+        return moment(date).tz(this.timezone).format('YYYY-MM-DDTHH:mm');
+      } else {
+        // fallback to native Date
+        const dateObj = new Date(date);
+        if (isNaN(dateObj.getTime())) return '';
+        
+        // Adjust for Bangkok timezone
+        const utc = dateObj.getTime() + (dateObj.getTimezoneOffset() * 60000);
+        const bangkokTime = new Date(utc + (7 * 3600000));
+        
+        const year = bangkokTime.getFullYear();
+        const month = (bangkokTime.getMonth() + 1).toString().padStart(2, '0');
+        const day = bangkokTime.getDate().toString().padStart(2, '0');
+        const hours = bangkokTime.getHours().toString().padStart(2, '0');
+        const minutes = bangkokTime.getMinutes().toString().padStart(2, '0');
+        
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      }
+    } catch (error) {
+      console.error('❌ Error formatting date for form:', error);
+      return '';
+    }
+  }
+
   formatDate(date) {
     if (!date) return '-';
     
@@ -1187,6 +1219,11 @@ class Dashboard {
         // ถ้ามาจากการกดปุ่ม "กรอกข้อมูลงาน" ให้เปิด modal เพิ่มงานอัตโนมัติ
         if (this.initialAction === 'new-task') {
           this.openAddTaskModal();
+        }
+        
+        // ถ้ามาจากการกดปุ่ม "อนุมัติและเลือกวันใหม่" ให้เปิด modal แก้ไขงาน
+        if (this.initialAction === 'approve_extension') {
+          this.openEditTaskModal();
         }
       } else {
         console.error('Invalid group response:', groupResponse);
@@ -2102,6 +2139,53 @@ class Dashboard {
     document.getElementById('submitTaskModal').classList.add('active');
   }
 
+  openEditTaskModal() {
+    // เปิด modal แก้ไขงาน
+    document.getElementById('editTaskModal').classList.add('active');
+    
+    // โหลดข้อมูลงานที่ต้องการแก้ไข
+    const taskId = this.getTaskIdFromUrl();
+    if (taskId) {
+      this.loadTaskForEdit(taskId);
+    }
+  }
+
+  getTaskIdFromUrl() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('taskId');
+  }
+
+  async loadTaskForEdit(taskId) {
+    try {
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks/${taskId}`);
+      if (response.success && response.data) {
+        const task = response.data;
+        
+        // เติมข้อมูลในฟอร์มแก้ไข
+        document.getElementById('editTaskTitle').value = task.title;
+        document.getElementById('editTaskDueDate').value = this.formatDateForForm(task.dueTime);
+        document.getElementById('editTaskDescription').value = task.description || '';
+        document.getElementById('editTaskPriority').value = task.priority;
+        
+        // เลือกผู้รับผิดชอบ
+        const assigneeCheckboxes = document.querySelectorAll('#editTaskAssignees .assignee-checkbox');
+        assigneeCheckboxes.forEach(checkbox => {
+          checkbox.checked = task.assignedUsers?.some(user => user.id === checkbox.value);
+        });
+        
+        // เติมแท็ก
+        document.getElementById('editTaskTags').value = task.tags?.join(', ') || '';
+        
+        this.showToast('โหลดข้อมูลงานเรียบร้อยแล้ว', 'success');
+      } else {
+        this.showToast('ไม่สามารถโหลดข้อมูลงานได้', 'error');
+      }
+    } catch (error) {
+      console.error('Error loading task for edit:', error);
+      this.showToast('ไม่สามารถโหลดข้อมูลงานได้', 'error');
+    }
+  }
+
   closeModal(modalId) {
     document.getElementById(modalId).classList.remove('active');
   }
@@ -2313,6 +2397,66 @@ class Dashboard {
         submitBtn.disabled = false;
         submitBtn.classList.remove('btn-loading');
       }
+    }
+  }
+
+  async handleEditTask() {
+    try {
+      const taskId = this.getTaskIdFromUrl();
+      if (!taskId) {
+        this.showToast('ไม่พบงานที่ต้องการแก้ไข', 'error');
+        return;
+      }
+
+      const form = document.getElementById('editTaskForm');
+      const formData = new FormData(form);
+      
+      // ตรวจสอบข้อมูลที่จำเป็น
+      const title = formData.get('title')?.trim();
+      const dueDate = formData.get('dueDate');
+      
+      if (!title) {
+        this.showToast('กรุณากรอกชื่องาน', 'error');
+        return;
+      }
+      
+      if (!dueDate) {
+        this.showToast('กรุณาเลือกวันที่ครบกำหนด', 'error');
+        return;
+      }
+
+      // ตรวจสอบ assignees
+      const assigneeIds = Array.from(document.querySelectorAll('#editTaskAssignees .assignee-checkbox:checked'))
+        .map(input => input.value);
+      
+      if (assigneeIds.length === 0) {
+        this.showToast('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน', 'error');
+        return;
+      }
+
+      // สร้างข้อมูลสำหรับอัปเดต
+      const updateData = {
+        title: title,
+        dueTime: this.formatDateForAPI(dueDate),
+        priority: document.getElementById('editTaskPriority').value,
+        assigneeIds: assigneeIds,
+        description: formData.get('description')?.trim() || undefined,
+        tags: formData.get('tags') ? formData.get('tags').split(',').map(tag => tag.trim()).filter(tag => tag) : []
+      };
+
+      // อัปเดตงาน
+      await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks/${taskId}`, {
+        method: 'PUT',
+        body: JSON.stringify(updateData)
+      });
+
+      this.showToast('อัปเดตงานเรียบร้อยแล้ว', 'success');
+      this.closeModal('editTaskModal');
+      this.refreshCurrentView();
+
+    } catch (error) {
+      console.error('handleEditTask error:', error);
+      this.showToast('เกิดข้อผิดพลาดในการอัปเดตงาน', 'error');
     }
   }
 
