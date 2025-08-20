@@ -6,6 +6,7 @@ import { LineService } from '@/services/LineService';
 import { TaskService } from '@/services/TaskService';
 import { UserService } from '@/services/UserService';
 import { FileService } from '@/services/FileService';
+import { NotificationService } from '@/services/NotificationService';
 import { FlexMessageDesignSystem } from '@/services/FlexMessageDesignSystem';
 import { FlexMessageTemplateService } from '@/services/FlexMessageTemplateService';
 import { CommandService } from '@/services/CommandService';
@@ -22,6 +23,7 @@ class WebhookController {
   private taskService: TaskService;
   private userService: UserService;
   private fileService: FileService;
+  private notificationService: NotificationService;
   private commandService: CommandService;
 
   constructor() {
@@ -29,6 +31,7 @@ class WebhookController {
     this.taskService = serviceContainer.get<TaskService>('TaskService');
     this.userService = serviceContainer.get<UserService>('UserService');
     this.fileService = serviceContainer.get<FileService>('FileService');
+    this.notificationService = serviceContainer.get<NotificationService>('NotificationService');
     this.commandService = serviceContainer.get<CommandService>('CommandService');
   }
 
