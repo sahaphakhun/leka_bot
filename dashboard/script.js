@@ -1544,6 +1544,9 @@ class Dashboard {
     // load recipients UI
     this.renderReportRecipients();
     document.getElementById('saveRecipientsBtn')?.addEventListener('click', () => this.saveReportRecipients());
+
+    // รันรายงานอัตโนมัติครั้งแรกหลัง UI พร้อมแล้ว
+    this.runReports();
   }
 
   getReportQuery() {
@@ -2177,6 +2180,7 @@ class Dashboard {
     const select = document.getElementById('taskAssignees');
     const filter = document.getElementById('assigneeFilter');
     const reviewerSelect = document.getElementById('reviewerSelect');
+    const reportUserSelect = document.getElementById('reportUserSelect');
     
     if (select) {
       // แสดงเป็น checkbox list เพื่อเลือกหลายคนได้ง่าย
@@ -2203,6 +2207,17 @@ class Dashboard {
         if (hasCurrent) {
           reviewerSelect.value = this.currentUserId;
         }
+      }
+    }
+
+    // เติม dropdown ผู้ใช้ในหน้า Reports
+    if (reportUserSelect) {
+      const currentValue = reportUserSelect.value;
+      reportUserSelect.innerHTML = '<option value="">ทุกคนในกลุ่ม</option>' +
+        members.map(member => `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`).join('');
+      // คงค่าที่เลือกไว้ถ้ามีอยู่เดิม
+      if (currentValue && Array.from(reportUserSelect.options).some(opt => opt.value === currentValue)) {
+        reportUserSelect.value = currentValue;
       }
     }
   }

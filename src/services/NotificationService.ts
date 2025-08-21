@@ -325,7 +325,13 @@ export class NotificationService {
         const reviewer = await this.userService.findById(reviewerUserId);
         if (reviewer?.lineUserId) {
           // สร้างการ์ดแจ้งผู้ตรวจ
-          const reviewCard = FlexMessageTemplateService.createReviewRequestCard(task, group, { submitterDisplayName, fileCount, links }, moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm'));
+          const reviewCard = FlexMessageTemplateService.createReviewRequestCard(
+            task,
+            group,
+            { submitterDisplayName, fileCount, links },
+            moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm'),
+            reviewer.lineUserId
+          );
           await this.lineService.pushMessage(reviewer.lineUserId, reviewCard);
         }
       }
@@ -508,7 +514,12 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
+      FlexMessageDesignSystem.createButton(
+        'ดูรายละเอียด',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`,
+        'primary'
+      ),
       FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -547,7 +558,12 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
+      FlexMessageDesignSystem.createButton(
+        'ดูรายละเอียด',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`,
+        'primary'
+      ),
       FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -593,7 +609,12 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('รายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
+      FlexMessageDesignSystem.createButton(
+        'รายละเอียด',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`,
+        'primary'
+      ),
       FlexMessageDesignSystem.createButton('เสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -831,7 +852,7 @@ export class NotificationService {
 
       if (!approver?.lineUserId) return;
 
-      const flexMessage = FlexMessageTemplateService.createApprovalRequestCard(task, group, reviewer);
+      const flexMessage = FlexMessageTemplateService.createApprovalRequestCard(task, group, reviewer, approver.lineUserId);
       
       await this.lineService.pushMessage(approver.lineUserId, flexMessage);
       console.log(`✅ Sent approval request to: ${approver.displayName}`);
