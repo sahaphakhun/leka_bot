@@ -872,16 +872,19 @@ class ApiController {
   public async getLeaderboard(req: Request, res: Response): Promise<void> {
     try {
       const { groupId } = req.params;
-      const { period = 'weekly' } = req.query;
+      const { period = 'weekly', limit } = req.query;
 
       const leaderboard = await this.kpiService.getGroupLeaderboard(
         groupId, 
         period as 'weekly' | 'monthly' | 'all'
       );
 
+      // รองรับการจำกัดจำนวนผลลัพธ์
+      const limited = (limit ? leaderboard.slice(0, parseInt(limit as string)) : leaderboard);
+
       const response: ApiResponse<any> = {
         success: true,
-        data: leaderboard
+        data: limited
       };
 
       res.json(response);

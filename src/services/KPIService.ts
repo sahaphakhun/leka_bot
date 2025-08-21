@@ -308,10 +308,52 @@ export class KPIService {
       }
 
       // Execute query
-      const results = await queryBuilder
+      let results = await queryBuilder
         .groupBy('kpi.userId, user.displayName')
         .orderBy('averagePoints', 'DESC')
         .getRawMany();
+
+      // Fallback: หากไม่มี KPI เลยในช่วงเวลานั้น ให้คำนวณจากงานที่เสร็จในช่วงเวลา
+      if (!results || results.length === 0) {
+        const qb = this.taskRepository
+          .createQueryBuilder('task')
+          .leftJoin('task.assignedUsers', 'assignee')
+          .leftJoin(User, 'user', 'user.id = assignee.id')
+          .select([
+            'assignee.id as userId',
+            'user.displayName as displayName',
+            'COUNT(task.id) as tasksCompleted'
+          ])
+          .where('task.groupId = :groupId', { groupId: internalGroupId })
+          .andWhere('task.status = :status', { status: 'completed' })
+          .groupBy('assignee.id, user.displayName')
+          .orderBy('tasksCompleted', 'DESC');
+
+        // ช่วงเวลาอิงตาม period
+        if (period === 'weekly') {
+          const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
+          const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
+          qb.andWhere('task.completedAt BETWEEN :start AND :end', { start: weekStart, end: weekEnd });
+        } else if (period === 'monthly') {
+          const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
+          const monthEnd = moment().tz(config.app.defaultTimezone).endOf('month').toDate();
+          qb.andWhere('task.completedAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd });
+        }
+
+        const taskBased = await qb.getRawMany();
+        // map ให้มีฟิลด์เหมือน results เดิม
+        results = taskBased.map((r: any) => ({
+          userId: r.userId,
+          displayName: r.displayName,
+          averagePoints: 0,
+          totalPoints: 0,
+          tasksEarly: 0,
+          tasksOnTime: 0,
+          tasksLate: 0,
+          tasksOvertime: 0,
+          tasksCompleted: r.tasksCompleted
+        }));
+      }
 
       // แปลงเป็น Leaderboard format และคำนวณ trend
       const leaderboard: Leaderboard[] = [];
@@ -332,7 +374,7 @@ export class KPIService {
           displayName: result.displayName,
           weeklyPoints: period === 'weekly' ? safeAveragePoints : 0,
           monthlyPoints: period === 'monthly' ? safeAveragePoints : 0,
-          totalPoints: safeAveragePoints, // ใช้ค่าเฉลี่ยแทนการรวม
+          totalPoints: safeAveragePoints, // เมื่อ fallback จะเป็น 0 แต่ยังแสดงอันดับจาก tasksCompleted
           tasksCompleted: parseInt(result.tasksCompleted) || 0,
           tasksEarly: parseInt(result.tasksEarly) || 0,
           tasksOnTime: parseInt(result.tasksOnTime) || 0,
