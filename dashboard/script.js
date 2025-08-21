@@ -1409,6 +1409,17 @@ class Dashboard {
         if (this.initialAction === 'approve_extension') {
           this.openEditTaskModal();
         }
+        
+        // ถ้ามี taskId parameter ให้เปิด task modal โดยอัตโนมัติ
+        const taskId = this.getTaskIdFromUrl();
+        if (taskId) {
+          // เปลี่ยนไปหน้า tasks ก่อน แล้วค่อยเปิด modal
+          this.switchView('tasks');
+          // รอให้โหลดข้อมูลเสร็จแล้วค่อยเปิด modal
+          setTimeout(() => {
+            this.openTaskModal(taskId);
+          }, 500);
+        }
       } else {
         console.error('Invalid group response:', groupResponse);
         this.showGroupNotFoundMessage();

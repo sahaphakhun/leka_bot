@@ -73,7 +73,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -103,7 +103,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -145,7 +145,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -251,7 +251,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -288,7 +288,7 @@ export class FlexMessageTemplateService {
     const buttons = [
       FlexMessageDesignSystem.createButton('✅', 'postback', `action=approve_review&taskId=${task.id}`, 'primary'),
       FlexMessageDesignSystem.createButton('❌', 'postback', `action=reject_task&taskId=${task.id}`, 'secondary'),
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -320,7 +320,7 @@ export class FlexMessageTemplateService {
 
     const buttons = [
       FlexMessageDesignSystem.createButton('✅', 'postback', `action=approve_completion&taskId=${task.id}`, 'primary'),
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -352,7 +352,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
       FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -385,7 +385,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
       FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -418,7 +418,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
       FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -436,18 +436,27 @@ export class FlexMessageTemplateService {
    * สร้างการ์ดรายงานรายวัน
    */
   static createDailySummaryCard(group: any, tasks: any[], timezone: string): FlexMessage {
-    // งานที่กำลังดำเนินการ = ทุกงานที่ยังไม่เลยกำหนดและยังไม่ส่ง
+    const now = moment().tz(timezone);
+    const today = now.clone().startOf('day');
+    const tomorrow = now.clone().add(1, 'day').startOf('day');
+    
+    // งานที่กำลังดำเนินการ = ทุกงานที่ยังไม่เสร็จและยังไม่ถูกยกเลิก
     const inProgressTasks = tasks.filter(t => 
       t.status === 'in_progress' || 
       t.status === 'pending' || 
-      (t.status === 'submitted' && !t.isCompleted)
+      t.status === 'submitted' ||
+      t.status === 'overdue'
     );
     
-    // งานที่ดำเนินการแล้ว = งานที่เสร็จแล้วหรือส่งแล้ว
-    const completedTasks = tasks.filter(t => 
-      t.status === 'completed' || 
-      (t.status === 'submitted' && t.isCompleted)
-    );
+    // งานที่เสร็จแล้ววันนี้ = งานที่มี status เป็น completed และ completedAt อยู่ในวันนี้
+    const completedTodayTasks = tasks.filter(t => {
+      if (t.status !== 'completed' || !t.completedAt) return false;
+      const completedAt = moment(t.completedAt).tz(timezone);
+      return completedAt.isBetween(today, tomorrow, null, '[)');
+    });
+    
+    // งานที่เสร็จแล้วทั้งหมด (รวมวันก่อนหน้า)
+    const allCompletedTasks = tasks.filter(t => t.status === 'completed');
     
     const date = moment().tz(timezone).format('DD/MM/YYYY');
 
@@ -504,8 +513,24 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText(inProgressTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.warning, 'bold')
         ]), flex: 1 },
         { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('✅ ดำเนินการแล้ว', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(completedTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.success, 'bold')
+          FlexMessageDesignSystem.createText('✅ เสร็จวันนี้', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(completedTodayTasks.length.toString(), 'md', FlexMessageDesignSystem.colors.success, 'bold')
+        ]), flex: 1 }
+      ], 'medium'),
+      
+      // เพิ่มแถวสองสำหรับสถิติเพิ่มเติม
+      FlexMessageDesignSystem.createBox('horizontal', [
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('🏁 เสร็จทั้งหมด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(allCompletedTasks.length.toString(), 'sm', FlexMessageDesignSystem.colors.success)
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('⚠️ เกินกำหนด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(tasks.filter(t => t.status === 'overdue').length.toString(), 'sm', FlexMessageDesignSystem.colors.danger)
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('📝 รอตรวจ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(tasks.filter(t => t.status === 'in_progress').length.toString(), 'sm', FlexMessageDesignSystem.colors.info)
         ]), flex: 1 }
       ], 'medium'),
       
@@ -768,7 +793,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText('ไม่มีไฟล์แนบ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
         ],
         [
-          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
         ],
         'large'
       );
@@ -831,7 +856,7 @@ export class FlexMessageTemplateService {
 
     const buttons = [
       ...fileButtons,
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -860,7 +885,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText('ไม่มีไฟล์แนบ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
         ],
         [
-          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
         ],
         'large'
       );
@@ -897,7 +922,7 @@ export class FlexMessageTemplateService {
 
     const buttons = [
       ...fileButtons, // ปุ่มดาวน์โหลดไฟล์แต่ละไฟล์
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(

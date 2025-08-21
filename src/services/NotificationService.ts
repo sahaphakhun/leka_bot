@@ -387,7 +387,7 @@ export class NotificationService {
       : [];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
       ...(fileCount > 0 ? [
         FlexMessageDesignSystem.createButton('ดูไฟล์แนบทั้งหมด', 'postback', `action=show_task_files&taskId=${task.id}&groupId=${group.id}`, 'secondary')
       ] : []),
@@ -429,7 +429,7 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -480,7 +480,7 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -508,7 +508,7 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
       FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -547,7 +547,7 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
       FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
     ];
 
@@ -593,7 +593,7 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('รายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('รายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
       FlexMessageDesignSystem.createButton('เสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
     ];
 

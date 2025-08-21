@@ -57,7 +57,7 @@ export class KPIService {
         ? moment(options.endDate).tz(config.app.defaultTimezone)
         : options.period === 'monthly' ? now.clone().endOf('month') : now.clone().endOf('week');
 
-      // KPI จากการปิดงาน
+      // KPI จากการปิดงาน - ใช้ข้อมูล KPI record ที่บันทึกไว้
       let kpiQB = this.kpiRepository
         .createQueryBuilder('kpi')
         .select([
@@ -75,7 +75,25 @@ export class KPIService {
       }
 
       const kpiRow: any = await kpiQB.getRawOne();
-      const completed = parseInt(kpiRow?.completed || '0');
+      let completed = parseInt(kpiRow?.completed || '0');
+      
+      // ถ้าไม่มี KPI record ให้ fallback ไปดูจาก task status แทน
+      if (completed === 0) {
+        let taskCompletedQB = this.taskRepository
+          .createQueryBuilder('task')
+          .where('task.groupId = :groupId', { groupId: internalGroupId })
+          .andWhere('task.status = :status', { status: 'completed' })
+          .andWhere('task.completedAt BETWEEN :start AND :end', { start: periodStart.toDate(), end: periodEnd.toDate() });
+          
+        if (options.userId) {
+          taskCompletedQB = taskCompletedQB
+            .leftJoin('task.assignedUsers', 'assignee')
+            .andWhere('assignee.id = :uid', { uid: options.userId });
+        }
+        
+        completed = await taskCompletedQB.getCount();
+      }
+      
       const early = parseInt(kpiRow?.early || '0');
       const ontime = parseInt(kpiRow?.ontime || '0');
       const late = parseInt(kpiRow?.late || '0');
@@ -496,7 +514,7 @@ export class KPIService {
 
       let avgCompletionTime = 0;
       if (completedTasksWithTime.length > 0) {
-        const totalTime = completedTasksWithTime.reduce((sum, task) => {
+        const totalTime = completedTasksWithTime.reduce((sum: number, task: any) => {
           const diff = moment(task.completedAt).tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
           return sum + Math.abs(diff);
         }, 0);
@@ -673,7 +691,7 @@ export class KPIService {
         .orderBy('kpi.eventDate', 'DESC')
         .getMany();
 
-      return records.map(record => ({
+      return records.map((record: any) => ({
         วันที่: moment(record.eventDate).tz(config.app.defaultTimezone).format('DD/MM/YYYY'),
         ผู้ใช้: record.user.displayName,
         งาน: record.task.title,
@@ -757,22 +775,27 @@ export class KPIService {
       if (groupByLineId) internalGroupId = groupByLineId.id;
 
       const now = moment().tz(config.app.defaultTimezone);
-      const today = now.clone().startOf('day');
+      const today = now.clone().startOf('day').toDate();
+      const tomorrow = now.clone().add(1, 'day').startOf('day').toDate();
 
-      // งานทั้งหมดในกลุ่ม
+      // งานทั้งหมดในกลุ่ม (ที่ยังไม่ถูกยกเลิก)
       const totalTasks = await this.taskRepository.count({
-        where: { groupId: internalGroupId }
-      });
-
-      // งานที่เสร็จแล้ววันนี้
-      const completedTasks = await this.taskRepository.count({
-        where: {
+        where: { 
           groupId: internalGroupId,
-          status: 'completed'
+          status: { $ne: 'cancelled' } as any
         }
       });
 
-      // งานที่เกินกำหนด
+      // งานที่เสร็จแล้ววันนี้ (ใช้ completedAt แทน status เพื่อความแม่นยำ)
+      const completedTasks = await this.taskRepository
+        .createQueryBuilder('task')
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('task.status = :status', { status: 'completed' })
+        .andWhere('task.completedAt >= :today', { today })
+        .andWhere('task.completedAt < :tomorrow', { tomorrow })
+        .getCount();
+
+      // งานที่เกินกำหนด (ทั้งหมดในกลุ่ม)
       const overdueTasks = await this.taskRepository.count({
         where: {
           groupId: internalGroupId,
@@ -787,6 +810,8 @@ export class KPIService {
           status: 'in_progress'
         }
       });
+
+      console.log(`📊 Daily stats for group ${groupId}: Total=${totalTasks}, Completed today=${completedTasks}, Overdue=${overdueTasks}, Pending review=${pendingReviewTasks}`);
 
       return {
         totalTasks,

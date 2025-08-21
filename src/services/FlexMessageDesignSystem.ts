@@ -469,7 +469,7 @@ export class FlexMessageDesignSystem {
     
     // สร้างปุ่มมาตรฐาน
     const buttons = [
-      this.createButton('ดูรายละเอียด', 'uri', `${this.getBaseUrl()}/dashboard?taskId=${taskData.id}`, 'primary')
+      this.createButton('ดูรายละเอียด', 'uri', `${this.getBaseUrl()}/dashboard?taskId=${taskData.id}&action=view`, 'primary')
     ];
     
     return this.createStandardTaskCard(

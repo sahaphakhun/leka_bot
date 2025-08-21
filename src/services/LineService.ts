@@ -553,7 +553,7 @@ export class LineService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?taskId=${task.id}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?taskId=${task.id}&action=view`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
