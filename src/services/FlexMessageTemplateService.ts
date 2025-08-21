@@ -18,11 +18,27 @@ export class FlexMessageTemplateService {
     const priorityColor = FlexMessageDesignSystem.getPriorityColor(task.priority);
     const priorityText = FlexMessageDesignSystem.getPriorityText(task.priority);
 
+    // ตรวจสอบไฟล์แนบ
+    const attachedFiles = task.attachedFiles || [];
+    const fileCount = attachedFiles.length;
+
     const content = [
       FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`👤 ผู้สร้าง: ${creator?.displayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       ...(priorityText ? [FlexMessageDesignSystem.createText(`🎯 ${priorityText}`, 'sm', priorityColor, 'bold')] : []),
+      
+      // แสดงข้อมูลไฟล์แนบถ้ามี
+      ...(fileCount > 0 ? [
+        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+        ...attachedFiles.slice(0, 3).map((file: any) => 
+          FlexMessageDesignSystem.createText(`  • ${file.originalName || file.fileName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ),
+        ...(fileCount > 3 ? [
+          FlexMessageDesignSystem.createText(`  และอีก ${fileCount - 3} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      ] : []),
+      
       ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : []),
       ...(tagsText ? [FlexMessageDesignSystem.createText(tagsText, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
     ];
@@ -78,10 +94,20 @@ export class FlexMessageTemplateService {
     const completionScore = this.calculateCompletionScore(task);
     const scoreColor = completionScore >= 90 ? FlexMessageDesignSystem.colors.success : completionScore >= 70 ? FlexMessageDesignSystem.colors.warning : FlexMessageDesignSystem.colors.danger;
 
+    // ตรวจสอบไฟล์แนบ
+    const attachedFiles = task.attachedFiles || [];
+    const fileCount = attachedFiles.length;
+
     const content = [
       FlexMessageDesignSystem.createText(`👤 ปิดงานโดย: ${completedBy.displayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`🎯 เสร็จเมื่อ: ${moment(task.completedAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm')}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      
+      // แสดงข้อมูลไฟล์แนบถ้ามี
+      ...(fileCount > 0 ? [
+        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold')
+      ] : []),
+      
       FlexMessageDesignSystem.createText(`${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
       FlexMessageDesignSystem.createBox('horizontal', [
         FlexMessageDesignSystem.createText('คะแนน:', 'sm', FlexMessageDesignSystem.colors.textSecondary),
@@ -115,10 +141,20 @@ export class FlexMessageTemplateService {
     const priorityColor = FlexMessageDesignSystem.getPriorityColor(task.priority);
     const priorityText = FlexMessageDesignSystem.getPriorityText(task.priority);
 
+    // ตรวจสอบไฟล์แนบ
+    const attachedFiles = task.attachedFiles || [];
+    const fileCount = attachedFiles.length;
+
     const content = [
       FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueText}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       ...(priorityText ? [FlexMessageDesignSystem.createText(`🎯 ${priorityText}`, 'sm', priorityColor, 'bold')] : []),
+      
+      // แสดงข้อมูลไฟล์แนบถ้ามี
+      ...(fileCount > 0 ? [
+        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold')
+      ] : []),
+      
       ...(tagsText ? [FlexMessageDesignSystem.createText(tagsText, 'sm', FlexMessageDesignSystem.colors.textSecondary)] : []),
       ...(changedFields.length > 0 ? [FlexMessageDesignSystem.createText(`🔧 เปลี่ยนแปลง: ${changedFields.join(', ')}`, 'sm', FlexMessageDesignSystem.colors.warning, 'bold')] : [])
     ];

@@ -40,7 +40,7 @@ export class TaskService {
     try {
       const task = await this.taskRepository.findOne({
         where: { id: taskId },
-        relations: ['assignedUsers', 'createdByUser', 'group']
+        relations: ['assignedUsers', 'createdByUser', 'group', 'attachedFiles']
       });
       return task || null;
     } catch (error) {
@@ -69,6 +69,7 @@ export class TaskService {
     requireAttachment?: boolean;
     reviewerUserId?: string; // ผู้สั่งงาน/ผู้ตรวจ
     _tempId?: string; // สำหรับป้องกันการสร้างงานซ้ำ
+    fileIds?: string[]; // ไฟล์ที่แนบมาตอนสร้างงาน
   }): Promise<Task> {
     try {
       // ค้นหา Group entity จาก LINE Group ID หรือ internal UUID
@@ -194,6 +195,26 @@ export class TaskService {
         await this.taskRepository.save(savedTask);
       }
 
+      // ผูกไฟล์เข้ากับงานถ้ามีการแนบไฟล์มาตอนสร้างงาน
+      if (data.fileIds && data.fileIds.length > 0) {
+        try {
+          for (const fileId of data.fileIds) {
+            await this.fileService.linkFileToTask(fileId, savedTask.id);
+            // อัปเดตข้อมูลไฟล์ให้เชื่อมโยงกับกลุ่มและเปลี่ยนสถานะ
+            const file = await this.fileRepository.findOneBy({ id: fileId });
+            if (file) {
+              file.groupId = group.id;
+              file.folderStatus = 'in_progress'; // งานยังไม่เสร็จ
+              await this.fileRepository.save(file);
+            }
+          }
+          console.log(`✅ Linked ${data.fileIds.length} files to task: ${savedTask.title}`);
+        } catch (error) {
+          console.warn('⚠️ Failed to link some files to task:', error);
+          // ไม่ throw error เพราะไม่ต้องการให้การสร้างงานล้มเหลว
+        }
+      }
+
       // ซิงค์ไปยัง Google Calendar
       try {
         if (group.settings.googleCalendarId) {
@@ -240,7 +261,7 @@ export class TaskService {
       // โหลด task พร้อม relations เพื่อ return ข้อมูลครบถ้วน
       const taskWithRelations = await this.taskRepository.findOne({
         where: { id: savedTask.id },
-        relations: ['assignedUsers', 'createdByUser', 'group']
+        relations: ['assignedUsers', 'createdByUser', 'group', 'attachedFiles']
       });
 
       // ส่งการแจ้งเตือนงานใหม่

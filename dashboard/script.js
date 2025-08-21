@@ -197,6 +197,18 @@ class Dashboard {
     document.getElementById('reviewTaskModalClose')?.addEventListener('click', () => {
       this.closeModal('reviewTaskModal');
     });
+
+    // File Viewer Modal handlers
+    document.getElementById('fileViewerClose')?.addEventListener('click', () => {
+      this.closeModal('fileViewerModal');
+    });
+    
+    // ปิด File Viewer Modal เมื่อคลิกนอก content
+    document.getElementById('fileViewerModal')?.addEventListener('click', (e) => {
+      if (e.target.id === 'fileViewerModal') {
+        this.closeModal('fileViewerModal');
+      }
+    });
     document.getElementById('cancelReviewTask')?.addEventListener('click', () => {
       this.closeModal('reviewTaskModal');
     });
@@ -1661,7 +1673,8 @@ class Dashboard {
       const assignees = (task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || '-';
       const statusClass = this.getStatusClass(task.status);
       const priorityClass = this.getPriorityClass(task.priority);
-      const hasAttachments = task.attachedFiles && task.attachedFiles.length > 0;
+      // ตรวจสอบไฟล์แนบอย่างถูกต้อง - ต้องมีไฟล์จริงๆ และมีขนาดมากกว่า 0
+      const hasAttachments = task.attachedFiles && Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0;
       
       return `
         <div class="task-item" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer;" 
@@ -1854,28 +1867,54 @@ class Dashboard {
       return;
     }
 
-    container.innerHTML = files.map(file => `
-      <div class="file-item" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer;"
-           data-file-id="${file.id}">
-        <div class="file-icon" style="text-align: center; margin-bottom: 12px;">
-          <i class="fas ${this.getFileIcon(file.mimeType)}" style="font-size: 2rem; color: #6b7280;"></i>
-        </div>
-        <div class="file-name" style="font-weight: 500; margin-bottom: 4px;">${file.originalName}</div>
-        <div class="file-meta" style="font-size: 0.875rem; color: #6b7280;">
-          ${this.formatFileSize(file.size)} • ${this.formatDate(file.uploadedAt)}
-        </div>
-        ${file.taskNames && file.taskNames.length > 0 ? `
-          <div class="file-task" style="font-size: 0.875rem; color: #374151; margin-top: 4px;">
-            จากงาน: ${file.taskNames.join(', ')}
+    container.innerHTML = files.map(file => {
+      const isImage = file.mimeType.startsWith('image/');
+      const thumbnailUrl = isImage ? `${this.apiBase}/api/groups/${this.currentGroupId}/files/${file.id}/download` : null;
+      
+      return `
+        <div class="file-item" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.2s ease;"
+             data-file-id="${file.id}" onclick="app.viewFile('${file.id}')">
+          <div class="file-item-preview" style="position: relative; margin-bottom: 12px;">
+            ${isImage ? `
+              <img src="${thumbnailUrl}" alt="${file.originalName}" class="file-thumbnail" 
+                   style="width: 100%; height: 120px; object-fit: cover; border-radius: 8px;"
+                   onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+              <div class="file-icon" style="display: none; text-align: center; height: 120px; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px;">
+                <i class="fas ${this.getFileIcon(file.mimeType)}" style="font-size: 2rem; color: #6b7280;"></i>
+              </div>
+            ` : `
+              <div class="file-icon" style="text-align: center; height: 120px; display: flex; align-items: center; justify-content: center; background: #f8f9fa; border-radius: 8px;">
+                <i class="fas ${this.getFileIcon(file.mimeType)}" style="font-size: 2.5rem; color: #6b7280;"></i>
+              </div>
+            `}
           </div>
-        ` : ''}
-        ${file.tags && file.tags.length > 0 ? `
-          <div class="file-tags" style="margin-top: 8px;">
-            ${file.tags.map(tag => `<span style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px;">#${tag}</span>`).join('')}
+          <div class="file-name" style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">${file.originalName}</div>
+          <div class="file-meta" style="font-size: 0.875rem; color: #6b7280;">
+            ${this.formatFileSize(file.size)} • ${this.formatDate(file.uploadedAt)}
           </div>
-        ` : ''}
-      </div>
-    `).join('');
+          ${file.taskNames && file.taskNames.length > 0 ? `
+            <div class="file-task" style="font-size: 0.875rem; color: #374151; margin-top: 4px;">
+              จากงาน: ${file.taskNames.join(', ')}
+            </div>
+          ` : ''}
+          ${file.tags && file.tags.length > 0 ? `
+            <div class="file-tags" style="margin-top: 8px;">
+              ${file.tags.map(tag => `<span style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px;">#${tag}</span>`).join('')}
+            </div>
+          ` : ''}
+          <div class="file-actions" style="margin-top: 8px; display: flex; gap: 8px;">
+            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.downloadFile('${file.id}')" 
+                    style="flex: 1; padding: 4px 8px; font-size: 0.75rem;">
+              <i class="fas fa-download"></i> ดาวน์โหลด
+            </button>
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.viewFile('${file.id}')" 
+                    style="flex: 1; padding: 4px 8px; font-size: 0.75rem;">
+              <i class="fas fa-eye"></i> ดู
+            </button>
+          </div>
+        </div>
+      `;
+    }).join('');
   }
 
   updateLeaderboard(users) {
@@ -2134,12 +2173,25 @@ class Dashboard {
             ${attachedFiles.length > 0 ? `
               <div class="task-attachments">
                 <h4>📎 ไฟล์แนบ (${attachedFiles.length})</h4>
-                <div class="attachments-list">
+                <div class="attachments-list" style="display: grid; gap: 8px;">
                   ${attachedFiles.map(file => `
-                    <div class="attachment-item" onclick="app.downloadFile('${file.id}')">
-                      <i class="fas ${this.getFileIcon(file.mimeType)}"></i>
-                      <span class="file-name">${file.originalName}</span>
-                      <span class="file-size">${this.formatFileSize(file.size)}</span>
+                    <div class="attachment-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;" 
+                         onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='#f8f9fa'">
+                      <i class="fas ${this.getFileIcon(file.mimeType)}" style="font-size: 1.2rem; color: #6b7280; width: 20px;"></i>
+                      <div style="flex: 1; min-width: 0;">
+                        <div class="file-name" style="font-weight: 500; word-break: break-word;">${file.originalName}</div>
+                        <div class="file-size" style="font-size: 0.875rem; color: #6b7280;">${this.formatFileSize(file.size)}</div>
+                      </div>
+                      <div style="display: flex; gap: 4px;">
+                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.viewFile('${file.id}')" 
+                                style="padding: 4px 8px; font-size: 0.75rem;">
+                          <i class="fas fa-eye"></i> ดู
+                        </button>
+                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.downloadFile('${file.id}')" 
+                                style="padding: 4px 8px; font-size: 0.75rem;">
+                          <i class="fas fa-download"></i>
+                        </button>
+                      </div>
                     </div>
                   `).join('')}
                 </div>
@@ -2842,6 +2894,94 @@ class Dashboard {
     }
   }
 
+  async viewFile(fileId) {
+    try {
+      // แสดง loading
+      const modal = document.getElementById('fileViewerModal');
+      const loading = document.getElementById('fileViewerLoading');
+      const content = document.getElementById('fileViewerContent');
+      const title = document.getElementById('fileViewerTitle');
+      
+      modal.classList.add('active');
+      loading.style.display = 'flex';
+      content.innerHTML = '';
+      
+      // ดึงข้อมูลไฟล์
+      const fileResponse = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}`);
+      if (!fileResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลไฟล์ได้');
+      
+      const fileData = await fileResponse.json();
+      title.textContent = fileData.originalName;
+      
+      // ตั้งค่าปุ่มดาวน์โหลด
+      const downloadBtn = document.getElementById('downloadFileBtn');
+      downloadBtn.onclick = () => this.downloadFile(fileId);
+      
+      // สร้างเนื้อหาตามประเภทไฟล์
+      const mimeType = fileData.mimeType;
+      let fileContent = '';
+      
+      if (mimeType.startsWith('image/')) {
+        // แสดงรูปภาพ
+        const imageUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        fileContent = `<img src="${imageUrl}" alt="${fileData.originalName}" style="max-width: 100%; max-height: 70vh; object-fit: contain;">`;
+      } else if (mimeType === 'application/pdf') {
+        // แสดง PDF
+        const pdfUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        fileContent = `<iframe src="${pdfUrl}" style="width: 100%; height: 70vh; border: none;"></iframe>`;
+      } else if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml')) {
+        // แสดงไฟล์ข้อความ
+        const textResponse = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`);
+        const textContent = await textResponse.text();
+        fileContent = `<pre style="background: #f8f9fa; padding: 20px; border-radius: 8px; overflow: auto; max-height: 60vh; white-space: pre-wrap; font-family: 'Courier New', monospace;">${this.escapeHtml(textContent)}</pre>`;
+      } else if (mimeType.startsWith('video/')) {
+        // แสดงวิดีโอ
+        const videoUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        fileContent = `<video controls style="max-width: 100%; max-height: 70vh;"><source src="${videoUrl}" type="${mimeType}">ไม่สามารถแสดงวิดีโอได้</video>`;
+      } else if (mimeType.startsWith('audio/')) {
+        // แสดงเสียง
+        const audioUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        fileContent = `
+          <div class="file-preview-placeholder">
+            <i class="fas fa-music"></i>
+            <h3>${fileData.originalName}</h3>
+            <audio controls style="margin-top: 20px;">
+              <source src="${audioUrl}" type="${mimeType}">
+              ไม่สามารถเล่นเสียงได้
+            </audio>
+          </div>
+        `;
+      } else {
+        // ไฟล์ประเภทอื่นๆ ที่ไม่สามารถแสดงได้
+        fileContent = `
+          <div class="file-preview-placeholder">
+            <i class="fas ${this.getFileIcon(mimeType)}"></i>
+            <h3>${fileData.originalName}</h3>
+            <p>ขนาด: ${this.formatFileSize(fileData.size)}</p>
+            <p>ไม่สามารถแสดงตัวอย่างไฟล์ประเภทนี้ได้</p>
+            <button class="btn btn-primary" onclick="app.downloadFile('${fileId}')">
+              <i class="fas fa-download"></i> ดาวน์โหลดเพื่อดู
+            </button>
+          </div>
+        `;
+      }
+      
+      content.innerHTML = fileContent;
+      loading.style.display = 'none';
+      
+    } catch (error) {
+      console.error('Failed to view file:', error);
+      this.showToast('ไม่สามารถแสดงไฟล์ได้', 'error');
+      document.getElementById('fileViewerModal').classList.remove('active');
+    }
+  }
+
+  escapeHtml(text) {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   // ==================== 
   // Helper Functions
   // ==================== 
@@ -2944,10 +3084,14 @@ class Dashboard {
     if (mimeType.startsWith('video/')) return 'fa-video';
     if (mimeType.startsWith('audio/')) return 'fa-music';
     if (mimeType.includes('pdf')) return 'fa-file-pdf';
-    if (mimeType.includes('word')) return 'fa-file-word';
-    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'fa-file-excel';
+    if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml')) return 'fa-file-word';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('sheet')) return 'fa-file-excel';
     if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'fa-file-powerpoint';
-    if (mimeType.includes('zip') || mimeType.includes('rar')) return 'fa-file-archive';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('tar') || mimeType.includes('gz')) return 'fa-file-archive';
+    if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('csv')) return 'fa-file-alt';
+    if (mimeType.includes('javascript') || mimeType.includes('typescript')) return 'fa-file-code';
+    if (mimeType.includes('html') || mimeType.includes('css')) return 'fa-file-code';
+    if (mimeType.includes('python') || mimeType.includes('java') || mimeType.includes('cpp') || mimeType.includes('c++')) return 'fa-file-code';
     return 'fa-file';
   }
 

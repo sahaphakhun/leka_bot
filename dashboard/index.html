@@ -741,6 +741,33 @@
         </div>
     </div>
 
+    <!-- File Viewer Modal -->
+    <div id="fileViewerModal" class="modal">
+        <div class="modal-content file-viewer-content">
+            <div class="modal-header">
+                <h3 id="fileViewerTitle">ดูไฟล์</h3>
+                <div class="file-viewer-actions">
+                    <button class="btn btn-outline btn-sm" id="downloadFileBtn">
+                        <i class="fas fa-download"></i>
+                        ดาวน์โหลด
+                    </button>
+                    <button class="modal-close" id="fileViewerClose">
+                        <i class="fas fa-times"></i>
+                    </button>
+                </div>
+            </div>
+            <div class="modal-body file-viewer-body">
+                <div id="fileViewerContent">
+                    <!-- จะใส่เนื้อหาไฟล์ด้วย JavaScript -->
+                </div>
+                <div id="fileViewerLoading" class="file-viewer-loading" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>กำลังโหลดไฟล์...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Toast Notifications -->
     <div id="toastContainer" class="toast-container">
         <!-- จะใส่ด้วย JavaScript -->

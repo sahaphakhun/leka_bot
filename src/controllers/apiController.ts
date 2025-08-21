@@ -124,7 +124,8 @@ class ApiController {
         priority: taskData.priority,
         tags: taskData.tags,
         requireAttachment: taskData.requireAttachment,
-        reviewerUserId: taskData.reviewerUserId
+        reviewerUserId: taskData.reviewerUserId,
+        fileIds: taskData.fileIds
       });
 
       // ตรวจสอบ required fields

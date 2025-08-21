@@ -46,6 +46,7 @@ export interface TaskCardData {
   completedBy?: string;
   completedAt?: Date;
   fileCount?: number;
+  attachedFiles?: any[]; // ไฟล์ที่แนบกับงาน
   links?: string[];
   changes?: Record<string, any>;
   changedFields?: string[];
@@ -320,7 +321,7 @@ export class FlexMessageDesignSystem {
 
   // สร้าง template สำหรับการ์ดข้อมูลงาน
   static createTaskInfoCard(taskData: TaskCardData, type: string): FlexMessage {
-    const { title, description, dueTime, assignees, priority, tags, status } = taskData;
+    const { title, description, dueTime, assignees, priority, tags, status, attachedFiles, fileCount } = taskData;
     
     // กำหนดสีและอิโมจิตามประเภท
     const typeConfig = this.getTypeConfig(type);
@@ -349,6 +350,38 @@ export class FlexMessageDesignSystem {
           'bold'
         )
       );
+    }
+
+    // แสดงข้อมูลไฟล์แนบ
+    const totalFiles = fileCount || (attachedFiles ? attachedFiles.length : 0);
+    if (totalFiles > 0) {
+      content.push(
+        this.createText(`📎 ไฟล์แนบ: ${totalFiles} ไฟล์`, 'sm', this.colors.textPrimary, 'bold')
+      );
+      
+      // แสดงรายชื่อไฟล์ (สูงสุด 3 ไฟล์แรก)
+      if (attachedFiles && attachedFiles.length > 0) {
+        const filesToShow = attachedFiles.slice(0, 3);
+        for (const file of filesToShow) {
+          content.push(
+            this.createText(
+              `  • ${file.originalName || file.fileName}`,
+              'xs',
+              this.colors.textSecondary
+            )
+          );
+        }
+        
+        if (attachedFiles.length > 3) {
+          content.push(
+            this.createText(
+              `  และอีก ${attachedFiles.length - 3} ไฟล์...`,
+              'xs',
+              this.colors.textSecondary
+            )
+          );
+        }
+      }
     }
     
     if (tags && tags.length > 0) {
