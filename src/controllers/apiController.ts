@@ -16,6 +16,7 @@ import { validateRequest, taskSchemas } from '@/middleware/validation';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
 import { config } from '@/utils/config';
+import { autoMigration } from '@/utils/autoMigration';
 
 export const apiRouter = Router();
 const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
@@ -1264,6 +1265,44 @@ class ApiController {
       });
     }
   }
+
+  /**
+   * POST /api/admin/migrate - รัน migration แบบ manual
+   */
+  public async runMigration(req: Request, res: Response): Promise<void> {
+    try {
+      console.log('🔄 เริ่มรัน manual migration...');
+      
+      // ตรวจสอบว่าต้องรัน migration หรือไม่
+      const needsMigration = await autoMigration.checkMigrationNeeded();
+      console.log(`🔍 ตรวจสอบ migration: ${needsMigration ? 'ต้องรัน' : 'ไม่ต้องรัน'}`);
+      
+      if (needsMigration) {
+        await autoMigration.runAutoMigration();
+        console.log('✅ Migration เสร็จสิ้น');
+        res.json({ 
+          success: true, 
+          message: 'Migration completed successfully',
+          migrationRan: true
+        });
+      } else {
+        console.log('✅ Database schema ครบถ้วนแล้ว');
+        res.json({ 
+          success: true, 
+          message: 'Database schema is already up to date',
+          migrationRan: false
+        });
+      }
+      
+    } catch (error) {
+      console.error('❌ Migration failed:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Migration failed',
+        migrationRan: false
+      });
+    }
+  }
 }
 
 const apiController = new ApiController();
@@ -1356,6 +1395,9 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
     upload.array('attachments', 10),
     apiController.uploadFiles.bind(apiController)
   );
+
+  // Manual migration endpoint (for Railway deployment)
+  apiRouter.post('/admin/migrate', apiController.runMigration.bind(apiController));
 
   // Notification Card routes
   apiRouter.post('/notifications/cards', apiController.createNotificationCard.bind(apiController));
