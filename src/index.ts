@@ -44,10 +44,19 @@ class Server {
             "'unsafe-inline'", // Required for inline scripts in dashboard
             "https://cdnjs.cloudflare.com" // Allow moment.js from CDN
           ],
-          styleSrc: ["'self'", "'unsafe-inline'"],
+          styleSrc: [
+            "'self'", 
+            "'unsafe-inline'",
+            "https://fonts.googleapis.com", // Allow Google Fonts
+            "https://cdnjs.cloudflare.com" // Allow Font Awesome from CDN
+          ],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'"],
-          fontSrc: ["'self'"],
+          fontSrc: [
+            "'self'",
+            "https://fonts.gstatic.com", // Allow Google Fonts
+            "https://cdnjs.cloudflare.com" // Allow Font Awesome fonts
+          ],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'"],
           frameSrc: ["'none'"]
