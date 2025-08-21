@@ -178,8 +178,13 @@ class WebhookController {
           if (user) {
             const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
             if (tasks.length > 0) {
+              // หาไฟล์ที่ส่งล่าสุด (24 ชม.) เพื่อแสดงในการ์ด
+              const personalGroupId = user.id;
+              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+              
               // แสดงการ์ดใหญ่แสดงงานทั้งหมด พร้อมคำแนะนำการส่งงาน
-              const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, [], user);
+              const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, files, user);
               const guideText =
                 '💡 **วิธีการส่งงาน (มาตรฐานใหม่):**\n\n' +
                 `📝 เลือกงานที่ต้องการส่งโดยพิมพ์เลข 1-${tasks.length} ในแชท\n\n` +
@@ -215,7 +220,7 @@ class WebhookController {
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
-              // แสดงการ์ดยืนยันการส่งงาน
+              // แสดงการ์ดยืนยันการส่งงานแบบมาตรฐาน
               const confirmationCard = FlexMessageTemplateService.createTaskSubmissionConfirmationCard(selectedTask, files, user);
               await this.lineService.replyMessage(replyToken!, confirmationCard);
             } else {
@@ -228,6 +233,21 @@ class WebhookController {
           }
         } catch (err: any) {
           await this.safeReplyError(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+        }
+        return;
+      }
+
+      // ตรวจสอบคำสั่งแสดง Flow การส่งงาน
+      if (trimmedText === 'flow' || trimmedText === 'Flow' || trimmedText === 'FLOW') {
+        try {
+          const user = await this.userService.findByLineUserId(userId);
+          if (user) {
+            // แสดงการ์ด Flow การส่งงานที่ชัดเจน
+            const flowCard = FlexMessageTemplateService.createTaskSubmissionFlowCard(user);
+            await this.lineService.replyMessage(replyToken!, flowCard);
+          }
+        } catch (err: any) {
+          await this.safeReplyError(replyToken!, `❌ ไม่สามารถแสดง Flow การส่งงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
         }
         return;
       }
@@ -457,9 +477,16 @@ class WebhookController {
           break;
         }
 
-        case 'submit_cancel':
-          await this.lineService.replyMessage(replyToken, 'ยกเลิกการส่งงานแล้ว');
+        case 'submit_cancel': {
+          await this.lineService.replyMessage(replyToken, 
+            '❌ ยกเลิกการส่งงานแล้ว\n\n' +
+            '💡 **ตัวเลือกต่อไป:**\n' +
+            '• พิมพ์ "ส่งงาน" เพื่อดูรายการงานใหม่\n' +
+            '• เลือกงานอื่นจากรายการ\n' +
+            '• ส่งไฟล์เพิ่มเติมก่อนเลือกงาน'
+          );
           break;
+        }
 
         case 'submit_with_files': {
           const taskId = params.get('taskId')!;
@@ -593,6 +620,26 @@ class WebhookController {
               }
             } catch (err: any) {
               await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงการ์ดยืนยันการส่งงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          } else {
+            // ถ้าไม่มี taskId ให้แสดงงานที่ต้องส่งทั้งหมด
+            try {
+              const user = await this.userService.findByLineUserId(userId);
+              if (user) {
+                const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+                const personalGroupId = user.id;
+                const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
+                
+                if (tasks.length > 0) {
+                  const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, files, user);
+                  await this.lineService.replyMessage(replyToken, allTasksCard);
+                } else {
+                  await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
+                }
+              }
+            } catch (err: any) {
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
             }
           }
           break;
@@ -759,20 +806,20 @@ class WebhookController {
                   if (files.length > 0) {
                     const fileIds = files.map((f: any) => f.id);
                     const submittedTask = await this.taskService.recordSubmission(taskId, userId, fileIds, 'ส่งงานพร้อมไฟล์จากแชทส่วนตัว');
-                    await this.lineService.replyMessage(replyToken, 
-                      `✅ ส่งงาน "${submittedTask.title}" พร้อมไฟล์แนบ ${fileIds.length} ไฟล์ สำเร็จแล้วค่ะ\n\n` +
-                      `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
-                    );
+                    
+                    // แสดงการ์ดยืนยันการส่งงานสำเร็จ
+                    const successCard = FlexMessageTemplateService.createSubmissionSuccessCard(submittedTask, fileIds.length, user);
+                    await this.lineService.replyMessage(replyToken, successCard);
                   } else {
                     await this.safeReplyError(replyToken, '❌ ไม่พบไฟล์ที่ส่งมา กรุณาส่งไฟล์ก่อนค่ะ');
                   }
                 } else {
                   // ถ้าไม่มีไฟล์ ส่งงานเลย
                   const submittedTask = await this.taskService.recordSubmission(taskId, userId, [], 'ส่งงานโดยไม่มีไฟล์แนบ');
-                  await this.lineService.replyMessage(replyToken, 
-                    `✅ ส่งงาน "${submittedTask.title}" สำเร็จแล้วค่ะ (ไม่มีไฟล์แนบ)\n\n` +
-                    `ระบบจะส่งงานไปให้ผู้ตรวจตรวจสอบภายใน 2 วัน`
-                  );
+                  
+                  // แสดงการ์ดยืนยันการส่งงานสำเร็จ
+                  const successCard = FlexMessageTemplateService.createSubmissionSuccessCard(submittedTask, 0, user);
+                  await this.lineService.replyMessage(replyToken, successCard);
                 }
               } else {
                 await this.safeReplyError(replyToken, '❌ ไม่พบงานที่ระบุ');
