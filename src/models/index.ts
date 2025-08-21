@@ -300,6 +300,10 @@ export class File {
   @Column({ type: 'enum', enum: ['in_progress', 'completed'], default: 'in_progress' })
   folderStatus: 'in_progress' | 'completed';
 
+  // ประเภทการแนบไฟล์: 'initial' = แนบตอนสร้างงาน, 'submission' = แนบตอนส่งงาน
+  @Column({ type: 'enum', enum: ['initial', 'submission'], nullable: true })
+  attachmentType?: 'initial' | 'submission';
+
   @CreateDateColumn()
   uploadedAt: Date;
 

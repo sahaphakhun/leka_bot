@@ -261,6 +261,11 @@ class Dashboard {
       this.handleAddTask();
     });
 
+    // Initial files handling
+    document.getElementById('initialFiles').addEventListener('change', (e) => {
+      this.handleInitialFilesChange(e);
+    });
+
     // Real-time validation for add task form
     document.getElementById('taskTitle')?.addEventListener('input', (e) => {
       const value = e.target.value.trim();
@@ -282,9 +287,16 @@ class Dashboard {
 
     // Files view search & upload
     document.getElementById('searchFiles')?.addEventListener('input', this.debounce(() => {
-      const value = document.getElementById('searchFiles').value || '';
-      this.loadFiles(value);
+      this.filterFiles();
     }, 300));
+    
+    document.getElementById('taskFilter')?.addEventListener('change', () => {
+      this.filterFiles();
+    });
+    
+    document.getElementById('fileTypeFilter')?.addEventListener('change', () => {
+      this.filterFiles();
+    });
 
     document.getElementById('uploadFileBtn')?.addEventListener('click', () => {
       this.openUploadPicker();
@@ -820,9 +832,28 @@ class Dashboard {
     try {
       const queryParams = search ? `?search=${encodeURIComponent(search)}` : '';
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/files${queryParams}`);
-      this.updateFilesList(response.data);
+      
+      // เก็บข้อมูลไฟล์ทั้งหมดสำหรับการกรอง
+      this.allFiles = response.data;
+      
+      // อัปเดตตัวกรองงาน (ถ้ายังไม่ได้อัปเดต)
+      if (!this.taskFilterPopulated) {
+        await this.loadTasksForFilter();
+      }
+      
+      this.filterFiles();
     } catch (error) {
       console.error('Failed to load files:', error);
+    }
+  }
+
+  async loadTasksForFilter() {
+    try {
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks`);
+      this.populateTaskFilter(response.data);
+      this.taskFilterPopulated = true;
+    } catch (error) {
+      console.error('Failed to load tasks for filter:', error);
     }
   }
 
@@ -1069,6 +1100,88 @@ class Dashboard {
     }, 10000);
   }
 
+  // ==================== 
+  // Initial Files Handling
+  // ==================== 
+
+  handleInitialFilesChange(event) {
+    const files = Array.from(event.target.files);
+    this.selectedInitialFiles = files;
+    this.updateInitialFilesPreview();
+  }
+
+  updateInitialFilesPreview() {
+    const preview = document.getElementById('initialFilesPreview');
+    
+    if (!this.selectedInitialFiles || this.selectedInitialFiles.length === 0) {
+      preview.style.display = 'none';
+      return;
+    }
+
+    preview.style.display = 'block';
+    preview.innerHTML = `
+      <div class="files-preview-header">
+        <i class="fas fa-paperclip"></i>
+        <span>ไฟล์ที่เลือก (${this.selectedInitialFiles.length})</span>
+      </div>
+      ${this.selectedInitialFiles.map((file, index) => `
+        <div class="file-preview-item">
+          <i class="fas ${this.getFileIcon(file.type)} file-preview-icon"></i>
+          <div class="file-preview-info">
+            <div class="file-preview-name">${file.name}</div>
+            <div class="file-preview-size">${this.formatFileSize(file.size)}</div>
+          </div>
+          <button type="button" class="file-preview-remove" onclick="app.removeInitialFile(${index})">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  removeInitialFile(index) {
+    if (this.selectedInitialFiles) {
+      this.selectedInitialFiles.splice(index, 1);
+      this.updateInitialFilesPreview();
+      
+      // อัปเดต input file
+      const fileInput = document.getElementById('initialFiles');
+      if (this.selectedInitialFiles.length === 0) {
+        fileInput.value = '';
+      }
+    }
+  }
+
+  async uploadInitialFiles() {
+    if (!this.selectedInitialFiles || this.selectedInitialFiles.length === 0) {
+      return [];
+    }
+
+    const formData = new FormData();
+    formData.append('userId', this.currentUserId || this.currentUser?.lineUserId || 'unknown');
+    
+    for (let i = 0; i < this.selectedInitialFiles.length; i++) {
+      formData.append('attachments', this.selectedInitialFiles[i]);
+    }
+
+    try {
+      const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/upload`, {
+        method: 'POST',
+        body: formData
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to upload files');
+      }
+
+      const result = await response.json();
+      return result.files || [];
+    } catch (error) {
+      console.error('❌ Failed to upload initial files:', error);
+      throw error;
+    }
+  }
+
   async createTask(taskData) {
     // ป้องกันการเรียกซ้ำ
     if (this._isCreatingTask) {
@@ -1079,9 +1192,27 @@ class Dashboard {
     this._isCreatingTask = true;
     
     try {
+      // อัปโหลดไฟล์เริ่มต้นก่อน (ถ้ามี)
+      let uploadedFiles = [];
+      if (this.selectedInitialFiles && this.selectedInitialFiles.length > 0) {
+        try {
+          uploadedFiles = await this.uploadInitialFiles();
+          console.log('✅ Uploaded initial files:', uploadedFiles.length);
+        } catch (error) {
+          console.error('❌ Failed to upload initial files:', error);
+          this.showToast('ไม่สามารถอัปโหลดไฟล์ได้ กรุณาลองใหม่', 'error');
+          return;
+        }
+      }
+
       // สร้าง copy ของ taskData โดยไม่มี _tempId
       const cleanTaskData = { ...taskData };
       delete cleanTaskData._tempId;
+      
+      // เพิ่ม fileIds ถ้ามีไฟล์ที่อัปโหลด
+      if (uploadedFiles.length > 0) {
+        cleanTaskData.fileIds = uploadedFiles.map(file => file.id);
+      }
       
       // ลบฟิลด์ที่ไม่มีค่า (undefined, null, empty string) ออก
       Object.keys(cleanTaskData).forEach(key => {
@@ -1120,6 +1251,11 @@ class Dashboard {
       try {
         this._taskCache = Array.from(new Map([...(this._taskCache||[]), response.data].map(t => [t.id, t])).values());
       } catch {}
+      
+      // รีเซ็ตไฟล์ที่เลือก
+      this.selectedInitialFiles = [];
+      this.updateInitialFilesPreview();
+      document.getElementById('initialFiles').value = '';
       
       return response.data;
     } catch (error) {
@@ -1691,11 +1827,11 @@ class Dashboard {
             </div>
           </div>
           
-          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: #6b7280;">
+          <div style="display: flex; justify-content: space-between; align-items: center; font-size: 0.875rem; color: #6b7280; margin-bottom: ${hasAttachments ? '12px' : '0'};">
             <div style="display: flex; gap: 16px;">
               <span>👥 ${assignees}</span>
               <span>📅 ${this.formatDate(task.dueTime)}</span>
-              ${hasAttachments ? `<span>📎 ${task.attachedFiles.length} ไฟล์</span>` : ''}
+              ${hasAttachments ? `<span style="color: #3b82f6; font-weight: 500;">📎 ${task.attachedFiles.length} ไฟล์</span>` : ''}
             </div>
             <div style="display: flex; gap: 8px;">
               ${task.status === 'pending' ? `
@@ -1713,6 +1849,44 @@ class Dashboard {
               ` : ''}
             </div>
           </div>
+          
+          ${hasAttachments ? `
+            <div class="task-attachments-preview" style="background: #f8f9fa; border-radius: 8px; padding: 12px; margin-top: 8px;">
+              <div style="display: flex; align-items: center; gap: 6px; margin-bottom: 8px;">
+                <i class="fas fa-paperclip" style="color: #3b82f6; font-size: 0.875rem;"></i>
+                <span style="font-size: 0.875rem; font-weight: 500; color: #374151;">ไฟล์แนบ (${task.attachedFiles.length})</span>
+              </div>
+              <div style="display: grid; gap: 6px; max-height: 120px; overflow-y: auto;">
+                ${task.attachedFiles.slice(0, 3).map(file => `
+                  <div class="attachment-preview-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; border: 1px solid #e5e7eb;"
+                       onclick="event.stopPropagation(); app.viewFile('${file.id}')"
+                       onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#3b82f6'"
+                       onmouseout="this.style.background='white'; this.style.borderColor='#e5e7eb'">
+                    <i class="fas ${this.getFileIcon(file.mimeType)}" style="color: #6b7280; font-size: 0.875rem; width: 16px;"></i>
+                    <div style="flex: 1; min-width: 0;">
+                      <div style="font-size: 0.8125rem; font-weight: 500; color: #374151; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${file.originalName}</div>
+                      <div style="font-size: 0.75rem; color: #6b7280;">${this.formatFileSize(file.size)}</div>
+                    </div>
+                    <div style="display: flex; gap: 4px;">
+                      <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.viewFile('${file.id}')" 
+                              style="padding: 2px 6px; font-size: 0.6875rem; border: none; background: #e0f2fe; color: #0277bd;">
+                        <i class="fas fa-eye"></i>
+                      </button>
+                      <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.downloadFile('${file.id}')" 
+                              style="padding: 2px 6px; font-size: 0.6875rem; border: none; background: #f0f9ff; color: #0369a1;">
+                        <i class="fas fa-download"></i>
+                      </button>
+                    </div>
+                  </div>
+                `).join('')}
+                ${task.attachedFiles.length > 3 ? `
+                  <div style="text-align: center; padding: 4px; font-size: 0.75rem; color: #6b7280; font-style: italic;">
+                    และอีก ${task.attachedFiles.length - 3} ไฟล์... (คลิกเพื่อดูทั้งหมด)
+                  </div>
+                ` : ''}
+              </div>
+            </div>
+          ` : ''}
         </div>
       `;
     }).join('');
@@ -1889,14 +2063,35 @@ class Dashboard {
             `}
           </div>
           <div class="file-name" style="font-weight: 500; margin-bottom: 4px; word-break: break-word;">${file.originalName}</div>
-          <div class="file-meta" style="font-size: 0.875rem; color: #6b7280;">
+          <div class="file-meta" style="font-size: 0.875rem; color: #6b7280; margin-bottom: 4px;">
             ${this.formatFileSize(file.size)} • ${this.formatDate(file.uploadedAt)}
           </div>
           ${file.taskNames && file.taskNames.length > 0 ? `
-            <div class="file-task" style="font-size: 0.875rem; color: #374151; margin-top: 4px;">
-              จากงาน: ${file.taskNames.join(', ')}
+            <div class="file-task" style="background: #e0f2fe; border: 1px solid #b3e5fc; border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <i class="fas fa-tasks" style="color: #0277bd; font-size: 0.75rem;"></i>
+                <span style="font-size: 0.75rem; color: #01579b; font-weight: 500;">จากงาน:</span>
+              </div>
+              <div style="font-size: 0.875rem; color: #0277bd; font-weight: 500; margin-top: 2px; line-height: 1.3;">
+                ${file.taskIds && file.taskIds.length > 0 ? 
+                  file.taskNames.map((taskName, index) => 
+                    `<span style="cursor: pointer; text-decoration: underline;" 
+                           onclick="event.stopPropagation(); app.goToTaskFromFile('${file.taskIds[index]}')"
+                           onmouseover="this.style.color='#01579b'" 
+                           onmouseout="this.style.color='#0277bd'">${taskName}</span>`
+                  ).join(', ') 
+                  : file.taskNames.join(', ')
+                }
+              </div>
             </div>
-          ` : ''}
+          ` : `
+            <div class="file-task" style="background: #f5f5f5; border: 1px solid #e0e0e0; border-radius: 6px; padding: 6px 8px; margin-bottom: 4px;">
+              <div style="display: flex; align-items: center; gap: 4px;">
+                <i class="fas fa-file" style="color: #757575; font-size: 0.75rem;"></i>
+                <span style="font-size: 0.75rem; color: #757575; font-style: italic;">ไฟล์อิสระ (ไม่ได้แนบกับงาน)</span>
+              </div>
+            </div>
+          `}
           ${file.tags && file.tags.length > 0 ? `
             <div class="file-tags" style="margin-top: 8px;">
               ${file.tags.map(tag => `<span style="background: #e5e7eb; padding: 2px 6px; border-radius: 4px; font-size: 0.75rem; margin-right: 4px;">#${tag}</span>`).join('')}
@@ -2119,6 +2314,14 @@ class Dashboard {
       });
       render();
       tagsInput._boundChips = true;
+    }
+
+    // รีเซ็ตไฟล์เริ่มต้น
+    this.selectedInitialFiles = [];
+    this.updateInitialFilesPreview();
+    const initialFilesInput = document.getElementById('initialFiles');
+    if (initialFilesInput) {
+      initialFilesInput.value = '';
     }
   }
 
@@ -2980,6 +3183,86 @@ class Dashboard {
     const div = document.createElement('div');
     div.textContent = text;
     return div.innerHTML;
+  }
+
+  goToTaskFromFile(taskId) {
+    // เปลี่ยนไปหน้างานทั้งหมด
+    this.switchView('tasks');
+    
+    // รอให้หน้าโหลดเสร็จแล้วเปิด modal งาน
+    setTimeout(() => {
+      this.openTaskModal(taskId);
+    }, 300);
+    
+    this.showToast('กำลังไปยังงานที่เกี่ยวข้อง...', 'info');
+  }
+
+  filterFiles() {
+    if (!this.allFiles) return;
+    
+    const searchTerm = document.getElementById('searchFiles')?.value.toLowerCase() || '';
+    const taskFilter = document.getElementById('taskFilter')?.value || '';
+    const typeFilter = document.getElementById('fileTypeFilter')?.value || '';
+    
+    let filtered = this.allFiles.filter(file => {
+      // ค้นหาตามชื่อไฟล์หรือชื่องาน
+      const matchesSearch = !searchTerm || 
+        file.originalName.toLowerCase().includes(searchTerm) ||
+        (file.taskNames && file.taskNames.some(name => name.toLowerCase().includes(searchTerm)));
+      
+      // กรองตามงาน
+      const matchesTask = !taskFilter || 
+        (taskFilter === 'no-task' && (!file.taskNames || file.taskNames.length === 0)) ||
+        (taskFilter !== 'no-task' && file.taskIds && file.taskIds.includes(taskFilter));
+      
+      // กรองตามประเภทไฟล์
+      const matchesType = !typeFilter || this.getFileCategory(file.mimeType) === typeFilter;
+      
+      return matchesSearch && matchesTask && matchesType;
+    });
+    
+    this.updateFilesList(filtered);
+  }
+
+  getFileCategory(mimeType) {
+    if (mimeType.startsWith('image/')) return 'image';
+    if (mimeType.startsWith('video/')) return 'video';
+    if (mimeType.startsWith('audio/')) return 'audio';
+    if (mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('excel') || 
+        mimeType.includes('powerpoint') || mimeType.includes('spreadsheet') || 
+        mimeType.includes('presentation') || mimeType.startsWith('text/')) return 'document';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || 
+        mimeType.includes('tar') || mimeType.includes('gz')) return 'archive';
+    return 'other';
+  }
+
+  populateTaskFilter(tasks) {
+    const taskFilter = document.getElementById('taskFilter');
+    if (!taskFilter || !tasks || !this.allFiles) return;
+    
+    // หางานที่มีไฟล์แนบ
+    const taskIdsWithFiles = new Set();
+    this.allFiles.forEach(file => {
+      if (file.taskIds && file.taskIds.length > 0) {
+        file.taskIds.forEach(taskId => taskIdsWithFiles.add(taskId));
+      }
+    });
+    
+    // กรองงานที่มีไฟล์แนบเท่านั้น
+    const tasksWithFiles = tasks.filter(task => taskIdsWithFiles.has(task.id));
+    
+    // เก็บ option เดิม (งานทั้งหมด, ไฟล์อิสระ)
+    const defaultOptions = `
+      <option value="">งานทั้งหมด</option>
+      <option value="no-task">ไฟล์อิสระ</option>
+    `;
+    
+    // เพิ่ม option ของงานที่มีไฟล์
+    const taskOptions = tasksWithFiles.map(task => 
+      `<option value="${task.id}">${task.title}</option>`
+    ).join('');
+    
+    taskFilter.innerHTML = defaultOptions + taskOptions;
   }
 
   // ==================== 

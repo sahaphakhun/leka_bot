@@ -18,9 +18,11 @@ export class FlexMessageTemplateService {
     const priorityColor = FlexMessageDesignSystem.getPriorityColor(task.priority);
     const priorityText = FlexMessageDesignSystem.getPriorityText(task.priority);
 
-    // ตรวจสอบไฟล์แนบ
+    // ตรวจสอบไฟล์แนบแยกตามประเภท
     const attachedFiles = task.attachedFiles || [];
-    const fileCount = attachedFiles.length;
+    const initialFiles = attachedFiles.filter((file: any) => file.attachmentType === 'initial');
+    const submissionFiles = attachedFiles.filter((file: any) => file.attachmentType === 'submission');
+    const totalFiles = attachedFiles.length;
 
     const content = [
       FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
@@ -28,14 +30,41 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`👤 ผู้สร้าง: ${creator?.displayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       ...(priorityText ? [FlexMessageDesignSystem.createText(`🎯 ${priorityText}`, 'sm', priorityColor, 'bold')] : []),
       
-      // แสดงข้อมูลไฟล์แนบถ้ามี
-      ...(fileCount > 0 ? [
-        FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
-        ...attachedFiles.slice(0, 3).map((file: any) => 
+      // แสดงไฟล์เริ่มต้น (แนบตอนสร้างงาน)
+      ...(initialFiles.length > 0 ? [
+        FlexMessageDesignSystem.createText(`📋 ไฟล์เริ่มต้น: ${initialFiles.length} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.primary, 'bold'),
+        ...initialFiles.slice(0, 2).map((file: any) => 
           FlexMessageDesignSystem.createText(`  • ${file.originalName || file.fileName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
         ),
-        ...(fileCount > 3 ? [
-          FlexMessageDesignSystem.createText(`  และอีก ${fileCount - 3} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ...(initialFiles.length > 2 ? [
+          FlexMessageDesignSystem.createText(`  และอีก ${initialFiles.length - 2} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      ] : []),
+      
+      // แสดงไฟล์ส่งงาน (แนบตอนส่งงาน)
+      ...(submissionFiles.length > 0 ? [
+        FlexMessageDesignSystem.createText(`📤 ไฟล์ส่งงาน: ${submissionFiles.length} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.success, 'bold'),
+        ...submissionFiles.slice(0, 2).map((file: any) => 
+          FlexMessageDesignSystem.createText(`  • ${file.originalName || file.fileName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ),
+        ...(submissionFiles.length > 2 ? [
+          FlexMessageDesignSystem.createText(`  และอีก ${submissionFiles.length - 2} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      ] : []),
+      
+      // แสดงรวมถ้ามีทั้งสองประเภท หรือ fallback สำหรับไฟล์เก่า
+      ...(totalFiles > 0 ? [
+        ...(initialFiles.length > 0 && submissionFiles.length > 0 ? [
+          FlexMessageDesignSystem.createText(`📎 รวมทั้งหมด: ${totalFiles} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
+        ] : initialFiles.length === 0 && submissionFiles.length === 0 ? [
+          // fallback สำหรับไฟล์เก่าที่ไม่มี attachmentType
+          FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${totalFiles} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+          ...attachedFiles.slice(0, 3).map((file: any) => 
+            FlexMessageDesignSystem.createText(`  • ${file.originalName || file.fileName}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          ),
+          ...(totalFiles > 3 ? [
+            FlexMessageDesignSystem.createText(`  และอีก ${totalFiles - 3} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          ] : [])
         ] : [])
       ] : []),
       
@@ -717,7 +746,106 @@ export class FlexMessageTemplateService {
   }
 
   /**
-   * สร้างการ์ดแสดงรายการไฟล์แนบของงาน
+   * สร้างการ์ดแสดงรายการไฟล์แนบของงานแยกตามประเภท
+   */
+  static createTaskFilesCategorizedCard(task: any, filesByType: {
+    initialFiles: any[];
+    submissionFiles: any[];
+    allFiles: any[];
+  }, group: any): FlexMessage {
+    const { initialFiles, submissionFiles, allFiles } = filesByType;
+    const totalFiles = allFiles.length;
+
+    if (totalFiles === 0) {
+      return FlexMessageDesignSystem.createStandardTaskCard(
+        '📎 ไฟล์แนบ',
+        '📎',
+        FlexMessageDesignSystem.colors.info,
+        [
+          FlexMessageDesignSystem.createText('📎 ไฟล์แนบของงาน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+          FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+          FlexMessageDesignSystem.createSeparator('small'),
+          FlexMessageDesignSystem.createText('ไม่มีไฟล์แนบ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+        ],
+        [
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+        ],
+        'large'
+      );
+    }
+
+    const content = [
+      FlexMessageDesignSystem.createText('📎 ไฟล์แนบของงาน', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createSeparator('small'),
+    ];
+
+    // แสดงไฟล์เริ่มต้น
+    if (initialFiles.length > 0) {
+      content.push(
+        FlexMessageDesignSystem.createText(`📋 ไฟล์เริ่มต้น: ${initialFiles.length} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.primary, 'bold'),
+        ...initialFiles.slice(0, 2).map(file => [
+          FlexMessageDesignSystem.createText(`${this.getFileIcon(file.mimeType)} ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textPrimary),
+          FlexMessageDesignSystem.createText(`📦 ${this.formatFileSize(file.size)} • 👤 ${file.uploadedByUser?.displayName || 'ไม่ทราบ'}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ]).flat(),
+        ...(initialFiles.length > 2 ? [
+          FlexMessageDesignSystem.createText(`และอีก ${initialFiles.length - 2} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      );
+      
+      if (submissionFiles.length > 0) {
+        content.push(FlexMessageDesignSystem.createSeparator('small'));
+      }
+    }
+
+    // แสดงไฟล์ส่งงาน
+    if (submissionFiles.length > 0) {
+      content.push(
+        FlexMessageDesignSystem.createText(`📤 ไฟล์ส่งงาน: ${submissionFiles.length} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.success, 'bold'),
+        ...submissionFiles.slice(0, 2).map(file => [
+          FlexMessageDesignSystem.createText(`${this.getFileIcon(file.mimeType)} ${file.originalName}`, 'xs', FlexMessageDesignSystem.colors.textPrimary),
+          FlexMessageDesignSystem.createText(`📦 ${this.formatFileSize(file.size)} • 👤 ${file.uploadedByUser?.displayName || 'ไม่ทราบ'}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ]).flat(),
+        ...(submissionFiles.length > 2 ? [
+          FlexMessageDesignSystem.createText(`และอีก ${submissionFiles.length - 2} ไฟล์...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ] : [])
+      );
+    }
+
+    content.push(
+      FlexMessageDesignSystem.createSeparator('small'),
+      FlexMessageDesignSystem.createText(`📎 รวมทั้งหมด: ${totalFiles} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createText('💡 กดปุ่มด้านล่างเพื่อดาวน์โหลดหรือดูไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+    );
+
+    // สร้างปุ่มสำหรับไฟล์แต่ละไฟล์ (สูงสุด 3 ไฟล์แรก)
+    const fileService = serviceContainer.get<FileService>('FileService');
+    const fileButtons = allFiles.slice(0, 3).map(file =>
+      FlexMessageDesignSystem.createButton(
+        `📥 ${file.originalName.substring(0, 8)}...`,
+        'uri',
+        fileService.generateDownloadUrl(group.id, file.id),
+        'secondary'
+      )
+    );
+
+    const buttons = [
+      ...fileButtons,
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}#files`, 'secondary')
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📎 ไฟล์แนบ',
+      '📎',
+      FlexMessageDesignSystem.colors.info,
+      content,
+      buttons,
+      'large'
+    );
+  }
+
+  /**
+   * สร้างการ์ดแสดงรายการไฟล์แนบของงาน (เดิม - สำหรับ backward compatibility)
    */
   static createTaskFilesCard(task: any, files: any[], group: any): FlexMessage {
     if (!files || files.length === 0) {

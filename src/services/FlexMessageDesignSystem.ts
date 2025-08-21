@@ -46,7 +46,9 @@ export interface TaskCardData {
   completedBy?: string;
   completedAt?: Date;
   fileCount?: number;
-  attachedFiles?: any[]; // ไฟล์ที่แนบกับงาน
+  attachedFiles?: any[]; // ไฟล์ที่แนบกับงาน (ทั้งหมด)
+  initialFiles?: any[]; // ไฟล์แนบตอนสร้างงาน
+  submissionFiles?: any[]; // ไฟล์แนบตอนส่งงาน
   links?: string[];
   changes?: Record<string, any>;
   changedFields?: string[];
@@ -321,7 +323,7 @@ export class FlexMessageDesignSystem {
 
   // สร้าง template สำหรับการ์ดข้อมูลงาน
   static createTaskInfoCard(taskData: TaskCardData, type: string): FlexMessage {
-    const { title, description, dueTime, assignees, priority, tags, status, attachedFiles, fileCount } = taskData;
+    const { title, description, dueTime, assignees, priority, tags, status, fileCount } = taskData;
     
     // กำหนดสีและอิโมจิตามประเภท
     const typeConfig = this.getTypeConfig(type);
@@ -352,16 +354,18 @@ export class FlexMessageDesignSystem {
       );
     }
 
-    // แสดงข้อมูลไฟล์แนบ
-    const totalFiles = fileCount || (attachedFiles ? attachedFiles.length : 0);
+    // แสดงข้อมูลไฟล์แนบแยกตามประเภท
+    const { initialFiles, submissionFiles, attachedFiles: allAttachedFiles } = taskData;
+    const totalFiles = fileCount || (allAttachedFiles ? allAttachedFiles.length : 0);
+    
     if (totalFiles > 0) {
-      content.push(
-        this.createText(`📎 ไฟล์แนบ: ${totalFiles} ไฟล์`, 'sm', this.colors.textPrimary, 'bold')
-      );
-      
-      // แสดงรายชื่อไฟล์ (สูงสุด 3 ไฟล์แรก)
-      if (attachedFiles && attachedFiles.length > 0) {
-        const filesToShow = attachedFiles.slice(0, 3);
+      // แสดงไฟล์แนบตอนสร้างงาน
+      if (initialFiles && initialFiles.length > 0) {
+        content.push(
+          this.createText(`📋 ไฟล์เริ่มต้น: ${initialFiles.length} ไฟล์`, 'sm', this.colors.primary, 'bold')
+        );
+        
+        const filesToShow = initialFiles.slice(0, 2);
         for (const file of filesToShow) {
           content.push(
             this.createText(
@@ -372,10 +376,71 @@ export class FlexMessageDesignSystem {
           );
         }
         
-        if (attachedFiles.length > 3) {
+        if (initialFiles.length > 2) {
           content.push(
             this.createText(
-              `  และอีก ${attachedFiles.length - 3} ไฟล์...`,
+              `  และอีก ${initialFiles.length - 2} ไฟล์...`,
+              'xs',
+              this.colors.textSecondary
+            )
+          );
+        }
+      }
+      
+      // แสดงไฟล์แนบตอนส่งงาน
+      if (submissionFiles && submissionFiles.length > 0) {
+        content.push(
+          this.createText(`📤 ไฟล์ส่งงาน: ${submissionFiles.length} ไฟล์`, 'sm', this.colors.success, 'bold')
+        );
+        
+        const filesToShow = submissionFiles.slice(0, 2);
+        for (const file of filesToShow) {
+          content.push(
+            this.createText(
+              `  • ${file.originalName || file.fileName}`,
+              'xs',
+              this.colors.textSecondary
+            )
+          );
+        }
+        
+        if (submissionFiles.length > 2) {
+          content.push(
+            this.createText(
+              `  และอีก ${submissionFiles.length - 2} ไฟล์...`,
+              'xs',
+              this.colors.textSecondary
+            )
+          );
+        }
+      }
+      
+      // แสดงรวมถ้ามีทั้งสองประเภท
+      if (initialFiles && submissionFiles && initialFiles.length > 0 && submissionFiles.length > 0) {
+        content.push(
+          this.createText(`📎 รวมทั้งหมด: ${totalFiles} ไฟล์`, 'sm', this.colors.textPrimary)
+        );
+      } else if (!initialFiles && !submissionFiles && allAttachedFiles && allAttachedFiles.length > 0) {
+        // fallback สำหรับไฟล์เก่าที่ไม่มี attachmentType
+        content.push(
+          this.createText(`📎 ไฟล์แนบ: ${totalFiles} ไฟล์`, 'sm', this.colors.textPrimary, 'bold')
+        );
+        
+        const filesToShow = allAttachedFiles.slice(0, 3);
+        for (const file of filesToShow) {
+          content.push(
+            this.createText(
+              `  • ${file.originalName || file.fileName}`,
+              'xs',
+              this.colors.textSecondary
+            )
+          );
+        }
+        
+        if (allAttachedFiles.length > 3) {
+          content.push(
+            this.createText(
+              `  และอีก ${allAttachedFiles.length - 3} ไฟล์...`,
               'xs',
               this.colors.textSecondary
             )

@@ -439,6 +439,37 @@ export class FileService {
   }
 
   /**
+   * ดึงไฟล์ที่ผูกกับงานแยกตามประเภท
+   */
+  public async getTaskFilesByType(taskId: string): Promise<{
+    initialFiles: File[];
+    submissionFiles: File[];
+    allFiles: File[];
+  }> {
+    try {
+      const allFiles = await this.fileRepository.createQueryBuilder('file')
+        .leftJoinAndSelect('file.uploadedByUser', 'uploader')
+        .leftJoin('file.linkedTasks', 'task')
+        .where('task.id = :taskId', { taskId })
+        .orderBy('file.uploadedAt', 'DESC')
+        .getMany();
+
+      const initialFiles = allFiles.filter(file => file.attachmentType === 'initial');
+      const submissionFiles = allFiles.filter(file => file.attachmentType === 'submission');
+
+      return {
+        initialFiles,
+        submissionFiles,
+        allFiles
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting task files by type:', error);
+      throw error;
+    }
+  }
+
+  /**
    * ดึงข้อมูลไฟล์
    */
   public async getFileInfo(fileId: string): Promise<File | null> {

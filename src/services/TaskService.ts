@@ -205,10 +205,11 @@ export class TaskService {
             if (file) {
               file.groupId = group.id;
               file.folderStatus = 'in_progress'; // งานยังไม่เสร็จ
+              file.attachmentType = 'initial'; // ไฟล์แนบตอนสร้างงาน
               await this.fileRepository.save(file);
             }
           }
-          console.log(`✅ Linked ${data.fileIds.length} files to task: ${savedTask.title}`);
+          console.log(`✅ Linked ${data.fileIds.length} initial files to task: ${savedTask.title}`);
         } catch (error) {
           console.warn('⚠️ Failed to link some files to task:', error);
           // ไม่ throw error เพราะไม่ต้องการให้การสร้างงานล้มเหลว
@@ -617,6 +618,7 @@ export class TaskService {
           if (file) {
             file.groupId = task.groupId;
             file.folderStatus = 'completed';
+            file.attachmentType = 'submission'; // ไฟล์แนบตอนส่งงาน
             await this.fileRepository.save(file);
           }
         } catch (e) {
