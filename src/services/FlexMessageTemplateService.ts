@@ -589,7 +589,7 @@ export class FlexMessageTemplateService {
   /**
    * สร้างการ์ดรายงานส่วนบุคคล
    */
-  static createPersonalReportCard(assignee: any, tasks: any[], timezone: string): FlexMessage {
+  static createPersonalReportCard(assignee: any, tasks: any[], timezone: string, group?: any): FlexMessage {
     const overdueTasks = tasks.filter(t => t.status === 'overdue');
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
     const pendingTasks = tasks.filter(t => t.status === 'pending');
@@ -632,6 +632,9 @@ export class FlexMessageTemplateService {
       // Header
       FlexMessageDesignSystem.createText(`👤 การ์ดงานส่วนบุคคล`, 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold', undefined, 'large'),
       FlexMessageDesignSystem.createText(`👨‍💼 ${assignee.displayName}`, 'md', FlexMessageDesignSystem.colors.textSecondary),
+      ...(group && group.name ? [
+        FlexMessageDesignSystem.createText(`👥 กลุ่ม: ${group.name}`, 'md', FlexMessageDesignSystem.colors.textSecondary)
+      ] : []),
       FlexMessageDesignSystem.createText(`🗓️ วันที่ ${date}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
       FlexMessageDesignSystem.createSeparator('medium'),
       

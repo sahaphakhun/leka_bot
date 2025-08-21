@@ -458,15 +458,15 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับการอนุมัติเลื่อนเวลา
    */
-  private createExtensionApprovedFlexMessage(task: any, group: any, newDueTime: Date, requesterDisplayName?: string): FlexMessage {
-    return FlexMessageTemplateService.createExtensionApprovedCard(task, group, newDueTime, requesterDisplayName);
+  private createExtensionApprovedFlexMessage(task: any, group: any, newDueTime: Date, requesterDisplayName?: string, viewerLineUserId?: string): FlexMessage {
+    return FlexMessageTemplateService.createExtensionApprovedCard(task, group, newDueTime, requesterDisplayName, viewerLineUserId);
   }
 
   /**
    * สร้าง Flex Message สำหรับการปฏิเสธเลื่อนเวลา
    */
-  private createExtensionRejectedFlexMessage(task: any, group: any, requesterDisplayName?: string): FlexMessage {
-    return FlexMessageTemplateService.createExtensionRejectedCard(task, group, requesterDisplayName);
+  private createExtensionRejectedFlexMessage(task: any, group: any, requesterDisplayName?: string, viewerLineUserId?: string): FlexMessage {
+    return FlexMessageTemplateService.createExtensionRejectedCard(task, group, requesterDisplayName, viewerLineUserId);
   }
 
   /**
@@ -743,13 +743,14 @@ export class NotificationService {
 
       const requesterDisplayName = requester?.displayName || 'ไม่ระบุ';
       
-      const flexMessage = this.createExtensionApprovedFlexMessage(task, group, newDueTime, requesterDisplayName);
+      const personalCard = this.createExtensionApprovedFlexMessage(task, group, newDueTime, requesterDisplayName, requester.lineUserId);
+      const groupCard = this.createExtensionApprovedFlexMessage(task, group, newDueTime, requesterDisplayName);
       
       // ส่งให้ผู้ขอเลื่อนเวลา
-      await this.lineService.pushMessage(requester.lineUserId, flexMessage);
+      await this.lineService.pushMessage(requester.lineUserId, personalCard);
       
-      // ส่งแจ้งในกลุ่มด้วย
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+      // ส่งแจ้งในกลุ่มด้วย (ไม่แนบ userId)
+      await this.lineService.pushMessage(group.lineGroupId, groupCard);
 
       console.log(`✅ Sent extension approved notification for task: ${task.id} to requester: ${requesterDisplayName}`);
     } catch (error) {
@@ -768,13 +769,14 @@ export class NotificationService {
 
       const requesterDisplayName = requester?.displayName || 'ไม่ระบุ';
       
-      const flexMessage = this.createExtensionRejectedFlexMessage(task, group, requesterDisplayName);
+      const personalCard = this.createExtensionRejectedFlexMessage(task, group, requesterDisplayName, requester.lineUserId);
+      const groupCard = this.createExtensionRejectedFlexMessage(task, group, requesterDisplayName);
       
       // ส่งให้ผู้ขอเลื่อนเวลา
-      await this.lineService.pushMessage(requester.lineUserId, flexMessage);
+      await this.lineService.pushMessage(requester.lineUserId, personalCard);
       
-      // ส่งแจ้งในกลุ่มด้วย
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+      // ส่งแจ้งในกลุ่มด้วย (ไม่แนบ userId)
+      await this.lineService.pushMessage(group.lineGroupId, groupCard);
 
       console.log(`✅ Sent extension rejected notification for task: ${task.id} to requester: ${requesterDisplayName}`);
     } catch (error) {
@@ -1112,7 +1114,7 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับรายงานรายวันส่วนบุคคล
    */
-  private createPersonalDailyReportFlexMessage(assignee: any, tasks: any[], timezone: string): any {
+  private createPersonalDailyReportFlexMessage(assignee: any, tasks: any[], timezone: string, group?: any): any {
     const overdueTasks = tasks.filter(t => t.status === 'overdue');
     const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
     const pendingTasks = tasks.filter(t => t.status === 'pending');
@@ -1121,7 +1123,7 @@ export class NotificationService {
     const header = `📋 การ์ดงานส่วนบุคคล - ${assignee.displayName}`;
     const subtitle = `🗓️ วันที่ ${date} | 📊 งานค้าง ${tasks.length} งาน`;
 
-    return FlexMessageTemplateService.createPersonalReportCard(assignee, tasks, timezone);
+    return FlexMessageTemplateService.createPersonalReportCard(assignee, tasks, timezone, group);
 
 
   }

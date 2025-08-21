@@ -308,7 +308,7 @@ export class CronService {
             if (!assignee) continue;
 
             // สร้างการ์ดงานต่างๆ ของแต่ละงาน (Flex Message) แทนข้อความธรรมดา
-            const flexMessage = this.createPersonalDailyReportFlexMessage(assignee, userTasks, tz);
+            const flexMessage = this.createPersonalDailyReportFlexMessage(group, assignee, userTasks, tz);
             
             // ส่งการ์ดให้แต่ละคนทางส่วนตัว
             await (this.notificationService as any).lineService.pushMessage(assigneeId, flexMessage);
@@ -334,8 +334,8 @@ export class CronService {
   /**
    * สร้าง Flex Message สำหรับรายงานรายวันส่วนบุคคล
    */
-  private createPersonalDailyReportFlexMessage(assignee: any, tasks: any[], timezone: string): any {
-    return FlexMessageTemplateService.createPersonalReportCard(assignee, tasks, timezone);
+  private createPersonalDailyReportFlexMessage(group: any, assignee: any, tasks: any[], timezone: string): any {
+    return FlexMessageTemplateService.createPersonalReportCard(assignee, tasks, timezone, group);
   }
 
   /**
