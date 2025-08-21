@@ -1117,12 +1117,13 @@ class ApiController {
       );
 
       if (format === 'csv') {
-        // TODO: Convert to CSV format
+        // Convert to CSV format
+        const csvData = this.convertToCSV(data);
         res.set({
-          'Content-Type': 'text/csv',
+          'Content-Type': 'text/csv; charset=utf-8',
           'Content-Disposition': `attachment; filename="kpi-${groupId}.csv"`
         });
-        // Send CSV data
+        res.send(csvData);
       } else {
         res.json({
           success: true,
@@ -1135,6 +1136,108 @@ class ApiController {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to export KPI data' 
+      });
+    }
+  }
+
+  /**
+   * แปลงข้อมูลเป็น CSV format
+   */
+  private convertToCSV(data: any[]): string {
+    if (!data || data.length === 0) {
+      return 'No data available';
+    }
+
+    // หา headers จาก object แรก
+    const headers = Object.keys(data[0]);
+    
+    // สร้าง header row
+    const csvRows = [headers.join(',')];
+    
+    // สร้าง data rows
+    for (const row of data) {
+      const values = headers.map(header => {
+        const value = row[header];
+        // ถ้าเป็น string ที่มี comma ให้ใส่ quotes
+        if (typeof value === 'string' && value.includes(',')) {
+          return `"${value.replace(/"/g, '""')}"`;
+        }
+        return value || '';
+      });
+      csvRows.push(values.join(','));
+    }
+    
+    return csvRows.join('\n');
+  }
+
+  /**
+   * POST /api/groups/:groupId/recurring - สร้างงานประจำ
+   */
+  public async createRecurringTask(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const recurringData = req.body;
+
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!recurringData.title || !recurringData.recurrenceType) {
+        res.status(400).json({
+          success: false,
+          error: 'ต้องระบุชื่องานและประเภทการทำซ้ำ'
+        });
+        return;
+      }
+
+      const result = await this.recurringService.createRecurringTask(groupId, recurringData);
+
+      res.status(201).json({
+        success: true,
+        data: result,
+        message: 'สร้างงานประจำสำเร็จ'
+      });
+
+    } catch (error) {
+      logger.error('❌ Error creating recurring task:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'เกิดข้อผิดพลาดที่ไม่ทราบสาเหตุ'
+      });
+    }
+  }
+
+  /**
+   * GET /api/groups/:groupId/recurring - ดึงรายการงานประจำ
+   */
+  public async getRecurringTasks(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { status, page = 1, limit = 20 } = req.query;
+
+      const options = {
+        status: status as any,
+        limit: parseInt(limit as string),
+        offset: (parseInt(page as string) - 1) * parseInt(limit as string)
+      };
+
+      const result = await this.recurringService.getGroupRecurringTasks(groupId, options);
+
+      const response: PaginatedResponse<any> = {
+        success: true,
+        data: result.tasks,
+        pagination: {
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+          total: result.total,
+          totalPages: Math.ceil(result.total / parseInt(limit as string))
+        }
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error getting recurring tasks:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Failed to get recurring tasks'
       });
     }
   }
@@ -1358,7 +1461,11 @@ apiRouter.get('/users/:userId/average-score/:groupId', apiController.getUserAver
   apiRouter.get('/groups/:groupId/reports/summary', apiController.getReportsSummary.bind(apiController));
   apiRouter.get('/groups/:groupId/reports/by-users', apiController.getReportsByUsers.bind(apiController));
   apiRouter.get('/groups/:groupId/reports/export', apiController.exportReports.bind(apiController));
-  // TODO: เพิ่ม endpoints สำหรับ recurring tasks ในอนาคต เช่น POST/GET /groups/:groupId/recurring
+
+
+  // Recurring Tasks Routes
+apiRouter.post('/groups/:groupId/recurring', apiController.createRecurringTask.bind(apiController));
+apiRouter.get('/groups/:groupId/recurring', apiController.getRecurringTasks.bind(apiController));
 
 // Task-specific routes
 apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));

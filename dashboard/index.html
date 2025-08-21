@@ -830,6 +830,24 @@
     <!-- เพิ่ม moment-timezone สำหรับการจัดการเวลา (ใช้ CDN version) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
+    <!-- Fallback สำหรับกรณี CDN ไม่พร้อมใช้งาน -->
+    <script>
+      // ตรวจสอบว่า moment โหลดสำเร็จหรือไม่
+      window.addEventListener('load', function() {
+        if (typeof moment === 'undefined') {
+          console.error('❌ Moment.js ไม่ได้โหลด กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต');
+          // แสดงข้อความเตือนผู้ใช้
+          const warning = document.createElement('div');
+          warning.style.cssText = 'position:fixed;top:0;left:0;right:0;background:#f44336;color:white;padding:10px;text-align:center;z-index:9999;';
+          warning.innerHTML = '⚠️ ไม่สามารถโหลด Moment.js ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต';
+          document.body.appendChild(warning);
+        } else if (typeof moment.tz === 'undefined') {
+          console.warn('⚠️ Moment-timezone ไม่ได้โหลด แต่ moment.js ทำงานได้');
+        } else {
+          console.log('✅ Moment.js และ Moment-timezone โหลดสำเร็จ');
+        }
+      });
+    </script>
     <script src="/dashboard/script.js"></script>
 </body>
 </html>
