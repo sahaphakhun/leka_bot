@@ -366,15 +366,22 @@ export class KPIService {
         const trend = await this.calculateTrend(userId, internalGroupId, period);
         
         // Safe parsing of numeric values with fallbacks
-        const averagePoints = result.averagePoints !== null && result.averagePoints !== undefined ? parseFloat(result.averagePoints) : 0;
+        const averagePointsRaw = result.averagePoints;
+        const averagePoints = averagePointsRaw !== null && averagePointsRaw !== undefined ? parseFloat(averagePointsRaw) : 0;
         const safeAveragePoints = isNaN(averagePoints) ? 0 : averagePoints;
+
+        const totalPointsRaw = result.totalPoints;
+        const totalPoints = totalPointsRaw !== null && totalPointsRaw !== undefined ? parseFloat(totalPointsRaw) : 0;
+        const safeTotalPoints = isNaN(totalPoints) ? 0 : totalPoints;
+
+        const displayName = result.displayName || 'ไม่ทราบชื่อ';
         
         leaderboard.push({
           userId,
-          displayName: result.displayName,
+          displayName,
           weeklyPoints: period === 'weekly' ? safeAveragePoints : 0,
           monthlyPoints: period === 'monthly' ? safeAveragePoints : 0,
-          totalPoints: safeAveragePoints, // เมื่อ fallback จะเป็น 0 แต่ยังแสดงอันดับจาก tasksCompleted
+          totalPoints: safeTotalPoints, // ใช้ผลรวมคะแนนจริง
           tasksCompleted: parseInt(result.tasksCompleted) || 0,
           tasksEarly: parseInt(result.tasksEarly) || 0,
           tasksOnTime: parseInt(result.tasksOnTime) || 0,

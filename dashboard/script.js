@@ -1785,14 +1785,16 @@ class Dashboard {
     console.log('🔄 Processing mini leaderboard data for', leaderboard.length, 'users');
 
     container.innerHTML = leaderboard.map((user, index) => {
-      // Safe handling of numeric values that might be null, undefined, or NaN
-      const totalPoints = user.totalPoints || user.averagePoints || user.weeklyPoints || 0;
-      const safeTotalPoints = (totalPoints !== null && totalPoints !== undefined && !isNaN(totalPoints)) ? totalPoints : 0;
-      const safeTasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
-      
+      // Safe handling of values and fallbacks
+      const rawTotalPoints = (user.totalPoints ?? user.averagePoints ?? user.weeklyPoints ?? 0);
+      const numTotalPoints = Number(rawTotalPoints);
+      const safeTotalPoints = Number.isFinite(numTotalPoints) ? numTotalPoints : 0;
+      const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
+      const displayName = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
+
       // Log any data issues for debugging
-      if (totalPoints === null || totalPoints === undefined || isNaN(totalPoints)) {
-        console.warn(`⚠️ User ${user.displayName} has invalid totalPoints:`, totalPoints, 'using fallback: 0');
+      if (!Number.isFinite(numTotalPoints)) {
+        console.warn(`⚠️ User ${displayName} has invalid totalPoints:`, rawTotalPoints, 'using fallback: 0');
       }
       
       return `
@@ -1801,7 +1803,7 @@ class Dashboard {
             ${index + 1}
           </div>
           <div class="user-info" style="flex: 1;">
-            <div style="font-weight: 500;">${user.displayName}</div>
+            <div style="font-weight: 500;">${displayName}</div>
             <div style="font-size: 0.875rem; color: #6b7280;">${safeTotalPoints.toFixed(2)} คะแนน</div>
           </div>
           <div class="score" style="font-weight: 600; color: #10b981;">
@@ -2140,16 +2142,18 @@ class Dashboard {
     console.log('🔄 Processing leaderboard data for', users.length, 'users');
 
     container.innerHTML = users.map((user, index) => {
-      // Safe handling of numeric values that might be null, undefined, or NaN
-      const totalPoints = user.totalPoints || user.averagePoints || user.weeklyPoints || 0;
-      const safeTotalPoints = (totalPoints !== null && totalPoints !== undefined && !isNaN(totalPoints)) ? totalPoints : 0;
-      const safeTasksCompleted = (user.tasksCompleted ?? user.completedTasks) || 0;
-      const safeTasksEarly = user.tasksEarly || 0;
-      const safeTasksOnTime = user.tasksOnTime || 0;
+      // Safe handling of values and fallbacks
+      const rawTotalPoints = (user.totalPoints ?? user.averagePoints ?? user.weeklyPoints ?? 0);
+      const numTotalPoints = Number(rawTotalPoints);
+      const safeTotalPoints = Number.isFinite(numTotalPoints) ? numTotalPoints : 0;
+      const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
+      const safeTasksEarly = Number(user.tasksEarly ?? 0) || 0;
+      const safeTasksOnTime = Number(user.tasksOnTime ?? 0) || 0;
+      const displayName = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
       
       // Log any data issues for debugging
-      if (totalPoints === null || totalPoints === undefined || isNaN(totalPoints)) {
-        console.warn(`⚠️ User ${user.displayName} has invalid totalPoints:`, totalPoints, 'using fallback: 0');
+      if (!Number.isFinite(numTotalPoints)) {
+        console.warn(`⚠️ User ${displayName} has invalid totalPoints:`, rawTotalPoints, 'using fallback: 0');
       }
       
       return `
@@ -2158,7 +2162,7 @@ class Dashboard {
           ${index + 1}
         </div>
         <div class="user-info" style="flex: 1;">
-          <div style="font-weight: 600; font-size: 1.125rem;">${user.displayName}</div>
+          <div style="font-weight: 600; font-size: 1.125rem;">${displayName}</div>
           <div style="color: #6b7280; margin-top: 4px;">
             เสร็จ ${safeTasksCompleted} งาน • ค่าเฉลี่ย ${safeTotalPoints.toFixed(2)} คะแนน
           </div>
