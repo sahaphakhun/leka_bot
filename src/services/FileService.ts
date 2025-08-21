@@ -43,6 +43,7 @@ export class FileService {
     originalName?: string;
     mimeType: string;
     folderStatus?: 'in_progress' | 'completed';
+    attachmentType?: 'initial' | 'submission';
   }): Promise<File> {
     try {
       // แปลง LINE Group ID → internal UUID (ถ้าเป็น LINE ID)
@@ -97,7 +98,8 @@ export class FileService {
           uploadedBy: internalUserId,
           isPublic: false,
           tags: [],
-          folderStatus: data.folderStatus || 'in_progress'
+          folderStatus: data.folderStatus || 'in_progress',
+          attachmentType: data.attachmentType
         });
       } else {
         // เดิม: บันทึกโลคอล
@@ -120,7 +122,8 @@ export class FileService {
           uploadedBy: internalUserId,
           isPublic: false,
           tags: [],
-          folderStatus: data.folderStatus || 'in_progress'
+          folderStatus: data.folderStatus || 'in_progress',
+          attachmentType: data.attachmentType
         });
       }
 

@@ -561,7 +561,7 @@ class ApiController {
   public async uploadFiles(req: Request, res: Response): Promise<void> {
     try {
       const { groupId } = req.params;
-      const { userId, tags } = (req.body || {}) as any;
+      const { userId, tags, attachmentType } = (req.body || {}) as any;
       const files = (req as any).files as any[];
 
       if (!userId || userId === 'unknown') {
@@ -599,7 +599,8 @@ class ApiController {
             content: f.buffer,
             originalName: f.originalname,
             mimeType: f.mimetype,
-            folderStatus: 'in_progress'
+            folderStatus: 'in_progress',
+            attachmentType: attachmentType || 'initial' // default เป็น initial
           });
           
           if (tagsArray.length > 0) {

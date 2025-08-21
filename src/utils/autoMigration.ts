@@ -37,10 +37,11 @@ export class AutoMigration {
         return;
       }
 
-      // รัน migration
-      await this.migrateMissingColumns();
-      
-      logger.info('✅ Auto-Migration เสร็จสิ้น');
+              // รัน migration
+        await this.migrateMissingColumns();
+        await this.migrateFileAttachmentType();
+        
+        logger.info('✅ Auto-Migration เสร็จสิ้น');
       
     } catch (error) {
       logger.error('❌ Auto-Migration ล้มเหลว:', error);
@@ -263,6 +264,67 @@ export class AutoMigration {
     } catch (error) {
       logger.error('❌ ไม่สามารถตรวจสอบ migration:', error);
       return false;
+    }
+  }
+
+  /**
+   * เพิ่มคอลัมน์ attachmentType ในตาราง files
+   */
+  private async migrateFileAttachmentType(): Promise<void> {
+    try {
+      const queryRunner = AppDataSource.createQueryRunner();
+      
+      try {
+        // ตรวจสอบว่าคอลัมน์ attachmentType มีอยู่แล้วหรือไม่
+        const columnExists = await queryRunner.query(`
+          SELECT column_name 
+          FROM information_schema.columns 
+          WHERE table_name = 'files' 
+          AND column_name = 'attachmentType'
+          AND table_schema = 'public'
+        `);
+
+        if (columnExists.length > 0) {
+          logger.info('✅ คอลัมน์ attachmentType มีอยู่แล้วในตาราง files');
+          return;
+        }
+
+        logger.info('🔄 เพิ่มคอลัมน์ attachmentType ในตาราง files...');
+        
+        // เพิ่มคอลัมน์ attachmentType
+        await queryRunner.query(`
+          ALTER TABLE files 
+          ADD COLUMN "attachmentType" character varying 
+          CHECK ("attachmentType" IN ('initial', 'submission'))
+        `);
+
+        logger.info('✅ เพิ่มคอลัมน์ attachmentType สำเร็จ');
+
+        // อัปเดตไฟล์เก่าให้เป็น 'initial' (สมมติว่าเป็นไฟล์เริ่มต้น)
+        const updateResult = await queryRunner.query(`
+          UPDATE files 
+          SET "attachmentType" = 'initial' 
+          WHERE "attachmentType" IS NULL 
+          AND id IN (
+            SELECT DISTINCT file_id 
+            FROM task_files 
+            WHERE task_id IN (
+              SELECT id FROM tasks 
+              WHERE "createdAt" < NOW() - INTERVAL '1 day'
+            )
+          )
+        `);
+
+        const affectedRows = updateResult.affectedRows || updateResult.rowCount || 0;
+        logger.info(`✅ อัปเดตไฟล์เก่า ${affectedRows} ไฟล์ให้เป็นประเภท 'initial'`);
+
+      } finally {
+        await queryRunner.release();
+      }
+      
+    } catch (error) {
+      logger.error('❌ ไม่สามารถเพิ่มคอลัมน์ attachmentType ได้:', error);
+      // ไม่ throw error เพื่อไม่ให้ server หยุดทำงาน
     }
   }
 }

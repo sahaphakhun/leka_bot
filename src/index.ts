@@ -48,7 +48,7 @@ class Server {
             "'self'", 
             "'unsafe-inline'",
             "https://fonts.googleapis.com", // Allow Google Fonts
-            "https://cdnjs.cloudflare.com" // Allow Font Awesome from CDN
+            "https://cdnjs.cloudflare.com" // Allow Font Awesome
           ],
           imgSrc: ["'self'", "data:", "https:"],
           connectSrc: ["'self'"],
