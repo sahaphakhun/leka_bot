@@ -465,7 +465,7 @@ class DashboardController {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <script src="/dashboard/assets/script.js" defer></script>
+  <script src="/dashboard/script.js" defer></script>
 </head>
 <body>
   <div class="container" id="app"

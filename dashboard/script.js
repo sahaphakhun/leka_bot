@@ -1131,7 +1131,7 @@ class Dashboard {
             <div class="file-preview-name">${file.name}</div>
             <div class="file-preview-size">${this.formatFileSize(file.size)}</div>
           </div>
-          <button type="button" class="file-preview-remove" onclick="app.removeInitialFile(${index})">
+          <button type="button" class="file-preview-remove" onclick="dashboard.removeInitialFile(${index})">
             <i class="fas fa-times"></i>
           </button>
         </div>
@@ -1175,7 +1175,10 @@ class Dashboard {
       }
 
       const result = await response.json();
-      return result.files || [];
+      // รองรับทั้งรูปแบบ { success, data: File[] } และ { files: File[] }
+      if (result && Array.isArray(result.data)) return result.data;
+      if (result && Array.isArray(result.files)) return result.files;
+      return [];
     } catch (error) {
       console.error('❌ Failed to upload initial files:', error);
       throw error;
