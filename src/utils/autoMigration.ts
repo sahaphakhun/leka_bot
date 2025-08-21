@@ -255,7 +255,20 @@ export class AutoMigration {
         const columnNames = existingColumns.map((col: any) => col.column_name);
         const requiredColumns = ['submittedAt', 'reviewedAt', 'approvedAt', 'requireAttachment', 'workflow'];
         
-        return requiredColumns.some(col => !columnNames.includes(col));
+        const tasksMissingColumns = requiredColumns.some(col => !columnNames.includes(col));
+
+        // ตรวจสอบคอลัมน์ attachmentType ในตาราง files
+        const filesColumns = await queryRunner.query(`
+          SELECT column_name
+          FROM information_schema.columns 
+          WHERE table_name = 'files' 
+          AND table_schema = 'public'
+        `);
+        
+        const filesColumnNames = filesColumns.map((col: any) => col.column_name);
+        const filesMissingAttachmentType = !filesColumnNames.includes('attachmentType');
+
+        return tasksMissingColumns || filesMissingAttachmentType;
         
       } finally {
         await queryRunner.release();
@@ -272,6 +285,7 @@ export class AutoMigration {
    */
   private async migrateFileAttachmentType(): Promise<void> {
     try {
+      logger.info('🔍 ตรวจสอบคอลัมน์ attachmentType ในตาราง files...');
       const queryRunner = AppDataSource.createQueryRunner();
       
       try {
@@ -283,6 +297,8 @@ export class AutoMigration {
           AND column_name = 'attachmentType'
           AND table_schema = 'public'
         `);
+
+        logger.info(`🔍 ผลการตรวจสอบ: พบคอลัมน์ attachmentType ${columnExists.length} รายการ`);
 
         if (columnExists.length > 0) {
           logger.info('✅ คอลัมน์ attachmentType มีอยู่แล้วในตาราง files');
