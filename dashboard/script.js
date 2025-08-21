@@ -1873,7 +1873,7 @@ class Dashboard {
               <div style="display: grid; gap: 6px; max-height: 120px; overflow-y: auto;">
                 ${task.attachedFiles.slice(0, 3).map(file => `
                   <div class="attachment-preview-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; border: 1px solid #e5e7eb;"
-                       onclick="event.stopPropagation(); app.viewFile('${file.id}')"
+                       onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')"
                        onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#3b82f6'"
                        onmouseout="this.style.background='white'; this.style.borderColor='#e5e7eb'">
                     <i class="fas ${this.getFileIcon(file.mimeType)}" style="color: #6b7280; font-size: 0.875rem; width: 16px;"></i>
@@ -1882,11 +1882,11 @@ class Dashboard {
                       <div style="font-size: 0.75rem; color: #6b7280;">${this.formatFileSize(file.size)}</div>
                     </div>
                     <div style="display: flex; gap: 4px;">
-                      <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.viewFile('${file.id}')" 
+                      <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')" 
                               style="padding: 2px 6px; font-size: 0.6875rem; border: none; background: #e0f2fe; color: #0277bd;">
                         <i class="fas fa-eye"></i>
                       </button>
-                      <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); app.downloadFile('${file.id}')" 
+                      <button class="btn btn-xs btn-outline" onclick="event.stopPropagation(); dashboard.downloadFile('${file.id}')" 
                               style="padding: 2px 6px; font-size: 0.6875rem; border: none; background: #f0f9ff; color: #0369a1;">
                         <i class="fas fa-download"></i>
                       </button>
@@ -2061,7 +2061,7 @@ class Dashboard {
       
       return `
         <div class="file-item" style="background: white; border-radius: 12px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.2s ease;"
-             data-file-id="${file.id}" onclick="app.viewFile('${file.id}')">
+             data-file-id="${file.id}" onclick="dashboard.viewFile('${file.id}')">
           <div class="file-item-preview" style="position: relative; margin-bottom: 12px;">
             ${isImage ? `
               <img src="${thumbnailUrl}" alt="${file.originalName}" class="file-thumbnail" 
@@ -2112,11 +2112,11 @@ class Dashboard {
             </div>
           ` : ''}
           <div class="file-actions" style="margin-top: 8px; display: flex; gap: 8px;">
-            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.downloadFile('${file.id}')" 
+            <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); dashboard.downloadFile('${file.id}')" 
                     style="flex: 1; padding: 4px 8px; font-size: 0.75rem;">
               <i class="fas fa-download"></i> ดาวน์โหลด
             </button>
-            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.viewFile('${file.id}')" 
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')" 
                     style="flex: 1; padding: 4px 8px; font-size: 0.75rem;">
               <i class="fas fa-eye"></i> ดู
             </button>
@@ -2400,11 +2400,11 @@ class Dashboard {
                         <div class="file-size" style="font-size: 0.875rem; color: #6b7280;">${this.formatFileSize(file.size)}</div>
                       </div>
                       <div style="display: flex; gap: 4px;">
-                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.viewFile('${file.id}')" 
+                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')" 
                                 style="padding: 4px 8px; font-size: 0.75rem;">
                           <i class="fas fa-eye"></i> ดู
                         </button>
-                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.downloadFile('${file.id}')" 
+                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); dashboard.downloadFile('${file.id}')" 
                                 style="padding: 4px 8px; font-size: 0.75rem;">
                           <i class="fas fa-download"></i>
                         </button>
@@ -3143,8 +3143,12 @@ class Dashboard {
       const fileResponse = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}`);
       if (!fileResponse.ok) throw new Error('ไม่สามารถดึงข้อมูลไฟล์ได้');
       
-      const fileData = await fileResponse.json();
-      title.textContent = fileData.originalName;
+      let fileData = await fileResponse.json();
+      // รองรับทั้งรูปแบบ { success, data } และ object ตรง ๆ
+      if (fileData && typeof fileData === 'object' && 'data' in fileData) {
+        fileData = fileData.data;
+      }
+      title.textContent = fileData.originalName || 'ดูไฟล์';
       
       // ตั้งค่าปุ่มดาวน์โหลด
       const downloadBtn = document.getElementById('downloadFileBtn');
@@ -3156,24 +3160,24 @@ class Dashboard {
       
       if (mimeType.startsWith('image/')) {
         // แสดงรูปภาพ
-        const imageUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        const imageUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
         fileContent = `<img src="${imageUrl}" alt="${fileData.originalName}" style="max-width: 100%; max-height: 70vh; object-fit: contain;">`;
       } else if (mimeType === 'application/pdf') {
         // แสดง PDF
-        const pdfUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        const pdfUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
         fileContent = `<iframe src="${pdfUrl}" style="width: 100%; height: 70vh; border: none;"></iframe>`;
       } else if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml')) {
         // แสดงไฟล์ข้อความ
-        const textResponse = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`);
+        const textResponse = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`);
         const textContent = await textResponse.text();
         fileContent = `<pre style="background: #f8f9fa; padding: 20px; border-radius: 8px; overflow: auto; max-height: 60vh; white-space: pre-wrap; font-family: 'Courier New', monospace;">${this.escapeHtml(textContent)}</pre>`;
       } else if (mimeType.startsWith('video/')) {
         // แสดงวิดีโอ
-        const videoUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        const videoUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
         fileContent = `<video controls style="max-width: 100%; max-height: 70vh;"><source src="${videoUrl}" type="${mimeType}">ไม่สามารถแสดงวิดีโอได้</video>`;
       } else if (mimeType.startsWith('audio/')) {
         // แสดงเสียง
-        const audioUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+        const audioUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
         fileContent = `
           <div class="file-preview-placeholder">
             <i class="fas fa-music"></i>
@@ -3192,7 +3196,7 @@ class Dashboard {
             <h3>${fileData.originalName}</h3>
             <p>ขนาด: ${this.formatFileSize(fileData.size)}</p>
             <p>ไม่สามารถแสดงตัวอย่างไฟล์ประเภทนี้ได้</p>
-            <button class="btn btn-primary" onclick="app.downloadFile('${fileId}')">
+            <button class="btn btn-primary" onclick="dashboard.downloadFile('${fileId}')">
               <i class="fas fa-download"></i> ดาวน์โหลดเพื่อดู
             </button>
           </div>

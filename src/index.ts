@@ -58,8 +58,8 @@ class Server {
             "https://cdnjs.cloudflare.com" // Allow Font Awesome fonts
           ],
           objectSrc: ["'none'"],
-          mediaSrc: ["'self'"],
-          frameSrc: ["'none'"]
+          mediaSrc: ["'self'", "blob:", "data:"],
+          frameSrc: ["'self'", "blob:", "data:"]
         }
       }
     }));
