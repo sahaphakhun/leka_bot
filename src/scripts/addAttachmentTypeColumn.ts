@@ -8,7 +8,7 @@ async function addAttachmentTypeColumn() {
   const dataSource = new DataSource({
     type: 'postgres',
     url: config.database.url,
-    ssl: config.database.ssl ? { rejectUnauthorized: false } : false,
+    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
     synchronize: false,
     logging: false,
   });
