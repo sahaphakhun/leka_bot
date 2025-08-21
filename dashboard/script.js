@@ -99,21 +99,6 @@ if (typeof require !== 'undefined') {
   };
 }
 
-// เพิ่มการตรวจสอบ moment ทุกครั้งที่ใช้งาน
-function getSafeMoment() {
-  if (moment && typeof moment === 'function') {
-    return moment;
-  }
-  console.warn('⚠️ moment ไม่พร้อมใช้งาน ใช้ Date แทน');
-  return {
-    format: (format) => new Date().toLocaleString('th-TH'),
-    tz: (timezone) => new Date().toLocaleString('th-TH'),
-    setDefault: () => {},
-    utc: () => new Date(),
-    unix: (timestamp) => new Date(timestamp * 1000)
-  };
-}
-
 class Dashboard {
   constructor() {
     this.currentView = 'dashboard';
@@ -138,33 +123,20 @@ class Dashboard {
     this.loadInitialData();
     this.hideLoading();
 
-      // เมื่อไม่มี userId ให้ปิดปุ่ม action ที่ต้องการตัวตน
-  if (!this.currentUserId) {
-    const needUserButtons = ['addTaskBtn', 'submitTaskBtn', 'reviewTaskBtn'];
-    needUserButtons.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.setAttribute('disabled', 'true');
-        el.classList.add('disabled');
-        el.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
-      }
-    });
-    const hint = document.getElementById('actionHint');
-    if (hint) hint.style.display = 'block';
-  } else {
-    // ถ้ามี userId ให้เปิดใช้งานปุ่มทั้งหมด
-    const needUserButtons = ['addTaskBtn', 'submitTaskBtn', 'reviewTaskBtn'];
-    needUserButtons.forEach(id => {
-      const el = document.getElementById(id);
-      if (el) {
-        el.removeAttribute('disabled');
-        el.classList.remove('disabled');
-        el.title = '';
-      }
-    });
-    const hint = document.getElementById('actionHint');
-    if (hint) hint.style.display = 'none';
-  }
+    // เมื่อไม่มี userId ให้ปิดปุ่ม action ที่ต้องการตัวตน
+    if (!this.currentUserId) {
+      const needUserButtons = ['addTaskBtn', 'submitTaskBtn', 'reviewTaskBtn'];
+      needUserButtons.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+          el.setAttribute('disabled', 'true');
+          el.classList.add('disabled');
+          el.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
+        }
+      });
+      const hint = document.getElementById('actionHint');
+      if (hint) hint.style.display = 'block';
+    }
   }
 
   bindEvents() {
@@ -435,18 +407,7 @@ class Dashboard {
 
   getUserIdFromUrl() {
     const urlParams = new URLSearchParams(window.location.search);
-    const userId = urlParams.get('userId') || urlParams.get('uid') || '';
-    
-    // ถ้าไม่มีใน URL ให้ลองดูจาก hash fragment
-    if (!userId) {
-      const hash = window.location.hash;
-      if (hash && hash.includes('userId=')) {
-        const hashParams = new URLSearchParams(hash.substring(1));
-        return hashParams.get('userId') || hashParams.get('uid') || '';
-      }
-    }
-    
-    return userId;
+    return urlParams.get('userId') || '';
   }
 
   getActionFromUrl() {

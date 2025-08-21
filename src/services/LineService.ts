@@ -664,17 +664,13 @@ export class LineService {
       
       console.log(`📊 พบสมาชิก ${lineMembers.length} คนใน LINE API`);
       
-      try {
-        // เรียกใช้ UserService เพื่อ sync ข้อมูลลงฐานข้อมูล
-        const syncResult = await this.userService.syncGroupMembers(groupId, lineMembers);
-        console.log(`✅ Sync ข้อมูลสมาชิกลงฐานข้อมูลสำเร็จ: ${syncResult.success ? 'สำเร็จ' : 'ไม่สำเร็จ'}`);
-      } catch (error) {
-        console.error('❌ เกิดข้อผิดพลาดในการ sync ข้อมูลสมาชิก:', error);
-        // สำหรับตอนนี้ ให้ log ข้อมูลที่ได้
-        lineMembers.forEach(member => {
-          console.log(`📝 Sync: ${member.userId} - ${member.displayName}`);
-        });
-      }
+      // TODO: เรียกใช้ UserService เพื่อ sync ข้อมูลลงฐานข้อมูล
+      // const syncResult = await this.userService.syncGroupMembers(groupId, lineMembers);
+      
+      // สำหรับตอนนี้ ให้ log ข้อมูลที่ได้
+      lineMembers.forEach(member => {
+        console.log(`📝 Sync: ${member.userId} - ${member.displayName}`);
+      });
       
       console.log(`✅ Sync ข้อมูลสมาชิกเสร็จสิ้น: ${lineMembers.length} คน`);
       
@@ -708,21 +704,14 @@ export class LineService {
     try {
       console.log(`📊 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} จากฐานข้อมูล`);
       
-      try {
-        // เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
-        const members = await this.userService.getGroupMembers(groupId);
-        console.log(`✅ ดึงข้อมูลสมาชิกจากฐานข้อมูลสำเร็จ: ${members.length} คน`);
-        
-        // แปลงข้อมูลให้ตรงกับ format ที่ต้องการ
-        return members.map(member => ({
-          userId: member.lineUserId,
-          displayName: member.displayName,
-          pictureUrl: undefined
-        }));
-      } catch (error) {
-        console.error('❌ เกิดข้อผิดพลาดในการดึงข้อมูลสมาชิก:', error);
-        return [];
-      }
+      // TODO: เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
+      // const members = await this.userService.getGroupMembers(groupId);
+      
+      // สำหรับตอนนี้ ให้ส่งคืนข้อมูลตัวอย่าง
+      console.warn('⚠️ ฟังก์ชันนี้ยังไม่ได้เชื่อมต่อกับฐานข้อมูล');
+      console.warn('⚠️ กรุณาเพิ่มการเชื่อมต่อฐานข้อมูลเพื่อดึงข้อมูลสมาชิก');
+      
+      return [];
     } catch (error) {
       console.error('❌ Failed to get group members from database:', error);
       return [];
@@ -868,15 +857,8 @@ export class LineService {
    */
   private async removeMemberFromDatabase(groupId: string, userId: string): Promise<void> {
     try {
-      try {
-        // เรียกใช้ UserService เพื่อลบข้อมูลออกจากฐานข้อมูล
-        await this.userService.removeGroupMember(groupId, userId);
-        console.log(`✅ ลบสมาชิก ${userId} ออกจากฐานข้อมูลเรียบร้อย`);
-      } catch (error) {
-        console.error('❌ ไม่สามารถลบสมาชิกจากฐานข้อมูลได้:', error);
-        // ถ้าไม่มีฟังก์ชัน removeGroupMember ให้ log warning
-        console.warn('⚠️ ฟังก์ชัน removeGroupMember ยังไม่ได้ implement ใน UserService');
-      }
+      // TODO: เรียกใช้ UserService เพื่อลบข้อมูลออกจากฐานข้อมูล
+      // await this.userService.removeGroupMember(groupId, userId);
       
       console.log(`🗑️ ลบข้อมูลสมาชิกออกจากฐานข้อมูล: ${userId}`);
       
@@ -933,15 +915,8 @@ export class LineService {
         // สมาชิกออกจากกลุ่ม
         console.log(`👋 สมาชิก ${userId} ออกจากกลุ่ม ${groupId}`);
         
-        try {
-          // อัปเดตสถานะสมาชิกในฐานข้อมูล (เช่น ตั้งเป็น inactive)
-          await this.userService.updateMemberStatus(groupId, userId, 'inactive');
-          console.log(`✅ อัปเดตสถานะสมาชิก ${userId} เป็น inactive`);
-        } catch (error) {
-          console.error('❌ ไม่สามารถอัปเดตสถานะสมาชิกได้:', error);
-          // ถ้าไม่มีฟังก์ชัน updateMemberStatus ให้ log warning
-          console.warn('⚠️ ฟังก์ชัน updateMemberStatus ยังไม่ได้ implement ใน UserService');
-        }
+        // TODO: อัปเดตสถานะสมาชิกในฐานข้อมูล (เช่น ตั้งเป็น inactive)
+        // await this.userService.updateMemberStatus(groupId, userId, 'inactive');
         
       }
       
