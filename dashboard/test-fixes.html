@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบการแก้ไขปัญหา Dashboard</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 20px; border: 1px solid #ddd; border-radius: 8px; }
+        .test-button { padding: 10px 20px; margin: 5px; background: #007bff; color: white; border: none; border-radius: 4px; cursor: pointer; }
+        .test-button:hover { background: #0056b3; }
+        .result { margin: 10px 0; padding: 10px; background: #f8f9fa; border-radius: 4px; }
+        .success { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+        .error { background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+    </style>
+</head>
+<body>
+    <h1>🧪 ทดสอบการแก้ไขปัญหา Dashboard</h1>
+    
+    <div class="test-section">
+        <h2>1. ทดสอบการดูไฟล์แนบ</h2>
+        <p>ทดสอบการเรียกใช้ API สำหรับการดูข้อมูลไฟล์</p>
+        <button class="test-button" onclick="testFileInfoAPI()">ทดสอบ API ข้อมูลไฟล์</button>
+        <div id="fileInfoResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>2. ทดสอบการส่งงาน</h2>
+        <p>ทดสอบการเรียกใช้ API สำหรับการส่งงาน</p>
+        <button class="test-button" onclick="testSubmitTaskAPI()">ทดสอบ API ส่งงาน</button>
+        <div id="submitTaskResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>3. ทดสอบการดาวน์โหลดไฟล์</h2>
+        <p>ทดสอบการเรียกใช้ API สำหรับการดาวน์โหลดไฟล์</p>
+        <button class="test-button" onclick="testDownloadFileAPI()">ทดสอบ API ดาวน์โหลดไฟล์</button>
+        <div id="downloadFileResult" class="result"></div>
+    </div>
+
+    <div class="test-section">
+        <h2>4. ข้อมูลการทดสอบ</h2>
+        <div>
+            <label>Group ID:</label>
+            <input type="text" id="groupId" value="test-group" style="margin: 0 10px;">
+        </div>
+        <div>
+            <label>File ID:</label>
+            <input type="text" id="fileId" value="test-file" style="margin: 0 10px;">
+        </div>
+        <div>
+            <label>Task ID:</label>
+            <input type="text" id="taskId" value="test-task" style="margin: 0 10px;">
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = window.location.origin;
+
+        function showResult(elementId, message, isSuccess = true) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.className = `result ${isSuccess ? 'success' : 'error'}`;
+        }
+
+        async function testFileInfoAPI() {
+            const groupId = document.getElementById('groupId').value;
+            const fileId = document.getElementById('fileId').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/groups/${groupId}/files/${fileId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('fileInfoResult', `✅ สำเร็จ: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult('fileInfoResult', `❌ ไม่สำเร็จ: ${data.error || 'Unknown error'}`, false);
+                }
+            } catch (error) {
+                showResult('fileInfoResult', `❌ เกิดข้อผิดพลาด: ${error.message}`, false);
+            }
+        }
+
+        async function testSubmitTaskAPI() {
+            const groupId = document.getElementById('groupId').value;
+            const taskId = document.getElementById('taskId').value;
+            
+            try {
+                const formData = new FormData();
+                formData.append('userId', 'test-user');
+                formData.append('comment', 'ทดสอบการส่งงาน');
+                
+                const response = await fetch(`${API_BASE}/api/groups/${groupId}/tasks/${taskId}/submit`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    showResult('submitTaskResult', `✅ สำเร็จ: ${JSON.stringify(data, null, 2)}`);
+                } else {
+                    showResult('submitTaskResult', `❌ ไม่สำเร็จ: ${data.error || 'Unknown error'}`, false);
+                }
+            } catch (error) {
+                showResult('submitTaskResult', `❌ เกิดข้อผิดพลาด: ${error.message}`, false);
+            }
+        }
+
+        async function testDownloadFileAPI() {
+            const groupId = document.getElementById('groupId').value;
+            const fileId = document.getElementById('fileId').value;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/groups/${groupId}/files/${fileId}/download`);
+                
+                if (response.ok) {
+                    showResult('downloadFileResult', `✅ สำเร็จ: สามารถดาวน์โหลดไฟล์ได้ (Content-Type: ${response.headers.get('Content-Type')})`);
+                } else {
+                    const data = await response.json().catch(() => ({}));
+                    showResult('downloadFileResult', `❌ ไม่สำเร็จ: ${data.error || 'Unknown error'}`, false);
+                }
+            } catch (error) {
+                showResult('downloadFileResult', `❌ เกิดข้อผิดพลาด: ${error.message}`, false);
+            }
+        }
+
+        // ตรวจสอบ API endpoints ที่มีอยู่
+        window.addEventListener('load', async () => {
+            try {
+                const response = await fetch(`${API_BASE}/api/groups/test-group/files`);
+                if (response.ok) {
+                    console.log('✅ API endpoints ทำงานได้');
+                }
+            } catch (error) {
+                console.log('⚠️ ไม่สามารถเชื่อมต่อ API ได้:', error.message);
+            }
+        });
+    </script>
+</body>
+</html>

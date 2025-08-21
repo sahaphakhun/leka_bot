@@ -1058,7 +1058,7 @@ export class FlexMessageTemplateService {
     const buttons = [
       FlexMessageDesignSystem.createButton('📋', 'postback', 'action=show_personal_tasks', 'primary'),
       ...(files.length > 0 && taskId ? [
-        FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_with_personal_files&taskId=${taskId}`, 'primary')
+        FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${taskId}`, 'primary')
       ] : []),
       ...fileButtons, // เพิ่มปุ่มไฟล์แต่ละไฟล์
       FlexMessageDesignSystem.createButton('🗑️', 'postback', 'action=clear_personal_files', 'secondary')
@@ -1113,7 +1113,7 @@ export class FlexMessageTemplateService {
     );
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_with_personal_files&taskId=${task.id}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📤', 'postback', `action=submit_task&taskId=${task.id}`, 'primary'),
       FlexMessageDesignSystem.createButton('📎', 'postback', 'action=show_personal_files', 'secondary'),
       ...fileButtons, // เพิ่มปุ่มไฟล์แต่ละไฟล์
       FlexMessageDesignSystem.createButton('❌', 'postback', 'action=submit_cancel', 'secondary')
@@ -1160,7 +1160,7 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createButton(
           `📤${index + 1}`, 
           'postback', 
-          `action=submit_with_personal_files&taskId=${task.id}`, 
+          `action=submit_task&taskId=${task.id}`, 
           'secondary'
         )
       ),
@@ -1210,7 +1210,7 @@ export class FlexMessageTemplateService {
         FlexMessageDesignSystem.createButton(
           `${index + 1}`, 
           'postback', 
-          `action=submit_with_personal_files&taskId=${task.id}`, 
+          `action=submit_task&taskId=${task.id}`, 
           'secondary'
         )
       ).slice(0, 5), // แสดงสูงสุด 5 ปุ่ม

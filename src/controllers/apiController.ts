@@ -556,6 +556,37 @@ class ApiController {
   }
 
   /**
+   * GET /api/groups/:groupId/files/:fileId - ดึงข้อมูลไฟล์โดยตรง
+   */
+  public async getFileInfo(req: Request, res: Response): Promise<void> {
+    try {
+      const { fileId, groupId } = req.params;
+
+      // ตรวจสอบว่าไฟล์อยู่ในกลุ่มที่ระบุหรือไม่
+      if (groupId) {
+        const isAuthorized = await this.fileService.isFileInGroup(fileId, groupId);
+        if (!isAuthorized) {
+          res.status(403).json({ 
+            success: false, 
+            error: 'Access denied to file' 
+          });
+          return;
+        }
+      }
+
+      const fileInfo = await this.fileService.getFileInfo(fileId);
+      res.json({ success: true, data: fileInfo });
+
+    } catch (error) {
+      logger.error('❌ Error getting file info:', error);
+      res.status(404).json({ 
+        success: false, 
+        error: 'File not found' 
+      });
+    }
+  }
+
+  /**
    * POST /api/groups/:groupId/files/upload - อัปโหลดไฟล์เข้าคลังไฟล์ของกลุ่มโดยตรง
    * form-data fields: userId (LINE User ID), comment (optional), tags (comma-separated, optional)
    */
@@ -1303,6 +1334,8 @@ class ApiController {
       });
     }
   }
+
+  
 }
 
 const apiController = new ApiController();
@@ -1341,6 +1374,7 @@ apiRouter.post('/files/:fileId/tags', apiController.addFileTags.bind(apiControll
 // Group-specific file routes (สำหรับ dashboard)
 apiRouter.get('/groups/:groupId/files/:fileId/download', apiController.downloadFile.bind(apiController));
 apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFile.bind(apiController));
+apiRouter.get('/groups/:groupId/files/:fileId', apiController.getFileInfo.bind(apiController));
 
 // User and export routes
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));

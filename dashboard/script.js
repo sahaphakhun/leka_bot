@@ -2834,34 +2834,50 @@ class Dashboard {
        const comment = document.getElementById('submitComment').value;
        const filesInput = document.getElementById('submitFiles');
        const files = filesInput.files;
-       if (!taskId) { this.showToast('กรุณาเลือกงาน', 'error'); return; }
-       // อนุญาตให้ส่งได้แม้ไม่มีไฟล์
+       
+       if (!taskId) { 
+         this.showToast('กรุณาเลือกงาน', 'error'); 
+         return; 
+       }
 
+       // อนุญาตให้ส่งได้แม้ไม่มีไฟล์
        const formData = new FormData();
-               formData.append('userId', this.currentUserId || this.currentUser?.lineUserId || 'unknown');
+       formData.append('userId', this.currentUserId || this.currentUser?.lineUserId || 'unknown');
        formData.append('comment', comment || '');
+       
        if (files && files.length > 0) {
          for (let i = 0; i < files.length; i++) {
            formData.append('attachments', files[i]);
          }
        }
 
+       console.log('Submitting task:', { taskId, userId: this.currentUserId, filesCount: files?.length || 0 });
+
        const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`, {
          method: 'POST',
          body: formData
        });
-       if (!response.ok) throw new Error('Upload failed');
+       
+       if (!response.ok) {
+         const errorData = await response.json().catch(() => ({}));
+         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+       }
+       
        const data = await response.json();
        if (data.success) {
          this.showToast('ส่งงานสำเร็จ', 'success');
          this.closeModal('submitTaskModal');
          this.refreshCurrentView();
+         
+         // รีเซ็ตฟอร์ม
+         document.getElementById('submitComment').value = '';
+         document.getElementById('submitFiles').value = '';
        } else {
          this.showToast(data.error || 'ส่งงานไม่สำเร็จ', 'error');
        }
      } catch (error) {
        console.error('submitTask error:', error);
-       this.showToast('ส่งงานไม่สำเร็จ', 'error');
+       this.showToast(`ส่งงานไม่สำเร็จ: ${error.message}`, 'error');
      }
    }
 
