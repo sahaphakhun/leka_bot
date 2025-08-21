@@ -3737,4 +3737,6 @@ document.addEventListener('DOMContentLoaded', () => {
   dashboard = new Dashboard();
   // Expose after init to ensure handlers can access
   window.dashboard = dashboard;
+  // Backward-compat alias for inline handlers referencing `app.*`
+  window.app = dashboard;
 });

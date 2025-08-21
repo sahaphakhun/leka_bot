@@ -39,6 +39,9 @@ class Server {
       contentSecurityPolicy: {
         directives: {
           defaultSrc: ["'self'"],
+          // อนุญาต inline event handlers ชั่วคราวให้ dashboard ทำงานได้ (onclick, onmouseover, ...)
+          // ควร refactor เอา inline ออกในภายหลังเพื่อความปลอดภัย
+          scriptSrcAttr: ["'unsafe-inline'"],
           scriptSrc: [
             "'self'",
             "'unsafe-inline'", // Required for inline scripts in dashboard
