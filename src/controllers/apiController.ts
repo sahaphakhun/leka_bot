@@ -878,10 +878,11 @@ class ApiController {
 
       // Validate groupId
       if (!groupId) {
-        return res.status(400).json({
+        res.status(400).json({
           success: false,
           error: 'Group ID is required'
         });
+        return;
       }
 
       const leaderboard = await this.kpiService.getGroupLeaderboard(
