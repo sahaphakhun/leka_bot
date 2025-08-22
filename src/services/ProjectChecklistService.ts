@@ -341,7 +341,7 @@ export class ProjectChecklistService {
     
     try {
       // สร้าง To-dos ตาม checklist ที่จำเป็น
-      const todos = [];
+      const todos: any[] = [];
       
       // 1. To-do สำหรับการตรวจสอบโปรเจ็ก
       todos.push({

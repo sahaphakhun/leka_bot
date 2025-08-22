@@ -639,7 +639,7 @@ export class KPIService {
     weeks: number = 8
   ): Promise<Array<{ week: string; averageScore: number; totalTasks: number }>> {
     try {
-      const history = [];
+      const history: Array<{ week: string; averageScore: number; totalTasks: number }> = [];
       const currentWeek = moment().tz(config.app.defaultTimezone).startOf('week');
 
       for (let i = 0; i < weeks; i++) {

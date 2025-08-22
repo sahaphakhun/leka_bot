@@ -450,10 +450,10 @@ ${supervisorNames}
 
       // หาผู้ใช้ปัจจุบันโดยใช้ LINE User ID
       const currentUser = await this.userService.findByLineUserId(command.userId);
-      let userInLeaderboard = null;
+      let userInLeaderboard: any = null;
       
       if (currentUser) {
-        userInLeaderboard = leaderboard.find((u: any) => u.userId === currentUser.id);
+        userInLeaderboard = leaderboard.find((u: any) => u.userId === currentUser.id) || null;
       }
       
       if (userInLeaderboard) {
