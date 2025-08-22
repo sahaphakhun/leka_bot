@@ -1032,6 +1032,113 @@ class ApiController {
     }
   }
 
+  /**
+   * POST /api/groups/:groupId/sync-leaderboard - ซิงค์และคำนวณคะแนน leaderboard ใหม่
+   */
+  public async syncLeaderboard(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { period = 'weekly' } = req.body;
+
+      console.log(`🔄 API: Syncing leaderboard for group: ${groupId}, period: ${period}`);
+
+      // Validate groupId
+      if (!groupId) {
+        res.status(400).json({
+          success: false,
+          error: 'Group ID is required'
+        });
+        return;
+      }
+
+      // Validate groupId format (basic UUID check or 'default')
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (groupId !== 'default' && !uuidRegex.test(groupId)) {
+        console.warn(`⚠️ Invalid group ID format: ${groupId}`);
+        res.status(400).json({
+          success: false,
+          error: 'Invalid group ID format',
+          details: 'Group ID must be a valid UUID or "default"'
+        });
+        return;
+      }
+
+      // Validate period parameter
+      const validPeriods = ['weekly', 'monthly', 'all'];
+      if (period && !validPeriods.includes(period)) {
+        res.status(400).json({
+          success: false,
+          error: 'Invalid period parameter',
+          details: `Period must be one of: ${validPeriods.join(', ')}`
+        });
+        return;
+      }
+
+      // เรียกใช้ KPIService เพื่อซิงค์และคำนวณคะแนนใหม่
+      const syncResult = await this.kpiService.syncLeaderboardScores(
+        groupId,
+        period as 'weekly' | 'monthly' | 'all'
+      );
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          message: 'Leaderboard synchronized successfully',
+          processedTasks: syncResult.processedTasks,
+          updatedUsers: syncResult.updatedUsers,
+          period: period
+        }
+      };
+
+      console.log(`✅ API: Successfully synced leaderboard for ${syncResult.updatedUsers} users`);
+      res.json(response);
+
+    } catch (error) {
+      console.error('❌ API Error syncing leaderboard:', error);
+      
+      // Log detailed error information
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          groupId: req.params.groupId,
+          period: req.body.period
+        });
+      }
+
+      // Return appropriate error response
+      let errorMessage = 'Failed to sync leaderboard';
+      let statusCode = 500;
+
+      if (error instanceof Error) {
+        if (error.message.includes('not found') || error.message.includes('does not exist')) {
+          statusCode = 404;
+          errorMessage = 'Group not found';
+        } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
+          statusCode = 403;
+          errorMessage = 'Access denied';
+        } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+          statusCode = 400;
+          errorMessage = 'Invalid request parameters';
+        } else if (error.message.includes('connection') || error.message.includes('database')) {
+          statusCode = 503;
+          errorMessage = 'Database connection error';
+        }
+      }
+
+      res.status(statusCode).json({ 
+        success: false, 
+        error: errorMessage,
+        details: error instanceof Error ? error.message : 'Unknown error',
+        requestInfo: {
+          groupId: req.params.groupId,
+          period: req.body.period,
+          timestamp: new Date().toISOString()
+        }
+      });
+    }
+  }
+
   /** Reports summary (ผู้บริหาร) */
   public async getReportsSummary(req: Request, res: Response): Promise<void> {
     try {
@@ -1504,6 +1611,7 @@ apiRouter.post('/groups/:groupId/tasks', validateRequest(taskSchemas.create), ap
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/groups/:groupId/files', apiController.getFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
+apiRouter.post('/groups/:groupId/sync-leaderboard', apiController.syncLeaderboard.bind(apiController));
 apiRouter.get('/users/:userId/score-history/:groupId', apiController.getUserScoreHistory.bind(apiController));
 apiRouter.get('/users/:userId/average-score/:groupId', apiController.getUserAverageScore.bind(apiController));
   apiRouter.post('/groups/:groupId/settings/report-recipients', apiController.updateReportRecipients.bind(apiController));

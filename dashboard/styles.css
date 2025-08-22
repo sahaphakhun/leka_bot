@@ -1122,6 +1122,12 @@ body {
   margin-bottom: var(--spacing-4);
 }
 
+.section-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-2);
+}
+
 .section-header h3 {
   font-size: var(--font-size-lg);
   font-weight: 600;

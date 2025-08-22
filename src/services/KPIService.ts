@@ -1196,4 +1196,193 @@ export class KPIService {
       console.error('❌ Error updating group leaderboard:', error);
     }
   }
+
+  /**
+   * ซิงค์และคำนวณคะแนน leaderboard ใหม่จากงานทั้งหมด
+   */
+  public async syncLeaderboardScores(
+    groupId: string, 
+    period: 'weekly' | 'monthly' | 'all'
+  ): Promise<{
+    processedTasks: number;
+    updatedUsers: number;
+    details: {
+      completedTasks: number;
+      overdueTasks: number;
+      earlyCompletions: number;
+      onTimeCompletions: number;
+      lateCompletions: number;
+      overtimeCompletions: number;
+    };
+  }> {
+    try {
+      console.log(`🔄 Starting leaderboard sync for group: ${groupId}, period: ${period}`);
+
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) internalGroupId = groupByLineId.id;
+
+      // กำหนดช่วงเวลาตาม period
+      const now = moment().tz(config.app.defaultTimezone);
+      let startDate: Date;
+      let endDate: Date;
+
+      if (period === 'weekly') {
+        startDate = now.clone().startOf('week').toDate();
+        endDate = now.clone().endOf('week').toDate();
+      } else if (period === 'monthly') {
+        startDate = now.clone().startOf('month').toDate();
+        endDate = now.clone().endOf('month').toDate();
+      } else {
+        // 'all' - ใช้ข้อมูลทั้งหมด
+        startDate = new Date(0); // เริ่มต้นจากปี 1970
+        endDate = now.toDate();
+      }
+
+      // ดึงงานทั้งหมดในกลุ่มในช่วงเวลาที่กำหนด
+      const tasks = await this.taskRepository
+        .createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('task.createdAt BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .getMany();
+
+      console.log(`📋 Found ${tasks.length} tasks to process`);
+
+      // ลบ KPI records เก่าสำหรับช่วงเวลานี้
+      const deletedRecords = await this.kpiRepository
+        .createQueryBuilder()
+        .delete()
+        .where('groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('eventDate BETWEEN :startDate AND :endDate', { startDate, endDate })
+        .execute();
+
+      console.log(`🗑️ Deleted ${deletedRecords.affected || 0} old KPI records`);
+
+      // ตัวแปรสำหรับเก็บสถิติ
+      let processedTasks = 0;
+      let completedTasks = 0;
+      let overdueTasks = 0;
+      let earlyCompletions = 0;
+      let onTimeCompletions = 0;
+      let lateCompletions = 0;
+      let overtimeCompletions = 0;
+      const processedUsers = new Set<string>();
+
+      // ประมวลผลงานแต่ละชิ้น
+      for (const task of tasks) {
+        try {
+          if (task.assignedUsers.length === 0) {
+            console.log(`⚠️ Task ${task.id} has no assignees, skipping`);
+            continue;
+          }
+
+          processedTasks++;
+
+          if (task.status === 'completed' && task.completedAt) {
+            // งานเสร็จแล้ว - คำนวณประเภทการเสร็จ
+            const completionType = this.calculateCompletionType(task);
+            
+            // บันทึก KPI สำหรับผู้รับผิดชอบทุกคน
+            for (const assignee of task.assignedUsers) {
+              const points = config.app.kpiScoring[completionType];
+              const eventDate = task.completedAt;
+              
+              // คำนวณสัปดาห์และเดือน
+              const weekOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('week').toDate();
+              const monthOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('month').toDate();
+
+              const kpiRecord = this.kpiRepository.create({
+                userId: assignee.id,
+                groupId: internalGroupId,
+                taskId: task.id,
+                type: completionType,
+                points,
+                eventDate,
+                weekOf,
+                monthOf
+              });
+
+              await this.kpiRepository.save(kpiRecord);
+              processedUsers.add(assignee.id);
+
+              // อัปเดตสถิติ
+              completedTasks++;
+              switch (completionType) {
+                case 'early':
+                  earlyCompletions++;
+                  break;
+                case 'ontime':
+                  onTimeCompletions++;
+                  break;
+                case 'late':
+                  lateCompletions++;
+                  break;
+                case 'overtime':
+                  overtimeCompletions++;
+                  break;
+              }
+            }
+          } else if (task.status === 'overdue' || 
+                     (task.dueTime && moment(task.dueTime).isBefore(now))) {
+            // งานเกินกำหนด - บันทึก overdue KPI
+            for (const assignee of task.assignedUsers) {
+              const points = config.app.kpiScoring.overdue; // 0 คะแนน
+              const eventDate = new Date();
+              
+              // คำนวณสัปดาห์และเดือน
+              const weekOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('week').toDate();
+              const monthOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('month').toDate();
+
+              const kpiRecord = this.kpiRepository.create({
+                userId: assignee.id,
+                groupId: internalGroupId,
+                taskId: task.id,
+                type: 'overdue',
+                points,
+                eventDate,
+                weekOf,
+                monthOf
+              });
+
+              await this.kpiRepository.save(kpiRecord);
+              processedUsers.add(assignee.id);
+              overdueTasks++;
+            }
+          }
+        } catch (taskError) {
+          console.error(`❌ Error processing task ${task.id}:`, taskError);
+          // ดำเนินการต่อกับงานถัดไป
+        }
+      }
+
+      console.log(`✅ Leaderboard sync completed:`);
+      console.log(`   - Processed tasks: ${processedTasks}`);
+      console.log(`   - Updated users: ${processedUsers.size}`);
+      console.log(`   - Completed tasks: ${completedTasks}`);
+      console.log(`   - Overdue tasks: ${overdueTasks}`);
+      console.log(`   - Early completions: ${earlyCompletions}`);
+      console.log(`   - On-time completions: ${onTimeCompletions}`);
+      console.log(`   - Late completions: ${lateCompletions}`);
+      console.log(`   - Overtime completions: ${overtimeCompletions}`);
+
+      return {
+        processedTasks,
+        updatedUsers: processedUsers.size,
+        details: {
+          completedTasks,
+          overdueTasks,
+          earlyCompletions,
+          onTimeCompletions,
+          lateCompletions,
+          overtimeCompletions
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error syncing leaderboard scores:', error);
+      throw error;
+    }
+  }
 }

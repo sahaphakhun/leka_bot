@@ -1331,6 +1331,14 @@ class Dashboard {
             exportBtn._bound = true;
           }
         }
+        // เพิ่ม event listener สำหรับปุ่มซิงค์ leaderboard
+        {
+          const syncLeaderboardBtn = document.getElementById('syncLeaderboardBtn');
+          if (syncLeaderboardBtn && !syncLeaderboardBtn._bound) {
+            syncLeaderboardBtn.addEventListener('click', () => this.syncLeaderboard());
+            syncLeaderboardBtn._bound = true;
+          }
+        }
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
       case 'calendar':
@@ -1487,10 +1495,101 @@ class Dashboard {
       console.log('🔄 กำลังโหลด Mini Leaderboard...');
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=weekly&limit=3`);
       
+      console.log('📡 API Response:', response);
+      console.log('📊 Response data:', response.data);
+      console.log('📊 Response data type:', typeof response.data);
+      console.log('📊 Response data is array:', Array.isArray(response.data));
+      
       if (response.data && Array.isArray(response.data)) {
-        this.updateMiniLeaderboard(response.data);
+        console.log('✅ Data is array, updating mini leaderboard');
+        console.log('📊 Array length:', response.data.length);
+        
+        // ทดสอบการสร้าง HTML แบบง่ายๆ ก่อน
+        const simpleTestHTML = `
+          <div style="border: 2px solid red; padding: 10px; margin: 10px 0; background: yellow;">
+            <h3>🧪 ทดสอบการแสดงผล</h3>
+            <p>จำนวนผู้ใช้: ${response.data.length}</p>
+            <p>ผู้ใช้คนแรก: ${response.data[0]?.displayName || 'ไม่มีข้อมูล'}</p>
+            <p>ข้อมูลทั้งหมด: ${JSON.stringify(response.data)}</p>
+          </div>
+        `;
+        
+        // แสดงการทดสอบก่อน
+        const container = document.getElementById('miniLeaderboard');
+        container.innerHTML = simpleTestHTML;
+        
+        // รอ 3 วินาทีแล้วแสดงข้อมูลจริง
+        setTimeout(() => {
+          // ทดสอบการสร้าง HTML
+          const htmlContent = response.data.map((user, index) => {
+            // คำนวณคะแนนที่จะแสดง (ใช้คะแนนเฉลี่ยสำหรับ 0-100)
+            const displayScore = user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0;
+            const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
+            
+            // แก้ไขการดึงชื่อผู้ใช้ - เพิ่มการ debug
+            let displayName = 'ไม่ทราบชื่อ';
+            if (user.displayName && user.displayName.trim() !== '') {
+              displayName = user.displayName.trim();
+            } else if (user.name && user.name.trim() !== '') {
+              displayName = user.name.trim();
+            } else if (user.realName && user.realName.trim() !== '') {
+              displayName = user.realName.trim();
+            }
+            
+            console.log(`👤 User ${index + 1}:`, {
+              userId: user.userId,
+              displayName: displayName,
+              originalDisplayName: user.displayName,
+              originalName: user.name,
+              originalRealName: user.realName
+            });
+            
+            const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+            
+            return `
+              <div class="leaderboard-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; background: white;">
+                <div class="rank" style="font-weight: 600; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'}; min-width: 30px; text-align: center;">
+                  ${rankIcon}
+                </div>
+                <div class="user-info" style="flex: 1;">
+                  <div style="font-weight: 500; color: #374151; font-size: 14px;">${displayName}</div>
+                  <div style="font-size: 0.875rem; color: #6b7280;">${displayScore.toFixed(1)} คะแนน</div>
+                </div>
+                <div class="score" style="font-weight: 600; color: #10b981; min-width: 40px; text-align: center;">
+                  ${safeTasksCompleted} งาน
+                </div>
+              </div>
+            `;
+          }).join('');
+          
+          // ทดสอบการแสดงผล
+          console.log('📝 Generated HTML:', htmlContent);
+          
+          // อัปเดต HTML
+          container.innerHTML = htmlContent;
+          
+          // ตรวจสอบว่าข้อมูลแสดงผลหรือไม่
+          setTimeout(() => {
+            const items = container.querySelectorAll('.leaderboard-item');
+            console.log('🔍 Found leaderboard items:', items.length);
+            
+            items.forEach((item, index) => {
+              const nameElement = item.querySelector('.user-info > div:first-child');
+              if (nameElement) {
+                console.log(`📝 Item ${index + 1} name: "${nameElement.textContent}"`);
+                console.log(`📝 Item ${index + 1} name element:`, nameElement);
+              } else {
+                console.warn(`⚠️ Item ${index + 1} has no name element`);
+              }
+            });
+          }, 100);
+          
+          console.log('✅ Mini leaderboard updated successfully');
+          console.log('📝 Final HTML:', container.innerHTML);
+        }, 3000);
       } else {
         console.warn('⚠️ Mini leaderboard data is not an array:', response.data);
+        console.warn('⚠️ Response type:', typeof response.data);
         this.updateMiniLeaderboard([]);
       }
     } catch (error) {
@@ -1785,31 +1884,90 @@ class Dashboard {
     }
 
     console.log('🔄 Processing mini leaderboard data for', leaderboard.length, 'users');
+    console.log('📊 Leaderboard data:', leaderboard);
 
-    container.innerHTML = leaderboard.map((user, index) => {
-      // คำนวณคะแนนที่จะแสดง (ใช้คะแนนเฉลี่ยสำหรับ 0-100)
-      const displayScore = user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0;
-      const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
-      const displayName = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
-      const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
-      
-      return `
-        <div class="leaderboard-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
-          <div class="rank" style="font-weight: 600; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'};">
-            ${rankIcon}
-          </div>
-          <div class="user-info" style="flex: 1;">
-            <div style="font-weight: 500;">${displayName}</div>
-            <div style="font-size: 0.875rem; color: #6b7280;">${displayScore.toFixed(1)} คะแนน</div>
-          </div>
-          <div class="score" style="font-weight: 600; color: #10b981;">
-            ${safeTasksCompleted} งาน
-          </div>
-        </div>
-      `;
-    }).join('');
+    // ทดสอบการสร้าง HTML แบบง่ายๆ ก่อน
+    const simpleTestHTML = `
+      <div style="border: 2px solid red; padding: 10px; margin: 10px 0; background: yellow;">
+        <h3>🧪 ทดสอบการแสดงผล</h3>
+        <p>จำนวนผู้ใช้: ${leaderboard.length}</p>
+        <p>ผู้ใช้คนแรก: ${leaderboard[0]?.displayName || 'ไม่มีข้อมูล'}</p>
+        <p>ข้อมูลทั้งหมด: ${JSON.stringify(leaderboard)}</p>
+      </div>
+    `;
     
-    console.log('✅ Mini leaderboard updated successfully');
+    // แสดงการทดสอบก่อน
+    container.innerHTML = simpleTestHTML;
+    
+    // รอ 3 วินาทีแล้วแสดงข้อมูลจริง
+    setTimeout(() => {
+      // ทดสอบการสร้าง HTML
+      const htmlContent = leaderboard.map((user, index) => {
+        // คำนวณคะแนนที่จะแสดง (ใช้คะแนนเฉลี่ยสำหรับ 0-100)
+        const displayScore = user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0;
+        const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
+        
+        // แก้ไขการดึงชื่อผู้ใช้ - เพิ่มการ debug
+        let displayName = 'ไม่ทราบชื่อ';
+        if (user.displayName && user.displayName.trim() !== '') {
+          displayName = user.displayName.trim();
+        } else if (user.name && user.name.trim() !== '') {
+          displayName = user.name.trim();
+        } else if (user.realName && user.realName.trim() !== '') {
+          displayName = user.realName.trim();
+        }
+        
+        console.log(`👤 User ${index + 1}:`, {
+          userId: user.userId,
+          displayName: displayName,
+          originalDisplayName: user.displayName,
+          originalName: user.name,
+          originalRealName: user.realName
+        });
+        
+        const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
+        
+        return `
+          <div class="leaderboard-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0; border: 1px solid #e5e7eb; border-radius: 8px; margin-bottom: 8px; background: white;">
+            <div class="rank" style="font-weight: 600; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'}; min-width: 30px; text-align: center;">
+              ${rankIcon}
+            </div>
+            <div class="user-info" style="flex: 1;">
+              <div style="font-weight: 500; color: #374151; font-size: 14px;">${displayName}</div>
+              <div style="font-size: 0.875rem; color: #6b7280;">${displayScore.toFixed(1)} คะแนน</div>
+            </div>
+            <div class="score" style="font-weight: 600; color: #10b981; min-width: 40px; text-align: center;">
+              ${safeTasksCompleted} งาน
+            </div>
+          </div>
+        `;
+      }).join('');
+      
+      // ทดสอบการแสดงผล
+      console.log('📝 Generated HTML:', htmlContent);
+      
+      // อัปเดต HTML
+      container.innerHTML = htmlContent;
+      
+      // ตรวจสอบว่าข้อมูลแสดงผลหรือไม่
+      setTimeout(() => {
+        const items = container.querySelectorAll('.leaderboard-item');
+        console.log('🔍 Found leaderboard items:', items.length);
+        
+        items.forEach((item, index) => {
+          const nameElement = item.querySelector('.user-info > div:first-child');
+          if (nameElement) {
+            console.log(`📝 Item ${index + 1} name: "${nameElement.textContent}"`);
+            console.log(`📝 Item ${index + 1} name element:`, nameElement);
+          } else {
+            console.warn(`⚠️ Item ${index + 1} has no name element`);
+          }
+        });
+      }, 100);
+      
+      console.log('✅ Mini leaderboard updated successfully');
+      console.log('📝 Final HTML:', container.innerHTML);
+    }, 3000);
   }
 
   updateTasksList(tasks, pagination) {
@@ -3611,6 +3769,8 @@ class Dashboard {
 
       // อัปเดต Mini Leaderboard
       if (leaderboardResponse.status === 'fulfilled' && leaderboardResponse.value?.data) {
+        console.log('📊 Leaderboard response fulfilled:', leaderboardResponse.value);
+        console.log('📊 Leaderboard data:', leaderboardResponse.value.data);
         this.updateMiniLeaderboard(leaderboardResponse.value.data);
       } else if (leaderboardResponse.status === 'rejected') {
         console.warn('⚠️ ไม่สามารถโหลด Leaderboard ได้:', leaderboardResponse.reason);
@@ -3619,6 +3779,9 @@ class Dashboard {
         if (container) {
           container.innerHTML = '<p class="text-muted">ไม่สามารถโหลดข้อมูลอันดับได้</p>';
         }
+      } else {
+        console.warn('⚠️ Leaderboard response status:', leaderboardResponse.status);
+        console.warn('⚠️ Leaderboard response value:', leaderboardResponse.value);
       }
 
       console.log('✅ Dashboard data loaded successfully');
@@ -3736,6 +3899,59 @@ class Dashboard {
       
     } catch (error) {
       console.error('❌ Error updating group info:', error);
+    }
+  }
+
+  /**
+   * ซิงค์และคำนวณคะแนน leaderboard ใหม่
+   */
+  async syncLeaderboard() {
+    try {
+      console.log('🔄 เริ่มการซิงค์ leaderboard...');
+      
+      // แสดงสถานะการโหลด
+      const syncBtn = document.getElementById('syncLeaderboardBtn');
+      const originalText = syncBtn.innerHTML;
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังซิงค์...';
+      
+      // เรียก API เพื่อซิงค์ leaderboard
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/sync-leaderboard`, {
+        method: 'POST',
+        body: JSON.stringify({
+          period: 'weekly' // สามารถเปลี่ยนเป็น 'monthly' หรือ 'all' ได้
+        })
+      });
+
+      if (response.success) {
+        console.log('✅ ซิงค์ leaderboard สำเร็จ:', response.data);
+        
+        // แสดงผลลัพธ์
+        const result = response.data;
+        this.showToast(
+          `ซิงค์สำเร็จ! ประมวลผลงาน ${result.processedTasks} ชิ้น อัปเดตผู้ใช้ ${result.updatedUsers} คน`,
+          'success'
+        );
+        
+        // รีโหลด mini leaderboard เพื่อแสดงข้อมูลใหม่
+        setTimeout(() => {
+          this.loadMiniLeaderboard();
+        }, 1000);
+        
+      } else {
+        console.error('❌ ซิงค์ leaderboard ล้มเหลว:', response.error);
+        this.showToast(`ซิงค์ล้มเหลว: ${response.error}`, 'error');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error syncing leaderboard:', error);
+      this.showToast('เกิดข้อผิดพลาดในการซิงค์ leaderboard', 'error');
+      
+    } finally {
+      // คืนค่าปุ่มเป็นสถานะปกติ
+      const syncBtn = document.getElementById('syncLeaderboardBtn');
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = originalText;
     }
   }
 }
