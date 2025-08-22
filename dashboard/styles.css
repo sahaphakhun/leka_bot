@@ -586,17 +586,9 @@ body {
   text-align: center;
 }
 
-.leaderboard-item .rank:nth-child(1) {
-  color: #f59e0b; /* Gold */
-}
-
-.leaderboard-item .rank:nth-child(2) {
-  color: #6b7280; /* Silver */
-}
-
-.leaderboard-item .rank:nth-child(3) {
-  color: #9ca3af; /* Bronze */
-}
+.leaderboard-item .rank.gold { color: #f59e0b; }
+.leaderboard-item .rank.silver { color: #6b7280; }
+.leaderboard-item .rank.bronze { color: #9ca3af; }
 
 .leaderboard-item .user-info {
   flex: 1;
@@ -629,6 +621,18 @@ body {
   color: var(--color-gray-600);
   font-size: var(--font-size-sm);
 }
+
+/* New, more semantic classes for leaderboard items */
+.leaderboard-item .user-name { font-weight: 600; font-size: var(--font-size-lg); color: var(--color-gray-900); }
+.leaderboard-item .user-score-text { color: var(--color-gray-600); font-size: var(--font-size-sm); margin-top: 2px; }
+.leaderboard-item .user-score { font-weight: 600; color: var(--color-success); font-size: var(--font-size-lg); }
+.leaderboard-item .user-substats { font-size: var(--font-size-sm); color: var(--color-gray-600); }
+
+/* Mini leaderboard variant */
+.leaderboard-item.mini { padding: var(--spacing-3); margin-bottom: var(--spacing-2); }
+.leaderboard-item.mini .rank { min-width: 30px; font-size: var(--font-size-lg); }
+.leaderboard-item.mini .user-name { font-size: var(--font-size-base); }
+.leaderboard-item.mini .user-score { font-size: var(--font-size-base); }
 
 /* ==================== */
 /* Reports View Styles */
