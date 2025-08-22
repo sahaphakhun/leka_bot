@@ -1143,6 +1143,31 @@ class ApiController {
   }
 
   /**
+   * POST /api/kpi/sample/:groupId - สร้างข้อมูล KPI ตัวอย่างสำหรับทดสอบ
+   */
+  public async createSampleKPIData(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      
+      await this.kpiService.createSampleKPIData(groupId);
+      
+      const response: ApiResponse<any> = {
+        success: true,
+        data: { message: 'Sample KPI data created successfully' }
+      };
+      
+      res.json(response);
+      
+    } catch (error) {
+      logger.error('❌ Error creating sample KPI data:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to create sample KPI data' 
+      });
+    }
+  }
+
+  /**
    * GET /api/line/members/:groupId - ดึงรายชื่อสมาชิกจาก LINE API
    */
   public async getLineMembers(req: Request, res: Response): Promise<void> {
@@ -1382,6 +1407,7 @@ apiRouter.get('/groups/:groupId/files/:fileId', apiController.getFileInfo.bind(a
 // User and export routes
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));
 apiRouter.get('/export/kpi/:groupId', apiController.exportKPI.bind(apiController));
+apiRouter.post('/kpi/sample/:groupId', apiController.createSampleKPIData.bind(apiController));
 apiRouter.get('/line/members/:groupId', apiController.getLineMembers.bind(apiController));
 
 // New helper route: fetch single task detail by ID (for dashboard modal)

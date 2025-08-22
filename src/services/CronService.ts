@@ -209,8 +209,8 @@ export class CronService {
             const overdueHours = moment().diff(moment(task.dueTime), 'hours');
             await this.notificationService.sendOverdueNotification({ task, overdueHours });
             
-            // บันทึก KPI (คะแนนลบ)
-            await this.kpiService.recordTaskCompletion(task, 'late');
+            // บันทึก overdue KPI (0 คะแนน) ทันที เพื่อป้องกันการเล่นระบบ
+            await this.kpiService.recordOverdueKPI(task);
           }
         } catch (err) {
           console.warn('⚠️ Failed to process overdue tasks for group:', group.id, err);

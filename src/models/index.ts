@@ -335,9 +335,9 @@ export class KPIRecord {
 
   @Column({
     type: 'enum',
-    enum: ['early', 'ontime', 'late', 'overtime']
+    enum: ['early', 'ontime', 'late', 'overtime', 'overdue']
   })
-  type: 'early' | 'ontime' | 'late' | 'overtime';
+  type: 'early' | 'ontime' | 'late' | 'overtime' | 'overdue';
 
   @Column({ type: 'int' })
   points: number;

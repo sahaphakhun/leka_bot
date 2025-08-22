@@ -39,6 +39,7 @@ export class KPIService {
       ontime: number;
       late: number;
       overtime: number;
+      overdue: number;
       rejected: number;
       completionRate: number;
     };
@@ -66,6 +67,7 @@ export class KPIService {
           "COUNT(CASE WHEN kpi.type = 'ontime' THEN 1 END) as ontime",
           "COUNT(CASE WHEN kpi.type = 'late' THEN 1 END) as late",
           "COUNT(CASE WHEN kpi.type = 'overtime' THEN 1 END) as overtime",
+          "COUNT(CASE WHEN kpi.type = 'overdue' THEN 1 END) as overdue",
         ])
         .where('kpi.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('kpi.eventDate BETWEEN :start AND :end', { start: periodStart.toDate(), end: periodEnd.toDate() });
@@ -98,6 +100,7 @@ export class KPIService {
       const ontime = parseInt(kpiRow?.ontime || '0');
       const late = parseInt(kpiRow?.late || '0');
       const overtime = parseInt(kpiRow?.overtime || '0');
+      const overdue = parseInt(kpiRow?.overdue || '0');
 
       // งานทั้งหมดที่ได้รับมอบ (เพื่อคิด completionRate)
       let taskAssignedQB = this.taskRepository
@@ -139,7 +142,7 @@ export class KPIService {
       return {
         periodStart: periodStart.toDate(),
         periodEnd: periodEnd.toDate(),
-        totals: { completed, early, ontime, late, overtime, rejected, completionRate }
+        totals: { completed, early, ontime, late, overtime, overdue, rejected, completionRate }
       };
     } catch (error) {
       console.error('❌ Error building report summary:', error);
@@ -175,7 +178,8 @@ export class KPIService {
           "COUNT(CASE WHEN kpi.type = 'early' THEN 1 END) as early",
           "COUNT(CASE WHEN kpi.type = 'ontime' THEN 1 END) as ontime",
           "COUNT(CASE WHEN kpi.type = 'late' THEN 1 END) as late",
-          "COUNT(CASE WHEN kpi.type = 'overtime' THEN 1 END) as overtime"
+          "COUNT(CASE WHEN kpi.type = 'overtime' THEN 1 END) as overtime",
+          "COUNT(CASE WHEN kpi.type = 'overdue' THEN 1 END) as overdue"
         ])
         .leftJoin(User, 'user', 'user.id = kpi.userId')
         .where('kpi.groupId = :groupId', { groupId: internalGroupId })
@@ -191,7 +195,8 @@ export class KPIService {
         early: parseInt(r.early || '0'),
         ontime: parseInt(r.ontime || '0'),
         late: parseInt(r.late || '0'),
-        overtime: parseInt(r.overtime || '0')
+        overtime: parseInt(r.overtime || '0'),
+        overdue: parseInt(r.overdue || '0')
       }));
     } catch (error) {
       console.error('❌ Error getting report by users:', error);
@@ -213,6 +218,9 @@ export class KPIService {
       // คำนวณสัปดาห์และเดือน
       const weekOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('week').toDate();
       const monthOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('month').toDate();
+
+      // ลบ KPI record เก่าหากมี (เพื่ออัปเดตจาก overdue เป็น completion)
+      await this.removeOverdueKPIRecords(task.id);
 
       // บันทึก KPI สำหรับผู้รับผิดชอบทุกคน
       const records: KPIRecord[] = [];
@@ -240,6 +248,82 @@ export class KPIService {
     } catch (error) {
       console.error('❌ Error recording task completion:', error);
       throw error;
+    }
+  }
+
+  /**
+   * บันทึก KPI เมื่องานเกินเวลา (0 คะแนน)
+   * เพื่อป้องกันการเล่นระบบโดยไม่ส่งงาน
+   */
+  public async recordOverdueKPI(
+    task: Task | TaskEntity
+  ): Promise<KPIRecord[]> {
+    try {
+      const points = config.app.kpiScoring.overdue; // 0 คะแนน
+      const eventDate = new Date();
+      
+      // คำนวณสัปดาห์และเดือน
+      const weekOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('week').toDate();
+      const monthOf = moment(eventDate).tz(config.app.defaultTimezone).startOf('month').toDate();
+
+      // ตรวจสอบว่ามี overdue KPI อยู่แล้วหรือไม่
+      const existingOverdueRecords = await this.kpiRepository.find({
+        where: {
+          taskId: task.id,
+          type: 'overdue'
+        }
+      });
+
+      if (existingOverdueRecords.length > 0) {
+        console.log(`⚠️ Overdue KPI already recorded for task: ${task.title}`);
+        return existingOverdueRecords;
+      }
+
+      // บันทึก overdue KPI สำหรับผู้รับผิดชอบทุกคน
+      const records: KPIRecord[] = [];
+      
+      for (const assignee of task.assignedUsers) {
+        const record = this.kpiRepository.create({
+          userId: assignee.id,
+          groupId: task.groupId,
+          taskId: task.id,
+          type: 'overdue',
+          points,
+          eventDate,
+          weekOf,
+          monthOf
+        });
+
+        const savedRecord = await this.kpiRepository.save(record);
+        records.push(savedRecord);
+      }
+
+      console.log(`✅ Recorded overdue KPI for task: ${task.title} (${points} points for ${records.length} assignees)`);
+      
+      return records;
+
+    } catch (error) {
+      console.error('❌ Error recording overdue KPI:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ลบ overdue KPI records เมื่องานถูกส่งแล้ว
+   */
+  private async removeOverdueKPIRecords(taskId: string): Promise<void> {
+    try {
+      const deletedRecords = await this.kpiRepository.delete({
+        taskId,
+        type: 'overdue'
+      });
+      
+      if (deletedRecords.affected && deletedRecords.affected > 0) {
+        console.log(`✅ Removed ${deletedRecords.affected} overdue KPI records for task ${taskId}`);
+      }
+    } catch (error) {
+      console.error('❌ Error removing overdue KPI records:', error);
+      // ไม่ throw error เพื่อไม่ให้การบันทึก completion ล้มเหลว
     }
   }
 
@@ -277,125 +361,185 @@ export class KPIService {
         internalGroupId = groupByLineId.id;
       }
       
-      // สร้าง query builder สำหรับค่าเฉลี่ย
-      let queryBuilder = this.kpiRepository
+      // ดึงสมาชิกทั้งหมดในกลุ่มก่อน
+      const allMembers = await this.userRepository
+        .createQueryBuilder('user')
+        .leftJoin('user.groupMemberships', 'membership')
+        .where('membership.groupId = :groupId', { groupId: internalGroupId })
+        .select(['user.id', 'user.displayName', 'user.lineUserId'])
+        .getMany();
+      
+      console.log(`📊 Found ${allMembers.length} members in group ${groupId}`);
+      
+      // สร้าง query builder สำหรับ KPI data
+      let kpiQuery = this.kpiRepository
         .createQueryBuilder('kpi')
         .select([
           'kpi.userId as userId',
-          'user.displayName as displayName',
           'AVG(kpi.points) as averagePoints',
           'SUM(kpi.points) as totalPoints',
           'COUNT(CASE WHEN kpi.type = \'early\' THEN 1 END) as tasksEarly',
           'COUNT(CASE WHEN kpi.type = \'ontime\' THEN 1 END) as tasksOnTime',
           'COUNT(CASE WHEN kpi.type = \'late\' THEN 1 END) as tasksLate',
           'COUNT(CASE WHEN kpi.type = \'overtime\' THEN 1 END) as tasksOvertime',
+          'COUNT(CASE WHEN kpi.type = \'overdue\' THEN 1 END) as tasksOverdue',
           'COUNT(*) as tasksCompleted'
         ])
-        .leftJoin(User, 'user', 'user.id = kpi.userId')
         .where('kpi.groupId = :groupId', { groupId: internalGroupId });
 
       // เพิ่ม date filter ตาม period
       switch (period) {
         case 'weekly':
           const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
-          queryBuilder = queryBuilder.andWhere('kpi.weekOf = :weekStart', { weekStart });
+          kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
           break;
         case 'monthly':
           const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
-          queryBuilder = queryBuilder.andWhere('kpi.monthOf = :monthStart', { monthStart });
+          kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
           break;
         // 'all' ไม่ต้องกรอง
       }
 
-      // Execute query
-      let results = await queryBuilder
-        .groupBy('kpi.userId, user.displayName')
-        .orderBy('averagePoints', 'DESC')
+      // Execute KPI query
+      const kpiResults = await kpiQuery
+        .groupBy('kpi.userId')
         .getRawMany();
-
-      // Fallback: หากไม่มี KPI เลยในช่วงเวลานั้น ให้คำนวณจากงานที่เสร็จในช่วงเวลา
-      if (!results || results.length === 0) {
-        const qb = this.taskRepository
-          .createQueryBuilder('task')
-          .leftJoin('task.assignedUsers', 'assignee')
-          .leftJoin(User, 'user', 'user.id = assignee.id')
-          .select([
-            'assignee.id as userId',
-            'user.displayName as displayName',
-            'COUNT(task.id) as tasksCompleted'
-          ])
-          .where('task.groupId = :groupId', { groupId: internalGroupId })
-          .andWhere('task.status = :status', { status: 'completed' })
-          .groupBy('assignee.id, user.displayName')
-          .orderBy('tasksCompleted', 'DESC');
-
-        // ช่วงเวลาอิงตาม period
-        if (period === 'weekly') {
-          const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
-          const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
-          qb.andWhere('task.completedAt BETWEEN :start AND :end', { start: weekStart, end: weekEnd });
-        } else if (period === 'monthly') {
-          const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
-          const monthEnd = moment().tz(config.app.defaultTimezone).endOf('month').toDate();
-          qb.andWhere('task.completedAt BETWEEN :start AND :end', { start: monthStart, end: monthEnd });
-        }
-
-        const taskBased = await qb.getRawMany();
-        // map ให้มีฟิลด์เหมือน results เดิม
-        results = taskBased.map((r: any) => ({
-          userId: r.userId,
-          displayName: r.displayName,
-          averagePoints: 0,
-          totalPoints: 0,
-          tasksEarly: 0,
-          tasksOnTime: 0,
-          tasksLate: 0,
-          tasksOvertime: 0,
-          tasksCompleted: r.tasksCompleted
-        }));
-      }
-
-      // แปลงเป็น Leaderboard format และคำนวณ trend
-      const leaderboard: Leaderboard[] = [];
       
-      for (let i = 0; i < results.length; i++) {
-        const result = results[i];
-        const userId = result.userId;
-        
-        // คำนวณ trend (เปรียบเทียบกับสัปดาห์/เดือนก่อน)
-        const trend = await this.calculateTrend(userId, internalGroupId, period);
-        
-        // Safe parsing of numeric values with fallbacks
-        const averagePointsRaw = result.averagePoints;
-        const averagePoints = averagePointsRaw !== null && averagePointsRaw !== undefined ? parseFloat(averagePointsRaw) : 0;
-        const safeAveragePoints = isNaN(averagePoints) ? 0 : averagePoints;
-
-        const totalPointsRaw = result.totalPoints;
-        const totalPoints = totalPointsRaw !== null && totalPointsRaw !== undefined ? parseFloat(totalPointsRaw) : 0;
-        const safeTotalPoints = isNaN(totalPoints) ? 0 : totalPoints;
-
-        const displayName = result.displayName || 'ไม่ทราบชื่อ';
-        
-        leaderboard.push({
-          userId,
-          displayName,
-          weeklyPoints: period === 'weekly' ? safeAveragePoints : 0,
-          monthlyPoints: period === 'monthly' ? safeAveragePoints : 0,
-          totalPoints: safeTotalPoints, // ใช้ผลรวมคะแนนจริง
+      console.log(`📈 Found KPI data for ${kpiResults.length} users`);
+      
+      // สร้าง Map สำหรับ KPI data
+      const kpiMap = new Map();
+      kpiResults.forEach((result: any) => {
+        kpiMap.set(result.userId, {
+          averagePoints: parseFloat(result.averagePoints) || 0,
+          totalPoints: parseFloat(result.totalPoints) || 0,
           tasksCompleted: parseInt(result.tasksCompleted) || 0,
           tasksEarly: parseInt(result.tasksEarly) || 0,
           tasksOnTime: parseInt(result.tasksOnTime) || 0,
           tasksLate: parseInt(result.tasksLate) || 0,
           tasksOvertime: parseInt(result.tasksOvertime) || 0,
-          rank: i + 1,
+          tasksOverdue: parseInt(result.tasksOverdue) || 0
+        });
+      });
+      
+      // รวมข้อมูลสมาชิกกับ KPI data
+      const leaderboard: Leaderboard[] = [];
+      
+      for (const member of allMembers) {
+        const kpiData = kpiMap.get(member.id) || {
+          averagePoints: 0,
+          totalPoints: 0,
+          tasksCompleted: 0,
+          tasksEarly: 0,
+          tasksOnTime: 0,
+          tasksLate: 0,
+          tasksOvertime: 0,
+          tasksOverdue: 0
+        };
+        
+        // คำนวณ trend (เปรียบเทียบกับสัปดาห์/เดือนก่อน)
+        const trend = await this.calculateTrend(member.id, internalGroupId, period);
+        
+        leaderboard.push({
+          userId: member.id,
+          displayName: member.displayName || 'ไม่ทราบชื่อ',
+          weeklyPoints: period === 'weekly' ? kpiData.averagePoints : 0,
+          monthlyPoints: period === 'monthly' ? kpiData.averagePoints : 0,
+          totalPoints: kpiData.totalPoints,
+          tasksCompleted: kpiData.tasksCompleted,
+          tasksEarly: kpiData.tasksEarly,
+          tasksOnTime: kpiData.tasksOnTime,
+          tasksLate: kpiData.tasksLate,
+          tasksOvertime: kpiData.tasksOvertime,
+          tasksOverdue: kpiData.tasksOverdue,
+          rank: 0, // จะคำนวณหลังจากเรียงลำดับ
           trend
         });
       }
-
+      
+      // เรียงลำดับตามคะแนนเฉลี่ย (สูงสุดก่อน)
+      leaderboard.sort((a, b) => {
+        const scoreA = period === 'weekly' ? a.weeklyPoints : 
+                      period === 'monthly' ? a.monthlyPoints : a.totalPoints;
+        const scoreB = period === 'weekly' ? b.weeklyPoints : 
+                      period === 'monthly' ? b.monthlyPoints : b.totalPoints;
+        return scoreB - scoreA;
+      });
+      
+      // กำหนดอันดับ
+      leaderboard.forEach((user, index) => {
+        user.rank = index + 1;
+      });
+      
+      console.log(`✅ Generated leaderboard with ${leaderboard.length} users`);
       return leaderboard;
 
     } catch (error) {
       console.error('❌ Error getting group leaderboard:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * สร้างข้อมูล KPI ตัวอย่างสำหรับทดสอบ
+   */
+  public async createSampleKPIData(groupId: string): Promise<void> {
+    try {
+      // รองรับ LINE Group ID → internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) {
+        internalGroupId = groupByLineId.id;
+      }
+      
+      // ดึงสมาชิกในกลุ่ม
+      const members = await this.userRepository
+        .createQueryBuilder('user')
+        .leftJoin('user.groupMemberships', 'membership')
+        .where('membership.groupId = :groupId', { groupId: internalGroupId })
+        .getMany();
+      
+      if (members.length === 0) {
+        console.log('⚠️ No members found in group to create sample KPI data');
+        return;
+      }
+      
+      const now = moment().tz(config.app.defaultTimezone);
+      const weekOf = now.clone().startOf('week').toDate();
+      const monthOf = now.clone().startOf('month').toDate();
+      
+      // สร้างข้อมูล KPI ตัวอย่างสำหรับสมาชิกแต่ละคน
+      for (const member of members) {
+        // สร้าง 3-5 records ต่อคน
+        const recordCount = 3 + Math.floor(Math.random() * 3);
+        
+        for (let i = 0; i < recordCount; i++) {
+          const types: ('early' | 'ontime' | 'late' | 'overtime')[] = ['early', 'ontime', 'late', 'overtime'];
+          const randomType = types[Math.floor(Math.random() * types.length)];
+          const points = config.app.kpiScoring[randomType];
+          
+          // สร้าง dummy task ID (ต้องมี task จริงสำหรับ production)
+          const dummyTaskId = `dummy-task-${member.id}-${i}`;
+          
+          const kpiRecord = this.kpiRepository.create({
+            userId: member.id,
+            groupId: internalGroupId,
+            taskId: dummyTaskId,
+            type: randomType,
+            points,
+            eventDate: now.clone().subtract(Math.floor(Math.random() * 7), 'days').toDate(),
+            weekOf,
+            monthOf
+          });
+          
+          await this.kpiRepository.save(kpiRecord);
+        }
+      }
+      
+      console.log(`✅ Created sample KPI data for ${members.length} members`);
+      
+    } catch (error) {
+      console.error('❌ Error creating sample KPI data:', error);
       throw error;
     }
   }
@@ -631,7 +775,9 @@ export class KPIService {
           'COUNT(*) as tasksCompleted',
           'COUNT(CASE WHEN kpi.type = \'early\' THEN 1 END) as tasksEarly',
           'COUNT(CASE WHEN kpi.type = \'ontime\' THEN 1 END) as tasksOnTime',
-          'COUNT(CASE WHEN kpi.type = \'late\' THEN 1 END) as tasksLate'
+          'COUNT(CASE WHEN kpi.type = \'late\' THEN 1 END) as tasksLate',
+          'COUNT(CASE WHEN kpi.type = \'overtime\' THEN 1 END) as tasksOvertime',
+          'COUNT(CASE WHEN kpi.type = \'overdue\' THEN 1 END) as tasksOverdue'
         ])
         .where('kpi.userId = :userId', { userId })
         .andWhere('kpi.groupId = :groupId', { groupId: internalGroupId })
@@ -663,6 +809,8 @@ export class KPIService {
         tasksEarly: parseInt(userStats?.tasksEarly || '0'),
         tasksOnTime: parseInt(userStats?.tasksOnTime || '0'),
         tasksLate: parseInt(userStats?.tasksLate || '0'),
+        tasksOvertime: parseInt(userStats?.tasksOvertime || '0'),
+        tasksOverdue: parseInt(userStats?.tasksOverdue || '0'),
         completionRate: Math.round(completionRate * 10) / 10,
         avgPointsPerTask: Math.round(avgPointsPerTask * 10) / 10
       };

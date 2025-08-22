@@ -422,20 +422,22 @@ ${supervisorNames}
         return `📊 ยังไม่มีข้อมูล KPI ในกลุ่มนี้
 
 💡 เคล็ดลับ: เริ่มสร้างงานและปิดงานเพื่อสร้างคะแนน KPI
-📱 ใช้คำสั่ง "เพิ่มงาน" เพื่อสร้างงานใหม่`;
+📱 ใช้คำสั่ง "เพิ่มงาน" เพื่อสร้างงานใหม่
+
+🎆 หรือลองสร้างข้อมูลตัวอย่าง: POST /api/kpi/sample/${groupId}`;
       }
 
       // สร้าง Flex Message แสดง Leaderboard
       const content: any[] = [
         FlexMessageDesignSystem.createText('🏆 อันดับ KPI สัปดาห์นี้', 'lg', FlexMessageDesignSystem.colors.primary, 'bold'),
-        FlexMessageDesignSystem.createText('คะแนนเฉลี่ยจากการทำงานเสร็จ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+        FlexMessageDesignSystem.createText('คะแนนเฉลี่ยจากการทำงานเสร็จ (0-100)', 'sm', FlexMessageDesignSystem.colors.textSecondary)
       ];
 
       // แสดงอันดับ 1-3
       const topUsers = leaderboard.slice(0, 3);
       topUsers.forEach((user: any, index: number) => {
         const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
-        const points = user.totalPoints || 0;
+        const points = user.weeklyPoints || user.totalPoints || 0;
         const tasks = user.tasksCompleted || 0;
         
         content.push(
@@ -446,17 +448,28 @@ ${supervisorNames}
         );
       });
 
-      // แสดงอันดับของผู้ใช้ปัจจุบัน
-      const currentUser = leaderboard.find((u: any) => u.userId === command.userId);
+      // หาผู้ใช้ปัจจุบันโดยใช้ LINE User ID
+      const currentUser = await this.userService.findByLineUserId(command.userId);
+      let userInLeaderboard = null;
+      
       if (currentUser) {
-        const rank = currentUser.rank;
-        const points = currentUser.totalPoints || 0;
-        const tasks = currentUser.tasksCompleted || 0;
+        userInLeaderboard = leaderboard.find((u: any) => u.userId === currentUser.id);
+      }
+      
+      if (userInLeaderboard) {
+        const rank = userInLeaderboard.rank;
+        const points = userInLeaderboard.weeklyPoints || userInLeaderboard.totalPoints || 0;
+        const tasks = userInLeaderboard.tasksCompleted || 0;
         
         content.push(
           FlexMessageDesignSystem.createText('', 'xs', FlexMessageDesignSystem.colors.textSecondary),
           FlexMessageDesignSystem.createText(`👤 อันดับของคุณ: อันดับที่ ${rank}`, 'sm', FlexMessageDesignSystem.colors.primary),
           FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • เสร็จ ${tasks} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        );
+      } else {
+        content.push(
+          FlexMessageDesignSystem.createText('', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText('👤 คุณยังไม่มีคะแนน KPI', 'sm', FlexMessageDesignSystem.colors.textSecondary)
         );
       }
 

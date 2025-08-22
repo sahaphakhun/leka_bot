@@ -153,7 +153,7 @@ export interface KPIRecord {
   taskId: string;
   
   // ประเภทการให้คะแนน
-  type: 'early' | 'ontime' | 'late' | 'overtime' | 'approval' | 'review';
+  type: 'early' | 'ontime' | 'late' | 'overtime' | 'overdue' | 'approval' | 'review';
   points: number;
   
   // วันเวลาที่เกิดเหตุการณ์
@@ -177,6 +177,7 @@ export interface Leaderboard {
   tasksOnTime: number;
   tasksLate: number;
   tasksOvertime: number;
+  tasksOverdue: number;
   
   rank: number;
   trend: 'up' | 'down' | 'same';

@@ -69,12 +69,13 @@ export const config = {
     // ปรับตาม requirement: เตือนก่อนถึงกำหนด 1 วัน
     defaultReminders: ['P1D'],
     
-    // KPI Scoring
+    // KPI Scoring (0-100 scale)
     kpiScoring: {
-      early: 2,     // เสร็จก่อนกำหนด ≥ 24 ชม.
-      ontime: 1,    // ตรงเวลา ± 24 ชม.
-      late: -1,     // ล่าช้า 24-48 ชม.
-      overtime: -2, // ค้างนาน > 48 ชม.
+      early: 100,    // เสร็จก่อนกำหนด ≥ 24 ชม.
+      ontime: 80,    // ตรงเวลา ± 24 ชม.
+      late: 50,      // ล่าช้า 24-48 ชม.
+      overtime: 20,  // ค้างนาน > 48 ชม.
+      overdue: 0,    // เกินเวลา (ให้ 0 คะแนนทันที เพื่อป้องกันการเล่นระบบ)
     },
     
     // Working hours (24-hour format)

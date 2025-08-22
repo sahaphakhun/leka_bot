@@ -1585,12 +1585,13 @@ class Dashboard {
     document.getElementById('repOntime').textContent = t.ontime || 0;
     document.getElementById('repLate').textContent = t.late || 0;
     document.getElementById('repOvertime').textContent = t.overtime || 0;
+    document.getElementById('repOverdue').textContent = t.overdue || 0;
     document.getElementById('repCompletionRate').textContent = (t.completionRate || 0) + '%';
   }
 
   updateReportsUsers(rows) {
     const tb = document.getElementById('repUsersTable');
-    if (!rows || rows.length === 0) { tb.innerHTML = '<tr><td colspan="6" style="padding:8px; color:#6b7280;">ไม่มีข้อมูล</td></tr>'; return; }
+    if (!rows || rows.length === 0) { tb.innerHTML = '<tr><td colspan="7" style="padding:8px; color:#6b7280;">ไม่มีข้อมูล</td></tr>'; return; }
     tb.innerHTML = rows.map(r => `
       <tr style="border-bottom: 1px solid #f0f0f0;">
         <td style="padding:8px;">${r.displayName}</td>
@@ -1599,6 +1600,7 @@ class Dashboard {
         <td style="padding:8px;">${r.ontime}</td>
         <td style="padding:8px;">${r.late}</td>
         <td style="padding:8px;">${r.overtime}</td>
+        <td style="padding:8px;">${r.overdue || 0}</td>
       </tr>
     `).join('');
   }
@@ -1640,7 +1642,7 @@ class Dashboard {
       });
     };
 
-    drawPie(distEl, [totals.early||0, totals.ontime||0, totals.late||0, totals.overtime||0], ['#10b981','#3b82f6','#f59e0b','#ef4444']);
+    drawPie(distEl, [totals.early||0, totals.ontime||0, totals.late||0, totals.overtime||0, totals.overdue||0], ['#10b981','#3b82f6','#f59e0b','#ef4444','#6b7280']);
     const labels = rows.map(r=>r.displayName);
     const data = rows.map(r=>r.completed);
     drawBars(barEl, labels, data);
@@ -1785,26 +1787,20 @@ class Dashboard {
     console.log('🔄 Processing mini leaderboard data for', leaderboard.length, 'users');
 
     container.innerHTML = leaderboard.map((user, index) => {
-      // Safe handling of values and fallbacks
-      const rawTotalPoints = (user.totalPoints ?? user.averagePoints ?? user.weeklyPoints ?? 0);
-      const numTotalPoints = Number(rawTotalPoints);
-      const safeTotalPoints = Number.isFinite(numTotalPoints) ? numTotalPoints : 0;
+      // คำนวณคะแนนที่จะแสดง (ใช้คะแนนเฉลี่ยสำหรับ 0-100)
+      const displayScore = user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0;
       const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
       const displayName = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
-
-      // Log any data issues for debugging
-      if (!Number.isFinite(numTotalPoints)) {
-        console.warn(`⚠️ User ${displayName} has invalid totalPoints:`, rawTotalPoints, 'using fallback: 0');
-      }
+      const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
       
       return `
         <div class="leaderboard-item" style="display: flex; align-items: center; gap: 12px; padding: 12px 0;">
           <div class="rank" style="font-weight: 600; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'};">
-            ${index + 1}
+            ${rankIcon}
           </div>
           <div class="user-info" style="flex: 1;">
             <div style="font-weight: 500;">${displayName}</div>
-            <div style="font-size: 0.875rem; color: #6b7280;">${safeTotalPoints.toFixed(2)} คะแนน</div>
+            <div style="font-size: 0.875rem; color: #6b7280;">${displayScore.toFixed(1)} คะแนน</div>
           </div>
           <div class="score" style="font-weight: 600; color: #10b981;">
             ${safeTasksCompleted} งาน
@@ -2142,33 +2138,27 @@ class Dashboard {
     console.log('🔄 Processing leaderboard data for', users.length, 'users');
 
     container.innerHTML = users.map((user, index) => {
-      // Safe handling of values and fallbacks
-      const rawTotalPoints = (user.totalPoints ?? user.averagePoints ?? user.weeklyPoints ?? 0);
-      const numTotalPoints = Number(rawTotalPoints);
-      const safeTotalPoints = Number.isFinite(numTotalPoints) ? numTotalPoints : 0;
+      // คำนวณคะแนนที่จะแสดง (ใช้คะแนนเฉลี่ยสำหรับ 0-100)
+      const displayScore = user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0;
       const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
       const safeTasksEarly = Number(user.tasksEarly ?? 0) || 0;
       const safeTasksOnTime = Number(user.tasksOnTime ?? 0) || 0;
       const displayName = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
-      
-      // Log any data issues for debugging
-      if (!Number.isFinite(numTotalPoints)) {
-        console.warn(`⚠️ User ${displayName} has invalid totalPoints:`, rawTotalPoints, 'using fallback: 0');
-      }
+      const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
       
       return `
       <div class="leaderboard-item" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); display: flex; align-items: center; gap: 16px;">
-        <div class="rank" style="font-size: 1.5rem; font-weight: 700; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'}; min-width: 40px;">
-          ${index + 1}
+        <div class="rank" style="font-size: 1.5rem; font-weight: 700; color: ${index === 0 ? '#f59e0b' : index === 1 ? '#6b7280' : '#9ca3af'}; min-width: 60px;">
+          ${rankIcon}
         </div>
         <div class="user-info" style="flex: 1;">
           <div style="font-weight: 600; font-size: 1.125rem;">${displayName}</div>
           <div style="color: #6b7280; margin-top: 4px;">
-            เสร็จ ${safeTasksCompleted} งาน • ค่าเฉลี่ย ${safeTotalPoints.toFixed(2)} คะแนน
+            เสร็จ ${safeTasksCompleted} งาน • คะแนนเฉลี่ย ${displayScore.toFixed(1)}
           </div>
         </div>
         <div class="user-stats" style="text-align: right;">
-          <div style="font-weight: 600; color: #10b981;">${safeTotalPoints.toFixed(2)} คะแนน</div>
+          <div style="font-weight: 600; color: #10b981; font-size: 1.25rem;">${displayScore.toFixed(1)}</div>
           <div style="font-size: 0.875rem; color: #6b7280;">
             เร็ว ${safeTasksEarly} • ตรงเวลา ${safeTasksOnTime}
           </div>
