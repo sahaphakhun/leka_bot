@@ -396,48 +396,8 @@ export class KPIService {
         ])
         .where('kpi.groupId = :groupId', { groupId: internalGroupId });
 
-      // เพิ่ม date filter ตาม period - ชั่วคราวไม่กรองเพื่อทดสอบ
-      console.log(`🔍 Temporarily removing date filter for debugging - period: ${period}`);
-      /*
-      try {
-        switch (period) {
-          case 'weekly':
-            const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
-            const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
-            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :weekStart AND :weekEnd', { weekStart, weekEnd });
-            console.log(`📅 Weekly filter: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
-            break;
-          case 'monthly':
-            const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
-            const monthEnd = moment().tz(config.app.defaultTimezone).endOf('month').toDate();
-            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd });
-            console.log(`📅 Monthly filter: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`);
-            break;
-          // 'all' ไม่ต้องกรอง
-        }
-      } catch (timezoneError) {
-        console.warn('⚠️ Timezone error, using local time:', timezoneError);
-        // Fallback to local time if timezone fails
-        switch (period) {
-          case 'weekly':
-            const weekStart = new Date();
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
-            weekStart.setHours(0, 0, 0, 0);
-            const weekEnd = new Date(weekStart);
-            weekEnd.setDate(weekEnd.getDate() + 6);
-            weekEnd.setHours(23, 59, 59, 999);
-            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :weekStart AND :weekEnd', { weekStart, weekEnd });
-            break;
-          case 'monthly':
-            const monthStart = new Date();
-            monthStart.setDate(1);
-            monthStart.setHours(0, 0, 0, 0);
-            const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59, 999);
-            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd });
-            break;
-        }
-      }
-      */
+      // ไม่กรองตามวันที่ - แสดงข้อมูลทั้งหมด
+      console.log(`🔍 No date filter applied - showing all data for period: ${period}`);
 
       // Debug: ตรวจสอบข้อมูล KPI ทั้งหมดก่อนกรอง
       const allKpiData = await this.kpiRepository
