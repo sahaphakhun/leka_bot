@@ -396,7 +396,9 @@ export class KPIService {
         ])
         .where('kpi.groupId = :groupId', { groupId: internalGroupId });
 
-      // เพิ่ม date filter ตาม period
+      // เพิ่ม date filter ตาม period - ชั่วคราวไม่กรองเพื่อทดสอบ
+      console.log(`🔍 Temporarily removing date filter for debugging - period: ${period}`);
+      /*
       try {
         switch (period) {
           case 'weekly':
@@ -435,6 +437,23 @@ export class KPIService {
             break;
         }
       }
+      */
+
+      // Debug: ตรวจสอบข้อมูล KPI ทั้งหมดก่อนกรอง
+      const allKpiData = await this.kpiRepository
+        .createQueryBuilder('kpi')
+        .select([
+          'kpi.userId as userId',
+          'kpi.eventDate as eventDate',
+          'kpi.points as points',
+          'kpi.type as type'
+        ])
+        .where('kpi.groupId = :groupId', { groupId: internalGroupId })
+        .orderBy('kpi.eventDate', 'DESC')
+        .limit(10)
+        .getRawMany();
+      
+      console.log('🔍 All KPI data (latest 10):', JSON.stringify(allKpiData, null, 2));
 
       // Execute KPI query
       const kpiResults = await kpiQuery
