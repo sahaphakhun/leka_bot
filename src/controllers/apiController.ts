@@ -874,6 +874,16 @@ class ApiController {
       const { groupId } = req.params;
       const { period = 'weekly', limit } = req.query;
 
+      console.log(`🔍 API: Getting leaderboard for group: ${groupId}, period: ${period}, limit: ${limit}`);
+
+      // Validate groupId
+      if (!groupId) {
+        return res.status(400).json({
+          success: false,
+          error: 'Group ID is required'
+        });
+      }
+
       const leaderboard = await this.kpiService.getGroupLeaderboard(
         groupId, 
         period as 'weekly' | 'monthly' | 'all'
@@ -887,13 +897,44 @@ class ApiController {
         data: limited
       };
 
+      console.log(`✅ API: Successfully returned leaderboard with ${limited.length} users`);
       res.json(response);
 
     } catch (error) {
-      logger.error('❌ Error getting leaderboard:', error);
-      res.status(500).json({ 
+      console.error('❌ API Error getting leaderboard:', error);
+      
+      // Log detailed error information
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          groupId: req.params.groupId,
+          period: req.query.period,
+          limit: req.query.limit
+        });
+      }
+
+      // Return appropriate error response
+      let errorMessage = 'Failed to get leaderboard';
+      let statusCode = 500;
+
+      if (error instanceof Error) {
+        if (error.message.includes('not found') || error.message.includes('does not exist')) {
+          statusCode = 404;
+          errorMessage = 'Group not found';
+        } else if (error.message.includes('permission') || error.message.includes('unauthorized')) {
+          statusCode = 403;
+          errorMessage = 'Access denied';
+        } else if (error.message.includes('validation') || error.message.includes('invalid')) {
+          statusCode = 400;
+          errorMessage = 'Invalid request parameters';
+        }
+      }
+
+      res.status(statusCode).json({ 
         success: false, 
-        error: 'Failed to get leaderboard' 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined
       });
     }
   }

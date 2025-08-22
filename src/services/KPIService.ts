@@ -6,6 +6,7 @@ import { KPIRecord, Task, User, Group } from '@/models';
 import { Leaderboard } from '@/types';
 import { Task as TaskEntity } from '@/models';
 import { config } from '@/utils/config';
+// @ts-ignore
 import moment from 'moment-timezone';
 
 export class KPIService {
@@ -354,11 +355,14 @@ export class KPIService {
     period: 'weekly' | 'monthly' | 'all' = 'weekly'
   ): Promise<Leaderboard[]> {
     try {
+      console.log(`🔍 Getting leaderboard for group: ${groupId}, period: ${period}`);
+      
       // รองรับการส่งค่าเป็น LINE Group ID หรือ internal UUID
       let internalGroupId = groupId;
       const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
       if (groupByLineId) {
         internalGroupId = groupByLineId.id;
+        console.log(`🔄 Converted LINE Group ID to internal ID: ${internalGroupId}`);
       }
       
       // ดึงสมาชิกทั้งหมดในกลุ่มก่อน
@@ -371,13 +375,18 @@ export class KPIService {
       
       console.log(`📊 Found ${allMembers.length} members in group ${groupId}`);
       
+      if (allMembers.length === 0) {
+        console.log('⚠️ No members found in group, returning empty leaderboard');
+        return [];
+      }
+      
       // สร้าง query builder สำหรับ KPI data
       let kpiQuery = this.kpiRepository
         .createQueryBuilder('kpi')
         .select([
           'kpi.userId as userId',
-          'AVG(kpi.points) as averagePoints',
-          'SUM(kpi.points) as totalPoints',
+          'COALESCE(AVG(kpi.points), 0) as averagePoints',
+          'COALESCE(SUM(kpi.points), 0) as totalPoints',
           'COUNT(CASE WHEN kpi.type = \'early\' THEN 1 END) as tasksEarly',
           'COUNT(CASE WHEN kpi.type = \'ontime\' THEN 1 END) as tasksOnTime',
           'COUNT(CASE WHEN kpi.type = \'late\' THEN 1 END) as tasksLate',
@@ -388,16 +397,37 @@ export class KPIService {
         .where('kpi.groupId = :groupId', { groupId: internalGroupId });
 
       // เพิ่ม date filter ตาม period
-      switch (period) {
-        case 'weekly':
-          const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
-          kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
-          break;
-        case 'monthly':
-          const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
-          kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
-          break;
-        // 'all' ไม่ต้องกรอง
+      try {
+        switch (period) {
+          case 'weekly':
+            const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
+            kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
+            console.log(`📅 Weekly filter: ${weekStart.toISOString()}`);
+            break;
+          case 'monthly':
+            const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
+            kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
+            console.log(`📅 Monthly filter: ${monthStart.toISOString()}`);
+            break;
+          // 'all' ไม่ต้องกรอง
+        }
+      } catch (timezoneError) {
+        console.warn('⚠️ Timezone error, using local time:', timezoneError);
+        // Fallback to local time if timezone fails
+        switch (period) {
+          case 'weekly':
+            const weekStart = new Date();
+            weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+            weekStart.setHours(0, 0, 0, 0);
+            kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
+            break;
+          case 'monthly':
+            const monthStart = new Date();
+            monthStart.setDate(1);
+            monthStart.setHours(0, 0, 0, 0);
+            kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
+            break;
+        }
       }
 
       // Execute KPI query
@@ -438,7 +468,13 @@ export class KPIService {
         };
         
         // คำนวณ trend (เปรียบเทียบกับสัปดาห์/เดือนก่อน)
-        const trend = await this.calculateTrend(member.id, internalGroupId, period);
+        let trend: 'up' | 'down' | 'same' = 'same';
+        try {
+          trend = await this.calculateTrend(member.id, internalGroupId, period);
+        } catch (trendError) {
+          console.warn(`⚠️ Error calculating trend for user ${member.id}:`, trendError);
+          trend = 'same';
+        }
         
         leaderboard.push({
           userId: member.id,
@@ -476,6 +512,15 @@ export class KPIService {
 
     } catch (error) {
       console.error('❌ Error getting group leaderboard:', error);
+      // Log more details for debugging
+      if (error instanceof Error) {
+        console.error('Error details:', {
+          message: error.message,
+          stack: error.stack,
+          groupId,
+          period
+        });
+      }
       throw error;
     }
   }
@@ -909,7 +954,7 @@ export class KPIService {
   // Helper Methods
 
   /**
-   * คำนวณ trend ของผู้ใช้
+   * คำนวณ trend ของคะแนน (เปรียบเทียบกับช่วงก่อน)
    */
   private async calculateTrend(
     userId: string, 
@@ -919,27 +964,48 @@ export class KPIService {
     try {
       if (period === 'all') return 'same';
 
-      // หาคะแนนปัจจุบัน
-      const currentPeriod = period === 'weekly' 
-        ? moment().tz(config.app.defaultTimezone).startOf('week').toDate()
-        : moment().tz(config.app.defaultTimezone).startOf('month').toDate();
+      let currentPeriod: Date;
+      let previousPeriod: Date;
+
+      // ใช้ try-catch สำหรับ timezone operations
+      try {
+        // หาคะแนนปัจจุบัน
+        currentPeriod = period === 'weekly' 
+          ? moment().tz(config.app.defaultTimezone).startOf('week').toDate()
+          : moment().tz(config.app.defaultTimezone).startOf('month').toDate();
+
+        // หาคะแนนช่วงก่อน
+        previousPeriod = period === 'weekly'
+          ? moment().tz(config.app.defaultTimezone).subtract(1, 'week').startOf('week').toDate()
+          : moment().tz(config.app.defaultTimezone).subtract(1, 'month').startOf('month').toDate();
+      } catch (timezoneError) {
+        console.warn('⚠️ Timezone error in calculateTrend, using local time:', timezoneError);
+        // Fallback to local time
+        const now = new Date();
+        if (period === 'weekly') {
+          currentPeriod = new Date(now);
+          currentPeriod.setDate(now.getDate() - now.getDay());
+          currentPeriod.setHours(0, 0, 0, 0);
+          
+          previousPeriod = new Date(currentPeriod);
+          previousPeriod.setDate(previousPeriod.getDate() - 7);
+        } else {
+          currentPeriod = new Date(now.getFullYear(), now.getMonth(), 1);
+          previousPeriod = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        }
+      }
 
       const currentPoints = await this.kpiRepository
         .createQueryBuilder('kpi')
-        .select('SUM(kpi.points)', 'points')
+        .select('COALESCE(SUM(kpi.points), 0)', 'points')
         .where('kpi.userId = :userId', { userId })
         .andWhere('kpi.groupId = :groupId', { groupId })
         .andWhere(period === 'weekly' ? 'kpi.weekOf = :period' : 'kpi.monthOf = :period', { period: currentPeriod })
         .getRawOne();
 
-      // หาคะแนนช่วงก่อน
-      const previousPeriod = period === 'weekly'
-        ? moment().tz(config.app.defaultTimezone).subtract(1, 'week').startOf('week').toDate()
-        : moment().tz(config.app.defaultTimezone).subtract(1, 'month').startOf('month').toDate();
-
       const previousPoints = await this.kpiRepository
         .createQueryBuilder('kpi')
-        .select('SUM(kpi.points)', 'points')
+        .select('COALESCE(SUM(kpi.points), 0)', 'points')
         .where('kpi.userId = :userId', { userId })
         .andWhere('kpi.groupId = :groupId', { groupId })
         .andWhere(period === 'weekly' ? 'kpi.weekOf = :period' : 'kpi.monthOf = :period', { period: previousPeriod })

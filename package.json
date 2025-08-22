@@ -19,6 +19,7 @@
     "db:check-schema": "tsx src/scripts/checkDatabaseSchema.ts",
     "db:migrate-all": "tsx src/scripts/runFullMigration.ts",
     "test:rules": "tsx src/scripts/testProjectRules.ts",
+    "test:leaderboard": "tsx src/scripts/testLeaderboard.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
