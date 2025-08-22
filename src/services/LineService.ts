@@ -490,6 +490,16 @@ export class LineService {
     try {
       console.log(`🔍 พยายามดึงข้อมูลกลุ่ม ${groupId} จาก LINE API`);
       
+      // ตรวจสอบว่าเป็น personal chat หรือไม่
+      if (groupId.startsWith('personal_')) {
+        console.log('ℹ️ Personal chat detected');
+        return {
+          groupId,
+          name: 'แชทส่วนตัว',
+          source: 'fallback'
+        };
+      }
+
       // พยายามใช้ getGroupSummary หากมี (อาจจะมีใน LINE Bot SDK รุ่นใหม่)
       try {
         if (typeof (this.client as any).getGroupSummary === 'function') {
@@ -507,9 +517,64 @@ export class LineService {
       } catch (summaryError: any) {
         console.log('ℹ️ getGroupSummary ไม่สามารถใช้ได้หรือไม่มีข้อมูล:', summaryError?.message || summaryError);
       }
-      
-      // วิธีอื่น: พยายามดึงข้อมูลจาก webhook หรือ event ที่มี group name
-      // (ในอนาคตอาจจะเพิ่มเติมได้)
+
+      // พยายามใช้ getGroupMemberUserIds เพื่อตรวจสอบว่ากลุ่มมีอยู่จริง
+      try {
+        console.log('🔄 ตรวจสอบการเข้าถึงกลุ่มผ่าน getGroupMemberUserIds');
+        await this.getGroupMemberUserIds(groupId);
+        
+        // ถ้าสามารถเข้าถึงได้ แสดงว่ากลุ่มมีอยู่จริง
+        // ลองใช้วิธีอื่นในการดึงชื่อกลุ่ม
+        
+        // วิธีที่ 1: ใช้ getGroupSummary (ถ้ามี)
+        try {
+          if (typeof (this.client as any).getGroupSummary === 'function') {
+            const groupSummary = await (this.client as any).getGroupSummary(groupId);
+            if (groupSummary && groupSummary.groupName) {
+              console.log(`✅ ดึงชื่อกลุ่มจาก LINE API: ${groupSummary.groupName}`);
+              return {
+                groupId,
+                name: groupSummary.groupName,
+                source: 'line_api'
+              };
+            }
+          }
+        } catch (error) {
+          console.log('ℹ️ getGroupSummary ไม่สามารถใช้ได้');
+        }
+
+        // วิธีที่ 2: ใช้ getGroupMemberProfile (ถ้ามี)
+        try {
+          if (typeof (this.client as any).getGroupMemberProfile === 'function') {
+            const memberIds = await this.getGroupMemberUserIds(groupId);
+            if (memberIds.length > 0) {
+              // ลองดึงข้อมูลของสมาชิกคนแรกเพื่อดูข้อมูลกลุ่ม
+              const firstMember = await (this.client as any).getGroupMemberProfile(groupId, memberIds[0]);
+              if (firstMember && firstMember.displayName) {
+                console.log(`✅ ดึงข้อมูลสมาชิกกลุ่มสำเร็จ`);
+                // ใช้ชื่อสมาชิกคนแรกเป็นชื่อกลุ่มชั่วคราว
+                return {
+                  groupId,
+                  name: `กลุ่ม ${firstMember.displayName}`,
+                  source: 'fallback'
+                };
+              }
+            }
+          }
+        } catch (error) {
+          console.log('ℹ️ getGroupMemberProfile ไม่สามารถใช้ได้');
+        }
+
+        // ถ้าสามารถเข้าถึงกลุ่มได้ แต่ไม่สามารถดึงชื่อได้
+        console.log('ℹ️ สามารถเข้าถึงกลุ่มได้ แต่ไม่สามารถดึงชื่อจาก LINE API ได้');
+        
+      } catch (accessError: any) {
+        if (accessError.status === 403) {
+          console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลกลุ่ม');
+        } else {
+          console.log('❌ ไม่สามารถเข้าถึงกลุ่มได้:', accessError?.message || accessError);
+        }
+      }
       
       console.log('ℹ️ ไม่สามารถดึงชื่อกลุ่มจาก LINE API ได้ ใช้ชื่อเริ่มต้น');
       

@@ -1599,6 +1599,167 @@ class ApiController {
     }
   }
 
+  /**
+   * POST /api/groups/update-names - อัพเดทชื่อกลุ่มทั้งหมดให้ดึงจาก LINE API
+   */
+  public async updateAllGroupNames(req: Request, res: Response): Promise<void> {
+    try {
+      logger.info('🔄 Starting bulk group name update...');
+
+      // ดึงกลุ่มทั้งหมดจากฐานข้อมูล
+      const groups = await this.userService.getAllGroups();
+      logger.info(`📊 Found ${groups.length} groups to process`);
+
+      const results = {
+        total: groups.length,
+        updated: 0,
+        skipped: 0,
+        errors: 0,
+        details: [] as Array<{
+          groupId: string;
+          oldName: string;
+          newName?: string;
+          status: 'updated' | 'skipped' | 'error';
+          error?: string;
+        }>
+      };
+
+      for (const group of groups) {
+        try {
+          logger.debug(`🔍 Processing group: ${group.name} (${group.lineGroupId})`);
+
+          // ตรวจสอบว่าชื่อกลุ่มเป็นตัวย่อของไอดีหรือไม่
+          const isAbbreviatedName = this.isAbbreviatedGroupName(group.name, group.lineGroupId);
+          
+          if (!isAbbreviatedName) {
+            logger.debug(`✅ Group "${group.name}" already has proper name, skipping`);
+            results.skipped++;
+            results.details.push({
+              groupId: group.lineGroupId,
+              oldName: group.name,
+              status: 'skipped'
+            });
+            continue;
+          }
+
+          // ดึงข้อมูลกลุ่มจาก LINE API
+          const groupInfo = await this.lineService.getGroupInformation(group.lineGroupId);
+          
+          // ตรวจสอบว่าชื่อใหม่ดีกว่าชื่อเดิมหรือไม่
+          if (groupInfo.source === 'line_api' || this.isImprovedName(group.name, groupInfo.name)) {
+            // อัพเดทชื่อกลุ่มในฐานข้อมูล
+            await this.userService.updateGroupName(group.id, groupInfo.name);
+            
+            logger.info(`✅ Updated "${group.name}" → "${groupInfo.name}" (${groupInfo.source})`);
+            results.updated++;
+            results.details.push({
+              groupId: group.lineGroupId,
+              oldName: group.name,
+              newName: groupInfo.name,
+              status: 'updated'
+            });
+          } else {
+            logger.debug(`ℹ️ No better name available for: ${group.name}`);
+            results.skipped++;
+            results.details.push({
+              groupId: group.lineGroupId,
+              oldName: group.name,
+              status: 'skipped'
+            });
+          }
+
+          // เพิ่ม delay เพื่อหลีกเลี่ยง rate limiting
+          await new Promise(resolve => setTimeout(resolve, 200));
+
+        } catch (error: any) {
+          logger.error(`❌ Error processing group ${group.name}:`, error);
+          results.errors++;
+          results.details.push({
+            groupId: group.lineGroupId,
+            oldName: group.name,
+            status: 'error',
+            error: error.message || 'Unknown error'
+          });
+        }
+      }
+
+      logger.info('📊 Group name update completed', results);
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: results
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error in bulk group name update:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to update group names' 
+      });
+    }
+  }
+
+  /**
+   * ตรวจสอบว่าชื่อกลุ่มเป็นตัวย่อของไอดีหรือไม่
+   */
+  private isAbbreviatedGroupName(name: string, lineGroupId: string): boolean {
+    // ตรวจสอบรูปแบบต่างๆ ของชื่อกลุ่มที่เป็นตัวย่อ
+    const abbreviatedPatterns = [
+      /^กลุ่ม [A-Za-z0-9]{1,8}$/,           // กลุ่ม C1234567
+      /^กลุ่ม [A-Za-z0-9]{8,}$/,            // กลุ่ม Cxxxxxxxx (long IDs)
+      /^\[INACTIVE\]/,                       // [INACTIVE] groups
+      /^Group /,                             // English "Group " prefix
+      /^แชทส่วนตัว$/,                        // Personal chat
+      /^personal_/                           // personal_xxxxx
+    ];
+
+    // ตรวจสอบว่าชื่อกลุ่มตรงกับรูปแบบตัวย่อหรือไม่
+    const isAbbreviated = abbreviatedPatterns.some(pattern => pattern.test(name));
+    
+    // ตรวจสอบเพิ่มเติมว่าชื่อกลุ่มเป็นส่วนหนึ่งของ lineGroupId หรือไม่
+    const shortId = lineGroupId.length > 8 ? lineGroupId.substring(0, 8) : lineGroupId;
+    const isIdAbbreviation = name.includes(shortId) || name.includes(lineGroupId);
+    
+    return isAbbreviated || isIdAbbreviation;
+  }
+
+  /**
+   * ตรวจสอบว่าชื่อใหม่ดีกว่าชื่อเดิมหรือไม่
+   */
+  private isImprovedName(oldName: string, newName: string): boolean {
+    // ตรวจสอบว่าชื่อใหม่เป็นตัวย่อหรือไม่
+    const abbreviatedPatterns = [
+      /^กลุ่ม [A-Za-z0-9]{1,8}$/,
+      /^กลุ่ม [A-Za-z0-9]{8,}$/,
+      /^\[INACTIVE\]/,
+      /^Group /,
+      /^แชทส่วนตัว$/,
+      /^personal_/
+    ];
+
+    const isNewNameAbbreviated = abbreviatedPatterns.some(pattern => pattern.test(newName));
+    
+    // ถ้าชื่อใหม่เป็นตัวย่อ ให้ถือว่าไม่ดีขึ้น
+    if (isNewNameAbbreviated) {
+      return false;
+    }
+
+    // ถ้าชื่อเดิมเป็นตัวย่อและชื่อใหม่ไม่ใช่ ให้ถือว่าดีขึ้น
+    const isOldNameAbbreviated = this.isAbbreviatedGroupName(oldName, '');
+    if (isOldNameAbbreviated && !isNewNameAbbreviated) {
+      return true;
+    }
+
+    // ถ้าชื่อใหม่ยาวกว่าและมีความหมายมากกว่า ให้ถือว่าดีขึ้น
+    if (newName.length > oldName.length && newName.length > 10) {
+      return true;
+    }
+
+    return false;
+  }
+
   
 }
 
@@ -1702,6 +1863,9 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   // KPI Enum migration endpoint
   apiRouter.post('/admin/migrate-kpi-enum', apiController.runKPIEnumMigration.bind(apiController));
   apiRouter.get('/admin/check-db', apiController.checkDatabaseConnection.bind(apiController));
+
+  // Group name update endpoint
+  apiRouter.post('/groups/update-names', apiController.updateAllGroupNames.bind(apiController));
 
   // Notification Card routes
   apiRouter.post('/notifications/cards', apiController.createNotificationCard.bind(apiController));

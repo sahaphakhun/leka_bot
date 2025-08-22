@@ -130,6 +130,38 @@ export class UserService {
   }
 
   /**
+   * ดึงกลุ่มทั้งหมดจากฐานข้อมูล
+   */
+  public async getAllGroups(): Promise<Group[]> {
+    try {
+      return await this.groupRepository.find({
+        order: { createdAt: 'DESC' }
+      });
+    } catch (error) {
+      console.error('❌ Error getting all groups:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * อัปเดตชื่อกลุ่ม
+   */
+  public async updateGroupName(groupId: string, newName: string): Promise<Group> {
+    try {
+      const group = await this.groupRepository.findOneBy({ id: groupId });
+      if (!group) {
+        throw new Error('Group not found');
+      }
+
+      group.name = newName;
+      return await this.groupRepository.save(group);
+    } catch (error) {
+      console.error('❌ Error updating group name:', error);
+      throw error;
+    }
+  }
+
+  /**
    * สร้างกลุ่มใหม่
    */
   public async createGroup(data: {
