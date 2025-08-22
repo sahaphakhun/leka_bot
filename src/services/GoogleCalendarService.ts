@@ -23,8 +23,24 @@ export class GoogleCalendarService {
    * ตั้งค่า Google Authentication
    */
   private initializeAuth(): void {
-    if (config.google.serviceAccountKey) {
-      // ใช้ Service Account (แนะนำสำหรับ production)
+    if (config.google.serviceAccountJson) {
+      // ใช้ Service Account JSON จาก Environment Variable (สำหรับ Railway)
+      try {
+        const serviceAccount = JSON.parse(config.google.serviceAccountJson);
+        this.auth = new google.auth.GoogleAuth({
+          credentials: serviceAccount,
+          scopes: [
+            'https://www.googleapis.com/auth/calendar',
+            'https://www.googleapis.com/auth/calendar.events'
+          ]
+        });
+        console.log('✅ Using Google Service Account from environment variable');
+      } catch (error) {
+        console.error('❌ Service Account JSON parsing failed:', error);
+        this.setupOAuth();
+      }
+    } else if (config.google.serviceAccountKey) {
+      // ใช้ Service Account จากไฟล์ (สำหรับ local development)
       try {
         const serviceAccount = require(config.google.serviceAccountKey);
         this.auth = new google.auth.GoogleAuth({
@@ -34,6 +50,7 @@ export class GoogleCalendarService {
             'https://www.googleapis.com/auth/calendar.events'
           ]
         });
+        console.log('✅ Using Google Service Account from file');
       } catch (error) {
         console.error('❌ Service Account setup failed:', error);
         this.setupOAuth();

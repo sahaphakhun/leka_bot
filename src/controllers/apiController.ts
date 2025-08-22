@@ -1824,7 +1824,33 @@ class ApiController {
     return false;
   }
 
-  
+  /**
+   * ทดสอบการเชื่อมต่อ Google Calendar
+   */
+  public async testGoogleCalendar(req: Request, res: Response): Promise<void> {
+    try {
+      const { GoogleService } = await import('@/services/GoogleService');
+      const googleService = new GoogleService();
+      
+      const result = await googleService.testConnection();
+      
+      res.json({
+        success: true,
+        message: 'Google Calendar connection test',
+        result,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Google Calendar test failed:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Google Calendar test failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 }
 
 const apiController = new ApiController();
@@ -1935,3 +1961,4 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   apiRouter.post('/notifications/cards', apiController.createNotificationCard.bind(apiController));
   apiRouter.get('/notifications/cards/templates', apiController.getNotificationTemplates.bind(apiController));
   apiRouter.post('/notifications/cards/quick', apiController.sendQuickNotification.bind(apiController));
+  apiRouter.post('/admin/test-google-calendar', apiController.testGoogleCalendar.bind(apiController));

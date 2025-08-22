@@ -36,6 +36,7 @@ export const config = {
     clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
     redirectUri: process.env.GOOGLE_REDIRECT_URI!,
     serviceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
+    serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON, // สำหรับ Railway
   },
   
   // Email Configuration
