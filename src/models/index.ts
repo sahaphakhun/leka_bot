@@ -1,6 +1,5 @@
 // TypeORM Database Models
 
-import 'reflect-metadata';
 import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, UpdateDateColumn, ManyToOne, OneToMany, ManyToMany, JoinTable, JoinColumn } from 'typeorm';
 
 @Entity('groups')
@@ -97,10 +96,10 @@ export class GroupMember {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column()
   groupId: string;
 
-  @Column({ type: 'uuid' })
+  @Column()
   userId: string;
 
   @Column({ type: 'enum', enum: ['admin', 'member'], default: 'admin' })
@@ -123,10 +122,10 @@ export class Task {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column()
   groupId: string;
 
-  @Column({ type: 'varchar' })
+  @Column()
   title: string;
 
   @Column('text', { nullable: true })
@@ -149,30 +148,30 @@ export class Task {
   @Column('text', { array: true, default: '{}' })
   tags: string[];
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   startTime?: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column()
   dueTime: Date;
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   completedAt?: Date;
 
   // เพิ่มฟิลด์เวลาใหม่สำหรับ workflow
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   submittedAt?: Date;      // เวลาส่งงาน
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   reviewedAt?: Date;       // เวลาตรวจสอบ
 
-  @Column({ type: 'timestamp', nullable: true })
+  @Column({ nullable: true })
   approvedAt?: Date;       // เวลาอนุมัติ
 
   // บังคับให้ต้องมีไฟล์แนบเมื่อส่งงาน
   @Column({ type: 'boolean', default: false })
   requireAttachment: boolean;
 
-  @Column({ type: 'uuid' })
+  @Column()
   createdBy: string;
 
   @Column('jsonb', { default: [] })
@@ -262,7 +261,7 @@ export class File {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column()
   groupId: string;
 
   @Column({ type: 'varchar' })
@@ -294,7 +293,7 @@ export class File {
   @Column('text', { array: true, default: '{}' })
   tags: string[];
 
-  @Column({ type: 'boolean', default: false })
+  @Column({ default: false })
   isPublic: boolean;
 
   // สถานะไฟล์ในเวิร์กโฟลเดอร์: draft/in_progress/completed
@@ -325,13 +324,13 @@ export class KPIRecord {
   @PrimaryGeneratedColumn('uuid')
   id: string;
 
-  @Column({ type: 'uuid' })
+  @Column()
   userId: string;
 
-  @Column({ type: 'uuid' })
+  @Column()
   groupId: string;
 
-  @Column({ type: 'uuid' })
+  @Column()
   taskId: string;
 
   @Column({
@@ -343,13 +342,13 @@ export class KPIRecord {
   @Column({ type: 'int' })
   points: number;
 
-  @Column({ type: 'timestamp' })
+  @Column()
   eventDate: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column()
   weekOf: Date;
 
-  @Column({ type: 'timestamp' })
+  @Column()
   monthOf: Date;
 
   @CreateDateColumn()
