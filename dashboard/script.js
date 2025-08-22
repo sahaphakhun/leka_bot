@@ -1525,50 +1525,47 @@ class Dashboard {
     console.log('🔄 Rendering mini leaderboard with', leaderboard.length, 'users');
     console.log('📊 Leaderboard data:', leaderboard);
 
-    const htmlContent = leaderboard.map((user, index) => {
-      // คำนวณคะแนน
-      const displayScore = Number(user.weeklyPoints ?? user.monthlyPoints ?? user.totalPoints ?? 0) || 0;
+    // สร้าง HTML ใหม่ทั้งหมด
+    let html = '';
+    
+    leaderboard.forEach((user, index) => {
+      // ดึงข้อมูลผู้ใช้
+      const name = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
+      const score = Number(user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
+      const tasks = Number(user.tasksCompleted || user.weeklyTasksCompleted || user.completedTasks || 0);
       
-      // คำนวณจำนวนงานที่เสร็จ
-      const safeTasksCompleted = Number(user.tasksCompleted ?? user.weeklyTasksCompleted ?? user.completedTasks ?? 0) || 0;
-      
-      // ดึงชื่อผู้ใช้ - ตรวจสอบหลายฟิลด์
-      let displayName = 'ไม่ทราบชื่อ';
-      if (user.displayName && user.displayName.trim() !== '') {
-        displayName = user.displayName.trim();
-      } else if (user.name && user.name.trim() !== '') {
-        displayName = user.name.trim();
-      } else if (user.realName && user.realName.trim() !== '') {
-        displayName = user.realName.trim();
+      // กำหนดอันดับ
+      let rankIcon, rankClass;
+      if (index === 0) {
+        rankIcon = '🥇';
+        rankClass = 'gold';
+      } else if (index === 1) {
+        rankIcon = '🥈';
+        rankClass = 'silver';
+      } else if (index === 2) {
+        rankIcon = '🥉';
+        rankClass = 'bronze';
+      } else {
+        rankIcon = String(index + 1);
+        rankClass = '';
       }
       
-      console.log(`👤 User ${index + 1}:`, {
-        userId: user.userId,
-        displayName: displayName,
-        originalDisplayName: user.displayName,
-        originalName: user.name,
-        originalRealName: user.realName
-      });
-      
-      // กำหนดเหรียญและคลาส
-      const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
-      const podiumClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
-      
-      return `
+      // สร้าง HTML สำหรับแต่ละรายการ
+      html += `
         <div class="leaderboard-item mini">
-          <div class="rank ${podiumClass}">${rankIcon}</div>
+          <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
-            <div class="user-name">${displayName}</div>
-            <div class="user-score-text">${displayScore.toFixed(1)} คะแนน</div>
+            <div class="user-name">${name}</div>
+            <div class="user-score-text">${score.toFixed(1)} คะแนน</div>
           </div>
           <div class="user-stats">
-            <div class="user-score">${safeTasksCompleted} งาน</div>
+            <div class="user-score">${tasks} งาน</div>
           </div>
         </div>
       `;
-    }).join('');
-
-    container.innerHTML = htmlContent;
+    });
+    
+    container.innerHTML = html;
     console.log('✅ Mini leaderboard rendered successfully');
   }
 
@@ -1584,52 +1581,50 @@ class Dashboard {
     console.log('🔄 Rendering main leaderboard with', users.length, 'users');
     console.log('📊 Leaderboard data:', users);
 
-    container.innerHTML = users.map((user, index) => {
-      // คำนวณคะแนน
-      const displayScore = Number(user.weeklyPoints ?? user.monthlyPoints ?? user.totalPoints ?? 0) || 0;
+    // สร้าง HTML ใหม่ทั้งหมด
+    let html = '';
+    
+    users.forEach((user, index) => {
+      // ดึงข้อมูลผู้ใช้
+      const name = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
+      const score = Number(user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
+      const tasks = Number(user.tasksCompleted || user.weeklyTasksCompleted || user.completedTasks || 0);
+      const early = Number(user.tasksEarly || 0);
+      const onTime = Number(user.tasksOnTime || 0);
       
-      // คำนวณจำนวนงานที่เสร็จ
-      const safeTasksCompleted = Number(user.tasksCompleted ?? user.weeklyTasksCompleted ?? user.completedTasks ?? 0) || 0;
-      const safeTasksEarly = Number(user.tasksEarly ?? 0) || 0;
-      const safeTasksOnTime = Number(user.tasksOnTime ?? 0) || 0;
-      
-      // ดึงชื่อผู้ใช้ - ตรวจสอบหลายฟิลด์
-      let displayName = 'ไม่ทราบชื่อ';
-      if (user.displayName && user.displayName.trim() !== '') {
-        displayName = user.displayName.trim();
-      } else if (user.name && user.name.trim() !== '') {
-        displayName = user.name.trim();
-      } else if (user.realName && user.realName.trim() !== '') {
-        displayName = user.realName.trim();
+      // กำหนดอันดับ
+      let rankIcon, rankClass;
+      if (index === 0) {
+        rankIcon = '🥇';
+        rankClass = 'gold';
+      } else if (index === 1) {
+        rankIcon = '🥈';
+        rankClass = 'silver';
+      } else if (index === 2) {
+        rankIcon = '🥉';
+        rankClass = 'bronze';
+      } else {
+        rankIcon = String(index + 1);
+        rankClass = '';
       }
       
-      console.log(`👤 User ${index + 1}:`, {
-        userId: user.userId,
-        displayName: displayName,
-        originalDisplayName: user.displayName,
-        originalName: user.name,
-        originalRealName: user.realName
-      });
-      
-      // กำหนดเหรียญและคลาส
-      const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
-      const podiumClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
-
-      return `
+      // สร้าง HTML สำหรับแต่ละรายการ
+      html += `
         <div class="leaderboard-item">
-          <div class="rank ${podiumClass}">${rankIcon}</div>
+          <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
-            <div class="user-name">${displayName}</div>
-            <div class="user-score-text">เสร็จ ${safeTasksCompleted} งาน • คะแนนเฉลี่ย ${displayScore.toFixed(1)}</div>
+            <div class="user-name">${name}</div>
+            <div class="user-score-text">เสร็จ ${tasks} งาน • คะแนนเฉลี่ย ${score.toFixed(1)}</div>
           </div>
           <div class="user-stats">
-            <div class="user-score">${displayScore.toFixed(1)}</div>
-            <div class="user-substats">เร็ว ${safeTasksEarly} • ตรงเวลา ${safeTasksOnTime}</div>
+            <div class="user-score">${score.toFixed(1)}</div>
+            <div class="user-substats">เร็ว ${early} • ตรงเวลา ${onTime}</div>
           </div>
         </div>
       `;
-    }).join('');
+    });
     
+    container.innerHTML = html;
     console.log('✅ Main leaderboard rendered successfully');
   }
 
