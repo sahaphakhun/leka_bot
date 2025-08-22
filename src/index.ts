@@ -1,6 +1,7 @@
 // เลขาบอท - LINE Group Secretary Bot
 // Main Entry Point
 
+import 'reflect-metadata';
 import 'module-alias/register';
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';

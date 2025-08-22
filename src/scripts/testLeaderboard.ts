@@ -1,5 +1,6 @@
 // Test Leaderboard API - สำหรับ debug ปัญหา 500 error
 
+import 'reflect-metadata';
 import { AppDataSource } from '@/utils/database';
 import { KPIService } from '@/services/KPIService';
 import { Group, User, GroupMember } from '@/models';
