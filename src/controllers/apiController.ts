@@ -885,14 +885,16 @@ class ApiController {
         return;
       }
 
-      // Validate groupId format (basic UUID check or 'default')
+      // Validate groupId format (UUID, 'default', or LINE Group ID)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (groupId !== 'default' && !uuidRegex.test(groupId)) {
+      const lineGroupIdRegex = /^[A-Za-z0-9]{33}$/; // LINE Group ID format
+      
+      if (groupId !== 'default' && !uuidRegex.test(groupId) && !lineGroupIdRegex.test(groupId)) {
         console.warn(`⚠️ Invalid group ID format: ${groupId}`);
         res.status(400).json({
           success: false,
           error: 'Invalid group ID format',
-          details: 'Group ID must be a valid UUID or "default"'
+          details: 'Group ID must be a valid UUID, LINE Group ID, or "default"'
         });
         return;
       }
@@ -1051,14 +1053,16 @@ class ApiController {
         return;
       }
 
-      // Validate groupId format (basic UUID check or 'default')
+      // Validate groupId format (UUID, 'default', or LINE Group ID)
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-      if (groupId !== 'default' && !uuidRegex.test(groupId)) {
+      const lineGroupIdRegex = /^[A-Za-z0-9]{33}$/; // LINE Group ID format
+      
+      if (groupId !== 'default' && !uuidRegex.test(groupId) && !lineGroupIdRegex.test(groupId)) {
         console.warn(`⚠️ Invalid group ID format: ${groupId}`);
         res.status(400).json({
           success: false,
           error: 'Invalid group ID format',
-          details: 'Group ID must be a valid UUID or "default"'
+          details: 'Group ID must be a valid UUID, LINE Group ID, or "default"'
         });
         return;
       }

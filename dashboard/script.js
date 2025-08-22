@@ -3906,12 +3906,13 @@ class Dashboard {
    * ซิงค์และคำนวณคะแนน leaderboard ใหม่
    */
   async syncLeaderboard() {
+    let originalText = '';
     try {
       console.log('🔄 เริ่มการซิงค์ leaderboard...');
       
       // แสดงสถานะการโหลด
       const syncBtn = document.getElementById('syncLeaderboardBtn');
-      const originalText = syncBtn.innerHTML;
+      originalText = syncBtn.innerHTML;
       syncBtn.disabled = true;
       syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังซิงค์...';
       
@@ -3951,7 +3952,7 @@ class Dashboard {
       // คืนค่าปุ่มเป็นสถานะปกติ
       const syncBtn = document.getElementById('syncLeaderboardBtn');
       syncBtn.disabled = false;
-      syncBtn.innerHTML = originalText;
+      syncBtn.innerHTML = originalText || '<i class="fas fa-sync-alt"></i> ซิงค์';
     }
   }
 }
