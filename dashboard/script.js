@@ -1496,7 +1496,7 @@ class Dashboard {
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=weekly&limit=3`);
       if (response.data && Array.isArray(response.data)) {
         this.updateMiniLeaderboard(response.data);
-      } else {
+              } else {
         this.updateMiniLeaderboard([]);
       }
     } catch (error) {
@@ -1522,15 +1522,15 @@ class Dashboard {
     }
 
     const htmlContent = leaderboard.map((user, index) => {
-      const displayScore = user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0;
-      const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
-      const displayName = (user.displayName && user.displayName.trim()) || user.name || user.realName || 'ไม่ทราบชื่อ';
+      const displayScore = Number(user.weeklyPoints ?? user.monthlyPoints ?? user.totalPoints ?? 0) || 0;
+      const safeTasksCompleted = Number(user.tasksCompleted ?? user.weeklyTasksCompleted ?? user.completedTasks ?? 0) || 0;
+      const displayName = (String(user.displayName ?? '').trim()) || user.name || user.realName || 'ไม่ทราบชื่อ';
       const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
       const podiumClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
       return `
         <div class="leaderboard-item mini">
           <div class="rank ${podiumClass}">${rankIcon}</div>
-          <div class="user-info">
+          <div class="user-info" style="min-width:0;">
             <div class="user-name">${displayName}</div>
             <div class="user-score-text">${displayScore.toFixed(1)} คะแนน</div>
           </div>
@@ -1552,18 +1552,18 @@ class Dashboard {
     }
 
     container.innerHTML = users.map((user, index) => {
-      const displayScore = user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0;
-      const safeTasksCompleted = Number(user.tasksCompleted ?? user.completedTasks ?? 0) || 0;
+      const displayScore = Number(user.weeklyPoints ?? user.monthlyPoints ?? user.totalPoints ?? 0) || 0;
+      const safeTasksCompleted = Number(user.tasksCompleted ?? user.weeklyTasksCompleted ?? user.completedTasks ?? 0) || 0;
       const safeTasksEarly = Number(user.tasksEarly ?? 0) || 0;
       const safeTasksOnTime = Number(user.tasksOnTime ?? 0) || 0;
-      const displayName = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
+      const displayName = (String(user.displayName ?? '').trim()) || user.name || user.realName || 'ไม่ทราบชื่อ';
       const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : (index + 1);
       const podiumClass = index === 0 ? 'gold' : index === 1 ? 'silver' : index === 2 ? 'bronze' : '';
 
       return `
       <div class="leaderboard-item">
         <div class="rank ${podiumClass}">${rankIcon}</div>
-        <div class="user-info">
+        <div class="user-info" style="min-width:0;">
           <div class="user-name">${displayName}</div>
           <div class="user-score-text">เสร็จ ${safeTasksCompleted} งาน • คะแนนเฉลี่ย ${displayScore.toFixed(1)}</div>
         </div>
@@ -1573,7 +1573,7 @@ class Dashboard {
         </div>
       </div>
     `;
-    }).join('');
+      }).join('');
   }
 
   updateStats(stats) {
