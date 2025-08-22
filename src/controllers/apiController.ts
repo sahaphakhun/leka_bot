@@ -961,7 +961,7 @@ class ApiController {
       res.status(statusCode).json({ 
         success: false, 
         error: errorMessage,
-        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.message : 'Unknown error' : undefined,
+        details: error instanceof Error ? error.message : 'Unknown error',
         requestInfo: {
           groupId: req.params.groupId,
           period: req.query.period,
