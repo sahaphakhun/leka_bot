@@ -1437,6 +1437,31 @@ class ApiController {
     }
   }
 
+  /**
+   * POST /api/admin/migrate-kpi-enum - รัน KPI Enum migration
+   */
+  public async runKPIEnumMigration(req: Request, res: Response): Promise<void> {
+    try {
+      console.log('🔄 Starting KPI Enum migration...');
+      
+      const { migrateOverdueKPIType } = await import('@/scripts/migrateOverdueKPIType');
+      await migrateOverdueKPIType();
+      
+      res.json({
+        success: true,
+        message: 'KPI Enum migration completed successfully',
+        details: 'Added "overdue" to kpi_records_type_enum'
+      });
+    } catch (error) {
+      logger.error('❌ KPI Enum migration error:', error);
+      res.status(500).json({
+        success: false,
+        error: 'KPI Enum migration failed',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      });
+    }
+  }
+
   
 }
 
@@ -1535,6 +1560,9 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
 
   // Manual migration endpoint (for Railway deployment)
   apiRouter.post('/admin/migrate', apiController.runMigration.bind(apiController));
+  
+  // KPI Enum migration endpoint
+  apiRouter.post('/admin/migrate-kpi-enum', apiController.runKPIEnumMigration.bind(apiController));
 
   // Notification Card routes
   apiRouter.post('/notifications/cards', apiController.createNotificationCard.bind(apiController));
