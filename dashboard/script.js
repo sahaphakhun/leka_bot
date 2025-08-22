@@ -1643,7 +1643,7 @@ class Dashboard {
       } else if (index === 2) {
         rankIcon = '🥉';
         rankClass = 'bronze';
-      } else {
+            } else {
         rankIcon = String(index + 1);
         rankClass = '';
       }

@@ -415,6 +415,11 @@ export class KPIService {
       
       console.log('🔍 All KPI data (latest 10):', JSON.stringify(allKpiData, null, 2));
 
+      // แสดง SQL query ที่ถูกสร้าง
+      const sqlQuery = kpiQuery.getQueryAndParameters();
+      console.log('🔍 SQL Query:', sqlQuery[0]);
+      console.log('🔍 SQL Parameters:', sqlQuery[1]);
+
       // Execute KPI query
       const kpiResults = await kpiQuery
         .groupBy('kpi.userId')
@@ -426,7 +431,7 @@ export class KPIService {
       // สร้าง Map สำหรับ KPI data
       const kpiMap = new Map();
       kpiResults.forEach((result: any) => {
-        kpiMap.set(result.userId, {
+        const mappedData = {
           averagePoints: parseFloat(result.averagePoints) || 0,
           totalPoints: parseFloat(result.totalPoints) || 0,
           tasksCompleted: parseInt(result.tasksCompleted) || 0,
@@ -435,8 +440,13 @@ export class KPIService {
           tasksLate: parseInt(result.tasksLate) || 0,
           tasksOvertime: parseInt(result.tasksOvertime) || 0,
           tasksOverdue: parseInt(result.tasksOverdue) || 0
-        });
+        };
+        
+        console.log(`🔍 Mapping user ${result.userId}:`, mappedData);
+        kpiMap.set(result.userId, mappedData);
       });
+      
+      console.log(`📊 KPI Map size: ${kpiMap.size}`);
       
       // รวมข้อมูลสมาชิกกับ KPI data
       const leaderboard: Leaderboard[] = [];
@@ -452,6 +462,11 @@ export class KPIService {
           tasksOvertime: 0,
           tasksOverdue: 0
         };
+        
+        console.log(`🔍 Member ${member.id} (${member.displayName}):`, {
+          found: kpiMap.has(member.id),
+          kpiData
+        });
         
         // คำนวณ trend (เปรียบเทียบกับสัปดาห์/เดือนก่อน)
         let trend: 'up' | 'down' | 'same' = 'same';
