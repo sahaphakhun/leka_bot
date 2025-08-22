@@ -12,15 +12,29 @@ export class EmailService {
   constructor() {
     this._sentTaskCreatedEmails = new Set();
     if (features.emailNotifications) {
-      this.transporter = nodemailer.createTransport({
-        host: config.email.smtpHost,
-        port: config.email.smtpPort,
-        secure: config.email.smtpPort === 465,
-        auth: {
-          user: config.email.smtpUser,
-          pass: config.email.smtpPass,
-        },
-      });
+      try {
+        this.transporter = nodemailer.createTransport({
+          host: config.email.smtpHost,
+          port: config.email.smtpPort,
+          secure: config.email.smtpPort === 465,
+          auth: {
+            user: config.email.smtpUser,
+            pass: config.email.smtpPass,
+          },
+        });
+        
+        // ทดสอบการเชื่อมต่อ
+        this.transporter.verify().then(() => {
+          console.log('✅ Email service initialized successfully');
+        }).catch((error) => {
+          console.warn('⚠️ Email service connection failed, disabling email notifications:', error.message);
+          this.transporter = null;
+        });
+        
+      } catch (error) {
+        console.warn('⚠️ Failed to initialize email service, disabling email notifications:', error);
+        this.transporter = null;
+      }
     } else {
       console.log('ℹ️ Email notifications disabled - SMTP credentials not provided');
     }
