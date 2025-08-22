@@ -1462,6 +1462,32 @@ class ApiController {
     }
   }
 
+  /**
+   * GET /api/admin/check-db - ตรวจสอบการเชื่อมต่อฐานข้อมูล
+   */
+  public async checkDatabaseConnection(req: Request, res: Response): Promise<void> {
+    try {
+      console.log('🔍 Checking database connection...');
+      
+      const { checkDatabaseConnection } = await import('@/scripts/checkDatabaseConnection');
+      await checkDatabaseConnection();
+      
+      res.json({
+        success: true,
+        message: 'Database connection is working properly',
+        timestamp: new Date().toISOString()
+      });
+    } catch (error) {
+      logger.error('❌ Database connection check failed:', error);
+      res.status(500).json({
+        success: false,
+        error: 'Database connection check failed',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
   
 }
 
@@ -1563,6 +1589,7 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   
   // KPI Enum migration endpoint
   apiRouter.post('/admin/migrate-kpi-enum', apiController.runKPIEnumMigration.bind(apiController));
+  apiRouter.get('/admin/check-db', apiController.checkDatabaseConnection.bind(apiController));
 
   // Notification Card routes
   apiRouter.post('/notifications/cards', apiController.createNotificationCard.bind(apiController));

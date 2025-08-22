@@ -38,6 +38,8 @@ export const AppDataSource = new DataSource({
     idle: 10000,
     acquire: 30000,
   },
+  // เพิ่มการจัดการ connection ที่ดีขึ้น
+  connectTimeoutMS: 30000,
 });
 
 export const initializeDatabase = async (): Promise<void> => {
