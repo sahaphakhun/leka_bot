@@ -21,6 +21,7 @@
     "db:migrate-all": "tsx src/scripts/runFullMigration.ts",
     "db:auto-migrate": "tsx src/scripts/autoMigration.ts",
     "db:migrate-group-names": "tsx src/scripts/migrateGroupNames.ts",
+    "deploy:check": "tsx src/scripts/checkDeploymentReadiness.ts",
     "test:rules": "tsx src/scripts/testProjectRules.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts",
