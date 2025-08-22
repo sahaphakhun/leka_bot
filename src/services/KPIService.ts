@@ -431,19 +431,22 @@ export class KPIService {
       // สร้าง Map สำหรับ KPI data
       const kpiMap = new Map();
       kpiResults.forEach((result: any) => {
+        // แก้ไข case sensitivity ของ field names
+        const userId = result.userId || result.userid;
         const mappedData = {
-          averagePoints: parseFloat(result.averagePoints) || 0,
-          totalPoints: parseFloat(result.totalPoints) || 0,
-          tasksCompleted: parseInt(result.tasksCompleted) || 0,
-          tasksEarly: parseInt(result.tasksEarly) || 0,
-          tasksOnTime: parseInt(result.tasksOnTime) || 0,
-          tasksLate: parseInt(result.tasksLate) || 0,
-          tasksOvertime: parseInt(result.tasksOvertime) || 0,
-          tasksOverdue: parseInt(result.tasksOverdue) || 0
+          averagePoints: parseFloat(result.averagePoints || result.averagepoints) || 0,
+          totalPoints: parseFloat(result.totalPoints || result.totalpoints) || 0,
+          tasksCompleted: parseInt(result.tasksCompleted || result.taskscompleted) || 0,
+          tasksEarly: parseInt(result.tasksEarly || result.tasksearly) || 0,
+          tasksOnTime: parseInt(result.tasksOnTime || result.tasksontime) || 0,
+          tasksLate: parseInt(result.tasksLate || result.taskslate) || 0,
+          tasksOvertime: parseInt(result.tasksOvertime || result.tasksovertime) || 0,
+          tasksOverdue: parseInt(result.tasksOverdue || result.tasksoverdue) || 0
         };
         
-        console.log(`🔍 Mapping user ${result.userId}:`, mappedData);
-        kpiMap.set(result.userId, mappedData);
+        console.log(`🔍 Mapping user ${userId}:`, mappedData);
+        console.log(`🔍 Raw result fields:`, Object.keys(result));
+        kpiMap.set(userId, mappedData);
       });
       
       console.log(`📊 KPI Map size: ${kpiMap.size}`);
