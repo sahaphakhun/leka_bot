@@ -1,13 +1,17 @@
 {
-  "$schema": "https://railway.app/railway.schema.json",
+  "name": "leka_bot",
+  "description": "เลขาบอท - LINE Group Secretary Bot with Auto-Migration",
   "build": {
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "npm start",
-    "healthcheckPath": "/health",
-    "healthcheckTimeout": 300,
-    "restartPolicyType": "ON_FAILURE",
-    "restartPolicyMaxRetries": 10
-  }
+    "startCommand": "npm run start:production"
+  },
+  "environment": {
+    "NODE_ENV": "production",
+    "PORT": "$PORT"
+  },
+  "healthcheckPath": "/health",
+  "restartPolicyType": "ON_FAILURE",
+  "restartPolicyMaxRetries": 3
 }

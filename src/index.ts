@@ -16,7 +16,7 @@ import { LineService } from './services/LineService';
 import { CronService } from './services/CronService';
 import { logger } from './utils/logger';
 import { getCurrentTime } from './utils/common';
-import { autoMigration } from './utils/autoMigration';
+import { AutoMigrationSystem } from './scripts/autoMigration';
 
 class Server {
   private app: Application;
@@ -103,17 +103,38 @@ class Server {
     // Migration status check
     this.app.get('/migration-status', async (req: Request, res: Response) => {
       try {
-        const needsMigration = await autoMigration.checkMigrationNeeded();
         res.json({
           status: 'OK',
-          needsMigration,
+          autoMigrationAvailable: true,
           timestamp: getCurrentTime(),
-          message: needsMigration ? 'Database needs migration' : 'Database schema is up to date'
+          message: 'Comprehensive auto-migration system active'
         });
       } catch (error) {
         res.status(500).json({
           status: 'ERROR',
           error: error instanceof Error ? error.message : 'Unknown error',
+          timestamp: getCurrentTime()
+        });
+      }
+    });
+
+    // Manual migration trigger (for deployment purposes)
+    this.app.post('/trigger-migration', async (req: Request, res: Response) => {
+      try {
+        logger.info('🔄 Manual migration triggered from API');
+        const migrationSystem = new AutoMigrationSystem();
+        await migrationSystem.runAutoMigration();
+        
+        res.json({
+          status: 'OK',
+          message: 'Auto-migration completed successfully',
+          timestamp: getCurrentTime()
+        });
+      } catch (error) {
+        logger.error('❌ Manual migration failed:', error);
+        res.status(500).json({
+          status: 'ERROR',
+          error: error instanceof Error ? error.message : 'Migration failed',
           timestamp: getCurrentTime()
         });
       }
@@ -126,6 +147,8 @@ class Server {
         status: 'Running',
         endpoints: {
           health: '/health',
+          'migration-status': '/migration-status',
+          'trigger-migration': '/trigger-migration (POST)',
           webhook: '/webhook',
           api: '/api',
           'project-rules': '/api/project',
@@ -158,7 +181,7 @@ class Server {
       res.status(404).json({
         error: 'Not Found',
         message: `Route ${req.originalUrl} not found`,
-        availableRoutes: ['/', '/health', '/webhook', '/api', '/api/project', '/dashboard']
+        availableRoutes: ['/', '/health', '/migration-status', '/trigger-migration', '/webhook', '/api', '/api/project', '/dashboard']
       });
     });
   }
@@ -217,17 +240,23 @@ class Server {
       await initializeDatabase();
       logger.info('Database connected');
 
-      // Run auto-migration if needed
+      // Run comprehensive auto-migration system
       try {
-        const needsMigration = await autoMigration.checkMigrationNeeded();
-        if (needsMigration) {
-          logger.info('🔄 ตรวจพบว่าจำเป็นต้องรัน migration...');
-          await autoMigration.runAutoMigration();
-        } else {
-          logger.info('✅ Database schema ครบถ้วน ไม่ต้องรัน migration');
-        }
+        logger.info('🔄 เริ่มต้นระบบ Auto-Migration แบบครอบคลุม...');
+        const migrationSystem = new AutoMigrationSystem();
+        await migrationSystem.runAutoMigration();
+        logger.info('✅ Auto-Migration System ทำงานเสร็จสิ้น');
       } catch (error) {
         logger.warn('⚠️ Auto-migration ล้มเหลว แต่ server จะยังคงทำงานต่อ:', error);
+        // ถ้า migration หลักล้มเหลว ลองใช้ fallback migration
+        try {
+          logger.info('🔄 กำลังลอง fallback migration...');
+          const { autoMigration } = await import('./utils/autoMigration');
+          await autoMigration.runAutoMigration();
+          logger.info('✅ Fallback migration สำเร็จ');
+        } catch (fallbackError) {
+          logger.warn('⚠️ Fallback migration ก็ล้มเหลว:', fallbackError);
+        }
       }
 
       // Initialize LINE service และ Cron jobs (เฉพาะเมื่อเปิดใช้ LINE integration)
