@@ -5,7 +5,7 @@ import { AppDataSource } from '@/utils/database';
 import { Task, Group, User, File } from '@/models';
 import { Task as TaskType, CalendarEvent } from '@/types';
 import moment from 'moment-timezone';
-import { config } from '@/utils/config';
+import { config, features } from '@/utils/config';
 import { GoogleService } from './GoogleService';
 import { NotificationService } from './NotificationService';
 import { FileService } from './FileService';
@@ -218,42 +218,128 @@ export class TaskService {
 
       // ซิงค์ไปยัง Google Calendar
       try {
-        if (group.settings.googleCalendarId) {
-          // รวบรวมผู้เข้าร่วมทั้งหมด (ผู้สร้าง ผู้รับผิดชอบ ผู้ตรวจ)
-          const participantIds = new Set<string>();
-          participantIds.add(creator.id);
-          if (reviewerInternalId) participantIds.add(reviewerInternalId);
-          if (savedTask.assignedUsers) {
-            for (const user of savedTask.assignedUsers) {
-              participantIds.add(user.id);
+        // ตรวจสอบว่า Google Calendar feature เปิดใช้งานหรือไม่
+        if (!features.googleCalendar) {
+          console.log('ℹ️ Google Calendar feature is disabled - skipping calendar sync');
+        } else {
+          console.log(`🔍 Checking Google Calendar for group: ${group.name}`);
+          console.log(`📅 Group calendar ID: ${group.settings.googleCalendarId || 'Not configured'}`);
+          
+          if (group.settings.googleCalendarId) {
+            console.log('✅ Group has Google Calendar configured, syncing task...');
+            
+            // รวบรวมผู้เข้าร่วมทั้งหมด (ผู้สร้าง ผู้รับผิดชอบ ผู้ตรวจ)
+            const participantIds = new Set<string>();
+            participantIds.add(creator.id);
+            if (reviewerInternalId) participantIds.add(reviewerInternalId);
+            if (savedTask.assignedUsers) {
+              for (const user of savedTask.assignedUsers) {
+                participantIds.add(user.id);
+              }
+            }
+
+            // ดึงอีเมลและลบซ้ำ
+            const attendeeUsers = await Promise.all(
+              Array.from(participantIds).map(id => this.userService.findById(id))
+            );
+            const attendeeEmails = Array.from(
+              new Set(
+                attendeeUsers
+                  .filter(u => u && u.email && u.isVerified)
+                  .map(u => u!.email!)
+              )
+            );
+
+            console.log(`📧 Syncing task with ${attendeeEmails.length} attendees:`, attendeeEmails);
+
+            const eventId = await this.googleService.syncTaskToCalendar(
+              savedTask,
+              group.settings.googleCalendarId,
+              attendeeEmails
+            );
+            
+            // อัปเดต task ด้วย eventId
+            savedTask.googleEventId = eventId;
+            await this.taskRepository.save(savedTask);
+
+            console.log(`✅ Task synced to Google Calendar with event ID: ${eventId}`);
+
+            await this.googleService.shareCalendarWithMembers(
+              group.id,
+              Array.from(participantIds)
+            );
+            
+            console.log('✅ Calendar shared with group members');
+          } else {
+            console.log('🔄 Group does not have Google Calendar, creating one automatically...');
+            
+            try {
+              // สร้าง Google Calendar อัตโนมัติ
+              const calendarId = await this.googleService.setupGroupCalendar(
+                group.id,
+                group.name,
+                config.app.defaultTimezone
+              );
+              
+              console.log(`✅ Created Google Calendar for group: ${group.name} (${calendarId})`);
+              
+              // อัปเดตการตั้งค่ากลุ่ม
+              group.settings = {
+                ...group.settings,
+                googleCalendarId: calendarId
+              };
+              await this.groupRepository.save(group);
+              
+              console.log('✅ Updated group settings with calendar ID');
+              
+              // ซิงค์งานไปยัง Calendar ที่เพิ่งสร้าง
+              const participantIds = new Set<string>();
+              participantIds.add(creator.id);
+              if (reviewerInternalId) participantIds.add(reviewerInternalId);
+              if (savedTask.assignedUsers) {
+                for (const user of savedTask.assignedUsers) {
+                  participantIds.add(user.id);
+                }
+              }
+
+              const attendeeUsers = await Promise.all(
+                Array.from(participantIds).map(id => this.userService.findById(id))
+              );
+              const attendeeEmails = Array.from(
+                new Set(
+                  attendeeUsers
+                    .filter(u => u && u.email && u.isVerified)
+                    .map(u => u!.email!)
+                )
+              );
+
+              console.log(`📧 Syncing task with ${attendeeEmails.length} attendees:`, attendeeEmails);
+
+              const eventId = await this.googleService.syncTaskToCalendar(
+                savedTask,
+                calendarId,
+                attendeeEmails
+              );
+              
+              // อัปเดต task ด้วย eventId
+              savedTask.googleEventId = eventId;
+              await this.taskRepository.save(savedTask);
+
+              console.log(`✅ Task synced to new Google Calendar with event ID: ${eventId}`);
+
+              await this.googleService.shareCalendarWithMembers(
+                group.id,
+                Array.from(participantIds)
+              );
+              
+              console.log('✅ New calendar shared with group members');
+              
+            } catch (calendarError) {
+              console.warn('⚠️ Failed to create Google Calendar automatically:', calendarError);
+              console.log('ℹ️ Task created successfully, but Google Calendar integration failed');
+              console.log('💡 You can manually set up Google Calendar later');
             }
           }
-
-          // ดึงอีเมลและลบซ้ำ
-          const attendeeUsers = await Promise.all(
-            Array.from(participantIds).map(id => this.userService.findById(id))
-          );
-          const attendeeEmails = Array.from(
-            new Set(
-              attendeeUsers
-                .filter(u => u && u.email && u.isVerified)
-                .map(u => u!.email!)
-            )
-          );
-
-          const eventId = await this.googleService.syncTaskToCalendar(
-            savedTask,
-            group.settings.googleCalendarId,
-            attendeeEmails
-          );
-          // อัปเดต task ด้วย eventId
-          savedTask.googleEventId = eventId;
-          await this.taskRepository.save(savedTask);
-
-          await this.googleService.shareCalendarWithMembers(
-            group.id,
-            Array.from(participantIds)
-          );
         }
       } catch (error) {
         console.warn('⚠️ Failed to sync task to Google Calendar:', error);

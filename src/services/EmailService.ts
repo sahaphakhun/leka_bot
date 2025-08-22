@@ -6,7 +6,7 @@ import { EmailTemplate, User, Task } from '@/types';
 import moment from 'moment-timezone';
 
 export class EmailService {
-  private transporter: nodemailer.Transporter;
+  private transporter: nodemailer.Transporter | null;
   private _sentTaskCreatedEmails: Set<string>;
 
   constructor() {
@@ -45,6 +45,10 @@ export class EmailService {
    */
   public async verifyConnection(): Promise<boolean> {
     try {
+      if (!this.transporter) {
+        console.log('⚠️ Email transporter not initialized');
+        return false;
+      }
       await this.transporter.verify();
       console.log('✅ Email service connection verified');
       return true;
@@ -315,8 +319,11 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
     const groupId = task.group?.lineGroupId || task.groupId;
     const dashboardUrl = `${config.baseUrl}/dashboard?groupId=${groupId}`;
     const creatorName = task.createdByUser?.displayName || 'ไม่ทราบ';
+    const groupName = task.group?.displayName || task.group?.name || 'ไม่ทราบกลุ่ม';
+    const priorityText = this.getPriorityText(task.priority);
+    const statusText = this.getStatusText(task.status);
 
-    const subject = `📋 งานใหม่ - ${task.title}`;
+    const subject = `📋 งานใหม่ - ${task.title} (${groupName})`;
     
     const html = `
 <!DOCTYPE html>
@@ -334,6 +341,11 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
         .description { background-color: #e9ecef; padding: 15px; border-radius: 5px; margin: 15px 0; }
         .footer { text-align: center; margin-top: 30px; padding-top: 20px; border-top: 1px solid #dee2e6; color: #6c757d; }
         .button { display: inline-block; padding: 12px 24px; background-color: #28a745; color: white; text-decoration: none; border-radius: 5px; margin: 10px; }
+        .priority-high { color: #dc3545; font-weight: bold; }
+        .priority-medium { color: #ffc107; font-weight: bold; }
+        .priority-low { color: #28a745; font-weight: bold; }
+        .attachments { background-color: #e3f2fd; padding: 15px; border-radius: 5px; margin: 15px 0; }
+        .attachment-item { margin: 5px 0; }
     </style>
 </head>
 <body>
@@ -344,11 +356,14 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
         </div>
         
         <p>สวัสดี คุณ${user.realName || user.displayName}</p>
-        <p>คุณได้รับมอบหมายงานใหม่</p>
+        <p>คุณได้รับมอบหมายงานใหม่ในกลุ่ม <strong>${groupName}</strong></p>
         
         <div class="task-info">
             <div class="label">📋 งาน:</div>
             <div class="value" style="font-size: 18px; font-weight: bold;">${task.title}</div>
+            
+            <div class="label">👥 กลุ่ม:</div>
+            <div class="value">${groupName}</div>
             
             ${task.description ? `
             <div class="description">
@@ -360,12 +375,30 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
             <div class="label">📅 กำหนดส่ง:</div>
             <div class="value">${dueTime}</div>
             
+            <div class="label">⚡ ระดับความสำคัญ:</div>
+            <div class="value priority-${task.priority || 'medium'}">${priorityText}</div>
+            
+            <div class="label">📊 สถานะ:</div>
+            <div class="value">${statusText}</div>
+            
             <div class="label">👤 สร้างโดย:</div>
             <div class="value">${creatorName}</div>
             
             ${task.tags && task.tags.length > 0 ? `
             <div class="label">🏷️ แท็ก:</div>
             <div class="value">${task.tags.map((tag: string) => `#${tag}`).join(' ')}</div>
+            ` : ''}
+            
+            ${task.attachments && task.attachments.length > 0 ? `
+            <div class="attachments">
+                <div class="label">📎 ไฟล์แนบ:</div>
+                ${task.attachments.map((file: any) => `
+                    <div class="attachment-item">
+                        📄 ${file.originalName || file.filename} 
+                        (${this.formatFileSize(file.size || 0)})
+                    </div>
+                `).join('')}
+            </div>
             ` : ''}
         </div>
         
@@ -375,22 +408,28 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
         
         <div class="footer">
             <p>อีเมลนี้ส่งจากระบบเลขาบอทโดยอัตโนมัติ</p>
+            <p>📅 งานนี้จะถูกเพิ่มใน Google Calendar ของกลุ่มโดยอัตโนมัติ</p>
         </div>
     </div>
 </body>
 </html>`;
 
-    const text = `งานใหม่ - ${task.title}
+    const text = `งานใหม่ - ${task.title} (${groupName})
 
 สวัสดี คุณ${user.realName || user.displayName}
 
-คุณได้รับมอบหมายงานใหม่
+คุณได้รับมอบหมายงานใหม่ในกลุ่ม ${groupName}
 
 งาน: ${task.title}
+กลุ่ม: ${groupName}
 ${task.description ? `รายละเอียด: ${task.description}\n` : ''}กำหนดส่ง: ${dueTime}
+ระดับความสำคัญ: ${priorityText}
+สถานะ: ${statusText}
 สร้างโดย: ${creatorName}
+${task.tags && task.tags.length > 0 ? `แท็ก: ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n` : ''}${task.attachments && task.attachments.length > 0 ? `ไฟล์แนบ: ${task.attachments.length} ไฟล์\n` : ''}
+ดูรายละเอียดที่: ${dashboardUrl}
 
-ดูรายละเอียดที่: ${dashboardUrl}`;
+📅 งานนี้จะถูกเพิ่มใน Google Calendar ของกลุ่มโดยอัตโนมัติ`;
 
     return { subject, html, text };
   }
@@ -560,5 +599,44 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
 ดูรายงานฉบับเต็มที่: ${dashboardUrl}`;
 
     return { subject, html, text };
+  }
+
+  // Helper Methods
+
+  /**
+   * แปลงระดับความสำคัญเป็นข้อความ
+   */
+  private getPriorityText(priority: string): string {
+    const priorityMap: { [key: string]: string } = {
+      low: 'ต่ำ',
+      medium: 'ปานกลาง',
+      high: 'สูง'
+    };
+    return priorityMap[priority] || priority;
+  }
+
+  /**
+   * แปลงสถานะเป็นข้อความ
+   */
+  private getStatusText(status: string): string {
+    const statusMap: { [key: string]: string } = {
+      pending: 'รอดำเนินการ',
+      in_progress: 'กำลังดำเนินการ',
+      completed: 'เสร็จแล้ว',
+      cancelled: 'ยกเลิก',
+      overdue: 'เกินกำหนด'
+    };
+    return statusMap[status] || status;
+  }
+
+  /**
+   * จัดรูปแบบขนาดไฟล์
+   */
+  private formatFileSize(bytes: number): string {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 }

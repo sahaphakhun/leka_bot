@@ -1851,6 +1851,50 @@ class ApiController {
       });
     }
   }
+
+  /**
+   * ตั้งค่า Google Calendar สำหรับกลุ่ม
+   */
+  public async setupGroupCalendar(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { groupName, timezone } = req.body;
+
+      if (!groupId) {
+        res.status(400).json({
+          success: false,
+          message: 'Group ID is required'
+        });
+        return;
+      }
+
+      const { GoogleService } = await import('@/services/GoogleService');
+      const googleService = new GoogleService();
+      
+      const calendarId = await googleService.setupGroupCalendar(
+        groupId,
+        groupName || 'Default Group',
+        timezone || 'Asia/Bangkok'
+      );
+      
+      res.json({
+        success: true,
+        message: 'Google Calendar setup successful',
+        calendarId,
+        groupId,
+        timestamp: new Date().toISOString()
+      });
+      
+    } catch (error) {
+      console.error('❌ Google Calendar setup failed:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Google Calendar setup failed',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 }
 
 const apiController = new ApiController();
@@ -1962,3 +2006,4 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   apiRouter.get('/notifications/cards/templates', apiController.getNotificationTemplates.bind(apiController));
   apiRouter.post('/notifications/cards/quick', apiController.sendQuickNotification.bind(apiController));
   apiRouter.post('/admin/test-google-calendar', apiController.testGoogleCalendar.bind(apiController));
+  apiRouter.post('/admin/setup-group-calendar/:groupId', apiController.setupGroupCalendar.bind(apiController));
