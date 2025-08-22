@@ -343,6 +343,13 @@ class Dashboard {
       });
     });
 
+    // Debug leaderboard button
+    const debugLeaderboardBtn = document.getElementById('debugLeaderboardBtn');
+    if (debugLeaderboardBtn && !debugLeaderboardBtn._bound) {
+      debugLeaderboardBtn.addEventListener('click', () => this.debugKPIData());
+      debugLeaderboardBtn._bound = true;
+    }
+
     // Click outside modal to close
     document.querySelectorAll('.modal').forEach(modal => {
       modal.addEventListener('click', (e) => {
@@ -1338,12 +1345,6 @@ class Dashboard {
             syncLeaderboardBtn.addEventListener('click', () => this.syncLeaderboard());
             syncLeaderboardBtn._bound = true;
           }
-          
-          const testLeaderboardBtn = document.getElementById('testLeaderboardBtn');
-          if (testLeaderboardBtn && !testLeaderboardBtn._bound) {
-            testLeaderboardBtn.addEventListener('click', () => this.testLeaderboardRendering());
-            testLeaderboardBtn._bound = true;
-          }
         }
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
@@ -1371,12 +1372,6 @@ class Dashboard {
         break;
       case 'leaderboard':
         this.loadLeaderboard();
-        // Add event listener for test button
-        const testMainLeaderboardBtn = document.getElementById('testMainLeaderboardBtn');
-        if (testMainLeaderboardBtn && !testMainLeaderboardBtn._bound) {
-          testMainLeaderboardBtn.addEventListener('click', () => this.testLeaderboardRendering());
-          testMainLeaderboardBtn._bound = true;
-        }
         break;
       case 'reports':
         this.loadGroupMembers().then(() => this.initReportsUI());
@@ -3628,6 +3623,9 @@ class Dashboard {
           'success'
         );
         
+        // Debug: ตรวจสอบข้อมูล KPI หลังการ sync
+        await this.debugKPIData();
+        
         // รีโหลด mini leaderboard เพื่อแสดงข้อมูลใหม่
         setTimeout(() => {
           this.loadMiniLeaderboard();
@@ -3650,47 +3648,76 @@ class Dashboard {
     }
   }
 
-  // Test function for debugging
-  testLeaderboardRendering() {
-    console.log('🧪 Testing leaderboard rendering...');
-    
-    const testData = [
-      {
-        userId: "test-1",
-        displayName: "Test User 1",
-        weeklyPoints: 100,
-        monthlyPoints: 500,
-        totalPoints: 1000,
-        tasksCompleted: 5,
-        tasksEarly: 2,
-        tasksOnTime: 3,
-        tasksLate: 0,
-        tasksOvertime: 0,
-        tasksOverdue: 0,
-        rank: 1,
-        trend: "up"
-      },
-      {
-        userId: "test-2", 
-        displayName: "Test User 2",
-        weeklyPoints: 80,
-        monthlyPoints: 400,
-        totalPoints: 800,
-        tasksCompleted: 3,
-        tasksEarly: 1,
-        tasksOnTime: 2,
-        tasksLate: 0,
-        tasksOvertime: 0,
-        tasksOverdue: 0,
-        rank: 2,
-        trend: "down"
+  /**
+   * Debug: ตรวจสอบข้อมูล KPI ในฐานข้อมูล
+   */
+  async debugKPIData() {
+    try {
+      console.log('🔍 Debug: ตรวจสอบข้อมูล KPI...');
+      
+      // เรียก API เพื่อดึงข้อมูล KPI debug
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=weekly&debug=true`);
+      
+      if (response.success) {
+        console.log('📊 Debug KPI Data:', response.data);
+        console.log('🔍 Debug Raw Data:', response.debug);
+        
+        // แสดงข้อมูลใน console อย่างละเอียด
+        if (response.data && Array.isArray(response.data)) {
+          console.log('👥 Leaderboard Users:');
+          response.data.forEach((user, index) => {
+            console.log(`👤 User ${index + 1}:`, {
+              userId: user.userId,
+              displayName: user.displayName,
+              weeklyPoints: user.weeklyPoints,
+              monthlyPoints: user.monthlyPoints,
+              totalPoints: user.totalPoints,
+              tasksCompleted: user.tasksCompleted,
+              tasksEarly: user.tasksEarly,
+              tasksOnTime: user.tasksOnTime,
+              tasksLate: user.tasksLate,
+              tasksOvertime: user.tasksOvertime,
+              tasksOverdue: user.tasksOverdue,
+              rank: user.rank,
+              trend: user.trend
+            });
+          });
+        }
+        
+        // แสดงข้อมูล debug raw data
+        if (response.debug) {
+          console.log('📋 KPI Raw Records:');
+          console.log(`Total Records: ${response.debug.totalRecords}`);
+          console.log(`Summary by Type:`, response.debug.summary.byType);
+          console.log(`Total Points: ${response.debug.summary.totalPoints}`);
+          console.log(`Average Points: ${response.debug.summary.averagePoints}`);
+          
+          if (response.debug.records && response.debug.records.length > 0) {
+            console.log('📝 Individual KPI Records:');
+            response.debug.records.forEach((record, index) => {
+              console.log(`Record ${index + 1}:`, {
+                id: record.id,
+                userId: record.userId,
+                taskId: record.taskId,
+                type: record.type,
+                points: record.points,
+                eventDate: record.eventDate,
+                weekOf: record.weekOf,
+                monthOf: record.monthOf,
+                userDisplayName: record.userDisplayName
+              });
+            });
+          }
+        }
+      } else {
+        console.error('❌ Debug KPI failed:', response.error);
       }
-    ];
-    
-    console.log('📊 Test data:', testData);
-    this.updateMiniLeaderboard(testData);
-    this.updateLeaderboard(testData);
+      
+    } catch (error) {
+      console.error('❌ Error debugging KPI data:', error);
+    }
   }
+
 }
 
 // Initialize Dashboard

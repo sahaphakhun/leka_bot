@@ -918,6 +918,26 @@ class ApiController {
       // รองรับการจำกัดจำนวนผลลัพธ์
       const limited = (limit ? leaderboard.slice(0, parseInt(limit as string)) : leaderboard);
 
+      // Debug mode - เพิ่มข้อมูลเพิ่มเติม
+      const isDebug = req.query.debug === 'true';
+      if (isDebug) {
+        console.log('🔍 Debug mode enabled - adding extra data');
+        
+        // ดึงข้อมูล KPI raw data สำหรับ debug
+        try {
+          const debugData = await this.kpiService.getDebugKPIData(groupId, period as 'weekly' | 'monthly' | 'all');
+          const response: ApiResponse<any> = {
+            success: true,
+            data: limited,
+            debug: debugData
+          };
+          res.json(response);
+          return;
+        } catch (debugError) {
+          console.error('❌ Error getting debug data:', debugError);
+        }
+      }
+
       const response: ApiResponse<any> = {
         success: true,
         data: limited

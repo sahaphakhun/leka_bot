@@ -215,6 +215,7 @@ export interface ApiResponse<T = any> {
   data?: T;
   message?: string;
   error?: string;
+  debug?: any; // สำหรับข้อมูล debug เพิ่มเติม
 }
 
 export interface PaginatedResponse<T> extends ApiResponse<T[]> {

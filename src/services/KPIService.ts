@@ -1385,4 +1385,88 @@ export class KPIService {
       throw error;
     }
   }
+
+  /**
+   * ดึงข้อมูล KPI raw data สำหรับ debug
+   */
+  public async getDebugKPIData(
+    groupId: string, 
+    period: 'weekly' | 'monthly' | 'all'
+  ): Promise<any> {
+    try {
+      console.log(`🔍 Getting debug KPI data for group: ${groupId}, period: ${period}`);
+      
+      // รองรับการส่งค่าเป็น LINE Group ID หรือ internal UUID
+      let internalGroupId = groupId;
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
+      if (groupByLineId) {
+        internalGroupId = groupByLineId.id;
+        console.log(`🔄 Converted LINE Group ID to internal ID: ${internalGroupId}`);
+      }
+
+      // ดึงข้อมูล KPI raw data
+      let kpiQuery = this.kpiRepository
+        .createQueryBuilder('kpi')
+        .leftJoinAndSelect('kpi.user', 'user')
+        .select([
+          'kpi.id',
+          'kpi.userId',
+          'kpi.groupId',
+          'kpi.taskId',
+          'kpi.type',
+          'kpi.points',
+          'kpi.eventDate',
+          'kpi.weekOf',
+          'kpi.monthOf',
+          'user.displayName'
+        ])
+        .where('kpi.groupId = :groupId', { groupId: internalGroupId });
+
+      // เพิ่ม date filter ตาม period
+      switch (period) {
+        case 'weekly':
+          const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
+          kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
+          break;
+        case 'monthly':
+          const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
+          kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
+          break;
+        // 'all' ไม่ต้องกรอง
+      }
+
+      const kpiRecords = await kpiQuery.getMany();
+      
+      console.log(`📊 Found ${kpiRecords.length} KPI records for debug`);
+
+      return {
+        totalRecords: kpiRecords.length,
+        records: kpiRecords.map(record => ({
+          id: record.id,
+          userId: record.userId,
+          groupId: record.groupId,
+          taskId: record.taskId,
+          type: record.type,
+          points: record.points,
+          eventDate: record.eventDate,
+          weekOf: record.weekOf,
+          monthOf: record.monthOf,
+          userDisplayName: record.user?.displayName
+        })),
+        summary: {
+          byType: kpiRecords.reduce((acc, record) => {
+            acc[record.type] = (acc[record.type] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>),
+          totalPoints: kpiRecords.reduce((sum, record) => sum + (record.points || 0), 0),
+          averagePoints: kpiRecords.length > 0 ? 
+            kpiRecords.reduce((sum, record) => sum + (record.points || 0), 0) / kpiRecords.length : 0
+        }
+      };
+
+    } catch (error) {
+      console.error('❌ Error getting debug KPI data:', error);
+      throw error;
+    }
+  }
 }
