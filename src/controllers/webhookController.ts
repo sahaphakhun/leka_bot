@@ -1238,8 +1238,10 @@ class WebhookController {
     for (const task of tasks) {
       const groupId = task.groupId;
       if (!grouped[groupId]) {
+        // ใช้ชื่อกลุ่มจากข้อมูลในฐานข้อมูล หรือ fallback ถ้าจำเป็น
+        const fallbackName = groupId.length > 8 ? `กลุ่ม ${groupId.substring(0, 8)}` : `กลุ่ม ${groupId}`;
         grouped[groupId] = {
-          groupName: task.group?.name || `กลุ่ม ${groupId.substring(0, 8)}`,
+          groupName: task.group?.name || fallbackName,
           tasks: []
         };
       }
@@ -1429,11 +1431,14 @@ class WebhookController {
       // ตรวจสอบว่ากลุ่มมีอยู่ในฐานข้อมูลหรือไม่
       let group = await this.userService.findGroupByLineId(groupId);
       if (!group) {
+        // ดึงข้อมูลกลุ่มจาก LINE API หรือใช้ชื่อเริ่มต้น
+        const groupInfo = await this.lineService.getGroupInformation(groupId);
+        
         group = await this.userService.createGroup({
           lineGroupId: groupId,
-          name: `กลุ่ม ${groupId.substring(0, 8)}`
+          name: groupInfo.name
         });
-        console.log(`✅ สร้างกลุ่มใหม่: ${group.name}`);
+        console.log(`✅ สร้างกลุ่มใหม่: ${groupInfo.name} (${groupInfo.source})`);
       }
 
     } catch (error) {

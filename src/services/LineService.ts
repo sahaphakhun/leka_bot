@@ -479,6 +479,62 @@ export class LineService {
   }
 
   /**
+   * ดึงข้อมูลกลุ่มจาก LINE API
+   * ลองใช้วิธีต่างๆ เพื่อดึงชื่อกลุ่มที่แท้จริง
+   */
+  public async getGroupInformation(groupId: string): Promise<{
+    groupId: string;
+    name: string;
+    source: 'line_api' | 'fallback';
+  }> {
+    try {
+      console.log(`🔍 พยายามดึงข้อมูลกลุ่ม ${groupId} จาก LINE API`);
+      
+      // พยายามใช้ getGroupSummary หากมี (อาจจะมีใน LINE Bot SDK รุ่นใหม่)
+      try {
+        if (typeof (this.client as any).getGroupSummary === 'function') {
+          console.log('🆕 ใช้ getGroupSummary API');
+          const groupSummary = await (this.client as any).getGroupSummary(groupId);
+          if (groupSummary && groupSummary.groupName) {
+            console.log(`✅ ดึงชื่อกลุ่มจาก LINE API: ${groupSummary.groupName}`);
+            return {
+              groupId,
+              name: groupSummary.groupName,
+              source: 'line_api'
+            };
+          }
+        }
+      } catch (summaryError: any) {
+        console.log('ℹ️ getGroupSummary ไม่สามารถใช้ได้หรือไม่มีข้อมูล:', summaryError?.message || summaryError);
+      }
+      
+      // วิธีอื่น: พยายามดึงข้อมูลจาก webhook หรือ event ที่มี group name
+      // (ในอนาคตอาจจะเพิ่มเติมได้)
+      
+      console.log('ℹ️ ไม่สามารถดึงชื่อกลุ่มจาก LINE API ได้ ใช้ชื่อเริ่มต้น');
+      
+      // Fallback: ใช้ชื่อเริ่มต้นที่สวยงามกว่า
+      const shortId = groupId.length > 8 ? groupId.substring(0, 8) : groupId;
+      return {
+        groupId,
+        name: `กลุ่ม ${shortId}`,
+        source: 'fallback'
+      };
+      
+    } catch (error) {
+      console.error('❌ Failed to get group information:', error);
+      
+      // Fallback สุดท้าย
+      const shortId = groupId.length > 8 ? groupId.substring(0, 8) : groupId;
+      return {
+        groupId,
+        name: `กลุ่ม ${shortId}`,
+        source: 'fallback'
+      };
+    }
+  }
+
+  /**
    * ดึงข้อมูลสมาชิกทั้งหมดในกลุ่มพร้อมรายละเอียด
    */
   public async getAllGroupMembers(groupId: string): Promise<Array<{
@@ -825,12 +881,16 @@ export class LineService {
       let group = await this.userService.findGroupByLineId(groupId);
       
       if (!group) {
-        // สร้างกลุ่มใหม่ (ไม่รวม description เพราะไม่มีใน createGroup parameters)
+        // ดึงข้อมูลกลุ่มจาก LINE API หรือใช้ชื่อเริ่มต้น
+        const groupInfo = await this.getGroupInformation(groupId);
+        
+        // สร้างกลุ่มใหม่ด้วยชื่อที่ดีกว่า
         group = await this.userService.createGroup({
           lineGroupId: groupId,
-          name: `กลุ่ม ${groupId}`
+          name: groupInfo.name
         });
-        console.log(`✅ สร้างกลุ่มใหม่: ${groupId}`);
+        
+        console.log(`✅ สร้างกลุ่มใหม่: ${groupInfo.name} (${groupInfo.source})`);
       }
       
       // เพิ่มสมาชิกในกลุ่ม (หากยังไม่มี)
