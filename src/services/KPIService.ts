@@ -401,13 +401,15 @@ export class KPIService {
         switch (period) {
           case 'weekly':
             const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
-            kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
-            console.log(`📅 Weekly filter: ${weekStart.toISOString()}`);
+            const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
+            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :weekStart AND :weekEnd', { weekStart, weekEnd });
+            console.log(`📅 Weekly filter: ${weekStart.toISOString()} to ${weekEnd.toISOString()}`);
             break;
           case 'monthly':
             const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
-            kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
-            console.log(`📅 Monthly filter: ${monthStart.toISOString()}`);
+            const monthEnd = moment().tz(config.app.defaultTimezone).endOf('month').toDate();
+            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd });
+            console.log(`📅 Monthly filter: ${monthStart.toISOString()} to ${monthEnd.toISOString()}`);
             break;
           // 'all' ไม่ต้องกรอง
         }
@@ -419,13 +421,17 @@ export class KPIService {
             const weekStart = new Date();
             weekStart.setDate(weekStart.getDate() - weekStart.getDay());
             weekStart.setHours(0, 0, 0, 0);
-            kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
+            const weekEnd = new Date(weekStart);
+            weekEnd.setDate(weekEnd.getDate() + 6);
+            weekEnd.setHours(23, 59, 59, 999);
+            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :weekStart AND :weekEnd', { weekStart, weekEnd });
             break;
           case 'monthly':
             const monthStart = new Date();
             monthStart.setDate(1);
             monthStart.setHours(0, 0, 0, 0);
-            kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
+            const monthEnd = new Date(monthStart.getFullYear(), monthStart.getMonth() + 1, 0, 23, 59, 59, 999);
+            kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd });
             break;
         }
       }
@@ -436,6 +442,7 @@ export class KPIService {
         .getRawMany();
       
       console.log(`📈 Found KPI data for ${kpiResults.length} users`);
+      console.log('🔍 KPI Results:', JSON.stringify(kpiResults, null, 2));
       
       // สร้าง Map สำหรับ KPI data
       const kpiMap = new Map();
@@ -508,6 +515,7 @@ export class KPIService {
       });
       
       console.log(`✅ Generated leaderboard with ${leaderboard.length} users`);
+      console.log('🔍 Final Leaderboard Data:', JSON.stringify(leaderboard, null, 2));
       return leaderboard;
 
     } catch (error) {
@@ -1426,11 +1434,13 @@ export class KPIService {
       switch (period) {
         case 'weekly':
           const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
-          kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart });
+          const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
+          kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :weekStart AND :weekEnd', { weekStart, weekEnd });
           break;
         case 'monthly':
           const monthStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
-          kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart });
+          const monthEnd = moment().tz(config.app.defaultTimezone).endOf('month').toDate();
+          kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :monthStart AND :monthEnd', { monthStart, monthEnd });
           break;
         // 'all' ไม่ต้องกรอง
       }
