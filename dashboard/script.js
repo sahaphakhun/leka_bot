@@ -343,6 +343,15 @@ class Dashboard {
       });
     });
 
+    // Period toggles for stats
+    document.querySelectorAll('[data-stats-period]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const target = e.currentTarget || e.target;
+        const period = target && target.dataset ? target.dataset.statsPeriod : undefined;
+        this.switchStatsPeriod(period);
+      });
+    });
+
     // Debug leaderboard button
     const debugLeaderboardBtn = document.getElementById('debugLeaderboardBtn');
     if (debugLeaderboardBtn && !debugLeaderboardBtn._bound) {
@@ -777,10 +786,10 @@ class Dashboard {
     }
   }
 
-  async loadStats() {
+  async loadStats(period = 'this_week') {
     try {
-      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/stats`);
-      this.updateStats(response.data);
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/stats?period=${period}`);
+      this.updateStats(response.data, period);
     } catch (error) {
       console.error('Failed to load stats:', error);
       // แสดงข้อความ error ที่ชัดเจนขึ้น
@@ -1669,12 +1678,27 @@ class Dashboard {
     console.log('✅ Main leaderboard rendered successfully');
   }
 
-  updateStats(stats) {
-    const weekly = (stats && stats.weekly) || {};
-    document.getElementById('totalTasks').textContent = weekly.totalTasks || 0;
-    document.getElementById('pendingTasks').textContent = weekly.pendingTasks || 0;
-    document.getElementById('completedTasks').textContent = weekly.completedTasks || 0;
-    document.getElementById('overdueTasks').textContent = weekly.overdueTasks || 0;
+  updateStats(stats, period = 'this_week') {
+    const statsData = (stats && stats.stats) || {};
+    document.getElementById('totalTasks').textContent = statsData.totalTasks || 0;
+    document.getElementById('pendingTasks').textContent = statsData.pendingTasks || 0;
+    document.getElementById('completedTasks').textContent = statsData.completedTasks || 0;
+    document.getElementById('overdueTasks').textContent = statsData.overdueTasks || 0;
+    
+    // อัปเดตปุ่มเลือกช่วงเวลา
+    this.updateStatsPeriodButtons(period);
+  }
+
+  updateStatsPeriodButtons(selectedPeriod) {
+    const buttons = document.querySelectorAll('[data-stats-period]');
+    buttons.forEach(btn => {
+      const period = btn.getAttribute('data-stats-period');
+      if (period === selectedPeriod) {
+        btn.classList.add('active');
+      } else {
+        btn.classList.remove('active');
+      }
+    });
   }
 
   updateUpcomingTasks(tasks) {
@@ -2854,6 +2878,18 @@ class Dashboard {
     });
     
     this.loadLeaderboard(period);
+  }
+
+  switchStatsPeriod(period) {
+    if (!period) return;
+    
+    // อัปเดตปุ่มที่เลือก
+    document.querySelectorAll('[data-stats-period]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.statsPeriod === period);
+    });
+    
+    // โหลดข้อมูลใหม่
+    this.loadStats(period);
   }
 
   navigateCalendar(direction) {

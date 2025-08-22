@@ -494,11 +494,26 @@ class ApiController {
       res.send(content);
 
     } catch (error) {
-      logger.error('❌ Error downloading file:', error);
-      res.status(404).json({ 
-        success: false, 
-        error: 'File not found' 
-      });
+      // ลดการ logging เพื่อป้องกัน rate limit
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // ตรวจสอบประเภทของ error เพื่อส่ง status code ที่เหมาะสม
+      if (errorMessage.includes('File not found')) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'File not found' 
+        });
+      } else if (errorMessage.includes('Failed to fetch remote file')) {
+        res.status(503).json({ 
+          success: false, 
+          error: 'File temporarily unavailable' 
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: 'Internal server error' 
+        });
+      }
     }
   }
 
@@ -547,11 +562,26 @@ class ApiController {
       res.send(content);
 
     } catch (error) {
-      logger.error('❌ Error previewing file:', error);
-      res.status(404).json({ 
-        success: false, 
-        error: 'File not found' 
-      });
+      // ลดการ logging เพื่อป้องกัน rate limit
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // ตรวจสอบประเภทของ error เพื่อส่ง status code ที่เหมาะสม
+      if (errorMessage.includes('File not found')) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'File not found' 
+        });
+      } else if (errorMessage.includes('Failed to fetch remote file')) {
+        res.status(503).json({ 
+          success: false, 
+          error: 'File temporarily unavailable' 
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: 'Internal server error' 
+        });
+      }
     }
   }
 
@@ -578,11 +608,20 @@ class ApiController {
       res.json({ success: true, data: fileInfo });
 
     } catch (error) {
-      logger.error('❌ Error getting file info:', error);
-      res.status(404).json({ 
-        success: false, 
-        error: 'File not found' 
-      });
+      // ลดการ logging เพื่อป้องกัน rate limit
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      if (errorMessage.includes('File not found')) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'File not found' 
+        });
+      } else {
+        res.status(500).json({ 
+          success: false, 
+          error: 'Internal server error' 
+        });
+      }
     }
   }
 
@@ -817,8 +856,9 @@ class ApiController {
   public async getGroupStats(req: Request, res: Response): Promise<void> {
     try {
       const { groupId } = req.params;
+      const { period = 'this_week' } = req.query;
       
-      logger.debug('📊 Loading stats for group', { groupId });
+      logger.debug('📊 Loading stats for group', { groupId, period });
 
       // ตรวจสอบว่ากลุ่มมีอยู่จริง (รองรับทั้ง LINE Group ID และ UUID)
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
@@ -833,14 +873,18 @@ class ApiController {
         return;
       }
 
+      // ตรวจสอบ period ที่ถูกต้อง
+      const validPeriods = ['this_week', 'last_week', 'all'];
+      const selectedPeriod = validPeriods.includes(period as string) ? period as 'this_week' | 'last_week' | 'all' : 'this_week';
+
       // ใช้ Promise.allSettled เพื่อไม่ให้ error หนึ่งส่วนทำให้ทั้งหมดล้มเหลว
       const [
         memberStatsResult,
-        weeklyStatsResult,
+        statsResult,
         fileStatsResult
       ] = await Promise.allSettled([
         this.userService.getGroupStats(groupId),
-        this.kpiService.getWeeklyStats(groupId),
+        this.kpiService.getStatsByPeriod(groupId, selectedPeriod),
         this.fileService.getGroupFileStats(groupId)
       ]);
 
@@ -848,7 +892,7 @@ class ApiController {
         success: true,
         data: {
           members: memberStatsResult.status === 'fulfilled' ? memberStatsResult.value : null,
-          weekly: weeklyStatsResult.status === 'fulfilled' ? weeklyStatsResult.value : null,
+          stats: statsResult.status === 'fulfilled' ? statsResult.value : null,
           files: fileStatsResult.status === 'fulfilled' ? fileStatsResult.value : null
         }
       };

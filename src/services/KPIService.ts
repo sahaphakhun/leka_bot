@@ -763,15 +763,16 @@ export class KPIService {
   }
 
   /**
-   * ดึงสถิติรายสัปดาห์
+   * ดึงสถิติตามช่วงเวลา
    */
-  public async getWeeklyStats(groupId: string): Promise<{
+  public async getStatsByPeriod(groupId: string, period: 'this_week' | 'last_week' | 'all' = 'this_week'): Promise<{
     totalTasks: number;
     completedTasks: number;
     pendingTasks: number;
     overdueTasks: number;
     avgCompletionTime: number;
     topPerformer: string;
+    period: string;
   }> {
     try {
       // รองรับ LINE Group ID → internal UUID
@@ -781,61 +782,111 @@ export class KPIService {
         internalGroupId = groupByLineId.id;
       }
 
-      const weekStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
-      const weekEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
+      let startDate: Date | null = null;
+      let endDate: Date | null = null;
+      let periodLabel = '';
 
-      // งานทั้งหมดในสัปดาห์
-      const totalTasks = await this.taskRepository
+      // กำหนดช่วงเวลาตาม period
+      switch (period) {
+        case 'this_week':
+          startDate = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
+          endDate = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
+          periodLabel = 'สัปดาห์นี้';
+          break;
+        case 'last_week':
+          startDate = moment().tz(config.app.defaultTimezone).subtract(1, 'week').startOf('week').toDate();
+          endDate = moment().tz(config.app.defaultTimezone).subtract(1, 'week').endOf('week').toDate();
+          periodLabel = 'สัปดาห์ก่อน';
+          break;
+        case 'all':
+          startDate = null;
+          endDate = null;
+          periodLabel = 'ทั้งหมด';
+          break;
+      }
+
+      // สร้าง query builder สำหรับงานทั้งหมด
+      let totalTasksQuery = this.taskRepository
+        .createQueryBuilder('task')
+        .where('task.groupId = :groupId', { groupId: internalGroupId });
+
+      // สร้าง query builder สำหรับงานที่เสร็จ
+      let completedTasksQuery = this.taskRepository
         .createQueryBuilder('task')
         .where('task.groupId = :groupId', { groupId: internalGroupId })
-        .andWhere('task.createdAt >= :weekStart', { weekStart })
-        .andWhere('task.createdAt <= :weekEnd', { weekEnd })
-        .getCount();
+        .andWhere('task.status = :status', { status: 'completed' });
 
-      // งานที่เสร็จ
-      const completedTasks = await this.taskRepository
+      // สร้าง query builder สำหรับงานที่ค้าง
+      let pendingTasksQuery = this.taskRepository
         .createQueryBuilder('task')
         .where('task.groupId = :groupId', { groupId: internalGroupId })
-        .andWhere('task.status = :status', { status: 'completed' })
-        .andWhere('task.completedAt >= :weekStart', { weekStart })
-        .andWhere('task.completedAt <= :weekEnd', { weekEnd })
-        .getCount();
+        .andWhere('task.status = :status', { status: 'pending' });
 
-      // งานที่ค้าง
-      const pendingTasks = await this.taskRepository
+      // สร้าง query builder สำหรับงานที่เกินกำหนด
+      let overdueTasksQuery = this.taskRepository
         .createQueryBuilder('task')
         .where('task.groupId = :groupId', { groupId: internalGroupId })
-        .andWhere('task.status = :status', { status: 'pending' })
-        .getCount();
+        .andWhere('task.status = :status', { status: 'overdue' });
 
-      // งานที่เกินกำหนด
-      const overdueTasks = await this.taskRepository
-        .createQueryBuilder('task')
-        .where('task.groupId = :groupId', { groupId: internalGroupId })
-        .andWhere('task.status = :status', { status: 'overdue' })
-        .getCount();
+      // เพิ่มเงื่อนไขช่วงเวลาถ้าไม่ใช่ 'all'
+      if (period !== 'all') {
+        totalTasksQuery = totalTasksQuery
+          .andWhere('task.createdAt >= :startDate', { startDate })
+          .andWhere('task.createdAt <= :endDate', { endDate });
+        
+        completedTasksQuery = completedTasksQuery
+          .andWhere('task.completedAt >= :startDate', { startDate })
+          .andWhere('task.completedAt <= :endDate', { endDate });
+      }
 
-      // ผู้ทำงานดีที่สุด
-      const leaderboard = await this.getGroupLeaderboard(internalGroupId, 'weekly');
+      // ดึงข้อมูลสถิติ
+      const [totalTasks, completedTasks, pendingTasks, overdueTasks] = await Promise.all([
+        totalTasksQuery.getCount(),
+        completedTasksQuery.getCount(),
+        pendingTasksQuery.getCount(),
+        overdueTasksQuery.getCount()
+      ]);
+
+      // ผู้ทำงานดีที่สุดตามช่วงเวลา
+      const leaderboardPeriod = period === 'all' ? 'all' : 'weekly';
+      const leaderboard = await this.getGroupLeaderboard(internalGroupId, leaderboardPeriod);
       const topPerformer = leaderboard.length > 0 ? leaderboard[0].displayName : 'ไม่มีข้อมูล';
 
       // เวลาเฉลี่ยในการทำงาน (ชั่วโมง)
-      const completedTasksWithTime = await this.taskRepository
-        .createQueryBuilder('task')
-        .select(['task.dueTime', 'task.completedAt'])
-        .where('task.groupId = :groupId', { groupId: internalGroupId })
-        .andWhere('task.status = :status', { status: 'completed' })
-        .andWhere('task.completedAt >= :weekStart', { weekStart })
-        .andWhere('task.completedAt <= :weekEnd', { weekEnd })
-        .getMany();
-
       let avgCompletionTime = 0;
-      if (completedTasksWithTime.length > 0) {
-        const totalTime = completedTasksWithTime.reduce((sum: number, task: any) => {
-          const diff = moment(task.completedAt).tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
-          return sum + Math.abs(diff);
-        }, 0);
-        avgCompletionTime = totalTime / completedTasksWithTime.length;
+      if (period !== 'all') {
+        const completedTasksWithTime = await this.taskRepository
+          .createQueryBuilder('task')
+          .select(['task.dueTime', 'task.completedAt'])
+          .where('task.groupId = :groupId', { groupId: internalGroupId })
+          .andWhere('task.status = :status', { status: 'completed' })
+          .andWhere('task.completedAt >= :startDate', { startDate })
+          .andWhere('task.completedAt <= :endDate', { endDate })
+          .getMany();
+
+        if (completedTasksWithTime.length > 0) {
+          const totalTime = completedTasksWithTime.reduce((sum: number, task: any) => {
+            const diff = moment(task.completedAt).tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
+            return sum + Math.abs(diff);
+          }, 0);
+          avgCompletionTime = totalTime / completedTasksWithTime.length;
+        }
+      } else {
+        // สำหรับ 'all' ให้คำนวณจากงานที่เสร็จทั้งหมด
+        const completedTasksWithTime = await this.taskRepository
+          .createQueryBuilder('task')
+          .select(['task.dueTime', 'task.completedAt'])
+          .where('task.groupId = :groupId', { groupId: internalGroupId })
+          .andWhere('task.status = :status', { status: 'completed' })
+          .getMany();
+
+        if (completedTasksWithTime.length > 0) {
+          const totalTime = completedTasksWithTime.reduce((sum: number, task: any) => {
+            const diff = moment(task.completedAt).tz(config.app.defaultTimezone).diff(moment(task.dueTime).tz(config.app.defaultTimezone), 'hours');
+            return sum + Math.abs(diff);
+          }, 0);
+          avgCompletionTime = totalTime / completedTasksWithTime.length;
+        }
       }
 
       return {
@@ -844,13 +895,36 @@ export class KPIService {
         pendingTasks,
         overdueTasks,
         avgCompletionTime: Math.round(avgCompletionTime * 10) / 10,
-        topPerformer
+        topPerformer,
+        period: periodLabel
       };
 
     } catch (error) {
-      console.error('❌ Error getting weekly stats:', error);
+      console.error('❌ Error getting stats by period:', error);
       throw error;
     }
+  }
+
+  /**
+   * ดึงสถิติรายสัปดาห์ (backward compatibility)
+   */
+  public async getWeeklyStats(groupId: string): Promise<{
+    totalTasks: number;
+    completedTasks: number;
+    pendingTasks: number;
+    overdueTasks: number;
+    avgCompletionTime: number;
+    topPerformer: string;
+  }> {
+    const stats = await this.getStatsByPeriod(groupId, 'this_week');
+    return {
+      totalTasks: stats.totalTasks,
+      completedTasks: stats.completedTasks,
+      pendingTasks: stats.pendingTasks,
+      overdueTasks: stats.overdueTasks,
+      avgCompletionTime: stats.avgCompletionTime,
+      topPerformer: stats.topPerformer
+    };
   }
 
   /**

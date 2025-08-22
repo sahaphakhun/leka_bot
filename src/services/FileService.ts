@@ -436,7 +436,7 @@ export class FileService {
         .getMany();
 
     } catch (error) {
-      console.error('❌ Error getting task files:', error);
+      // ลดการ logging เพื่อป้องกัน rate limit
       throw error;
     }
   }
@@ -467,7 +467,7 @@ export class FileService {
       };
 
     } catch (error) {
-      console.error('❌ Error getting task files by type:', error);
+      // ลดการ logging เพื่อป้องกัน rate limit
       throw error;
     }
   }
@@ -480,7 +480,7 @@ export class FileService {
       const file = await this.fileRepository.findOneBy({ id: fileId });
       return file;
     } catch (error) {
-      console.error('❌ Error getting file info:', error);
+      // ลดการ logging เพื่อป้องกัน rate limit
       throw error;
     }
   }
@@ -498,22 +498,77 @@ export class FileService {
       if (!file) {
         throw new Error('File not found');
       }
+      
       // ถ้า path เป็น URL (cloudinary) ให้ดาวน์โหลดจาก URL
       if (/^https?:\/\//i.test(file.path)) {
-        const res = await fetch(file.path);
-        if (!res.ok) throw new Error('Failed to fetch remote file');
-        const arrayBuf = await res.arrayBuffer();
-        const content = Buffer.from(arrayBuf);
-        return { content, mimeType: file.mimeType, originalName: file.originalName };
+        return await this.downloadRemoteFile(file);
       } else {
         const content = await fs.readFile(file.path);
         return { content, mimeType: file.mimeType, originalName: file.originalName };
       }
 
     } catch (error) {
-      console.error('❌ Error getting file content:', error);
-      throw error;
+      // ลดการ logging เพื่อป้องกัน rate limit
+      if (error instanceof Error) {
+        throw new Error(`Failed to get file content: ${error.message}`);
+      }
+      throw new Error('Failed to get file content');
     }
+  }
+
+  /**
+   * ดาวน์โหลดไฟล์จาก URL พร้อม retry logic และ timeout
+   */
+  private async downloadRemoteFile(file: File): Promise<{
+    content: Buffer;
+    mimeType: string;
+    originalName: string;
+  }> {
+    const maxRetries = 3;
+    const timeout = 30000; // 30 วินาที
+    
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        const res = await fetch(file.path, {
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'LekaBot/1.0'
+          }
+        });
+        
+        clearTimeout(timeoutId);
+        
+        if (!res.ok) {
+          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
+        }
+        
+        const arrayBuf = await res.arrayBuffer();
+        const content = Buffer.from(arrayBuf);
+        
+        return { 
+          content, 
+          mimeType: file.mimeType, 
+          originalName: file.originalName 
+        };
+        
+      } catch (error) {
+        if (attempt === maxRetries) {
+          // ลดการ logging ในครั้งสุดท้าย
+          if (error instanceof Error) {
+            throw new Error(`Failed to fetch remote file after ${maxRetries} attempts: ${error.message}`);
+          }
+          throw new Error(`Failed to fetch remote file after ${maxRetries} attempts`);
+        }
+        
+        // รอสักครู่ก่อนลองใหม่
+        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+      }
+    }
+    
+    throw new Error('Failed to fetch remote file');
   }
 
   /**

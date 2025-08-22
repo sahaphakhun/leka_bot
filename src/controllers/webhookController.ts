@@ -1002,7 +1002,8 @@ class WebhookController {
                   response += `\n`;
                 }
               } catch (error) {
-                console.error('Error getting file:', error);
+                // ลดการ logging เพื่อป้องกัน rate limit
+                // console.error('Error getting file:', error);
               }
             }
             await this.lineService.replyMessage(replyToken, response);
