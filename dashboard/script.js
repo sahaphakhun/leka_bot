@@ -1338,6 +1338,12 @@ class Dashboard {
             syncLeaderboardBtn.addEventListener('click', () => this.syncLeaderboard());
             syncLeaderboardBtn._bound = true;
           }
+          
+          const testLeaderboardBtn = document.getElementById('testLeaderboardBtn');
+          if (testLeaderboardBtn && !testLeaderboardBtn._bound) {
+            testLeaderboardBtn.addEventListener('click', () => this.testLeaderboardRendering());
+            testLeaderboardBtn._bound = true;
+          }
         }
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
@@ -1365,6 +1371,12 @@ class Dashboard {
         break;
       case 'leaderboard':
         this.loadLeaderboard();
+        // Add event listener for test button
+        const testMainLeaderboardBtn = document.getElementById('testMainLeaderboardBtn');
+        if (testMainLeaderboardBtn && !testMainLeaderboardBtn._bound) {
+          testMainLeaderboardBtn.addEventListener('click', () => this.testLeaderboardRendering());
+          testMainLeaderboardBtn._bound = true;
+        }
         break;
       case 'reports':
         this.loadGroupMembers().then(() => this.initReportsUI());
@@ -1515,24 +1527,39 @@ class Dashboard {
 
   updateMiniLeaderboard(leaderboard) {
     const container = document.getElementById('miniLeaderboard');
-    if (!container) return;
+    if (!container) {
+      console.error('❌ Container miniLeaderboard not found');
+      return;
+    }
     
     if (!leaderboard || leaderboard.length === 0) {
       container.innerHTML = '<p class="text-muted">ยังไม่มีข้อมูลอันดับ</p>';
+      console.log('⚠️ No leaderboard data provided');
       return;
     }
 
     console.log('🔄 Rendering mini leaderboard with', leaderboard.length, 'users');
-    console.log('📊 Leaderboard data:', leaderboard);
+    console.log('📊 Full leaderboard data:', JSON.stringify(leaderboard, null, 2));
 
     // สร้าง HTML ใหม่ทั้งหมด
     let html = '';
     
     leaderboard.forEach((user, index) => {
+      console.log(`👤 Processing user ${index + 1}:`, user);
+      
       // ดึงข้อมูลผู้ใช้
       const name = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
       const score = Number(user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
       const tasks = Number(user.tasksCompleted || user.weeklyTasksCompleted || user.completedTasks || 0);
+      
+      console.log(`📝 User ${index + 1} data:`, {
+        originalName: user.displayName,
+        fallbackName: user.name,
+        realName: user.realName,
+        finalName: name,
+        score: score,
+        tasks: tasks
+      });
       
       // กำหนดอันดับ
       let rankIcon, rankClass;
@@ -1565,32 +1592,50 @@ class Dashboard {
       `;
     });
     
+    console.log('🎨 Generated HTML:', html);
     container.innerHTML = html;
     console.log('✅ Mini leaderboard rendered successfully');
   }
 
   updateLeaderboard(users) {
     const container = document.getElementById('leaderboardList');
-    if (!container) return;
+    if (!container) {
+      console.error('❌ Container leaderboardList not found');
+      return;
+    }
 
     if (!users || users.length === 0) {
       container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #6b7280;">ยังไม่มีข้อมูลอันดับ</div>';
+      console.log('⚠️ No users data provided');
       return;
     }
 
     console.log('🔄 Rendering main leaderboard with', users.length, 'users');
-    console.log('📊 Leaderboard data:', users);
+    console.log('📊 Full users data:', JSON.stringify(users, null, 2));
 
     // สร้าง HTML ใหม่ทั้งหมด
     let html = '';
     
     users.forEach((user, index) => {
+      console.log(`👤 Processing user ${index + 1}:`, user);
+      
       // ดึงข้อมูลผู้ใช้
       const name = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
       const score = Number(user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
       const tasks = Number(user.tasksCompleted || user.weeklyTasksCompleted || user.completedTasks || 0);
       const early = Number(user.tasksEarly || 0);
       const onTime = Number(user.tasksOnTime || 0);
+      
+      console.log(`📝 User ${index + 1} data:`, {
+        originalName: user.displayName,
+        fallbackName: user.name,
+        realName: user.realName,
+        finalName: name,
+        score: score,
+        tasks: tasks,
+        early: early,
+        onTime: onTime
+      });
       
       // กำหนดอันดับ
       let rankIcon, rankClass;
@@ -1624,6 +1669,7 @@ class Dashboard {
       `;
     });
     
+    console.log('🎨 Generated HTML:', html);
     container.innerHTML = html;
     console.log('✅ Main leaderboard rendered successfully');
   }
@@ -3602,6 +3648,48 @@ class Dashboard {
       syncBtn.disabled = false;
       syncBtn.innerHTML = originalText || '<i class="fas fa-sync-alt"></i> ซิงค์';
     }
+  }
+
+  // Test function for debugging
+  testLeaderboardRendering() {
+    console.log('🧪 Testing leaderboard rendering...');
+    
+    const testData = [
+      {
+        userId: "test-1",
+        displayName: "Test User 1",
+        weeklyPoints: 100,
+        monthlyPoints: 500,
+        totalPoints: 1000,
+        tasksCompleted: 5,
+        tasksEarly: 2,
+        tasksOnTime: 3,
+        tasksLate: 0,
+        tasksOvertime: 0,
+        tasksOverdue: 0,
+        rank: 1,
+        trend: "up"
+      },
+      {
+        userId: "test-2", 
+        displayName: "Test User 2",
+        weeklyPoints: 80,
+        monthlyPoints: 400,
+        totalPoints: 800,
+        tasksCompleted: 3,
+        tasksEarly: 1,
+        tasksOnTime: 2,
+        tasksLate: 0,
+        tasksOvertime: 0,
+        tasksOverdue: 0,
+        rank: 2,
+        trend: "down"
+      }
+    ];
+    
+    console.log('📊 Test data:', testData);
+    this.updateMiniLeaderboard(testData);
+    this.updateLeaderboard(testData);
   }
 }
 

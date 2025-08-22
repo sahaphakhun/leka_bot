@@ -592,6 +592,9 @@ body {
 
 .leaderboard-item .user-info {
   flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0; /* Prevent flex item from overflowing */
 }
 
 .leaderboard-item .user-info > div:first-child {
@@ -599,6 +602,9 @@ body {
   font-size: var(--font-size-lg);
   color: var(--color-gray-900);
   margin-bottom: var(--spacing-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .leaderboard-item .user-info > div:last-child {
