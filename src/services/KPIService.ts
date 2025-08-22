@@ -520,6 +520,17 @@ export class KPIService {
           groupId,
           period
         });
+        
+        // Check for specific database errors
+        if (error.message.includes('enum')) {
+          console.error('🔍 Database enum error detected - this might be a schema issue');
+        }
+        if (error.message.includes('connection')) {
+          console.error('🔍 Database connection error detected');
+        }
+        if (error.message.includes('relation')) {
+          console.error('🔍 Database table/relation error detected');
+        }
       }
       throw error;
     }
