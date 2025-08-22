@@ -743,6 +743,8 @@ export class KPIService {
     tasksEarly: number;
     tasksOnTime: number;
     tasksLate: number;
+    tasksOvertime: number;
+    tasksOverdue: number;
     completionRate: number;
     avgPointsPerTask: number;
   }> {

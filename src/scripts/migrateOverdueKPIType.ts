@@ -44,10 +44,10 @@ async function migrateOverdueKPIType() {
       await queryRunner.release();
     }
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('❌ Migration failed:', error);
     
-    if (error.message?.includes('already exists')) {
+    if (error?.message?.includes('already exists')) {
       console.log('ℹ️ Migration already applied or enum value exists');
     } else {
       process.exitCode = 1;
