@@ -4,6 +4,7 @@ export { config, validateConfig, features } from './config';
 export { logger } from './logger';
 export { initializeDatabase, closeDatabase } from './database';
 export { serviceContainer } from './serviceContainer';
+export { sanitize } from './sanitize';
 
 // Common utilities
 export { 
