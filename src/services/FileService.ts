@@ -13,6 +13,7 @@ import { v2 as cloudinary } from 'cloudinary';
 import http from 'http';
 import https from 'https';
 import { URL } from 'url';
+import { logger } from '@/utils/logger';
 
 export class FileService {
   private fileRepository: Repository<File>;
@@ -512,8 +513,18 @@ export class FileService {
       }
 
     } catch (error) {
-      // ลดการ logging เพื่อป้องกัน rate limit
+      const statusCode = (error as any)?.statusCode;
+      const url = (error as any)?.url;
+      if (statusCode || url) {
+        logger.error('❌ Failed to get file content', { fileId, url, statusCode, error });
+      }
       if (error instanceof Error) {
+        if (statusCode) {
+          const err: any = new Error(error.message);
+          err.statusCode = statusCode;
+          if (url) err.url = url;
+          throw err;
+        }
         throw new Error(`Failed to get file content: ${error.message}`);
       }
       throw new Error('Failed to get file content');
@@ -536,7 +547,10 @@ export class FileService {
         let timedOut = false;
         const controller = setTimeout(() => {
           timedOut = true;
-          reject(new Error('Request timeout'));
+          const timeoutErr: any = new Error('Request timeout');
+          timeoutErr.url = targetUrl;
+          logger.error('❌ Remote file request timeout', { url: targetUrl });
+          reject(timeoutErr);
         }, requestTimeoutMs);
 
         const doRequest = (urlToGet: string, redirectsLeft: number) => {
@@ -556,7 +570,10 @@ export class FileService {
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
               if (redirectsLeft <= 0) {
                 clearTimeout(controller);
-                reject(new Error('Too many redirects'));
+                const redirectErr: any = new Error('Too many redirects');
+                redirectErr.url = urlToGet;
+                logger.error('❌ Too many redirects fetching remote file', { url: urlToGet });
+                reject(redirectErr);
                 return;
               }
               const location = res.headers.location.startsWith('http')
@@ -568,7 +585,17 @@ export class FileService {
 
             if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
               clearTimeout(controller);
-              reject(new Error(`HTTP ${res.statusCode}`));
+              const statusCode = res.statusCode || 0;
+              const errMsg = statusCode === 404
+                ? 'Remote file not found'
+                : statusCode === 403
+                  ? 'Remote file access denied'
+                  : `Remote file responded with status ${statusCode}`;
+              const statusErr: any = new Error(errMsg);
+              statusErr.statusCode = statusCode;
+              statusErr.url = urlToGet;
+              logger.error('❌ Remote file HTTP error', { url: urlToGet, statusCode });
+              reject(statusErr);
               return;
             }
 
@@ -584,6 +611,8 @@ export class FileService {
           req.on('error', (err) => {
             if (timedOut) return;
             clearTimeout(controller);
+            (err as any).url = urlToGet;
+            logger.error('❌ Remote file request error', { url: urlToGet, error: err });
             reject(err);
           });
 
@@ -601,11 +630,27 @@ export class FileService {
         return { content, mimeType: file.mimeType, originalName: file.originalName };
       } catch (err) {
         lastErr = err;
+        // ถ้าเป็น error ที่มี status code 4xx ไม่ต้อง retry
+        if ((err as any)?.statusCode && (err as any).statusCode < 500) {
+          break;
+        }
         await new Promise(r => setTimeout(r, 1000 * attempt));
       }
     }
 
-    throw new Error(`Failed to fetch remote file after ${maxRetries} attempts: ${lastErr instanceof Error ? lastErr.message : 'unknown error'}`);
+    logger.error('❌ Failed to fetch remote file after retries', {
+      url: (lastErr as any)?.url || file.path,
+      statusCode: (lastErr as any)?.statusCode,
+      error: lastErr
+    });
+
+    if (lastErr && (lastErr as any).statusCode) {
+      throw lastErr;
+    }
+
+    const finalErr: any = new Error(`Failed to fetch remote file after ${maxRetries} attempts: ${lastErr instanceof Error ? lastErr.message : 'unknown error'}`);
+    if ((lastErr as any)?.url) finalErr.url = (lastErr as any).url;
+    throw finalErr;
   }
 
   /**
