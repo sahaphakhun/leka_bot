@@ -3,11 +3,13 @@ const uploadMock = jest.fn().mockResolvedValue({
   secure_url: 'https://res.cloudinary.com/demo/raw/upload/v1/publicid.pdf',
   bytes: 123,
 });
+const urlMock = jest.fn().mockReturnValue('https://signed-url');
 
 jest.mock('cloudinary', () => ({
   v2: {
     uploader: { upload: uploadMock },
     config: jest.fn(),
+    url: urlMock,
   },
 }));
 
@@ -52,5 +54,30 @@ describe('FileService.saveFile', () => {
       expect.objectContaining({ resource_type: 'raw' })
     );
     expect(result.path).toContain('/raw/upload/');
+  });
+});
+
+describe('FileService.resolveFileUrl', () => {
+  it('signs Cloudinary URLs', () => {
+    process.env.CLOUDINARY_CLOUD_NAME = 'demo';
+    process.env.CLOUDINARY_API_KEY = 'key';
+    process.env.CLOUDINARY_API_SECRET = 'secret';
+
+    getRepositoryMock.mockReset();
+    getRepositoryMock.mockImplementation(() => ({} as any));
+
+    const { FileService } = require('./FileService');
+    const service = new FileService();
+
+    const file: any = {
+      path: 'https://res.cloudinary.com/demo/raw/upload/v1/publicid.pdf',
+      mimeType: 'application/pdf',
+      storageProvider: 'cloudinary',
+      storageKey: 'publicid',
+    };
+
+    const result = service.resolveFileUrl(file);
+    expect(urlMock).toHaveBeenCalledWith('publicid', expect.objectContaining({ sign_url: true }));
+    expect(result).toBe('https://signed-url');
   });
 });

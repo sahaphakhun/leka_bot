@@ -2,7 +2,8 @@ const sendMailMock = jest.fn().mockResolvedValue(undefined);
 
 jest.mock('nodemailer', () => ({
   createTransport: () => ({
-    sendMail: sendMailMock
+    sendMail: sendMailMock,
+    verify: jest.fn().mockResolvedValue(true)
   })
 }));
 
