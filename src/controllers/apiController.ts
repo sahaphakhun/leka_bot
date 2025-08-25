@@ -536,16 +536,32 @@ class ApiController {
         return;
       }
 
-      if (/^https?:\/\//.test(file.path)) {
-        res.redirect(file.path);
-        return;
-      }
-
+      // เสมอไปดึงเนื้อไฟล์ผ่าน backend (proxy) เพื่อหลีกเลี่ยงการ redirect ออกนอกโดเมน (CSP)
       const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
+      // สร้างชื่อไฟล์ให้มีนามสกุลที่ตรงกับ mimeType หากชื่อเดิมไม่มีนามสกุล
+      const ensureExtension = (name: string, mt: string) => {
+        const hasExt = /\.[A-Za-z0-9]{1,8}$/.test(name);
+        if (hasExt) return name;
+        const map: Record<string, string> = {
+          'image/jpeg': '.jpg',
+          'image/png': '.png',
+          'image/gif': '.gif',
+          'image/webp': '.webp',
+          'video/mp4': '.mp4',
+          'video/quicktime': '.mov',
+          'audio/mpeg': '.mp3',
+          'audio/wav': '.wav',
+          'application/pdf': '.pdf',
+          'text/plain': '.txt'
+        };
+        const ext = map[mt] || '';
+        return name + ext;
+      };
+      const downloadName = ensureExtension(originalName, mimeType);
 
       res.set({
         'Content-Type': mimeType,
-        'Content-Disposition': `attachment; filename="${originalName}"`,
+        'Content-Disposition': `attachment; filename="${downloadName}"`,
         'Content-Length': content.length.toString()
       });
 
@@ -605,11 +621,7 @@ class ApiController {
         return;
       }
 
-      if (/^https?:\/\//.test(file.path)) {
-        res.redirect(file.path);
-        return;
-      }
-
+      // เสมอไปดึงเนื้อไฟล์ผ่าน backend (proxy) เพื่อหลีกเลี่ยงการ redirect ออกนอกโดเมน (CSP)
       const { content, mimeType } = await this.fileService.getFileContent(fileId);
 
       // รองรับเฉพาะไฟล์ที่ดูตัวอย่างได้
