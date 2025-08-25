@@ -527,6 +527,20 @@ class ApiController {
         }
       }
 
+      const file = await this.fileService.getFileInfo(fileId);
+      if (!file) {
+        res.status(404).json({
+          success: false,
+          error: 'File not found'
+        });
+        return;
+      }
+
+      if (/^https?:\/\//.test(file.path)) {
+        res.redirect(file.path);
+        return;
+      }
+
       const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
 
       res.set({
@@ -580,6 +594,20 @@ class ApiController {
           });
           return;
         }
+      }
+
+      const file = await this.fileService.getFileInfo(fileId);
+      if (!file) {
+        res.status(404).json({
+          success: false,
+          error: 'File not found'
+        });
+        return;
+      }
+
+      if (/^https?:\/\//.test(file.path)) {
+        res.redirect(file.path);
+        return;
       }
 
       const { content, mimeType } = await this.fileService.getFileContent(fileId);
