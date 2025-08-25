@@ -440,7 +440,27 @@ class ApiController {
       }
 
       // ดึงไฟล์ที่ผูกกับงาน
-      const files = await this.fileService.getTaskFiles(taskId);
+      let files = await this.fileService.getTaskFiles(taskId);
+
+      // ถ้าไม่พบไฟล์ ให้ลอง fallback เพิ่มเติม
+      if ((!files || files.length === 0) && task) {
+        // 1) relations ที่โหลดมากับ task (attachedFiles)
+        if (Array.isArray((task as any).attachedFiles) && (task as any).attachedFiles.length > 0) {
+          files = (task as any).attachedFiles as any[];
+        }
+        // 2) workflow submissions → รวม fileIds ทั้งหมดแล้วดึงรายละเอียดไฟล์
+        if ((!files || files.length === 0) && (task as any).workflow && Array.isArray((task as any).workflow.submissions)) {
+          const submissions: any[] = (task as any).workflow.submissions;
+          const allFileIds = submissions.flatMap(s => Array.isArray(s.fileIds) ? s.fileIds : []);
+          if (allFileIds.length > 0) {
+            try {
+              files = await this.fileService.getFilesByIds(allFileIds);
+            } catch {
+              // เงียบ error เพื่อไม่ให้ endpoint ล้ม
+            }
+          }
+        }
+      }
 
       const response: ApiResponse<any> = {
         success: true,
