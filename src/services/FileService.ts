@@ -243,16 +243,34 @@ export class FileService {
       // สร้าง group จำลองสำหรับแชทส่วนตัว (ใช้ UUID ที่ถูกต้อง)
       const tempGroupId = user.id; // ใช้ user ID โดยตรง (เป็น UUID ที่ถูกต้อง)
 
+      // กำหนด mimeType ตามประเภทไฟล์
+      let mimeType: string;
+      switch (message.type) {
+        case 'image':
+          mimeType = 'image/jpeg';
+          break;
+        case 'video':
+          mimeType = 'video/mp4';
+          break;
+        case 'audio':
+          mimeType = 'audio/mp3';
+          break;
+        case 'file':
+          // สำหรับไฟล์ทั่วไป ให้ใช้ application/octet-stream
+          mimeType = 'application/octet-stream';
+          break;
+        default:
+          mimeType = 'application/octet-stream';
+      }
+
       // บันทึกไฟล์
       const fileData = {
         groupId: tempGroupId,
         uploadedBy: user.id,
         messageId: message.id,
         content: content,
-        originalName: this.generateSafeFileName(message.fileName, message.id, message.type),
-        mimeType: message.type === 'image' ? 'image/jpeg' : 
-                  message.type === 'video' ? 'video/mp4' : 
-                  message.type === 'audio' ? 'audio/mp3' : 'application/octet-stream',
+        originalName: this.generateSafeFileName(message.fileName, message.id, message.type, mimeType),
+        mimeType: mimeType,
         folderStatus: 'in_progress' as const
       };
 
@@ -942,6 +960,7 @@ export class FileService {
     // ถ้าไม่มี ใช้ mimeType
     const mimeToExt: { [key: string]: string } = {
       'image/jpeg': '.jpg',
+      'image/jpg': '.jpg',
       'image/png': '.png',
       'image/gif': '.gif',
       'image/webp': '.webp',
@@ -954,6 +973,12 @@ export class FileService {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
       'text/plain': '.txt',
+      'text/html': '.html',
+      'text/css': '.css',
+      'text/javascript': '.js',
+      'application/json': '.json',
+      'application/xml': '.xml',
+      'application/octet-stream': '.bin'
     };
 
     return mimeToExt[mimeType] || '.bin';
@@ -962,7 +987,7 @@ export class FileService {
   /**
    * สร้างชื่อไฟล์ที่ปลอดภัยจากข้อมูล LINE
    */
-  private generateSafeFileName(fileName?: string, messageId?: string, fileType?: string): string {
+  private generateSafeFileName(fileName?: string, messageId?: string, fileType?: string, mimeType?: string): string {
     // ถ้ามีชื่อไฟล์เดิม ให้ใช้ชื่อนั้น
     if (fileName && fileName.trim() !== '') {
       // ลบอักขระที่ไม่ปลอดภัยออกจากชื่อไฟล์
@@ -978,18 +1003,24 @@ export class FileService {
       return safeName;
     }
     
-    // ถ้าไม่มีชื่อไฟล์ ให้สร้างชื่อจาก messageId และ fileType
-    const typeMap: Record<string, string> = {
-      'image': 'image',
-      'video': 'video',
-      'audio': 'audio',
-      'file': 'document'
+    // ถ้าไม่มีชื่อไฟล์ ให้สร้างชื่อจาก messageId และ fileType พร้อมนามสกุล
+    const typeMap: Record<string, { name: string; ext: string }> = {
+      'image': { name: 'image', ext: '.jpg' },
+      'video': { name: 'video', ext: '.mp4' },
+      'audio': { name: 'audio', ext: '.mp3' },
+      'file': { name: 'document', ext: '.pdf' } // เปลี่ยนจาก .bin เป็น .pdf สำหรับไฟล์ทั่วไป
     };
     
-    const typeName = typeMap[fileType || 'file'] || 'file';
+    const typeInfo = typeMap[fileType || 'file'] || { name: 'file', ext: '.pdf' };
     const id = messageId ? messageId.substring(0, 8) : 'unknown';
     
-    return `${typeName}_${id}`;
+    // ถ้ามี mimeType ให้ใช้ getFileExtension เพื่อหานามสกุลที่ถูกต้อง
+    let extension = typeInfo.ext;
+    if (mimeType) {
+      extension = this.getFileExtension(mimeType);
+    }
+    
+    return `${typeInfo.name}_${id}${extension}`;
   }
 
   /**
