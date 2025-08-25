@@ -3,7 +3,7 @@ import request from 'supertest';
 
 jest.setTimeout(15000);
 
-describe('File route redirection', () => {
+describe('File route handling', () => {
   const setup = async (fileInfo: any) => {
     jest.resetModules();
     const { serviceContainer } = await import('@/utils/serviceContainer');
@@ -13,7 +13,8 @@ describe('File route redirection', () => {
       isFileInGroup: jest.fn().mockResolvedValue(true),
       getFileInfo: jest.fn().mockResolvedValue(fileInfo),
       getFileContent: jest.fn(),
-      resolveFileUrl: jest.fn((f) => f.path)
+      resolveFileUrl: jest.fn((f) => f.path),
+      getFileExtension: jest.fn(() => '.jpg')
     };
 
     const stubNames = [
@@ -36,19 +37,27 @@ describe('File route redirection', () => {
     return { app, mockFileService };
   };
 
-  it('redirects downloadFile to remote URL', async () => {
-    const url = 'https://example.com/test-image.jpg';
+  it('streams file content for downloadFile', async () => {
+    const url = 'https://example.com/test-image';
+    const content = Buffer.from('test-content');
     const { app, mockFileService } = await setup({
       id: '1',
       path: url,
       mimeType: 'image/jpeg',
-      originalName: 'test-image.jpg'
+      originalName: 'test-image'
+    });
+    mockFileService.getFileContent.mockResolvedValue({
+      content,
+      mimeType: 'image/jpeg',
+      originalName: 'test-image'
     });
 
-    const res = await request(app).get('/files/1/download').redirects(0);
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe(url);
-    expect(mockFileService.getFileContent).not.toHaveBeenCalled();
+    const res = await request(app).get('/files/1/download');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('image/jpeg');
+    expect(res.headers['content-disposition']).toContain('filename="test-image.jpg"');
+    expect(res.body).toEqual(content);
+    expect(mockFileService.getFileContent).toHaveBeenCalledWith('1');
   });
 
   it('redirects previewFile to remote URL', async () => {

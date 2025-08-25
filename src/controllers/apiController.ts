@@ -564,80 +564,38 @@ class ApiController {
       // Debug: log ข้อมูลไฟล์
       logger.info(`🔍 Download file: ${fileId}, path: ${fileUrl}, mimeType: ${file.mimeType}`);
 
-      // ถ้าเป็น URL ให้ redirect โดยตรง
-      if (/^https?:\/\//i.test(fileUrl)) {
-        res.redirect(fileUrl);
-        return;
+      // ดึงเนื้อไฟล์จาก service (รองรับทั้ง local และ remote)
+      const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
+
+      // ตรวจสอบและสร้างชื่อไฟล์ที่เหมาะสม
+      let downloadName = originalName && originalName.trim() !== '' ? originalName : `file_${fileId}`;
+
+      // เพิ่มนามสกุลหากชื่อไฟล์ไม่มี
+      if (!/\.[A-Za-z0-9]{1,8}$/i.test(downloadName)) {
+        const ext = (this.fileService as any).getFileExtension
+          ? (this.fileService as any).getFileExtension(mimeType, originalName)
+          : '';
+        downloadName += ext;
       }
 
-      // ถ้าเป็น URL แต่ streaming ไม่สำเร็จ หรือไม่ใช่ URL: ดึงเนื้อไฟล์จาก local/remote ผ่าน service
-      const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
-      
-      // สร้างชื่อไฟล์ให้มีนามสกุลที่ตรงกับ mimeType หากชื่อเดิมไม่มีนามสกุล
-      const ensureExtension = (name: string, mt: string) => {
-        // ตรวจสอบว่าชื่อไฟล์มีนามสกุลหรือไม่ (ปรับปรุง regex ให้ครอบคลุมมากขึ้น)
-        const hasExt = /\.[A-Za-z0-9]{1,8}$/i.test(name);
-        if (hasExt) return name;
-        
-        const map: Record<string, string> = {
-          'image/jpeg': '.jpg',
-          'image/jpg': '.jpg',
-          'image/png': '.png',
-          'image/gif': '.gif',
-          'image/webp': '.webp',
-          'video/mp4': '.mp4',
-          'video/quicktime': '.mov',
-          'audio/mpeg': '.mp3',
-          'audio/wav': '.wav',
-          'application/pdf': '.pdf',
-          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
-          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
-          'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
-          'text/plain': '.txt',
-          'text/html': '.html',
-          'text/css': '.css',
-          'text/javascript': '.js',
-          'application/json': '.json',
-          'application/xml': '.xml',
-          'application/octet-stream': '.bin'
-        };
-        const ext = map[mt] || '.bin';
-        return name + ext;
-      };
-      
-      // ตรวจสอบและสร้างชื่อไฟล์ที่เหมาะสม
-      let downloadName = originalName;
-      if (!downloadName || downloadName.trim() === '') {
-        downloadName = `file_${fileId}`;
-      }
-      
       // Debug: log ข้อมูลชื่อไฟล์
       logger.info(`📁 File download info:`, {
         fileId,
         originalName,
         mimeType,
-        initialDownloadName: downloadName
-      });
-      
-      // ลบอักขระที่ไม่ปลอดภัยออกจากชื่อไฟล์
-      downloadName = downloadName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
-      
-      // เพิ่มนามสกุลถ้าจำเป็น
-      downloadName = ensureExtension(downloadName, mimeType);
-      
-      // Debug: log ชื่อไฟล์หลังเพิ่มนามสกุล
-      logger.info(`📁 Final download name:`, {
-        fileId,
         finalDownloadName: downloadName
       });
-      
+
+      // ลบอักขระที่ไม่ปลอดภัยออกจากชื่อไฟล์
+      downloadName = downloadName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
+
       // สร้างชื่อไฟล์ที่ปลอดภัยสำหรับ HTTP header
       const safeName = sanitize(downloadName);
 
       // สร้าง Content-Disposition header ที่รองรับ UTF-8
       const encodedName = encodeURIComponent(safeName);
       const contentDisposition = `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`;
-      
+
       res.set({
         'Content-Type': mimeType,
         'Content-Disposition': contentDisposition,
