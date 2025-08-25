@@ -80,10 +80,11 @@ export class FileService {
         const ext = this.getFileExtension(data.mimeType, data.originalName);
         const folder = `${config.cloudinary.uploadFolder}/${data.groupId}`;
         const publicId = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+        const resourceType = data.mimeType.startsWith('application/') ? 'raw' : 'auto';
         const uploadRes = await cloudinary.uploader.upload(`data:${data.mimeType};base64,${base64}` as any, {
           folder,
           public_id: publicId,
-          resource_type: 'auto'
+          resource_type: resourceType
         } as any);
 
         fileRecord = this.fileRepository.create({
