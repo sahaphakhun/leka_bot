@@ -361,9 +361,7 @@ export class GoogleCalendarService {
     return reminders.map(reminder => {
       let minutes = 60; // default 1 hour
 
-      if (reminder.includes('P7D') || reminder === '7d') {
-        minutes = 7 * 24 * 60; // 7 days
-      } else if (reminder.includes('P1D') || reminder === '1d') {
+      if (reminder.includes('P1D') || reminder === '1d') {
         minutes = 24 * 60; // 1 day
       } else if (reminder.includes('PT3H') || reminder === '3h') {
         minutes = 3 * 60; // 3 hours

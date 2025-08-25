@@ -214,10 +214,6 @@ export class EmailService {
     
     let reminderText = '';
     switch (reminderType) {
-      case 'P7D':
-      case '7d':
-        reminderText = 'อีก 7 วัน';
-        break;
       case 'P1D':
       case '1d':
         reminderText = 'พรุ่งนี้';
@@ -225,9 +221,6 @@ export class EmailService {
       case 'PT3H':
       case '3h':
         reminderText = 'อีก 3 ชั่วโมง';
-        break;
-      case 'due':
-        reminderText = 'ถึงเวลาแล้ว';
         break;
       default:
         reminderText = 'เตือนล่วงหน้า';
@@ -275,7 +268,7 @@ export class EmailService {
             ` : ''}
             
             <div class="label">📅 กำหนดส่ง:</div>
-            <div class="value ${reminderType === 'due' ? 'urgent' : ''}">${dueTime}</div>
+            <div class="value">${dueTime}</div>
             
             <div class="label">⏰ การเตือน:</div>
             <div class="value">${reminderText}</div>

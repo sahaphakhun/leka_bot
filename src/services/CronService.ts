@@ -583,13 +583,11 @@ export class CronService {
    * แปลงช่วงเวลาการเตือนเป็นหน่วยและจำนวน
    */
   private parseReminderInterval(interval: string): { amount: number; unit: moment.DurationInputArg2 } {
-    if (interval === 'P7D' || interval === '7d') return { amount: 7, unit: 'days' };
     if (interval === 'P1D' || interval === '1d') return { amount: 1, unit: 'days' };
     if (interval === 'PT3H' || interval === '3h') return { amount: 3, unit: 'hours' };
     // เอาการเตือนตอนเช้า 08:00 น. ออกไปแล้ว
     // if (interval === 'daily_8am') return { amount: 0, unit: 'days' };
-    if (interval === 'due') return { amount: 0, unit: 'minutes' };
-    
+
     // ค่าเริ่มต้น
     return { amount: 1, unit: 'days' };
   }
