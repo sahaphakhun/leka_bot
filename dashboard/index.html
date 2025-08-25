@@ -14,7 +14,7 @@
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     
     <!-- Styles -->
-    <link rel="stylesheet" href="/dashboard/new-styles.css">
+    <link rel="stylesheet" href="/dashboard/styles.css">
     
     <!-- PWA Meta -->
     <meta name="theme-color" content="#2563eb">
@@ -34,30 +34,30 @@
 
     <!-- Main App Container -->
     <div id="app" class="app-container" style="display: none;">
-        <!-- Header -->
+    <!-- Header -->
         <header class="app-header">
             <div class="header-content">
-                <div class="header-left">
+            <div class="header-left">
                     <h1 class="app-title">
-                        <i class="fas fa-robot"></i>
-                        เลขาบอท
-                    </h1>
+                    <i class="fas fa-robot"></i>
+                    เลขาบอท
+                </h1>
                     <div class="group-badge" id="groupBadge">
-                        <i class="fas fa-users"></i>
-                        <span id="currentGroupName">กลุ่มทดสอบ</span>
-                    </div>
+                    <i class="fas fa-users"></i>
+                    <span id="currentGroupName">กลุ่มทดสอบ</span>
                 </div>
-                <div class="header-right">
+            </div>
+            <div class="header-right">
                     <div class="user-info" id="userInfo">
-                        <div class="user-avatar" id="userAvatar">👤</div>
+                    <div class="user-avatar" id="userAvatar">👤</div>
                         <div class="user-details">
                             <span class="user-name" id="userName">ผู้ใช้</span>
                             <span class="user-role" id="userRole">สมาชิก</span>
                         </div>
-                    </div>
                 </div>
             </div>
-        </header>
+        </div>
+    </header>
 
         <!-- Main Content Area -->
         <main class="main-content">
@@ -232,18 +232,18 @@
                         <label>สถานะ</label>
                         <select id="statusFilter">
                             <option value="">ทั้งหมด</option>
-                            <option value="pending">รอดำเนินการ</option>
-                            <option value="in_progress">กำลังดำเนินการ</option>
-                            <option value="completed">เสร็จแล้ว</option>
-                            <option value="overdue">เกินกำหนด</option>
-                        </select>
+                                <option value="pending">รอดำเนินการ</option>
+                                <option value="in_progress">กำลังดำเนินการ</option>
+                                <option value="completed">เสร็จแล้ว</option>
+                                <option value="overdue">เกินกำหนด</option>
+                            </select>
                     </div>
                     <div class="filter-group">
                         <label>ผู้รับผิดชอบ</label>
                         <select id="assigneeFilter">
                             <option value="">ทั้งหมด</option>
-                        </select>
-                    </div>
+                            </select>
+                        </div>
                     <div class="filter-actions">
                         <button class="btn btn-outline" id="clearFilters">ล้างตัวกรอง</button>
                         <button class="btn btn-primary" id="applyFilters">ใช้ตัวกรอง</button>
@@ -277,18 +277,18 @@
                 <!-- Files Filter -->
                 <div class="files-filter">
                     <select id="taskFilter">
-                        <option value="">งานทั้งหมด</option>
-                        <option value="no-task">ไฟล์อิสระ</option>
-                    </select>
+                                <option value="">งานทั้งหมด</option>
+                                <option value="no-task">ไฟล์อิสระ</option>
+                            </select>
                     <select id="fileTypeFilter">
-                        <option value="">ประเภททั้งหมด</option>
-                        <option value="image">รูปภาพ</option>
-                        <option value="document">เอกสาร</option>
-                        <option value="video">วิดีโอ</option>
-                        <option value="audio">เสียง</option>
-                        <option value="archive">ไฟล์บีบอัด</option>
-                        <option value="other">อื่นๆ</option>
-                    </select>
+                                <option value="">ประเภททั้งหมด</option>
+                                <option value="image">รูปภาพ</option>
+                                <option value="document">เอกสาร</option>
+                                <option value="video">วิดีโอ</option>
+                                <option value="audio">เสียง</option>
+                                <option value="archive">ไฟล์บีบอัด</option>
+                                <option value="other">อื่นๆ</option>
+                            </select>
                 </div>
 
                 <div class="files-container">
@@ -377,7 +377,7 @@
                             <div class="stat-info">
                                 <div class="stat-number" id="repCompletionRate">0%</div>
                                 <div class="stat-label">อัตราสำเร็จ</div>
-                            </div>
+                    </div>
                         </div>
                     </div>
 
@@ -576,6 +576,6 @@
     <!-- Scripts -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
-    <script src="/dashboard/new-script.js"></script>
+    <script src="/dashboard/script.js"></script>
 </body>
 </html>

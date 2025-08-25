@@ -162,7 +162,7 @@ const api = {
   
   async addTask(taskData) {
     return await this.request('/tasks', {
-      method: 'POST',
+            method: 'POST',
       body: JSON.stringify(taskData)
     });
   }
@@ -210,22 +210,22 @@ const viewManager = {
   async loadViewData(view) {
     try {
       switch (view) {
-        case 'dashboard':
+      case 'dashboard':
           await this.loadDashboard();
-          break;
-        case 'calendar':
+        break;
+      case 'calendar':
           await this.loadCalendar();
-          break;
-        case 'tasks':
+        break;
+      case 'tasks':
           await this.loadTasks();
-          break;
-        case 'files':
+        break;
+      case 'files':
           await this.loadFiles();
-          break;
-        case 'leaderboard':
+        break;
+      case 'leaderboard':
           await this.loadLeaderboard();
-          break;
-      }
+        break;
+    }
     } catch (error) {
       console.error(`Error loading ${view} data:`, error);
     }
@@ -359,25 +359,25 @@ const viewManager = {
   updateUpcomingTasks(tasks) {
     const container = document.getElementById('upcomingTasks');
     if (!container) return;
-    
-    if (tasks.length === 0) {
+      
+      if (tasks.length === 0) {
       container.innerHTML = '<p class="text-gray-500">ไม่มีงานใกล้ครบกำหนด</p>';
-      return;
-    }
-    
+        return;
+      }
+      
     container.innerHTML = tasks.map(task => `
       <div class="task-item">
         <div class="task-header">
           <div class="task-title">${task.title}</div>
           <div class="task-priority ${task.priority}">${task.priority}</div>
-        </div>
+            </div>
         <div class="task-meta">
           <div class="task-due">
             <i class="fas fa-clock"></i>
             ${utils.formatDate(task.dueDate)}
           </div>
+          </div>
         </div>
-      </div>
     `).join('');
   },
   
@@ -431,18 +431,18 @@ const viewManager = {
         <div class="task-header">
           <div class="task-title">${task.title}</div>
           <div class="task-priority ${task.priority}">${task.priority}</div>
-        </div>
+          </div>
         <div class="task-meta">
           <div class="task-status ${task.status}">
             <i class="fas fa-${task.status === 'pending' ? 'clock' : task.status === 'completed' ? 'check' : 'exclamation-triangle'}"></i>
             ${task.status}
-          </div>
+        </div>
           <div class="task-due">
             <i class="fas fa-calendar"></i>
             ${utils.formatDate(task.dueDate)}
+      </div>
           </div>
         </div>
-      </div>
     `).join('');
   },
   
@@ -451,7 +451,7 @@ const viewManager = {
       const response = await api.getFiles();
       files = response.files || [];
       this.renderFiles();
-    } catch (error) {
+      } catch (error) {
       console.error('Error loading files:', error);
     }
   },
@@ -489,22 +489,22 @@ const viewManager = {
   
   renderLeaderboard() {
     const container = document.getElementById('leaderboardList');
-    if (!container) return;
-    
+      if (!container) return;
+      
     if (leaderboard.length === 0) {
       container.innerHTML = '<p class="text-gray-500">ไม่มีข้อมูลอันดับ</p>';
-      return;
-    }
-    
+        return;
+      }
+      
     container.innerHTML = leaderboard.map((item, index) => `
       <div class="leaderboard-item">
         <div class="leaderboard-rank rank-${index + 1}">${index + 1}</div>
         <div class="leaderboard-user">
           <div class="leaderboard-name">${item.displayName}</div>
           <div class="leaderboard-score">${item.completedTasks} งานเสร็จ</div>
-        </div>
+              </div>
         <div class="leaderboard-points">${item.points}</div>
-      </div>
+              </div>
     `).join('');
   }
 };
@@ -526,8 +526,8 @@ document.addEventListener('DOMContentLoaded', async () => {
     
     // Show welcome toast
     utils.showToast('ยินดีต้อนรับสู่เลขาบอท Dashboard', 'success');
-    
-  } catch (error) {
+      
+    } catch (error) {
     console.error('Error initializing app:', error);
     utils.showToast('เกิดข้อผิดพลาดในการโหลดแอป', 'error');
     utils.hideLoading();
