@@ -3107,7 +3107,32 @@ class Dashboard {
             }
           }
         }
-        
+
+        // หากไม่มี Content-Disposition หรือไม่สามารถดึงชื่อไฟล์ได้
+        if (filename === 'download') {
+          try {
+            // พยายามดึงข้อมูลไฟล์จาก API เพื่อเอา originalName
+            const infoRes = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}`);
+            if (infoRes.ok) {
+              let fileData = await infoRes.json();
+              if (fileData && typeof fileData === 'object' && 'data' in fileData) {
+                fileData = fileData.data;
+              }
+              if (fileData && fileData.originalName) {
+                filename = fileData.originalName;
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to fetch file info for filename:', err);
+          }
+
+          // หากยังไม่ได้ชื่อไฟล์ ให้ลองใช้ข้อมูลจาก UI
+          if (filename === 'download') {
+            const nameFromUI = document.querySelector(`[data-file-id="${fileId}"] .file-name`)?.textContent?.trim();
+            if (nameFromUI) filename = nameFromUI;
+          }
+        }
+
         a.download = filename;
         a.click();
         window.URL.revokeObjectURL(url);
