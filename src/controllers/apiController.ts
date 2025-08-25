@@ -532,6 +532,7 @@ class ApiController {
    * GET /api/groups/:groupId/files/:fileId/download - ดาวน์โหลดไฟล์ (พร้อมตรวจสอบ group)
    */
   public async downloadFile(req: Request, res: Response): Promise<void> {
+    let fileUrl: string | undefined;
     try {
       const { fileId, groupId } = req.params;
 
@@ -549,6 +550,7 @@ class ApiController {
       }
 
       const file = await this.fileService.getFileInfo(fileId);
+      fileUrl = file.path;
       if (!file) {
         res.status(404).json({
           success: false,
@@ -666,25 +668,21 @@ class ApiController {
       res.send(content);
 
     } catch (error) {
-      // ลดการ logging เพื่อป้องกัน rate limit
+      const statusCode = (error as any)?.statusCode;
+      const url = (error as any)?.url || fileUrl;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // ตรวจสอบประเภทของ error เพื่อส่ง status code ที่เหมาะสม
-      if (errorMessage.includes('File not found')) {
-        res.status(404).json({ 
-          success: false, 
-          error: 'File not found' 
-        });
-      } else if (errorMessage.includes('Failed to fetch remote file')) {
-        res.status(503).json({ 
-          success: false, 
-          error: 'File temporarily unavailable' 
-        });
+      logger.error('❌ Error downloading file', { fileId: req.params.fileId, url, statusCode, message: errorMessage });
+
+      if (statusCode) {
+        if (statusCode >= 500) {
+          res.status(502).json({ success: false, error: errorMessage, url });
+        } else {
+          res.status(statusCode).json({ success: false, error: errorMessage, url });
+        }
+      } else if (errorMessage.includes('File not found')) {
+        res.status(404).json({ success: false, error: 'File not found', url });
       } else {
-        res.status(500).json({ 
-          success: false, 
-          error: 'Internal server error' 
-        });
+        res.status(500).json({ success: false, error: 'Internal server error', url });
       }
     }
   }
@@ -705,8 +703,19 @@ class ApiController {
       
       res.send(content);
     } catch (error) {
-      logger.error(`❌ Fallback download failed for file ${fileId}:`, error);
-      res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+      const statusCode = (error as any)?.statusCode;
+      const url = (error as any)?.url;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`❌ Fallback download failed for file ${fileId}:`, { url, statusCode, error: errorMessage });
+      if (statusCode) {
+        if (statusCode >= 500) {
+          res.status(502).json({ success: false, error: errorMessage, url });
+        } else {
+          res.status(statusCode).json({ success: false, error: errorMessage, url });
+        }
+      } else {
+        res.status(503).json({ success: false, error: 'File temporarily unavailable', url });
+      }
     }
   }
 
@@ -739,8 +748,19 @@ class ApiController {
 
       res.send(content);
     } catch (error) {
-      logger.error(`❌ Fallback preview failed for file ${fileId}:`, error);
-      res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+      const statusCode = (error as any)?.statusCode;
+      const url = (error as any)?.url;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      logger.error(`❌ Fallback preview failed for file ${fileId}:`, { url, statusCode, error: errorMessage });
+      if (statusCode) {
+        if (statusCode >= 500) {
+          res.status(502).json({ success: false, error: errorMessage, url });
+        } else {
+          res.status(statusCode).json({ success: false, error: errorMessage, url });
+        }
+      } else {
+        res.status(503).json({ success: false, error: 'File temporarily unavailable', url });
+      }
     }
   }
 
@@ -749,6 +769,7 @@ class ApiController {
    * GET /api/groups/:groupId/files/:fileId/preview - ดูตัวอย่างไฟล์ (พร้อมตรวจสอบ group)
    */
   public async previewFile(req: Request, res: Response): Promise<void> {
+    let fileUrl: string | undefined;
     try {
       const { fileId, groupId } = req.params;
 
@@ -766,6 +787,7 @@ class ApiController {
       }
 
       const file = await this.fileService.getFileInfo(fileId);
+      fileUrl = file.path;
       if (!file) {
         res.status(404).json({
           success: false,
@@ -846,25 +868,21 @@ class ApiController {
       res.send(content);
 
     } catch (error) {
-      // ลดการ logging เพื่อป้องกัน rate limit
+      const statusCode = (error as any)?.statusCode;
+      const url = (error as any)?.url || fileUrl;
       const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      
-      // ตรวจสอบประเภทของ error เพื่อส่ง status code ที่เหมาะสม
-      if (errorMessage.includes('File not found')) {
-        res.status(404).json({ 
-          success: false, 
-          error: 'File not found' 
-        });
-      } else if (errorMessage.includes('Failed to fetch remote file')) {
-        res.status(503).json({ 
-          success: false, 
-          error: 'File temporarily unavailable' 
-        });
+      logger.error('❌ Error previewing file', { fileId: req.params.fileId, url, statusCode, message: errorMessage });
+
+      if (statusCode) {
+        if (statusCode >= 500) {
+          res.status(502).json({ success: false, error: errorMessage, url });
+        } else {
+          res.status(statusCode).json({ success: false, error: errorMessage, url });
+        }
+      } else if (errorMessage.includes('File not found')) {
+        res.status(404).json({ success: false, error: 'File not found', url });
       } else {
-        res.status(500).json({ 
-          success: false, 
-          error: 'Internal server error' 
-        });
+        res.status(500).json({ success: false, error: 'Internal server error', url });
       }
     }
   }
