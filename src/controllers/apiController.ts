@@ -557,6 +557,9 @@ class ApiController {
         return;
       }
 
+      // Debug: log ข้อมูลไฟล์
+      logger.info(`🔍 Download file: ${fileId}, path: ${file.path}, mimeType: ${file.mimeType}`);
+
       // ถ้าเป็น URL ให้ลองสตรีมตรงผ่าน backend (ลดการใช้หน่วยความจำ และรองรับไฟล์ใหญ่)
       if (/^https?:\/\//i.test(file.path)) {
         const mimeType = file.mimeType;
@@ -580,7 +583,10 @@ class ApiController {
         };
         const downloadName = ensureExtension(file.originalName, mimeType);
 
-        const req = https.get(file.path, { headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' } }, (remote) => {
+        const httpsReq = https.get(file.path, { 
+          headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' },
+          timeout: 30000 // 30 วินาที timeout
+        }, (remote) => {
           if (remote.statusCode && remote.statusCode >= 300 && remote.statusCode < 400 && remote.headers.location) {
             // follow one redirect for simplicity in controller; deeper redirects handled in service if needed
             https.get(remote.headers.location, (r2) => {
@@ -589,11 +595,13 @@ class ApiController {
               if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
               r2.pipe(res);
             }).on('error', (err) => {
+              logger.error(`❌ Redirect error for file ${fileId}:`, err);
               res.status(503).json({ success: false, error: 'File temporarily unavailable' });
             });
             return;
           }
           if (!remote.statusCode || remote.statusCode < 200 || remote.statusCode >= 300) {
+            logger.error(`❌ HTTP error for file ${fileId}: status ${remote.statusCode}`);
             res.status(503).json({ success: false, error: 'File temporarily unavailable' });
             remote.resume();
             return;
@@ -603,11 +611,19 @@ class ApiController {
           if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
           remote.pipe(res);
         });
-        req.on('error', () => res.status(503).json({ success: false, error: 'File temporarily unavailable' }));
+        httpsReq.on('error', (err) => {
+          logger.error(`❌ HTTPS request error for file ${fileId}:`, err);
+          res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+        });
+        httpsReq.on('timeout', () => {
+          logger.error(`❌ HTTPS timeout for file ${fileId}`);
+          httpsReq.destroy();
+          res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+        });
         return;
       }
 
-      // ไม่ใช่ URL: ดึงเนื้อไฟล์จาก local/remote ผ่าน service
+      // ถ้าเป็น URL แต่ streaming ไม่สำเร็จ หรือไม่ใช่ URL: ดึงเนื้อไฟล์จาก local/remote ผ่าน service
       const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
       // สร้างชื่อไฟล์ให้มีนามสกุลที่ตรงกับ mimeType หากชื่อเดิมไม่มีนามสกุล
       const ensureExtension = (name: string, mt: string) => {
@@ -692,19 +708,29 @@ class ApiController {
         return;
       }
 
+      // Debug: log ข้อมูลไฟล์
+      logger.info(`🔍 Preview file: ${fileId}, path: ${file.path}, mimeType: ${file.mimeType}`);
+
       // ถ้าเป็น URL ให้สตรีมตรงผ่าน backend สำหรับ preview
       if (/^https?:\/\//i.test(file.path)) {
         const mimeType = file.mimeType;
-        const req = https.get(file.path, { headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' } }, (remote) => {
+        const httpsReq = https.get(file.path, { 
+          headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' },
+          timeout: 30000 // 30 วินาที timeout
+        }, (remote) => {
           if (remote.statusCode && remote.statusCode >= 300 && remote.statusCode < 400 && remote.headers.location) {
             https.get(remote.headers.location, (r2) => {
               res.setHeader('Content-Type', mimeType);
               if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
               r2.pipe(res);
-            }).on('error', () => res.status(503).json({ success: false, error: 'File temporarily unavailable' }));
+            }).on('error', (err) => {
+              logger.error(`❌ Preview redirect error for file ${fileId}:`, err);
+              res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+            });
             return;
           }
           if (!remote.statusCode || remote.statusCode < 200 || remote.statusCode >= 300) {
+            logger.error(`❌ Preview HTTP error for file ${fileId}: status ${remote.statusCode}`);
             res.status(503).json({ success: false, error: 'File temporarily unavailable' });
             remote.resume();
             return;
@@ -713,11 +739,19 @@ class ApiController {
           if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
           remote.pipe(res);
         });
-        req.on('error', () => res.status(503).json({ success: false, error: 'File temporarily unavailable' }));
+        httpsReq.on('error', (err) => {
+          logger.error(`❌ Preview HTTPS request error for file ${fileId}:`, err);
+          res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+        });
+        httpsReq.on('timeout', () => {
+          logger.error(`❌ Preview timeout for file ${fileId}`);
+          httpsReq.destroy();
+          res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+        });
         return;
       }
 
-      // ไม่ใช่ URL: ดึงเนื้อไฟล์ผ่าน service
+      // ถ้าเป็น URL แต่ streaming ไม่สำเร็จ หรือไม่ใช่ URL: ดึงเนื้อไฟล์ผ่าน service
       const { content, mimeType } = await this.fileService.getFileContent(fileId);
 
       // รองรับเฉพาะไฟล์ที่ดูตัวอย่างได้
