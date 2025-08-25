@@ -55,15 +55,15 @@ class Server {
             "https://cdnjs.cloudflare.com" // Allow Font Awesome
           ],
           imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'"],
+          connectSrc: ["'self'", "https://res.cloudinary.com"],
           fontSrc: [
             "'self'",
             "https://fonts.gstatic.com", // Allow Google Fonts
             "https://cdnjs.cloudflare.com" // Allow Font Awesome fonts
           ],
           objectSrc: ["'none'"],
-          mediaSrc: ["'self'", "blob:", "data:"],
-          frameSrc: ["'self'", "blob:", "data:"]
+          mediaSrc: ["'self'", "blob:", "data:", "https://res.cloudinary.com"],
+          frameSrc: ["'self'", "blob:", "data:", "https://res.cloudinary.com"]
         }
       }
     }));
