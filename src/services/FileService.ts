@@ -249,7 +249,7 @@ export class FileService {
         uploadedBy: user.id,
         messageId: message.id,
         content: content,
-        originalName: message.fileName || `file_${message.id}`,
+        originalName: this.generateSafeFileName(message.fileName, message.id, message.type),
         mimeType: message.type === 'image' ? 'image/jpeg' : 
                   message.type === 'video' ? 'video/mp4' : 
                   message.type === 'audio' ? 'audio/mp3' : 'application/octet-stream',
@@ -957,6 +957,39 @@ export class FileService {
     };
 
     return mimeToExt[mimeType] || '.bin';
+  }
+
+  /**
+   * สร้างชื่อไฟล์ที่ปลอดภัยจากข้อมูล LINE
+   */
+  private generateSafeFileName(fileName?: string, messageId?: string, fileType?: string): string {
+    // ถ้ามีชื่อไฟล์เดิม ให้ใช้ชื่อนั้น
+    if (fileName && fileName.trim() !== '') {
+      // ลบอักขระที่ไม่ปลอดภัยออกจากชื่อไฟล์
+      let safeName = fileName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
+      
+      // จำกัดความยาว
+      if (safeName.length > 100) {
+        const ext = safeName.split('.').pop();
+        const name = safeName.substring(0, 100 - (ext ? ext.length + 1 : 0));
+        safeName = ext ? `${name}.${ext}` : name;
+      }
+      
+      return safeName;
+    }
+    
+    // ถ้าไม่มีชื่อไฟล์ ให้สร้างชื่อจาก messageId และ fileType
+    const typeMap: Record<string, string> = {
+      'image': 'image',
+      'video': 'video',
+      'audio': 'audio',
+      'file': 'document'
+    };
+    
+    const typeName = typeMap[fileType || 'file'] || 'file';
+    const id = messageId ? messageId.substring(0, 8) : 'unknown';
+    
+    return `${typeName}_${id}`;
   }
 
   /**

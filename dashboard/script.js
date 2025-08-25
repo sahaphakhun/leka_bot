@@ -3090,9 +3090,29 @@ class Dashboard {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'download';
+        
+        // ปรับปรุงการดึงชื่อไฟล์จาก Content-Disposition header
+        let filename = 'download';
+        const contentDisposition = response.headers.get('Content-Disposition');
+        if (contentDisposition) {
+          // ลองดึงจาก filename*=UTF-8'' ก่อน (RFC 5987)
+          const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+          if (utf8Match) {
+            filename = decodeURIComponent(utf8Match[1]);
+          } else {
+            // ลองดึงจาก filename= ปกติ
+            const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+            if (filenameMatch) {
+              filename = filenameMatch[1];
+            }
+          }
+        }
+        
+        a.download = filename;
         a.click();
         window.URL.revokeObjectURL(url);
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Failed to download file:', error);

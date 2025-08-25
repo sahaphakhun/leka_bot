@@ -572,12 +572,16 @@ class ApiController {
 
       // ถ้าเป็น URL แต่ streaming ไม่สำเร็จ หรือไม่ใช่ URL: ดึงเนื้อไฟล์จาก local/remote ผ่าน service
       const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
+      
       // สร้างชื่อไฟล์ให้มีนามสกุลที่ตรงกับ mimeType หากชื่อเดิมไม่มีนามสกุล
       const ensureExtension = (name: string, mt: string) => {
-        const hasExt = /\.[A-Za-z0-9]{1,8}$/.test(name);
+        // ตรวจสอบว่าชื่อไฟล์มีนามสกุลหรือไม่ (ปรับปรุง regex ให้ครอบคลุมมากขึ้น)
+        const hasExt = /\.[A-Za-z0-9]{1,8}$/i.test(name);
         if (hasExt) return name;
+        
         const map: Record<string, string> = {
           'image/jpeg': '.jpg',
+          'image/jpg': '.jpg',
           'image/png': '.png',
           'image/gif': '.gif',
           'image/webp': '.webp',
@@ -586,17 +590,42 @@ class ApiController {
           'audio/mpeg': '.mp3',
           'audio/wav': '.wav',
           'application/pdf': '.pdf',
-          'text/plain': '.txt'
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+          'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+          'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+          'text/plain': '.txt',
+          'text/html': '.html',
+          'text/css': '.css',
+          'text/javascript': '.js',
+          'application/json': '.json',
+          'application/xml': '.xml'
         };
         const ext = map[mt] || '';
         return name + ext;
       };
-      const downloadName = ensureExtension(originalName, mimeType);
+      
+      // ตรวจสอบและสร้างชื่อไฟล์ที่เหมาะสม
+      let downloadName = originalName;
+      if (!downloadName || downloadName.trim() === '') {
+        downloadName = `file_${fileId}`;
+      }
+      
+      // ลบอักขระที่ไม่ปลอดภัยออกจากชื่อไฟล์
+      downloadName = downloadName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
+      
+      // เพิ่มนามสกุลถ้าจำเป็น
+      downloadName = ensureExtension(downloadName, mimeType);
+      
+      // สร้างชื่อไฟล์ที่ปลอดภัยสำหรับ HTTP header
       const safeName = sanitize(downloadName);
 
+      // สร้าง Content-Disposition header ที่รองรับ UTF-8
+      const encodedName = encodeURIComponent(safeName);
+      const contentDisposition = `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`;
+      
       res.set({
         'Content-Type': mimeType,
-        'Content-Disposition': `attachment; filename="${safeName}"`,
+        'Content-Disposition': contentDisposition,
         'Content-Length': content.length.toString()
       });
 
@@ -631,9 +660,13 @@ class ApiController {
       const { content, mimeType: actualMimeType, originalName } = await this.fileService.getFileContent(fileId);
       const safeName = sanitize(downloadName);
 
+      // สร้าง Content-Disposition header ที่รองรับ UTF-8
+      const encodedName = encodeURIComponent(safeName);
+      const contentDisposition = `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`;
+      
       res.set({
         'Content-Type': actualMimeType || mimeType,
-        'Content-Disposition': `attachment; filename="${safeName}"`,
+        'Content-Disposition': contentDisposition,
         'Content-Length': content.length.toString()
       });
       
