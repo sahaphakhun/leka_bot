@@ -598,9 +598,10 @@ class ApiController {
           'text/css': '.css',
           'text/javascript': '.js',
           'application/json': '.json',
-          'application/xml': '.xml'
+          'application/xml': '.xml',
+          'application/octet-stream': '.bin'
         };
-        const ext = map[mt] || '';
+        const ext = map[mt] || '.bin';
         return name + ext;
       };
       
@@ -610,11 +611,25 @@ class ApiController {
         downloadName = `file_${fileId}`;
       }
       
+      // Debug: log ข้อมูลชื่อไฟล์
+      logger.info(`📁 File download info:`, {
+        fileId,
+        originalName,
+        mimeType,
+        initialDownloadName: downloadName
+      });
+      
       // ลบอักขระที่ไม่ปลอดภัยออกจากชื่อไฟล์
       downloadName = downloadName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
       
       // เพิ่มนามสกุลถ้าจำเป็น
       downloadName = ensureExtension(downloadName, mimeType);
+      
+      // Debug: log ชื่อไฟล์หลังเพิ่มนามสกุล
+      logger.info(`📁 Final download name:`, {
+        fileId,
+        finalDownloadName: downloadName
+      });
       
       // สร้างชื่อไฟล์ที่ปลอดภัยสำหรับ HTTP header
       const safeName = sanitize(downloadName);
