@@ -26,12 +26,25 @@ export class FileService {
     this.groupRepository = AppDataSource.getRepository(Group);
     this.userRepository = AppDataSource.getRepository(User);
     this.lineService = serviceContainer.get<LineService>('LineService');
+    
     // ตั้งค่า Cloudinary ถ้ามีค่า env
     if (config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret) {
       cloudinary.config({
         cloud_name: config.cloudinary.cloudName,
         api_key: config.cloudinary.apiKey,
         api_secret: config.cloudinary.apiSecret
+      });
+      logger.info('✅ Cloudinary configured successfully', {
+        cloudName: config.cloudinary.cloudName,
+        apiKey: config.cloudinary.apiKey ? '***' + config.cloudinary.apiKey.slice(-4) : 'undefined',
+        apiSecret: config.cloudinary.apiSecret ? '***' + config.cloudinary.apiSecret.slice(-4) : 'undefined',
+        uploadFolder: config.cloudinary.uploadFolder
+      });
+    } else {
+      logger.warn('⚠️ Cloudinary not configured - missing environment variables', {
+        cloudName: !!config.cloudinary.cloudName,
+        apiKey: !!config.cloudinary.apiKey,
+        apiSecret: !!config.cloudinary.apiSecret
       });
     }
   }
@@ -659,9 +672,18 @@ export class FileService {
    */
   public resolveFileUrl(file: File): string {
     if (!file.path) return file.path;
+    
     if (file.storageProvider === 'cloudinary') {
-      return this.signCloudinaryUrl(file);
+      const signedUrl = this.signCloudinaryUrl(file);
+      logger.info(`🔗 Resolved Cloudinary URL:`, {
+        originalPath: file.path,
+        signedUrl: signedUrl,
+        fileId: file.id,
+        fileName: file.fileName
+      });
+      return signedUrl;
     }
+    
     return file.path;
   }
 
@@ -691,14 +713,33 @@ export class FileService {
 
       // Find version segment (e.g., v1)
       let version: string | undefined;
+      let versionIndex = -1;
       for (let i = 2; i < parts.length; i++) {
         if (parts[i].startsWith('v')) {
           version = parts[i].substring(1);
+          versionIndex = i;
           break;
         }
       }
 
-      const publicId = file.storageKey || file.fileName;
+      // สร้าง publicId จากส่วนที่เหลือของ path
+      let publicId: string;
+      if (versionIndex !== -1) {
+        // เอาเฉพาะส่วนหลังจาก version
+        publicId = parts.slice(versionIndex + 1).join('/');
+      } else {
+        // ถ้าไม่มี version ให้เอาเฉพาะส่วนหลังจาก deliveryType
+        publicId = parts.slice(2).join('/');
+      }
+
+      // ถ้าไม่มี publicId ให้ใช้ storageKey หรือ fileName
+      if (!publicId || publicId === '') {
+        publicId = file.storageKey || file.fileName;
+      }
+
+      // ลบ query parameters ออกจาก publicId
+      publicId = publicId.split('?')[0];
+
       const options: any = {
         resource_type: resourceType,
         type: deliveryType,
@@ -706,6 +747,14 @@ export class FileService {
         secure: true,
       };
       if (version) options.version = version;
+
+      logger.info(`🔐 Signing Cloudinary URL:`, {
+        publicId,
+        resourceType,
+        deliveryType,
+        version,
+        originalPath: file.path
+      });
 
       return cloudinary.url(publicId, options);
     } catch (err) {
