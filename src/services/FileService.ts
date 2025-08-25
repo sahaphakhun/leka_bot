@@ -680,9 +680,23 @@ export class FileService {
 
       const urlObj = new URL(file.path);
       const parts = urlObj.pathname.split('/').filter(Boolean);
+
+      // Remove cloud name segment if present
+      if (parts[0] === config.cloudinary.cloudName) {
+        parts.shift();
+      }
+
       const resourceType = parts[0] || 'image';
       const deliveryType = parts[1] || 'upload';
-      const version = parts[2]?.startsWith('v') ? parts[2].substring(1) : undefined;
+
+      // Find version segment (e.g., v1)
+      let version: string | undefined;
+      for (let i = 2; i < parts.length; i++) {
+        if (parts[i].startsWith('v')) {
+          version = parts[i].substring(1);
+          break;
+        }
+      }
 
       const publicId = file.storageKey || file.fileName;
       const options: any = {
