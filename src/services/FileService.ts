@@ -10,6 +10,8 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { v2 as cloudinary } from 'cloudinary';
+import https from 'https';
+import { URL } from 'url';
 
 export class FileService {
   private fileRepository: Repository<File>;
@@ -526,50 +528,82 @@ export class FileService {
     originalName: string;
   }> {
     const maxRetries = 3;
-    const timeout = 30000; // 30 วินาที
-    
+    const requestTimeoutMs = 45000; // 45 วินาที
+
+    const fetchWithHttps = (targetUrl: string): Promise<Buffer> => {
+      return new Promise((resolve, reject) => {
+        let timedOut = false;
+        const controller = setTimeout(() => {
+          timedOut = true;
+          reject(new Error('Request timeout'));
+        }, requestTimeoutMs);
+
+        const doRequest = (urlToGet: string, redirectsLeft: number) => {
+          const urlObj = new URL(urlToGet);
+          const options: https.RequestOptions = {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'LekaBot/1.0',
+              'Accept': '*/*',
+              'Connection': 'close'
+            }
+          };
+
+          const req = https.request(urlObj, options, (res) => {
+            // Handle redirects (3xx)
+            if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
+              if (redirectsLeft <= 0) {
+                clearTimeout(controller);
+                reject(new Error('Too many redirects'));
+                return;
+              }
+              const location = res.headers.location.startsWith('http')
+                ? res.headers.location
+                : `${urlObj.protocol}//${urlObj.host}${res.headers.location}`;
+              res.resume(); // discard
+              return doRequest(location, redirectsLeft - 1);
+            }
+
+            if (!res.statusCode || res.statusCode < 200 || res.statusCode >= 300) {
+              clearTimeout(controller);
+              reject(new Error(`HTTP ${res.statusCode}`));
+              return;
+            }
+
+            const chunks: Buffer[] = [];
+            res.on('data', (chunk) => chunks.push(Buffer.from(chunk)));
+            res.on('end', () => {
+              if (timedOut) return;
+              clearTimeout(controller);
+              resolve(Buffer.concat(chunks));
+            });
+          });
+
+          req.on('error', (err) => {
+            if (timedOut) return;
+            clearTimeout(controller);
+            reject(err);
+          });
+
+          req.end();
+        };
+
+        doRequest(targetUrl, 5);
+      });
+    };
+
+    let lastErr: any;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), timeout);
-        
-        const res = await fetch(file.path, {
-          signal: controller.signal,
-          headers: {
-            'User-Agent': 'LekaBot/1.0'
-          }
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status}: ${res.statusText}`);
-        }
-        
-        const arrayBuf = await res.arrayBuffer();
-        const content = Buffer.from(arrayBuf);
-        
-        return { 
-          content, 
-          mimeType: file.mimeType, 
-          originalName: file.originalName 
-        };
-        
-      } catch (error) {
-        if (attempt === maxRetries) {
-          // ลดการ logging ในครั้งสุดท้าย
-          if (error instanceof Error) {
-            throw new Error(`Failed to fetch remote file after ${maxRetries} attempts: ${error.message}`);
-          }
-          throw new Error(`Failed to fetch remote file after ${maxRetries} attempts`);
-        }
-        
-        // รอสักครู่ก่อนลองใหม่
-        await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+        const content = await fetchWithHttps(file.path);
+        return { content, mimeType: file.mimeType, originalName: file.originalName };
+      } catch (err) {
+        lastErr = err;
+        await new Promise(r => setTimeout(r, 1000 * attempt));
       }
     }
-    
-    throw new Error('Failed to fetch remote file');
+
+    throw new Error(`Failed to fetch remote file after ${maxRetries} attempts: ${lastErr instanceof Error ? lastErr.message : 'unknown error'}`);
   }
 
   /**
