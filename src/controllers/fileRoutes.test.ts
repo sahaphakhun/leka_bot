@@ -58,6 +58,7 @@ describe('File route handling', () => {
     expect(res.headers['content-disposition']).toContain('filename="test-image.jpg"');
     expect(res.body).toEqual(content);
     expect(mockFileService.getFileContent).toHaveBeenCalledWith('1');
+    expect(mockFileService.getFileExtension).toHaveBeenCalledWith('image/jpeg', 'test-image');
   });
 
   it('redirects previewFile to remote URL', async () => {
