@@ -875,6 +875,7 @@ class ApiController {
 
   /**
    * POST /api/groups/:groupId/files/upload - อัปโหลดไฟล์เข้าคลังไฟล์ของกลุ่มโดยตรง
+   * รองรับไฟล์รูปภาพ (JPEG, PNG, GIF), PDF, ข้อความธรรมดา และไฟล์เอกสาร Microsoft Office (Word, Excel, PowerPoint)
    * form-data fields: userId (LINE User ID), comment (optional), tags (comma-separated, optional)
    */
   public async uploadFiles(req: Request, res: Response): Promise<void> {
@@ -897,7 +898,10 @@ class ApiController {
         'image/png',
         'image/gif',
         'application/pdf',
-        'text/plain'
+        'text/plain',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
       ];
 
       // ตรวจสอบว่าไฟล์มีขนาดเกิน limit หรือประเภทไม่ถูกต้อง
@@ -906,7 +910,7 @@ class ApiController {
         if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
           res.status(400).json({
             success: false,
-            error: `Invalid file type: ${file.mimetype}`
+            error: `Invalid file type: ${file.mimetype}. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`
           });
           return;
         }
