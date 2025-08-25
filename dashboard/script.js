@@ -219,6 +219,21 @@ class Dashboard {
       this.handleRejectTask();
     });
 
+    // Event listener สำหรับการเปลี่ยนแปลงค่าใน select reviewTaskId
+    document.getElementById('reviewTaskId')?.addEventListener('change', (e) => {
+      const taskId = e.target.value;
+      const approveBtn = document.getElementById('approveTaskBtn');
+      const rejectBtn = document.getElementById('rejectTaskBtn');
+      
+      if (taskId) {
+        approveBtn.disabled = false;
+        rejectBtn.disabled = false;
+      } else {
+        approveBtn.disabled = true;
+        rejectBtn.disabled = true;
+      }
+    });
+
     document.getElementById('taskModalClose').addEventListener('click', () => {
       this.closeModal('taskModal');
     });
@@ -2845,18 +2860,46 @@ class Dashboard {
       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=pending`);
       const response2 = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=in_progress`);
       const tasks = [...(response.data || []), ...(response2.data || [])];
+      
+      console.log('📋 Found tasks for review:', tasks.length, 'tasks');
+      
       // อัปเดต cache รวมนอกเหนือจาก list หลัก เพื่อให้ openTaskModal ใช้ได้กว้างขึ้น
       this._taskCache = Array.from(new Map([...(this._taskCache||[]), ...tasks].map(t => [t.id, t])).values());
       const sel = document.getElementById('reviewTaskId');
-      sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+      
+      if (tasks.length === 0) {
+        sel.innerHTML = '<option value="">ไม่มีงานที่รอการตรวจสอบ</option>';
+        // ปิดปุ่มอนุมัติและตีกลับเมื่อไม่มีงาน
+        document.getElementById('approveTaskBtn').disabled = true;
+        document.getElementById('rejectTaskBtn').disabled = true;
+      } else {
+        sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+        // เปิดปุ่มอนุมัติและตีกลับเมื่อมีงาน
+        document.getElementById('approveTaskBtn').disabled = false;
+        document.getElementById('rejectTaskBtn').disabled = false;
+      }
     } catch (error) {
       console.error('populateReviewTaskSelect error:', error);
+      const sel = document.getElementById('reviewTaskId');
+      sel.innerHTML = '<option value="">เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
+      // ปิดปุ่มอนุมัติและตีกลับเมื่อเกิดข้อผิดพลาด
+      document.getElementById('approveTaskBtn').disabled = true;
+      document.getElementById('rejectTaskBtn').disabled = true;
     }
   }
 
   async handleApproveTask() {
     try {
       const taskId = document.getElementById('reviewTaskId').value;
+      
+      // ตรวจสอบว่า taskId มีค่าหรือไม่
+      if (!taskId) {
+        this.showToast('กรุณาเลือกงานที่ต้องการอนุมัติ', 'error');
+        return;
+      }
+      
+      console.log('🔍 Approving task with ID:', taskId);
+      
       const res = await this.apiRequest(`/tasks/${taskId}/complete`, {
         method: 'POST',
         body: JSON.stringify({ userId: this.currentUserId || 'unknown' })
@@ -2875,9 +2918,19 @@ class Dashboard {
   async handleRejectTask() {
     try {
       const taskId = document.getElementById('reviewTaskId').value;
+      
+      // ตรวจสอบว่า taskId มีค่าหรือไม่
+      if (!taskId) {
+        this.showToast('กรุณาเลือกงานที่ต้องการตีกลับ', 'error');
+        return;
+      }
+      
       const comment = document.getElementById('reviewComment').value;
       const newDue = document.getElementById('reviewNewDue').value;
       if (!newDue) { this.showToast('ระบุกำหนดส่งใหม่', 'error'); return; }
+      
+      console.log('🔍 Rejecting task with ID:', taskId);
+      
       // ส่ง ISO string เพื่อลด edge case timezone และใช้ moment-timezone
       const isoDue = this.formatDateForAPI(newDue);
       const res = await this.apiRequest(`/tasks/${taskId}`, {

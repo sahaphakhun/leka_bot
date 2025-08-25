@@ -708,7 +708,16 @@ export class FileService {
         parts.shift();
       }
 
-      const resourceType = parts[0] || 'image';
+      // กำหนด resourceType ตาม mimeType ของไฟล์
+      let resourceType: string;
+      if (file.mimeType.startsWith('video/') || file.mimeType.startsWith('audio/')) {
+        resourceType = 'video';
+      } else if (file.mimeType.startsWith('application/') || file.mimeType.startsWith('text/')) {
+        resourceType = 'raw';
+      } else {
+        resourceType = 'image';
+      }
+
       const deliveryType = parts[1] || 'upload';
 
       // Find version segment (e.g., v1)
@@ -753,7 +762,8 @@ export class FileService {
         resourceType,
         deliveryType,
         version,
-        originalPath: file.path
+        originalPath: file.path,
+        mimeType: file.mimeType
       });
 
       return cloudinary.url(publicId, options);
