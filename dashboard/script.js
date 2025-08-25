@@ -3073,7 +3073,38 @@ class Dashboard {
       // ตั้งค่าปุ่มดาวน์โหลด
       const downloadBtn = document.getElementById('downloadFileBtn');
       downloadBtn.onclick = () => this.downloadFile(fileId);
-      
+
+      // ตรวจสอบขนาดไฟล์ก่อนพรีวิว
+      const previewUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
+      const MAX_PREVIEW_SIZE = 1 * 1024 * 1024; // 1MB
+      let fileSize = fileData.size;
+
+      if (!fileSize) {
+        try {
+          const headRes = await fetch(previewUrl, { method: 'HEAD' });
+          const len = headRes.headers.get('Content-Length') || headRes.headers.get('content-length');
+          if (len) fileSize = parseInt(len, 10);
+        } catch (e) {
+          console.warn('Failed to fetch file size:', e);
+        }
+      }
+
+      if (fileSize && fileSize > MAX_PREVIEW_SIZE) {
+        const sizeStr = this.formatFileSize(fileSize);
+        const limitStr = this.formatFileSize(MAX_PREVIEW_SIZE);
+        content.innerHTML = `
+          <div class="file-preview-placeholder">
+            <i class="fas ${this.getFileIcon(fileData.mimeType)}"></i>
+            <h3>${fileData.originalName}</h3>
+            <p>ไฟล์นี้มีขนาด ${sizeStr} ซึ่งเกินขีดจำกัดการพรีวิว (${limitStr})</p>
+            <button class="btn btn-primary" onclick="dashboard.downloadFile('${fileId}')">
+              <i class="fas fa-download"></i> ดาวน์โหลดไฟล์
+            </button>
+          </div>`;
+        loading.style.display = 'none';
+        return;
+      }
+
       // สร้างเนื้อหาตามประเภทไฟล์
       const mimeType = fileData.mimeType;
       let fileContent = '';
@@ -3087,8 +3118,10 @@ class Dashboard {
         const pdfUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
         fileContent = `<iframe src="${pdfUrl}" style="width: 100%; height: 70vh; border: none;"></iframe>`;
       } else if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml')) {
-        // แสดงไฟล์ข้อความ
-        const textResponse = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`);
+        // แสดงไฟล์ข้อความ (อ่านเฉพาะช่วงแรก)
+        const textResponse = await fetch(previewUrl, {
+          headers: { Range: `bytes=0-${MAX_PREVIEW_SIZE}` }
+        });
         const textContent = await textResponse.text();
         fileContent = `<pre style="background: #f8f9fa; padding: 20px; border-radius: 8px; overflow: auto; max-height: 60vh; white-space: pre-wrap; font-family: 'Courier New', monospace;">${this.escapeHtml(textContent)}</pre>`;
       } else if (mimeType.startsWith('video/')) {
