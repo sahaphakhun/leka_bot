@@ -570,11 +570,11 @@ class ApiController {
       // ตรวจสอบและสร้างชื่อไฟล์ที่เหมาะสม
       let downloadName = originalName && originalName.trim() !== '' ? originalName : `file_${fileId}`;
 
-      // เพิ่มนามสกุลหากชื่อไฟล์ไม่มี
-      if (!/\.[A-Za-z0-9]{1,8}$/i.test(downloadName)) {
-        const ext = (this.fileService as any).getFileExtension
-          ? (this.fileService as any).getFileExtension(mimeType, originalName)
-          : '';
+      // เพิ่มนามสกุลให้ถูกต้อง
+      const ext = (this.fileService as any).getFileExtension
+        ? (this.fileService as any).getFileExtension(mimeType, downloadName)
+        : '';
+      if (ext && !downloadName.toLowerCase().endsWith(ext.toLowerCase())) {
         downloadName += ext;
       }
 
