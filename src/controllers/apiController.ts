@@ -559,84 +559,15 @@ class ApiController {
         });
         return;
       }
-      fileUrl = file.path;
+      fileUrl = this.fileService.resolveFileUrl(file);
 
       // Debug: log ข้อมูลไฟล์
-      logger.info(`🔍 Download file: ${fileId}, path: ${file.path}, mimeType: ${file.mimeType}`);
+      logger.info(`🔍 Download file: ${fileId}, path: ${fileUrl}, mimeType: ${file.mimeType}`);
 
-      // ถ้าเป็น URL ให้ลองสตรีมตรงผ่าน backend (ลดการใช้หน่วยความจำ และรองรับไฟล์ใหญ่)
-      if (/^https?:\/\//i.test(file.path)) {
-        const mimeType = file.mimeType;
-        const ensureExtension = (name: string, mt: string) => {
-          const hasExt = /\.[A-Za-z0-9]{1,8}$/.test(name);
-          if (hasExt) return name;
-          const map: Record<string, string> = {
-            'image/jpeg': '.jpg',
-            'image/png': '.png',
-            'image/gif': '.gif',
-            'image/webp': '.webp',
-            'video/mp4': '.mp4',
-            'video/quicktime': '.mov',
-            'audio/mpeg': '.mp3',
-            'audio/wav': '.wav',
-            'application/pdf': '.pdf',
-            'text/plain': '.txt'
-          };
-          const ext = map[mt] || '';
-          return name + ext;
-        };
-        const downloadName = ensureExtension(file.originalName, mimeType);
-        const safeName = sanitize(downloadName);
-
-        try {
-          const httpsReq = https.get(file.path, { 
-            headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' },
-            timeout: 30000 // 30 วินาที timeout
-          }, (remote) => {
-            if (remote.statusCode && remote.statusCode >= 300 && remote.statusCode < 400 && remote.headers.location) {
-              // follow one redirect for simplicity in controller; deeper redirects handled in service if needed
-              https.get(remote.headers.location, (r2) => {
-                res.setHeader('Content-Type', mimeType);
-                res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
-                if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
-                r2.pipe(res);
-              }).on('error', (err) => {
-                logger.error(`❌ Redirect error for file ${fileId}:`, err);
-                // Fallback to getFileContent if streaming fails
-                this.fallbackToFileDownload(fileId, res, mimeType, safeName);
-              });
-              return;
-            }
-            if (!remote.statusCode || remote.statusCode < 200 || remote.statusCode >= 300) {
-              logger.error(`❌ HTTP error for file ${fileId}: status ${remote.statusCode}`);
-              // Fallback to getFileContent if streaming fails
-              this.fallbackToFileDownload(fileId, res, mimeType, safeName);
-              remote.resume();
-              return;
-            }
-            res.setHeader('Content-Type', mimeType);
-            res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
-            if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
-            remote.pipe(res);
-          });
-          httpsReq.on('error', (err) => {
-            logger.error(`❌ HTTPS request error for file ${fileId}:`, err);
-            // Fallback to getFileContent if streaming fails
-            this.fallbackToFileDownload(fileId, res, mimeType, safeName);
-          });
-          httpsReq.on('timeout', () => {
-            logger.error(`❌ HTTPS timeout for file ${fileId}`);
-            httpsReq.destroy();
-            // Fallback to getFileContent if streaming fails
-            this.fallbackToFileDownload(fileId, res, mimeType, safeName);
-          });
-          return;
-        } catch (error) {
-          logger.error(`❌ HTTPS streaming failed for file ${fileId}:`, error);
-          // Fallback to getFileContent if streaming fails
-          this.fallbackToFileDownload(fileId, res, mimeType, safeName);
-          return;
-        }
+      // ถ้าเป็น URL ให้ redirect โดยตรง
+      if (/^https?:\/\//i.test(fileUrl)) {
+        res.redirect(fileUrl);
+        return;
       }
 
       // ถ้าเป็น URL แต่ streaming ไม่สำเร็จ หรือไม่ใช่ URL: ดึงเนื้อไฟล์จาก local/remote ผ่าน service
@@ -799,56 +730,14 @@ class ApiController {
         });
         return;
       }
-      fileUrl = file.path;
+      fileUrl = this.fileService.resolveFileUrl(file);
 
       // Debug: log ข้อมูลไฟล์
-      logger.info(`🔍 Preview file: ${fileId}, path: ${file.path}, mimeType: ${file.mimeType}`);
+      logger.info(`🔍 Preview file: ${fileId}, path: ${fileUrl}, mimeType: ${file.mimeType}`);
 
-      // ถ้าเป็น URL ให้สตรีมตรงผ่าน backend สำหรับ preview
-      if (/^https?:\/\//i.test(file.path)) {
-        const mimeType = file.mimeType;
-        const urlObj = new URL(file.path);
-        const client = urlObj.protocol === 'https:' ? https : http;
-        const req = client.get(urlObj, {
-          headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' },
-          timeout: 30000 // 30 วินาที timeout
-        }, (remote) => {
-          if (remote.statusCode && remote.statusCode >= 300 && remote.statusCode < 400 && remote.headers.location) {
-            const redirectUrl = new URL(remote.headers.location, urlObj);
-            const redirectClient = redirectUrl.protocol === 'https:' ? https : http;
-            redirectClient.get(redirectUrl, (r2) => {
-              res.setHeader('Content-Type', mimeType);
-              if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
-              r2.pipe(res);
-            }).on('error', (err) => {
-              logger.error(`❌ Preview redirect error for file ${fileId}:`, err);
-              // Fallback to getFileContent if streaming fails
-              this.fallbackToPreviewFile(fileId, res);
-            });
-            return;
-          }
-          if (!remote.statusCode || remote.statusCode < 200 || remote.statusCode >= 300) {
-            logger.error(`❌ Preview HTTP error for file ${fileId}: status ${remote.statusCode}`);
-            // Fallback to getFileContent if streaming fails
-            this.fallbackToPreviewFile(fileId, res);
-            remote.resume();
-            return;
-          }
-          res.setHeader('Content-Type', mimeType);
-          if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
-          remote.pipe(res);
-        });
-        req.on('error', (err) => {
-          logger.error(`❌ Preview HTTP(S) request error for file ${fileId}:`, err);
-          // Fallback to getFileContent if streaming fails
-          this.fallbackToPreviewFile(fileId, res);
-        });
-        req.on('timeout', () => {
-          logger.error(`❌ Preview timeout for file ${fileId}`);
-          req.destroy();
-          // Fallback to getFileContent if streaming fails
-          this.fallbackToPreviewFile(fileId, res);
-        });
+      // ถ้าเป็น URL ให้ redirect โดยตรงสำหรับ preview
+      if (/^https?:\/\//i.test(fileUrl)) {
+        res.redirect(fileUrl);
         return;
       }
 

@@ -626,7 +626,8 @@ export class FileService {
     let lastErr: any;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const content = await fetchWithHttp(file.path);
+        const targetUrl = this.resolveFileUrl(file);
+        const content = await fetchWithHttp(targetUrl);
         return { content, mimeType: file.mimeType, originalName: file.originalName };
       } catch (err) {
         lastErr = err;
@@ -651,6 +652,52 @@ export class FileService {
     const finalErr: any = new Error(`Failed to fetch remote file after ${maxRetries} attempts: ${lastErr instanceof Error ? lastErr.message : 'unknown error'}`);
     if ((lastErr as any)?.url) finalErr.url = (lastErr as any).url;
     throw finalErr;
+  }
+
+  /**
+   * สร้าง URL สำหรับเข้าถึงไฟล์ โดยเซ็นชื่อให้ Cloudinary หากจำเป็น
+   */
+  public resolveFileUrl(file: File): string {
+    if (!file.path) return file.path;
+    if (file.storageProvider === 'cloudinary') {
+      return this.signCloudinaryUrl(file);
+    }
+    return file.path;
+  }
+
+  /**
+   * สร้างลายเซ็นสำหรับ Cloudinary URL เพื่อหลีกเลี่ยงปัญหา 401
+   */
+  private signCloudinaryUrl(file: File): string {
+    try {
+      if (
+        !config.cloudinary.cloudName ||
+        !config.cloudinary.apiSecret ||
+        !file.path.includes('res.cloudinary.com')
+      ) {
+        return file.path;
+      }
+
+      const urlObj = new URL(file.path);
+      const parts = urlObj.pathname.split('/').filter(Boolean);
+      const resourceType = parts[0] || 'image';
+      const deliveryType = parts[1] || 'upload';
+      const version = parts[2]?.startsWith('v') ? parts[2].substring(1) : undefined;
+
+      const publicId = file.storageKey || file.fileName;
+      const options: any = {
+        resource_type: resourceType,
+        type: deliveryType,
+        sign_url: true,
+        secure: true,
+      };
+      if (version) options.version = version;
+
+      return cloudinary.url(publicId, options);
+    } catch (err) {
+      logger.warn('⚠️ Failed to sign Cloudinary URL', err);
+      return file.path;
+    }
   }
 
   /**
