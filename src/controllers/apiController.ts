@@ -551,7 +551,6 @@ class ApiController {
       }
 
       const file = await this.fileService.getFileInfo(fileId);
-      fileUrl = file.path;
       if (!file) {
         res.status(404).json({
           success: false,
@@ -559,6 +558,7 @@ class ApiController {
         });
         return;
       }
+      fileUrl = file.path;
 
       // Debug: log ข้อมูลไฟล์
       logger.info(`🔍 Download file: ${fileId}, path: ${file.path}, mimeType: ${file.mimeType}`);
@@ -788,7 +788,6 @@ class ApiController {
       }
 
       const file = await this.fileService.getFileInfo(fileId);
-      fileUrl = file.path;
       if (!file) {
         res.status(404).json({
           success: false,
@@ -796,6 +795,7 @@ class ApiController {
         });
         return;
       }
+      fileUrl = file.path;
 
       // Debug: log ข้อมูลไฟล์
       logger.info(`🔍 Preview file: ${fileId}, path: ${file.path}, mimeType: ${file.mimeType}`);
