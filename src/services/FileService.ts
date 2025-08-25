@@ -96,7 +96,7 @@ export class FileService {
         const base64 = data.content.toString('base64');
         const ext = this.getFileExtension(data.mimeType, data.originalName);
         const folder = `${config.cloudinary.uploadFolder}/${data.groupId}`;
-        const publicId = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+        const publicId = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}${ext}`;
         const resourceType = data.mimeType.startsWith('application/') ? 'raw' : 'auto';
         const uploadRes = await cloudinary.uploader.upload(`data:${data.mimeType};base64,${base64}` as any, {
           folder,
@@ -107,12 +107,12 @@ export class FileService {
         fileRecord = this.fileRepository.create({
           groupId: internalGroupId,
           originalName: data.originalName || `file_${data.messageId}${ext}`,
-          fileName: uploadRes.public_id,
+          fileName: publicId,
           mimeType: data.mimeType,
           size: uploadRes.bytes || data.content.length,
           path: uploadRes.secure_url, // เก็บเป็น URL
           storageProvider: 'cloudinary',
-          storageKey: uploadRes.public_id,
+          storageKey: publicId,
           uploadedBy: internalUserId,
           isPublic: false,
           tags: [],

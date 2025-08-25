@@ -75,12 +75,12 @@ describe('FileService.resolveFileUrl', () => {
       path: 'https://res.cloudinary.com/demo/raw/upload/v1/publicid.pdf',
       mimeType: 'application/pdf',
       storageProvider: 'cloudinary',
-      storageKey: 'publicid',
+      storageKey: 'publicid.pdf',
     };
 
     const result = service.resolveFileUrl(file);
     expect(urlMock).toHaveBeenCalledWith(
-      'publicid',
+      'publicid.pdf',
       expect.objectContaining({
         resource_type: 'raw',
         type: 'upload',
@@ -100,12 +100,12 @@ describe('FileService.resolveFileUrl', () => {
       path: 'https://res.cloudinary.com/demo/image/upload/s--abc--/v1/folder/file.jpg',
       mimeType: 'image/jpeg',
       storageProvider: 'cloudinary',
-      storageKey: 'folder/file',
+      storageKey: 'folder/file.jpg',
     };
 
     service.resolveFileUrl(file);
     expect(urlMock).toHaveBeenLastCalledWith(
-      'folder/file',
+      'folder/file.jpg',
       expect.objectContaining({
         resource_type: 'image',
         type: 'upload',
