@@ -1,6 +1,7 @@
 // API Controller - REST API endpoints
 
 import { Router, Request, Response } from 'express';
+import http from 'http';
 import https from 'https';
 import { TaskService } from '@/services/TaskService';
 import { UserService } from '@/services/UserService';
@@ -780,12 +781,16 @@ class ApiController {
       // ถ้าเป็น URL ให้สตรีมตรงผ่าน backend สำหรับ preview
       if (/^https?:\/\//i.test(file.path)) {
         const mimeType = file.mimeType;
-        const httpsReq = https.get(file.path, { 
+        const urlObj = new URL(file.path);
+        const client = urlObj.protocol === 'https:' ? https : http;
+        const req = client.get(urlObj, {
           headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' },
           timeout: 30000 // 30 วินาที timeout
         }, (remote) => {
           if (remote.statusCode && remote.statusCode >= 300 && remote.statusCode < 400 && remote.headers.location) {
-            https.get(remote.headers.location, (r2) => {
+            const redirectUrl = new URL(remote.headers.location, urlObj);
+            const redirectClient = redirectUrl.protocol === 'https:' ? https : http;
+            redirectClient.get(redirectUrl, (r2) => {
               res.setHeader('Content-Type', mimeType);
               if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
               r2.pipe(res);
@@ -807,14 +812,14 @@ class ApiController {
           if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
           remote.pipe(res);
         });
-        httpsReq.on('error', (err) => {
-          logger.error(`❌ Preview HTTPS request error for file ${fileId}:`, err);
+        req.on('error', (err) => {
+          logger.error(`❌ Preview HTTP(S) request error for file ${fileId}:`, err);
           // Fallback to getFileContent if streaming fails
           this.fallbackToPreviewFile(fileId, res);
         });
-        httpsReq.on('timeout', () => {
+        req.on('timeout', () => {
           logger.error(`❌ Preview timeout for file ${fileId}`);
-          httpsReq.destroy();
+          req.destroy();
           // Fallback to getFileContent if streaming fails
           this.fallbackToPreviewFile(fileId, res);
         });

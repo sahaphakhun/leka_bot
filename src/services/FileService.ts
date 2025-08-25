@@ -10,6 +10,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import crypto from 'crypto';
 import { v2 as cloudinary } from 'cloudinary';
+import http from 'http';
 import https from 'https';
 import { URL } from 'url';
 
@@ -530,7 +531,7 @@ export class FileService {
     const maxRetries = 3;
     const requestTimeoutMs = 45000; // 45 วินาที
 
-    const fetchWithHttps = (targetUrl: string): Promise<Buffer> => {
+    const fetchWithHttp = (targetUrl: string): Promise<Buffer> => {
       return new Promise((resolve, reject) => {
         let timedOut = false;
         const controller = setTimeout(() => {
@@ -540,7 +541,8 @@ export class FileService {
 
         const doRequest = (urlToGet: string, redirectsLeft: number) => {
           const urlObj = new URL(urlToGet);
-          const options: https.RequestOptions = {
+          const lib = urlObj.protocol === 'https:' ? https : http;
+          const options: http.RequestOptions = {
             method: 'GET',
             headers: {
               'User-Agent': 'LekaBot/1.0',
@@ -549,7 +551,7 @@ export class FileService {
             }
           };
 
-          const req = https.request(urlObj, options, (res) => {
+          const req = lib.request(urlObj, options, (res) => {
             // Handle redirects (3xx)
             if (res.statusCode && res.statusCode >= 300 && res.statusCode < 400 && res.headers.location) {
               if (redirectsLeft <= 0) {
@@ -595,7 +597,7 @@ export class FileService {
     let lastErr: any;
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
       try {
-        const content = await fetchWithHttps(file.path);
+        const content = await fetchWithHttp(file.path);
         return { content, mimeType: file.mimeType, originalName: file.originalName };
       } catch (err) {
         lastErr = err;
