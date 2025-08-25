@@ -1,6 +1,7 @@
 // API Controller - REST API endpoints
 
 import { Router, Request, Response } from 'express';
+import https from 'https';
 import { TaskService } from '@/services/TaskService';
 import { UserService } from '@/services/UserService';
 import { FileService } from '@/services/FileService';
@@ -556,7 +557,57 @@ class ApiController {
         return;
       }
 
-      // เสมอไปดึงเนื้อไฟล์ผ่าน backend (proxy) เพื่อหลีกเลี่ยงการ redirect ออกนอกโดเมน (CSP)
+      // ถ้าเป็น URL ให้ลองสตรีมตรงผ่าน backend (ลดการใช้หน่วยความจำ และรองรับไฟล์ใหญ่)
+      if (/^https?:\/\//i.test(file.path)) {
+        const mimeType = file.mimeType;
+        const ensureExtension = (name: string, mt: string) => {
+          const hasExt = /\.[A-Za-z0-9]{1,8}$/.test(name);
+          if (hasExt) return name;
+          const map: Record<string, string> = {
+            'image/jpeg': '.jpg',
+            'image/png': '.png',
+            'image/gif': '.gif',
+            'image/webp': '.webp',
+            'video/mp4': '.mp4',
+            'video/quicktime': '.mov',
+            'audio/mpeg': '.mp3',
+            'audio/wav': '.wav',
+            'application/pdf': '.pdf',
+            'text/plain': '.txt'
+          };
+          const ext = map[mt] || '';
+          return name + ext;
+        };
+        const downloadName = ensureExtension(file.originalName, mimeType);
+
+        const req = https.get(file.path, { headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' } }, (remote) => {
+          if (remote.statusCode && remote.statusCode >= 300 && remote.statusCode < 400 && remote.headers.location) {
+            // follow one redirect for simplicity in controller; deeper redirects handled in service if needed
+            https.get(remote.headers.location, (r2) => {
+              res.setHeader('Content-Type', mimeType);
+              res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+              if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
+              r2.pipe(res);
+            }).on('error', (err) => {
+              res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+            });
+            return;
+          }
+          if (!remote.statusCode || remote.statusCode < 200 || remote.statusCode >= 300) {
+            res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+            remote.resume();
+            return;
+          }
+          res.setHeader('Content-Type', mimeType);
+          res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+          if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
+          remote.pipe(res);
+        });
+        req.on('error', () => res.status(503).json({ success: false, error: 'File temporarily unavailable' }));
+        return;
+      }
+
+      // ไม่ใช่ URL: ดึงเนื้อไฟล์จาก local/remote ผ่าน service
       const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
       // สร้างชื่อไฟล์ให้มีนามสกุลที่ตรงกับ mimeType หากชื่อเดิมไม่มีนามสกุล
       const ensureExtension = (name: string, mt: string) => {
@@ -641,7 +692,32 @@ class ApiController {
         return;
       }
 
-      // เสมอไปดึงเนื้อไฟล์ผ่าน backend (proxy) เพื่อหลีกเลี่ยงการ redirect ออกนอกโดเมน (CSP)
+      // ถ้าเป็น URL ให้สตรีมตรงผ่าน backend สำหรับ preview
+      if (/^https?:\/\//i.test(file.path)) {
+        const mimeType = file.mimeType;
+        const req = https.get(file.path, { headers: { 'User-Agent': 'LekaBot/1.0', 'Accept': '*/*', 'Connection': 'close' } }, (remote) => {
+          if (remote.statusCode && remote.statusCode >= 300 && remote.statusCode < 400 && remote.headers.location) {
+            https.get(remote.headers.location, (r2) => {
+              res.setHeader('Content-Type', mimeType);
+              if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
+              r2.pipe(res);
+            }).on('error', () => res.status(503).json({ success: false, error: 'File temporarily unavailable' }));
+            return;
+          }
+          if (!remote.statusCode || remote.statusCode < 200 || remote.statusCode >= 300) {
+            res.status(503).json({ success: false, error: 'File temporarily unavailable' });
+            remote.resume();
+            return;
+          }
+          res.setHeader('Content-Type', mimeType);
+          if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
+          remote.pipe(res);
+        });
+        req.on('error', () => res.status(503).json({ success: false, error: 'File temporarily unavailable' }));
+        return;
+      }
+
+      // ไม่ใช่ URL: ดึงเนื้อไฟล์ผ่าน service
       const { content, mimeType } = await this.fileService.getFileContent(fileId);
 
       // รองรับเฉพาะไฟล์ที่ดูตัวอย่างได้
