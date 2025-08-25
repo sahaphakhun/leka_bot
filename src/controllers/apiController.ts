@@ -13,6 +13,7 @@ import { NotificationCardService } from '@/services/NotificationCardService';
 import multer from 'multer';
 import { logger } from '@/utils/logger';
 import { serviceContainer } from '@/utils/serviceContainer';
+import { sanitize } from '@/utils';
 import { authenticate } from '@/middleware/auth';
 import { validateRequest, taskSchemas } from '@/middleware/validation';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
@@ -585,6 +586,7 @@ class ApiController {
           return name + ext;
         };
         const downloadName = ensureExtension(file.originalName, mimeType);
+        const safeName = sanitize(downloadName);
 
         try {
           const httpsReq = https.get(file.path, { 
@@ -595,44 +597,44 @@ class ApiController {
               // follow one redirect for simplicity in controller; deeper redirects handled in service if needed
               https.get(remote.headers.location, (r2) => {
                 res.setHeader('Content-Type', mimeType);
-                res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+                res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
                 if (r2.headers['content-length']) res.setHeader('Content-Length', r2.headers['content-length']);
                 r2.pipe(res);
               }).on('error', (err) => {
                 logger.error(`❌ Redirect error for file ${fileId}:`, err);
                 // Fallback to getFileContent if streaming fails
-                this.fallbackToFileDownload(fileId, res, mimeType, downloadName);
+                this.fallbackToFileDownload(fileId, res, mimeType, safeName);
               });
               return;
             }
             if (!remote.statusCode || remote.statusCode < 200 || remote.statusCode >= 300) {
               logger.error(`❌ HTTP error for file ${fileId}: status ${remote.statusCode}`);
               // Fallback to getFileContent if streaming fails
-              this.fallbackToFileDownload(fileId, res, mimeType, downloadName);
+              this.fallbackToFileDownload(fileId, res, mimeType, safeName);
               remote.resume();
               return;
             }
             res.setHeader('Content-Type', mimeType);
-            res.setHeader('Content-Disposition', `attachment; filename="${downloadName}"`);
+            res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
             if (remote.headers['content-length']) res.setHeader('Content-Length', remote.headers['content-length']);
             remote.pipe(res);
           });
           httpsReq.on('error', (err) => {
             logger.error(`❌ HTTPS request error for file ${fileId}:`, err);
             // Fallback to getFileContent if streaming fails
-            this.fallbackToFileDownload(fileId, res, mimeType, downloadName);
+            this.fallbackToFileDownload(fileId, res, mimeType, safeName);
           });
           httpsReq.on('timeout', () => {
             logger.error(`❌ HTTPS timeout for file ${fileId}`);
             httpsReq.destroy();
             // Fallback to getFileContent if streaming fails
-            this.fallbackToFileDownload(fileId, res, mimeType, downloadName);
+            this.fallbackToFileDownload(fileId, res, mimeType, safeName);
           });
           return;
         } catch (error) {
           logger.error(`❌ HTTPS streaming failed for file ${fileId}:`, error);
           // Fallback to getFileContent if streaming fails
-          this.fallbackToFileDownload(fileId, res, mimeType, downloadName);
+          this.fallbackToFileDownload(fileId, res, mimeType, safeName);
           return;
         }
       }
@@ -659,10 +661,11 @@ class ApiController {
         return name + ext;
       };
       const downloadName = ensureExtension(originalName, mimeType);
+      const safeName = sanitize(downloadName);
 
       res.set({
         'Content-Type': mimeType,
-        'Content-Disposition': `attachment; filename="${downloadName}"`,
+        'Content-Disposition': `attachment; filename="${safeName}"`,
         'Content-Length': content.length.toString()
       });
 
@@ -695,10 +698,11 @@ class ApiController {
     try {
       logger.info(`🔄 Fallback: ดึงไฟล์ ${fileId} ผ่าน getFileContent`);
       const { content, mimeType: actualMimeType, originalName } = await this.fileService.getFileContent(fileId);
-      
+      const safeName = sanitize(downloadName);
+
       res.set({
         'Content-Type': actualMimeType || mimeType,
-        'Content-Disposition': `attachment; filename="${downloadName}"`,
+        'Content-Disposition': `attachment; filename="${safeName}"`,
         'Content-Length': content.length.toString()
       });
       
