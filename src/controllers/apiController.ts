@@ -951,13 +951,28 @@ class ApiController {
         return;
       }
 
-      // ตรวจสอบว่าไฟล์มีขนาดเกิน limit หรือไม่
+      const ALLOWED_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'application/pdf',
+        'text/plain'
+      ];
+
+      // ตรวจสอบว่าไฟล์มีขนาดเกิน limit หรือประเภทไม่ถูกต้อง
       const maxFileSize = config.storage.maxFileSize || 10 * 1024 * 1024; // 10MB default
       for (const file of files) {
+        if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+          res.status(400).json({
+            success: false,
+            error: `Invalid file type: ${file.mimetype}`
+          });
+          return;
+        }
         if (file.size > maxFileSize) {
-          res.status(400).json({ 
-            success: false, 
-            error: `File ${file.originalname} is too large. Maximum size is ${Math.round(maxFileSize / 1024 / 1024)}MB` 
+          res.status(400).json({
+            success: false,
+            error: `File ${file.originalname} is too large. Maximum size is ${Math.round(maxFileSize / 1024 / 1024)}MB`
           });
           return;
         }
