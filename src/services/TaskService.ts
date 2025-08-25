@@ -1,6 +1,6 @@
 // Task Service - จัดการงานและปฏิทิน
 
-import { Repository, In, MoreThanOrEqual } from 'typeorm';
+import { Repository, In, MoreThanOrEqual, QueryRunner } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { Task, Group, User, File } from '@/models';
 import { Task as TaskType, CalendarEvent } from '@/types';
@@ -197,22 +197,29 @@ export class TaskService {
 
       // ผูกไฟล์เข้ากับงานถ้ามีการแนบไฟล์มาตอนสร้างงาน
       if (data.fileIds && data.fileIds.length > 0) {
+        const queryRunner = AppDataSource.createQueryRunner();
+        await queryRunner.connect();
+        await queryRunner.startTransaction();
         try {
           for (const fileId of data.fileIds) {
-            await this.fileService.linkFileToTask(fileId, savedTask.id);
+            await this.fileService.linkFileToTask(fileId, savedTask.id, queryRunner);
             // อัปเดตข้อมูลไฟล์ให้เชื่อมโยงกับกลุ่มและเปลี่ยนสถานะ
-            const file = await this.fileRepository.findOneBy({ id: fileId });
+            const file = await queryRunner.manager.findOne(File, { where: { id: fileId } });
             if (file) {
               file.groupId = group.id;
               file.folderStatus = 'in_progress'; // งานยังไม่เสร็จ
               file.attachmentType = 'initial'; // ไฟล์แนบตอนสร้างงาน
-              await this.fileRepository.save(file);
+              await queryRunner.manager.save(file);
             }
           }
+          await queryRunner.commitTransaction();
           console.log(`✅ Linked ${data.fileIds.length} initial files to task: ${savedTask.title}`);
         } catch (error) {
-          console.warn('⚠️ Failed to link some files to task:', error);
+          await queryRunner.rollbackTransaction();
+          console.warn('⚠️ Failed to link files to task. Transaction rolled back:', error);
           // ไม่ throw error เพราะไม่ต้องการให้การสร้างงานล้มเหลว
+        } finally {
+          await queryRunner.release();
         }
       }
 
@@ -685,30 +692,34 @@ export class TaskService {
     comment?: string,
     links?: string[]
   ): Promise<Task> {
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
+
+    let saved: Task;
+    let task: Task;
+    let submitter: User;
+
     try {
-      const task = await this.taskRepository.findOne({
+      task = await queryRunner.manager.findOne(Task, {
         where: { id: taskId },
         relations: ['assignedUsers', 'group', 'attachedFiles']
       });
       if (!task) throw new Error('Task not found');
 
       // แปลง LINE → internal user id
-      const submitter = await this.userRepository.findOneBy({ lineUserId: submitterLineUserId });
+      submitter = await queryRunner.manager.findOne(User, { where: { lineUserId: submitterLineUserId } });
       if (!submitter) throw new Error('Submitter not found');
 
       // ผูกไฟล์เข้ากับงานและอัปเดตข้อมูลไฟล์
       for (const fid of fileIds) {
-        try {
-          await this.fileService.linkFileToTask(fid, task.id);
-          const file = await this.fileRepository.findOneBy({ id: fid });
-          if (file) {
-            file.groupId = task.groupId;
-            file.folderStatus = 'completed';
-            file.attachmentType = 'submission'; // ไฟล์แนบตอนส่งงาน
-            await this.fileRepository.save(file);
-          }
-        } catch (e) {
-          console.warn('⚠️ linkFileToTask failed:', fid, e);
+        await this.fileService.linkFileToTask(fid, task.id, queryRunner);
+        const file = await queryRunner.manager.findOne(File, { where: { id: fid } });
+        if (file) {
+          file.groupId = task.groupId;
+          file.folderStatus = 'completed';
+          file.attachmentType = 'submission'; // ไฟล์แนบตอนส่งงาน
+          await queryRunner.manager.save(file);
         }
       }
 
@@ -731,10 +742,10 @@ export class TaskService {
       });
 
       const reviewDue = new Date(now.getTime() + 2 * 24 * 60 * 60 * 1000);
-      
+
       // ใช้ helper method เพื่อดึงข้อมูลผู้ตรวจ
       const reviewerUserId = this.getTaskReviewer(task);
-      
+
       task.workflow = {
         ...(task.workflow || {}),
         submissions,
@@ -756,61 +767,65 @@ export class TaskService {
         task.status = 'in_progress';
       }
 
-      const saved = await this.taskRepository.save(task);
-
-      // เตรียมลิงก์ไฟล์สำหรับผู้ตรวจ
-      const fileLinks = fileIds.map(fid => this.fileService.generateDownloadUrl(task.group.id, fid));
-
-      // แจ้งผู้ตรวจให้ตรวจภายใน 2 วัน
-      try {
-        const reviewerInternalId = this.getTaskReviewer(saved);
-        console.log(`🔍 Looking for reviewer with ID: ${reviewerInternalId}`);
-        
-        const reviewer = await this.userRepository.findOneBy({ id: reviewerInternalId });
-        if (reviewer) {
-          console.log(`✅ Found reviewer: ${reviewer.displayName} (${reviewer.lineUserId})`);
-          
-          await this.notificationService.sendReviewRequest(saved as any, reviewer.lineUserId, {
-            submitterDisplayName: submitter.displayName,
-            fileCount: fileIds.length,
-            links: (links && links.length > 0) ? links : fileLinks
-          } as any);
-          
-          console.log(`📤 Review request sent to reviewer: ${reviewer.displayName}`);
-        } else {
-          console.warn(`⚠️ Reviewer not found for ID: ${reviewerInternalId}`);
-        }
-      } catch (err) {
-        console.error('❌ Failed to send review request notification:', err);
-        // ไม่ throw error เพราะไม่ต้องการให้การส่งงานล้มเหลว
-      }
-
-      // แจ้งในกลุ่มว่ามีการส่งงาน
-      try {
-        if (task.group) {
-          console.log(`📢 Sending task submitted notification to group: ${task.group.name || task.group.id}`);
-          
-          await this.notificationService.sendTaskSubmittedNotification(
-            { ...saved, group: task.group } as any,
-            submitter.displayName,
-            fileIds.length,
-            links && links.length > 0 ? links : fileLinks
-          );
-          
-          console.log(`✅ Task submitted notification sent to group`);
-        } else {
-          console.warn(`⚠️ Task has no group, skipping group notification`);
-        }
-      } catch (err) {
-        console.error('❌ Failed to send task submitted notification:', err);
-        // ไม่ throw error เพราะไม่ต้องการให้การส่งงานล้มเหลว
-      }
-
-      return saved;
+      saved = await queryRunner.manager.save(task);
+      await queryRunner.commitTransaction();
     } catch (error) {
+      await queryRunner.rollbackTransaction();
       console.error('❌ Error recording submission:', error);
       throw error;
+    } finally {
+      await queryRunner.release();
     }
+
+    // เตรียมลิงก์ไฟล์สำหรับผู้ตรวจ
+    const fileLinks = fileIds.map(fid => this.fileService.generateDownloadUrl(task.group.id, fid));
+
+    // แจ้งผู้ตรวจให้ตรวจภายใน 2 วัน
+    try {
+      const reviewerInternalId = this.getTaskReviewer(saved);
+      console.log(`🔍 Looking for reviewer with ID: ${reviewerInternalId}`);
+
+      const reviewer = await this.userRepository.findOneBy({ id: reviewerInternalId });
+      if (reviewer) {
+        console.log(`✅ Found reviewer: ${reviewer.displayName} (${reviewer.lineUserId})`);
+
+        await this.notificationService.sendReviewRequest(saved as any, reviewer.lineUserId, {
+          submitterDisplayName: submitter.displayName,
+          fileCount: fileIds.length,
+          links: (links && links.length > 0) ? links : fileLinks
+        } as any);
+
+        console.log(`📤 Review request sent to reviewer: ${reviewer.displayName}`);
+      } else {
+        console.warn(`⚠️ Reviewer not found for ID: ${reviewerInternalId}`);
+      }
+    } catch (err) {
+      console.error('❌ Failed to send review request notification:', err);
+      // ไม่ throw error เพราะไม่ต้องการให้การส่งงานล้มเหลว
+    }
+
+    // แจ้งในกลุ่มว่ามีการส่งงาน
+    try {
+      if (task.group) {
+        console.log(`📢 Sending task submitted notification to group: ${task.group.name || task.group.id}`);
+
+        await this.notificationService.sendTaskSubmittedNotification(
+          { ...saved, group: task.group } as any,
+          submitter.displayName,
+          fileIds.length,
+          links && links.length > 0 ? links : fileLinks
+        );
+
+        console.log(`✅ Task submitted notification sent to group`);
+      } else {
+        console.warn(`⚠️ Task has no group, skipping group notification`);
+      }
+    } catch (err) {
+      console.error('❌ Failed to send task submitted notification:', err);
+      // ไม่ throw error เพราะไม่ต้องการให้การส่งงานล้มเหลว
+    }
+
+    return saved;
   }
 
   /** ดึงงานที่รอการตรวจและพ้นกำหนด 2 วันแล้ว */

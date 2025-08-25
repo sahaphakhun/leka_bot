@@ -1,6 +1,6 @@
 // File Service - จัดการไฟล์และ File Vault
 
-import { Repository, In } from 'typeorm';
+import { Repository, In, QueryRunner } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { File, Group, User } from '@/models';
 import { config } from '@/utils/config';
@@ -165,9 +165,10 @@ export class FileService {
   /**
    * ผูกไฟล์กับงาน
    */
-  public async linkFileToTask(fileId: string, taskId: string): Promise<void> {
+  public async linkFileToTask(fileId: string, taskId: string, queryRunner?: QueryRunner): Promise<void> {
     try {
-      const file = await this.fileRepository.findOne({
+      const repo = queryRunner ? queryRunner.manager.getRepository(File) : this.fileRepository;
+      const file = await repo.findOne({
         where: { id: fileId },
         relations: ['linkedTasks']
       });
@@ -179,9 +180,8 @@ export class FileService {
       // ตรวจสอบว่าผูกแล้วหรือยัง
       const alreadyLinked = file.linkedTasks.some(task => task.id === taskId);
       if (!alreadyLinked) {
-        // ใช้ query builder เพื่อเพิ่มความสัมพันธ์
-        await AppDataSource
-          .createQueryBuilder()
+        const builder = queryRunner ? queryRunner.manager.createQueryBuilder() : AppDataSource.createQueryBuilder();
+        await builder
           .relation(File, 'linkedTasks')
           .of(fileId)
           .add(taskId);
