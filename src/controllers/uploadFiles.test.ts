@@ -7,7 +7,7 @@ describe('uploadFiles', () => {
     serviceContainer.clear();
 
     const mockFileService = {
-      saveFile: jest.fn(),
+      saveFile: jest.fn().mockResolvedValue({ id: 'file-id' }),
       addFileTags: jest.fn()
     };
 
@@ -28,7 +28,7 @@ describe('uploadFiles', () => {
     const app = express();
     app.use('/', apiRouter);
 
-    return { app };
+    return { app, mockFileService };
   };
 
   it('rejects disallowed file types', async () => {
@@ -45,5 +45,20 @@ describe('uploadFiles', () => {
     expect(res.status).toBe(400);
     expect(res.body.success).toBe(false);
     expect(res.body.error).toMatch(/Invalid file type/);
+  });
+
+  it('accepts supported office documents', async () => {
+    const { app } = await setup();
+
+    const res = await request(app)
+      .post('/groups/group1/files/upload')
+      .field('userId', 'user1')
+      .attach('attachments', Buffer.from('test'), {
+        filename: 'doc.docx',
+        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+      });
+
+    expect(res.status).toBe(201);
+    expect(res.body.success).toBe(true);
   });
 });
