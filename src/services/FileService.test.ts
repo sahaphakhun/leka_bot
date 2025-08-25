@@ -58,14 +58,16 @@ describe('FileService.saveFile', () => {
 });
 
 describe('FileService.resolveFileUrl', () => {
-  it('signs Cloudinary URLs', () => {
+  beforeEach(() => {
     process.env.CLOUDINARY_CLOUD_NAME = 'demo';
     process.env.CLOUDINARY_API_KEY = 'key';
     process.env.CLOUDINARY_API_SECRET = 'secret';
-
+    urlMock.mockClear();
     getRepositoryMock.mockReset();
     getRepositoryMock.mockImplementation(() => ({} as any));
+  });
 
+  it('signs Cloudinary URLs with correct resource type and version', () => {
     const { FileService } = require('./FileService');
     const service = new FileService();
 
@@ -77,7 +79,39 @@ describe('FileService.resolveFileUrl', () => {
     };
 
     const result = service.resolveFileUrl(file);
-    expect(urlMock).toHaveBeenCalledWith('publicid', expect.objectContaining({ sign_url: true }));
+    expect(urlMock).toHaveBeenCalledWith(
+      'publicid',
+      expect.objectContaining({
+        resource_type: 'raw',
+        type: 'upload',
+        version: '1',
+        sign_url: true,
+        secure: true,
+      })
+    );
     expect(result).toBe('https://signed-url');
+  });
+
+  it('handles URLs with signature segments', () => {
+    const { FileService } = require('./FileService');
+    const service = new FileService();
+
+    const file: any = {
+      path: 'https://res.cloudinary.com/demo/image/upload/s--abc--/v1/folder/file.jpg',
+      mimeType: 'image/jpeg',
+      storageProvider: 'cloudinary',
+      storageKey: 'folder/file',
+    };
+
+    service.resolveFileUrl(file);
+    expect(urlMock).toHaveBeenLastCalledWith(
+      'folder/file',
+      expect.objectContaining({
+        resource_type: 'image',
+        type: 'upload',
+        version: '1',
+        sign_url: true,
+      })
+    );
   });
 });
