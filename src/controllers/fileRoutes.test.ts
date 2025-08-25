@@ -61,22 +61,31 @@ describe('File route handling', () => {
     expect(mockFileService.getFileExtension).toHaveBeenCalledWith('image/jpeg', 'test-image');
   });
 
-  it('redirects previewFile to remote URL', async () => {
+  it('streams remote file content for previewFile', async () => {
     const url = 'https://example.com/test.pdf';
+    const content = Buffer.from('pdf-content');
     const { app, mockFileService } = await setup({
       id: '2',
       path: url,
       mimeType: 'application/pdf',
       originalName: 'test.pdf'
     });
+    mockFileService.getFileExtension.mockReturnValue('.pdf');
+    mockFileService.getFileContent.mockResolvedValue({
+      content,
+      mimeType: 'application/pdf',
+      originalName: 'test.pdf'
+    });
 
-    const res = await request(app).get('/files/2/preview').redirects(0);
-    expect(res.status).toBe(302);
-    expect(res.headers.location).toBe(url);
-    expect(mockFileService.getFileContent).not.toHaveBeenCalled();
+    const res = await request(app).get('/files/2/preview');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.headers['content-disposition']).toContain('filename="test.pdf"');
+    expect(res.body).toEqual(content);
+    expect(mockFileService.getFileContent).toHaveBeenCalledWith('2');
   });
 
-  it('streams file content for previewFile', async () => {
+  it('streams local file content for previewFile', async () => {
     const content = Buffer.from('pdf-content');
     const { app, mockFileService } = await setup({
       id: '3',
