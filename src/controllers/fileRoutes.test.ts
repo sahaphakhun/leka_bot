@@ -75,4 +75,26 @@ describe('File route handling', () => {
     expect(res.headers.location).toBe(url);
     expect(mockFileService.getFileContent).not.toHaveBeenCalled();
   });
+
+  it('streams file content for previewFile', async () => {
+    const content = Buffer.from('pdf-content');
+    const { app, mockFileService } = await setup({
+      id: '3',
+      path: '/local/path/file',
+      mimeType: 'application/pdf',
+      originalName: 'test'
+    });
+    mockFileService.getFileExtension.mockReturnValue('.pdf');
+    mockFileService.getFileContent.mockResolvedValue({
+      content,
+      mimeType: 'application/pdf',
+      originalName: 'test'
+    });
+
+    const res = await request(app).get('/files/3/preview');
+    expect(res.status).toBe(200);
+    expect(res.headers['content-type']).toBe('application/pdf');
+    expect(res.body).toEqual(content);
+    expect(mockFileService.getFileContent).toHaveBeenCalledWith('3');
+  });
 });
