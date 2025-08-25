@@ -80,7 +80,7 @@ describe('FileService.resolveFileUrl', () => {
 
     const result = service.resolveFileUrl(file);
     expect(urlMock).toHaveBeenCalledWith(
-      'publicid',
+      'publicid.pdf',
       expect.objectContaining({
         resource_type: 'raw',
         type: 'upload',
@@ -105,7 +105,7 @@ describe('FileService.resolveFileUrl', () => {
 
     service.resolveFileUrl(file);
     expect(urlMock).toHaveBeenLastCalledWith(
-      'folder/file',
+      'folder/file.jpg',
       expect.objectContaining({
         resource_type: 'image',
         type: 'upload',

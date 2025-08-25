@@ -950,7 +950,7 @@ export class FileService {
   /**
    * ตรวจสอบประเภทไฟล์และสร้าง extension
    */
-  private getFileExtension(mimeType: string, originalName?: string): string {
+  public getFileExtension(mimeType: string, originalName?: string): string {
     // ถ้ามีชื่อไฟล์เดิม ใช้ extension จากชื่อไฟล์
     if (originalName && originalName.includes('.')) {
       const ext = originalName.split('.').pop();
