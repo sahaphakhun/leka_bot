@@ -2232,7 +2232,7 @@ class Dashboard {
       // โหลดไฟล์แนบของงาน
       let attachedFiles = [];
       try {
-        const filesResponse = await this.apiRequest(`/api/groups/${this.currentGroupId}/files?taskId=${taskId}`);
+        const filesResponse = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks/${taskId}/files`);
         attachedFiles = filesResponse.data || [];
       } catch (error) {
         console.warn('ไม่สามารถโหลดไฟล์แนบได้:', error);
@@ -2270,28 +2270,56 @@ class Dashboard {
             ${attachedFiles.length > 0 ? `
               <div class="task-attachments">
                 <h4>📎 ไฟล์แนบ (${attachedFiles.length})</h4>
-                <div class="attachments-list" style="display: grid; gap: 8px;">
-                  ${attachedFiles.map(file => `
-                    <div class="attachment-item" style="display: flex; align-items: center; gap: 12px; padding: 12px; background: #f8f9fa; border-radius: 8px; cursor: pointer; transition: all 0.2s ease;" 
-                         onmouseover="this.style.background='#e9ecef'" onmouseout="this.style.background='#f8f9fa'">
-                      <i class="fas ${this.getFileIcon(file.mimeType)}" style="font-size: 1.2rem; color: #6b7280; width: 20px;"></i>
-                      <div style="flex: 1; min-width: 0;">
-                        <div class="file-name" style="font-weight: 500; word-break: break-word;">${file.originalName}</div>
-                        <div class="file-size" style="font-size: 0.875rem; color: #6b7280;">${this.formatFileSize(file.size)}</div>
+                
+                <!-- แยกไฟล์ตามประเภท -->
+                ${(() => {
+                  const initialFiles = attachedFiles.filter(f => f.attachmentType === 'initial');
+                  const submissionFiles = attachedFiles.filter(f => f.attachmentType === 'submission');
+                  const otherFiles = attachedFiles.filter(f => !f.attachmentType);
+                  
+                  let sections = [];
+                  
+                  if (initialFiles.length > 0) {
+                    sections.push(`
+                      <div style="margin-bottom: 20px;">
+                        <h5 style="color: #059669; font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                          <i class="fas fa-file-alt"></i> ไฟล์ต้นฉบับ (${initialFiles.length})
+                        </h5>
+                        <div class="attachments-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                          ${initialFiles.map(file => this.renderFileCard(file)).join('')}
+                        </div>
                       </div>
-                      <div style="display: flex; gap: 4px;">
-                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')" 
-                                style="padding: 4px 8px; font-size: 0.75rem;">
-                          <i class="fas fa-eye"></i> ดู
-                        </button>
-                        <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); dashboard.downloadFile('${file.id}')" 
-                                style="padding: 4px 8px; font-size: 0.75rem;">
-                          <i class="fas fa-download"></i>
-                        </button>
+                    `);
+                  }
+                  
+                  if (submissionFiles.length > 0) {
+                    sections.push(`
+                      <div style="margin-bottom: 20px;">
+                        <h5 style="color: #3b82f6; font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                          <i class="fas fa-upload"></i> ไฟล์ที่ส่ง (${submissionFiles.length})
+                        </h5>
+                        <div class="attachments-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                          ${submissionFiles.map(file => this.renderFileCard(file)).join('')}
+                        </div>
                       </div>
-                    </div>
-                  `).join('')}
-                </div>
+                    `);
+                  }
+                  
+                  if (otherFiles.length > 0) {
+                    sections.push(`
+                      <div style="margin-bottom: 20px;">
+                        <h5 style="color: #6b7280; font-size: 0.9rem; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
+                          <i class="fas fa-file"></i> ไฟล์อื่นๆ (${otherFiles.length})
+                        </h5>
+                        <div class="attachments-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 12px;">
+                          ${otherFiles.map(file => this.renderFileCard(file)).join('')}
+                        </div>
+                      </div>
+                    `);
+                  }
+                  
+                  return sections.join('');
+                })()}
               </div>
             ` : ''}
 
@@ -3105,6 +3133,135 @@ class Dashboard {
     }
   }
 
+  viewPdfFile(fileId) {
+    const url = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
+    this.openPdfViewer(url);
+  }
+
+  viewImageFile(fileId) {
+    const url = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
+    this.openImageViewer(url);
+  }
+
+  openPdfViewer(pdfUrl) {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.8);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    modal.innerHTML = `
+      <div style="background: white; border-radius: 12px; width: 90%; height: 90%; max-width: 1200px; position: relative; overflow: hidden;">
+        <div style="position: absolute; top: 0; left: 0; right: 0; background: #f8f9fa; padding: 12px; border-bottom: 1px solid #e5e7eb; display: flex; justify-content: space-between; align-items: center; z-index: 10;">
+          <h3 style="margin: 0; font-size: 1.1rem; color: #374151;">📄 ดูไฟล์ PDF</h3>
+          <button onclick="this.closest('.modal').remove()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: #6b7280; padding: 4px;">&times;</button>
+        </div>
+        <iframe src="${pdfUrl}" style="width: 100%; height: 100%; border: none; margin-top: 60px;"></iframe>
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    
+    // ปิด modal เมื่อคลิกพื้นหลัง
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+  }
+
+  openImageViewer(imageUrl) {
+    const modal = document.createElement('div');
+    modal.className = 'modal active';
+    modal.style.cssText = `
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0,0,0,0.9);
+      z-index: 9999;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    `;
+
+    modal.innerHTML = `
+      <div style="position: relative; max-width: 90%; max-height: 90%;">
+        <div style="position: absolute; top: -50px; left: 0; right: 0; text-align: center; z-index: 10;">
+          <button onclick="this.closest('.modal').remove()" style="background: rgba(255,255,255,0.2); border: none; color: white; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-size: 1rem;">ปิด</button>
+        </div>
+        <img src="${imageUrl}" style="max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 8px;" alt="รูปภาพ">
+      </div>
+    `;
+
+    document.body.appendChild(modal);
+    
+    // ปิด modal เมื่อคลิกพื้นหลัง
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) {
+        modal.remove();
+      }
+    });
+  }
+
+  renderFileCard(file) {
+    return `
+      <div class="attachment-card" style="background: white; border: 1px solid #e5e7eb; border-radius: 12px; padding: 16px; transition: all 0.2s ease; box-shadow: 0 1px 3px rgba(0,0,0,0.1);" 
+           onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0,0,0,0.15)'" 
+           onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 1px 3px rgba(0,0,0,0.1)'">
+        
+        <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 12px;">
+          <div style="width: 48px; height: 48px; background: ${this.getFileColor(file.mimeType)}; border-radius: 8px; display: flex; align-items: center; justify-content: center;">
+            <i class="fas ${this.getFileIcon(file.mimeType)}" style="font-size: 1.5rem; color: white;"></i>
+          </div>
+          <div style="flex: 1; min-width: 0;">
+            <div class="file-name" style="font-weight: 600; font-size: 0.95rem; color: #1f2937; word-break: break-word; line-height: 1.3;">${file.originalName}</div>
+            <div class="file-meta" style="font-size: 0.8rem; color: #6b7280; margin-top: 2px;">
+              ${this.formatFileSize(file.size)} • ${this.formatDate(file.uploadedAt)}
+            </div>
+          </div>
+        </div>
+        
+        <div style="display: flex; gap: 8px;">
+          ${file.mimeType === 'application/pdf' ? `
+            <button class="btn btn-primary" onclick="event.stopPropagation(); dashboard.viewPdfFile('${file.id}')" 
+                    style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
+                    onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+              <i class="fas fa-eye"></i> ดู PDF
+            </button>
+          ` : file.mimeType.startsWith('image/') ? `
+            <button class="btn btn-primary" onclick="event.stopPropagation(); dashboard.viewImageFile('${file.id}')" 
+                    style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
+                    onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
+              <i class="fas fa-eye"></i> ดูรูป
+            </button>
+          ` : `
+            <button class="btn btn-outline" onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')" 
+                    style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: white; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
+                    onmouseover="this.style.background='#f9fafb'; this.style.borderColor='#9ca3af'" onmouseout="this.style.background='white'; this.style.borderColor='#d1d5db'">
+              <i class="fas fa-eye"></i> ดู
+            </button>
+          `}
+          <button class="btn btn-success" onclick="event.stopPropagation(); dashboard.downloadFile('${file.id}')" 
+                  style="padding: 8px 12px; font-size: 0.85rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
+                  onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
+            <i class="fas fa-download"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
   escapeHtml(text) {
     const div = document.createElement('div');
     div.textContent = text;
@@ -3302,6 +3459,20 @@ class Dashboard {
     if (mimeType.includes('html') || mimeType.includes('css')) return 'fa-file-code';
     if (mimeType.includes('python') || mimeType.includes('java') || mimeType.includes('cpp') || mimeType.includes('c++')) return 'fa-file-code';
     return 'fa-file';
+  }
+
+  getFileColor(mimeType) {
+    if (mimeType.startsWith('image/')) return '#3b82f6';
+    if (mimeType.startsWith('video/')) return '#ef4444';
+    if (mimeType.startsWith('audio/')) return '#8b5cf6';
+    if (mimeType.includes('pdf')) return '#dc2626';
+    if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml')) return '#2563eb';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('sheet')) return '#059669';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '#ea580c';
+    if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('csv')) return '#6b7280';
+    if (mimeType.includes('javascript') || mimeType.includes('typescript') || mimeType.includes('html') || mimeType.includes('css') || mimeType.includes('python') || mimeType.includes('java') || mimeType.includes('cpp') || mimeType.includes('c++')) return '#7c3aed';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('tar') || mimeType.includes('gz')) return '#f59e0b';
+    return '#9ca3af';
   }
 
   formatFileSize(bytes) {

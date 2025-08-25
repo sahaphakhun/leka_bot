@@ -415,6 +415,50 @@ class ApiController {
   // File Endpoints
 
   /**
+   * GET /api/groups/:groupId/tasks/:taskId/files - ดึงไฟล์ของงานเฉพาะ
+   */
+  public async getTaskFiles(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId, taskId } = req.params;
+
+      // ตรวจสอบว่างานมีอยู่และอยู่ในกลุ่มที่ระบุ
+      const task = await this.taskService.getTaskById(taskId);
+      if (!task) {
+        res.status(404).json({ 
+          success: false, 
+          error: 'Task not found' 
+        });
+        return;
+      }
+
+      if (task.groupId !== groupId) {
+        res.status(403).json({ 
+          success: false, 
+          error: 'Task does not belong to this group' 
+        });
+        return;
+      }
+
+      // ดึงไฟล์ที่ผูกกับงาน
+      const files = await this.fileService.getTaskFiles(taskId);
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: files
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error getting task files:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get task files' 
+      });
+    }
+  }
+
+  /**
    * GET /api/files/:groupId - ดึงรายการไฟล์
    */
   public async getFiles(req: Request, res: Response): Promise<void> {
@@ -1895,6 +1939,8 @@ class ApiController {
       });
     }
   }
+
+
 }
 
 const apiController = new ApiController();
@@ -1935,6 +1981,9 @@ apiRouter.post('/files/:fileId/tags', apiController.addFileTags.bind(apiControll
 apiRouter.get('/groups/:groupId/files/:fileId/download', apiController.downloadFile.bind(apiController));
 apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFile.bind(apiController));
 apiRouter.get('/groups/:groupId/files/:fileId', apiController.getFileInfo.bind(apiController));
+
+// Task-specific file routes
+apiRouter.get('/groups/:groupId/tasks/:taskId/files', apiController.getTaskFiles.bind(apiController));
 
 // User and export routes
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));

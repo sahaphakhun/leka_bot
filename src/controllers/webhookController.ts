@@ -885,11 +885,29 @@ class WebhookController {
             if (taskId && groupId) {
               // ดึงข้อมูลงานและไฟล์
               const task = await this.taskService.getTaskById(taskId);
-              const files = await this.fileService.getTaskFiles(taskId);
+              
+              // ลองดึงไฟล์ด้วยวิธีต่างๆ
+              let files = await this.fileService.getTaskFiles(taskId);
+              
+              // ถ้าไม่มีไฟล์ ลองดึงไฟล์ที่ผูกกับงานผ่านความสัมพันธ์
+              if (files.length === 0 && task && task.attachedFiles) {
+                files = task.attachedFiles;
+              }
+              
+              // ถ้ายังไม่มี ลองดึงไฟล์ทั้งหมดในกลุ่มและกรองตาม taskId
+              if (files.length === 0) {
+                const allGroupFiles = await this.fileService.getGroupFiles(groupId, {});
+                files = allGroupFiles.files.filter(file => 
+                  file.linkedTasks && file.linkedTasks.some((t: any) => t.id === taskId)
+                );
+              }
+              
+              console.log(`🔍 Debug: Task ${taskId}, Found ${files.length} files`);
               
               if (task && files.length > 0) {
-                // สร้างการ์ดแสดงไฟล์ของงาน
-                const taskFilesCard = FlexMessageTemplateService.createTaskFilesCard(task, files, { id: groupId });
+                // สร้างการ์ดแสดงไฟล์ของงานแบบ categorized
+                const filesByType = await this.fileService.getTaskFilesByType(taskId);
+                const taskFilesCard = FlexMessageTemplateService.createTaskFilesCategorizedCard(task, filesByType, { id: groupId });
                 await this.lineService.replyMessage(replyToken, taskFilesCard);
               } else if (task) {
                 await this.lineService.replyMessage(replyToken, `📋 งาน "${task.title}" ไม่มีไฟล์แนบค่ะ`);
@@ -900,6 +918,7 @@ class WebhookController {
               await this.lineService.replyMessage(replyToken, '❌ ข้อมูลไม่ครบถ้วน');
             }
           } catch (err: any) {
+            console.error('❌ Error in show_task_files:', err);
             await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงไฟล์ได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
           }
           break;
