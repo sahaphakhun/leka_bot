@@ -888,18 +888,33 @@ class WebhookController {
               
               // ลองดึงไฟล์ด้วยวิธีต่างๆ
               let files = await this.fileService.getTaskFiles(taskId);
-              
-              // ถ้าไม่มีไฟล์ ลองดึงไฟล์ที่ผูกกับงานผ่านความสัมพันธ์
+
+              // ถ้าไม่มีไฟล์ ลองดึงไฟล์ที่ผูกกับงานผ่านความสัมพันธ์ของ Task (attachedFiles)
               if (files.length === 0 && task && task.attachedFiles) {
                 files = task.attachedFiles;
               }
-              
-              // ถ้ายังไม่มี ลองดึงไฟล์ทั้งหมดในกลุ่มและกรองตาม taskId
+
+              // ถ้ายังไม่มี ลองดึงไฟล์ทั้งหมดในกลุ่มและกรองตาม taskId (ผ่านความสัมพันธ์ของไฟล์)
               if (files.length === 0) {
                 const allGroupFiles = await this.fileService.getGroupFiles(groupId, {});
                 files = allGroupFiles.files.filter(file => 
                   file.linkedTasks && file.linkedTasks.some((t: any) => t.id === taskId)
                 );
+              }
+
+              // ถ้ายังไม่พบไฟล์อีก ให้ fallback ไปดูจาก workflow.submissions ล่าสุด (ดึงตาม fileIds)
+              if (files.length === 0 && task && (task as any).workflow && Array.isArray((task as any).workflow.submissions)) {
+                const submissions: any[] = (task as any).workflow.submissions;
+                const latestSubmission = submissions
+                  .slice()
+                  .sort((a, b) => new Date(b.submittedAt).getTime() - new Date(a.submittedAt).getTime())[0];
+                if (latestSubmission && Array.isArray(latestSubmission.fileIds) && latestSubmission.fileIds.length > 0) {
+                  try {
+                    files = await this.fileService.getFilesByIds(latestSubmission.fileIds);
+                  } catch (e) {
+                    console.warn('Could not load files from workflow submissions:', e);
+                  }
+                }
               }
               
               console.log(`🔍 Debug: Task ${taskId}, Found ${files.length} files`);

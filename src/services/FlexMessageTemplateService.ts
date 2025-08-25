@@ -772,9 +772,9 @@ export class FlexMessageTemplateService {
 
     const fileService = serviceContainer.get<FileService>('FileService');
     const buttons = [
-      FlexMessageDesignSystem.createButton('📥', 'uri', fileService.generateDownloadUrl(group.id, file.id), 'primary'),
+      FlexMessageDesignSystem.createButton('📥', 'uri', fileService.generateDownloadUrl(file.groupId, file.id), 'primary'),
       ...(this.isPreviewable(file.mimeType) ? [
-        FlexMessageDesignSystem.createButton('👁️', 'uri', fileService.generatePreviewUrl(group.id, file.id), 'secondary')
+        FlexMessageDesignSystem.createButton('👁️', 'uri', fileService.generatePreviewUrl(file.groupId, file.id), 'secondary')
       ] : [])
     ];
 
@@ -867,7 +867,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createButton(
         `📥 ${file.originalName.substring(0, 8)}...`,
         'uri',
-        fileService.generateDownloadUrl(group.id, file.id),
+        fileService.generateDownloadUrl(file.groupId, file.id),
         'secondary'
       )
     );
@@ -933,7 +933,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createButton(
         `📥 ${file.originalName.substring(0, 8)}...`,
         'uri',
-        fileService.generateDownloadUrl(group.id, file.id),
+        fileService.generateDownloadUrl(file.groupId, file.id),
         'primary'
       )
     );
