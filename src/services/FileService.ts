@@ -680,11 +680,31 @@ export class FileService {
 
       const urlObj = new URL(file.path);
       const parts = urlObj.pathname.split('/').filter(Boolean);
+
+      // Remove cloud name segment if present
+      if (parts[0] === config.cloudinary.cloudName) {
+        parts.shift();
+      }
+
       const resourceType = parts[0] || 'image';
       const deliveryType = parts[1] || 'upload';
-      const version = parts[2]?.startsWith('v') ? parts[2].substring(1) : undefined;
 
-      const publicId = file.storageKey || file.fileName;
+      // Find version segment (e.g., v1234567890)
+      let version: string | undefined;
+      let versionIndex = -1;
+      for (let i = 2; i < parts.length; i++) {
+        const segment = parts[i];
+        if (/^v\d+$/.test(segment)) {
+          version = segment.substring(1);
+          versionIndex = i;
+          break;
+        }
+      }
+
+      // Determine public ID from URL path after the version segment
+      const publicIdFromUrl =
+        versionIndex >= 0 ? parts.slice(versionIndex + 1).join('/') : parts.slice(2).join('/');
+      const publicId = publicIdFromUrl || file.storageKey || file.fileName;
       const options: any = {
         resource_type: resourceType,
         type: deliveryType,
