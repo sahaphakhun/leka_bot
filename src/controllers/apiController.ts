@@ -667,8 +667,8 @@ class ApiController {
   private async fallbackToPreviewFile(fileId: string, res: Response): Promise<void> {
     try {
       logger.info(`🔄 Fallback: ดึงไฟล์ ${fileId} ผ่าน getFileContent สำหรับ preview`);
-      const { content, mimeType } = await this.fileService.getFileContent(fileId);
-      
+      const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
+
       // รองรับเฉพาะไฟล์ที่ดูตัวอย่างได้
       const previewableMimes = [
         'image/jpeg', 'image/png', 'image/gif', 'image/webp',
@@ -676,16 +676,28 @@ class ApiController {
       ];
 
       if (!previewableMimes.includes(mimeType)) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'File type not previewable' 
+        res.status(400).json({
+          success: false,
+          error: 'File type not previewable'
         });
         return;
       }
 
+      // ตรวจสอบและสร้างชื่อไฟล์ที่เหมาะสมสำหรับ header
+      let previewName = originalName && originalName.trim() !== '' ? originalName : `file_${fileId}`;
+      const ext = (this.fileService as any).getFileExtension
+        ? (this.fileService as any).getFileExtension(mimeType, previewName)
+        : '';
+      if (ext && !previewName.toLowerCase().endsWith(ext.toLowerCase())) {
+        previewName += ext;
+      }
+      previewName = sanitize(previewName);
+      const encodedName = encodeURIComponent(previewName);
+
       res.set({
         'Content-Type': mimeType,
-        'Content-Length': content.length.toString()
+        'Content-Length': content.length.toString(),
+        'Content-Disposition': `inline; filename="${previewName}"; filename*=UTF-8''${encodedName}`
       });
 
       res.send(content);
@@ -747,29 +759,41 @@ class ApiController {
         return;
       }
 
-      // ถ้าเป็น URL แต่ streaming ไม่สำเร็จ หรือไม่ใช่ URL: ดึงเนื้อไฟล์ผ่าน service
-      const { content, mimeType } = await this.fileService.getFileContent(fileId);
+        // ถ้าเป็น URL แต่ streaming ไม่สำเร็จ หรือไม่ใช่ URL: ดึงเนื้อไฟล์ผ่าน service
+        const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
 
-      // รองรับเฉพาะไฟล์ที่ดูตัวอย่างได้
-      const previewableMimes = [
-        'image/jpeg', 'image/png', 'image/gif', 'image/webp',
-        'application/pdf', 'text/plain'
-      ];
+        // รองรับเฉพาะไฟล์ที่ดูตัวอย่างได้
+        const previewableMimes = [
+          'image/jpeg', 'image/png', 'image/gif', 'image/webp',
+          'application/pdf', 'text/plain'
+        ];
 
-      if (!previewableMimes.includes(mimeType)) {
-        res.status(400).json({ 
-          success: false, 
-          error: 'File type not previewable' 
+        if (!previewableMimes.includes(mimeType)) {
+          res.status(400).json({
+            success: false,
+            error: 'File type not previewable'
+          });
+          return;
+        }
+
+        // ตรวจสอบและสร้างชื่อไฟล์สำหรับ header
+        let previewName = originalName && originalName.trim() !== '' ? originalName : `file_${fileId}`;
+        const ext = (this.fileService as any).getFileExtension
+          ? (this.fileService as any).getFileExtension(mimeType, previewName)
+          : '';
+        if (ext && !previewName.toLowerCase().endsWith(ext.toLowerCase())) {
+          previewName += ext;
+        }
+        previewName = sanitize(previewName);
+        const encodedName = encodeURIComponent(previewName);
+
+        res.set({
+          'Content-Type': mimeType,
+          'Content-Length': content.length.toString(),
+          'Content-Disposition': `inline; filename="${previewName}"; filename*=UTF-8''${encodedName}`
         });
-        return;
-      }
 
-      res.set({
-        'Content-Type': mimeType,
-        'Content-Length': content.length.toString()
-      });
-
-      res.send(content);
+        res.send(content);
 
     } catch (error) {
       const statusCode = (error as any)?.statusCode;
