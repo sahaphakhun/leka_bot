@@ -11,7 +11,7 @@ export interface Group {
 }
 
 export interface GroupSettings {
-  reminderIntervals: string[]; // เช่น ['7d', '1d', '3h']
+  reminderIntervals: string[]; // เช่น ['1d', '3h']
   enableLeaderboard: boolean;
   googleCalendarId?: string;
   googleRefreshToken?: string;
@@ -81,7 +81,7 @@ export interface Task {
 }
 
 export interface ReminderLog {
-  type: string; // '7d', '1d', '3h', 'due'
+  type: string; // '1d', '3h'
   sentAt: Date;
   channels: ('line' | 'email')[];
 }

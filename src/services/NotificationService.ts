@@ -473,13 +473,19 @@ export class NotificationService {
    * สร้าง Flex Message สำหรับการเตือนงาน
    */
   private createTaskReminderFlexMessage(task: any, group: any, reminderType: string): FlexMessage {
-    const reminderText = this.getReminderTimeText(reminderType);
     const reminderEmoji = this.getReminderEmoji(reminderType);
-    const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    const now = moment().tz(config.app.defaultTimezone);
+    const dueMoment = moment(task.dueTime).tz(config.app.defaultTimezone);
+    const remaining = moment.duration(dueMoment.diff(now));
+    const remainingText = remaining.asDays() >= 1
+      ? `${Math.floor(remaining.asDays())} วัน${remaining.hours() > 0 ? ` ${remaining.hours()} ชั่วโมง` : ''}`
+      : `${remaining.hours()} ชั่วโมง`;
+    const dueDate = dueMoment.format('DD/MM/YYYY HH:mm');
     const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
 
     const content = [
       FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`⏳ เหลือเวลาอีก ${remainingText}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
       FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createText(`🎯 ${this.getPriorityText(task.priority)}`, 'sm', this.getPriorityColor(task.priority), 'bold'),
       ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
@@ -505,10 +511,17 @@ export class NotificationService {
   private createPersonalTaskReminderFlexMessage(task: any, group: any, assignee: any, reminderType: string): FlexMessage {
     const reminderText = this.getReminderTimeText(reminderType);
     const reminderEmoji = this.getReminderEmoji(reminderType);
-    const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
+    const now = moment().tz(config.app.defaultTimezone);
+    const dueMoment = moment(task.dueTime).tz(config.app.defaultTimezone);
+    const remaining = moment.duration(dueMoment.diff(now));
+    const remainingText = remaining.asDays() >= 1
+      ? `${Math.floor(remaining.asDays())} วัน${remaining.hours() > 0 ? ` ${remaining.hours()} ชั่วโมง` : ''}`
+      : `${remaining.hours()} ชั่วโมง`;
+    const dueDate = dueMoment.format('DD/MM/YYYY HH:mm');
 
     const content = [
       FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`⏳ เหลือเวลาอีก ${remainingText}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
       FlexMessageDesignSystem.createText(`🎯 ${this.getPriorityText(task.priority)}`, 'sm', this.getPriorityColor(task.priority), 'bold'),
       ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
     ];
@@ -869,17 +882,12 @@ export class NotificationService {
    */
   private getReminderTimeText(reminderType: string): string {
     switch (reminderType) {
-      case 'P7D':
-      case '7d':
-        return 'อีก 7 วัน';
       case 'P1D':
       case '1d':
         return 'พรุ่งนี้';
       case 'PT3H':
       case '3h':
         return 'อีก 3 ชั่วโมง';
-      case 'due':
-        return 'ถึงเวลาแล้ว';
       default:
         return 'เตือนความจำ';
     }
@@ -890,17 +898,12 @@ export class NotificationService {
    */
   private getReminderEmoji(reminderType: string): string {
     switch (reminderType) {
-      case 'P7D':
-      case '7d':
-        return '📅';
       case 'P1D':
       case '1d':
         return '⏰';
       case 'PT3H':
       case '3h':
         return '⚡';
-      case 'due':
-        return '🚨';
       default:
         return '🔔';
     }
