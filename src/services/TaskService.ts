@@ -701,15 +701,19 @@ export class TaskService {
     let submitter: User;
 
     try {
-      task = await queryRunner.manager.findOne(Task, {
+      const foundTask = await queryRunner.manager.findOne(Task, {
         where: { id: taskId },
         relations: ['assignedUsers', 'group', 'attachedFiles']
       });
-      if (!task) throw new Error('Task not found');
+      if (!foundTask) throw new Error('Task not found');
+      task = foundTask;
 
       // แปลง LINE → internal user id
-      submitter = await queryRunner.manager.findOne(User, { where: { lineUserId: submitterLineUserId } });
-      if (!submitter) throw new Error('Submitter not found');
+      const foundSubmitter = await queryRunner.manager.findOne(User, {
+        where: { lineUserId: submitterLineUserId }
+      });
+      if (!foundSubmitter) throw new Error('Submitter not found');
+      submitter = foundSubmitter;
 
       // ผูกไฟล์เข้ากับงานและอัปเดตข้อมูลไฟล์
       for (const fid of fileIds) {
