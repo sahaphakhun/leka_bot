@@ -433,7 +433,7 @@ export class KPIService {
         ])
         .where('kpi.groupId = :groupId', { groupId: internalGroupId });
 
-      // เพิ่มการกรองตามช่วงเวลา
+      // เพิ่มการกรองตามช่วงเวลา (ใช้อิง weekOf/monthOf เพื่อลดปัญหา timezone)
       let periodFilter = '';
       let periodStart: Date | undefined;
       let periodEnd: Date | undefined;
@@ -442,18 +442,14 @@ export class KPIService {
         periodStart = moment().tz(config.app.defaultTimezone).startOf('week').toDate();
         periodEnd = moment().tz(config.app.defaultTimezone).endOf('week').toDate();
         periodFilter = 'weekly';
-        kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :weekStart AND :weekEnd', { 
-          weekStart: periodStart, 
-          weekEnd: periodEnd 
-        });
+        // ใช้คอลัมน์ weekOf แทนการเทียบช่วงเวลาเพื่อให้แม่นยำในหลาย timezone
+        kpiQuery = kpiQuery.andWhere('kpi.weekOf = :weekStart', { weekStart: periodStart });
       } else if (period === 'monthly') {
         periodStart = moment().tz(config.app.defaultTimezone).startOf('month').toDate();
         periodEnd = moment().tz(config.app.defaultTimezone).endOf('month').toDate();
         periodFilter = 'monthly';
-        kpiQuery = kpiQuery.andWhere('kpi.eventDate BETWEEN :monthStart AND :monthEnd', { 
-          monthStart: periodStart, 
-          monthEnd: periodEnd 
-        });
+        // ใช้คอลัมน์ monthOf แทนการเทียบช่วงเวลาเพื่อให้แม่นยำในหลาย timezone
+        kpiQuery = kpiQuery.andWhere('kpi.monthOf = :monthStart', { monthStart: periodStart });
       } else {
         periodFilter = 'all time';
       }
@@ -475,11 +471,10 @@ export class KPIService {
         .where('kpi.groupId = :groupId', { groupId: internalGroupId });
       
       // เพิ่ม date filter สำหรับ debug data
-      if (period === 'weekly' || period === 'monthly') {
-        allKpiData.andWhere('kpi.eventDate BETWEEN :start AND :end', { 
-          start: periodStart, 
-          end: periodEnd 
-        });
+      if (period === 'weekly' && periodStart) {
+        allKpiData.andWhere('kpi.weekOf = :start', { start: periodStart });
+      } else if (period === 'monthly' && periodStart) {
+        allKpiData.andWhere('kpi.monthOf = :start', { start: periodStart });
       }
       
       const debugKpiData = await allKpiData
@@ -1506,13 +1501,21 @@ export class KPIService {
         console.log(`🔍 Sample tasks:`, sampleTasks);
       }
 
-      // ลบ KPI records เก่าสำหรับช่วงเวลานี้
-      const deletedRecords = await this.kpiRepository
+      // ลบ KPI records เก่าสำหรับช่วงเวลานี้ (อิง weekOf/monthOf เพื่อลด timezone issue)
+      const deleteQB = this.kpiRepository
         .createQueryBuilder()
         .delete()
-        .where('groupId = :groupId', { groupId: internalGroupId })
-        .andWhere('eventDate BETWEEN :startDate AND :endDate', { startDate, endDate })
-        .execute();
+        .where('groupId = :groupId', { groupId: internalGroupId });
+
+      if (period === 'weekly') {
+        deleteQB.andWhere('weekOf = :weekStart', { weekStart: moment(startDate).tz(config.app.defaultTimezone).startOf('week').toDate() });
+      } else if (period === 'monthly') {
+        deleteQB.andWhere('monthOf = :monthStart', { monthStart: moment(startDate).tz(config.app.defaultTimezone).startOf('month').toDate() });
+      } else {
+        // all: ไม่ลบทั้งหมด ป้องกันข้อมูลสะสมสูญหาย
+      }
+
+      const deletedRecords = await deleteQB.execute();
 
       console.log(`🗑️ Deleted ${deletedRecords.affected || 0} old KPI records`);
 
