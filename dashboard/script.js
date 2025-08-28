@@ -337,9 +337,10 @@ class Dashboard {
       this.filterTasks();
     });
 
-    document.getElementById('assigneeFilter')?.addEventListener('change', () => {
-      this.filterTasks();
-    });
+    // ไม่ใช้ assignee filter เพื่อให้แสดงงานทั้งหมดในกลุ่ม
+    // document.getElementById('assigneeFilter')?.addEventListener('change', () => {
+    //   this.filterTasks();
+    // });
 
     document.getElementById('searchTasks')?.addEventListener('input', (e) => {
       this.debounce(() => this.filterTasks(), 300)();
@@ -839,7 +840,9 @@ class Dashboard {
       // เก็บ filters ล่าสุดไว้สำหรับ pagination
       this._lastTaskFilters = { ...(this._lastTaskFilters || {}), ...(filters || {}) };
 
-      const queryParams = new URLSearchParams(this._lastTaskFilters).toString();
+      // ไม่ส่ง assignee filter เพื่อให้แสดงงานทั้งหมดในกลุ่ม
+      const { assignee, ...otherFilters } = this._lastTaskFilters;
+      const queryParams = new URLSearchParams(otherFilters).toString();
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?${queryParams}`);
       // เก็บ cache งานไว้ใช้เปิด modal โดยไม่ต้องพึ่งพา search param ฝั่ง API
       this._taskCache = response.data || [];
@@ -1493,6 +1496,7 @@ class Dashboard {
 
   async loadUpcomingTasks() {
     try {
+      // ดึงงานทั้งหมดในกลุ่มที่ยังไม่ได้ส่ง โดยไม่กรองตามผู้ใช้
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?limit=5&status=pending`);
       // อัปเดต cache ด้วยรายการล่าสุดบางส่วน เพื่อให้เปิด modal ได้แม้ยังไม่กดเข้า view Tasks
       const latest = response.data || [];
@@ -1748,6 +1752,16 @@ class Dashboard {
               <i class="fas fa-upload"></i> ส่งงาน
             </button>
           ` : ''}
+          ${task.status === 'overdue' ? `
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+              <i class="fas fa-upload"></i> ส่งงาน
+            </button>
+          ` : ''}
+          ${task.status === 'in_progress' ? `
+            <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+              <i class="fas fa-upload"></i> ส่งงาน
+            </button>
+          ` : ''}
         </div>
       </div>
     `).join('');
@@ -1795,12 +1809,20 @@ class Dashboard {
                   <i class="fas fa-upload"></i> ส่งงาน
                 </button>
               ` : ''}
+              ${task.status === 'overdue' ? `
+                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
+                </button>
+              ` : ''}
               ${task.status === 'in_progress' ? `
                 <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); app.handleApproveTask('${task.id}')">
                   <i class="fas fa-check"></i> อนุมัติ
                 </button>
                 <button class="btn btn-sm btn-warning" onclick="event.stopPropagation(); app.handleRejectTask('${task.id}')">
                   <i class="fas fa-times"></i> ตีกลับ
+                </button>
+                <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
                 </button>
               ` : ''}
             </div>
@@ -2081,13 +2103,14 @@ class Dashboard {
       ).join('');
     }
     
-    if (filter) {
-      // ส่งค่าเป็น lineUserId ให้ backend แปลงเป็น internal id ถูกต้อง
-      filter.innerHTML = '<option value="">ผู้รับผิดชอบทั้งหมด</option>' + 
-        members.map(member => 
-          `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`
-        ).join('');
-    }
+    // ไม่ใช้ assignee filter เพื่อให้แสดงงานทั้งหมดในกลุ่ม
+    // if (filter) {
+    //   // ส่งค่าเป็น lineUserId ให้ backend แปลงเป็น internal id ถูกต้อง
+    //   filter.innerHTML = '<option value="">ผู้รับผิดชอบทั้งหมด</option>' + 
+    //     members.map(member => 
+    //       `<option value="${member.lineUserId || member.id}">${member.displayName}</option>`
+    //     ).join('');
+    // }
 
     if (reviewerSelect) {
       reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>' +
@@ -2356,12 +2379,20 @@ class Dashboard {
                   <i class="fas fa-upload"></i> ส่งงาน
                 </button>
               ` : ''}
+              ${task.status === 'overdue' ? `
+                <button class="btn btn-primary" onclick="app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
+                </button>
+              ` : ''}
               ${task.status === 'in_progress' ? `
                 <button class="btn btn-success" onclick="app.handleApproveTask('${task.id}')">
                   <i class="fas fa-check"></i> อนุมัติ
                 </button>
                 <button class="btn btn-warning" onclick="app.handleRejectTask('${task.id}')">
                   <i class="fas fa-times"></i> ตีกลับ
+                </button>
+                <button class="btn btn-info" onclick="app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
                 </button>
               ` : ''}
             </div>
@@ -2839,20 +2870,21 @@ class Dashboard {
      }
    }
 
-   async populateSubmitTaskSelect(selectedTaskId = '') {
-     try {
-       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?status=pending`);
-       const tasks = response.data || [];
-       const sel = document.getElementById('submitTaskId');
-       
-       if (tasks.length === 0) {
-         sel.innerHTML = '<option value="">ไม่มีงานที่รอการส่ง</option>';
-         // แสดงข้อความแนะนำ
-         this.showToast('ไม่มีงานที่รอการส่งในขณะนี้', 'info');
-       } else {
-         sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
-       }
-     } catch (error) {
+     async populateSubmitTaskSelect(selectedTaskId = '') {
+    try {
+      // ดึงงานทั้งหมดในกลุ่มที่ยังไม่ได้ส่ง โดยไม่กรองตามผู้ใช้
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?status=pending`);
+      const tasks = response.data || [];
+      const sel = document.getElementById('submitTaskId');
+      
+      if (tasks.length === 0) {
+        sel.innerHTML = '<option value="">ไม่มีงานที่รอการส่ง</option>';
+        // แสดงข้อความแนะนำ
+        this.showToast('ไม่มีงานที่รอการส่งในขณะนี้', 'info');
+      } else {
+        sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+      }
+    } catch (error) {
        console.error('populateSubmitTaskSelect error:', error);
        const sel = document.getElementById('submitTaskId');
        sel.innerHTML = '<option value="">เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
@@ -3087,12 +3119,14 @@ class Dashboard {
 
   filterTasks() {
     const status = document.getElementById('statusFilter')?.value;
-    const assignee = document.getElementById('assigneeFilter')?.value;
+    // ไม่ใช้ assignee filter เพื่อให้แสดงงานทั้งหมดในกลุ่ม
+    // const assignee = document.getElementById('assigneeFilter')?.value;
     const search = document.getElementById('searchTasks')?.value;
     
     const filters = {};
     if (status) filters.status = status;
-    if (assignee) filters.assignee = assignee; // ส่ง lineUserId
+    // ไม่กรองตาม assignee เพื่อให้แสดงงานทั้งหมดในกลุ่มสำหรับการส่ง
+    // if (assignee) filters.assignee = assignee; // ส่ง lineUserId
     // UI จะกรองภายหลังด้วย cache ถ้า backend ไม่รองรับ search; ส่งไปเพื่ออนาคตแต่ไม่พึ่งพา
     if (search) filters.search = search;
     
