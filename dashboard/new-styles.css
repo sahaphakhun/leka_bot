@@ -589,9 +589,47 @@ body {
 }
 
 .leaderboard-score {
+    text-align: center;
+    min-width: 80px;
+}
+
+.score-points {
     font-weight: 700;
     color: var(--color-primary);
     font-size: var(--font-size-lg);
+    margin-bottom: var(--spacing-1);
+}
+
+.score-tasks {
+    font-size: var(--font-size-sm);
+    color: var(--color-gray-600);
+}
+
+.score-details {
+    font-size: var(--font-size-xs);
+    color: var(--color-gray-500);
+    margin-top: var(--spacing-1);
+}
+
+.leaderboard-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--spacing-2);
+    margin-top: var(--spacing-2);
+}
+
+.leaderboard-stats span {
+    font-size: var(--font-size-xs);
+    color: var(--color-gray-600);
+    background: var(--color-gray-100);
+    padding: var(--spacing-1) var(--spacing-2);
+    border-radius: var(--border-radius-sm);
+    white-space: nowrap;
+}
+
+.leaderboard-stats i {
+    margin-right: var(--spacing-1);
+    color: var(--color-primary);
 }
 
 /* Assignee Items */

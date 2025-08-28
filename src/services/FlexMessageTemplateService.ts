@@ -1223,9 +1223,13 @@ export class FlexMessageTemplateService {
   }
 
   /**
-   * สร้างการ์ดแสดงงานทั้งหมดพร้อมปุ่มเลือก (มาตรฐานใหม่)
+   * สร้างการ์ดงานส่วนตัวทั้งหมด (รวมงานที่เกินกำหนด)
    */
-  static createAllPersonalTasksCard(tasks: any[], files: any[], user: any): FlexMessage {
+  static createAllPersonalTasksCard(tasks: any[], files: any[], user: any, overdueTasks: any[] = []): FlexMessage {
+    // แยกงานตามสถานะ
+    const pendingTasks = tasks.filter(task => task.status === 'pending');
+    const inProgressTasks = tasks.filter(task => task.status === 'in_progress');
+    
     const content = [
       FlexMessageDesignSystem.createText('📋 งานทั้งหมดที่ต้องส่ง', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
       FlexMessageDesignSystem.createText(`👤 ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
@@ -1233,33 +1237,52 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`📝 งานทั้งหมด: ${tasks.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
       FlexMessageDesignSystem.createText(`📎 ไฟล์ที่ส่งมาแล้ว: ${files.length} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createSeparator('small'),
-      ...tasks.slice(0, 5).map((task, index) => [
-        FlexMessageDesignSystem.createSeparator('small'),
-        FlexMessageDesignSystem.createText(`${index + 1}. ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
-        FlexMessageDesignSystem.createText(`   📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
-        FlexMessageDesignSystem.createText(`   🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
-      ]).flat(),
+      
+      // แสดงงานที่เกินกำหนดก่อน (ถ้ามี)
+      ...(overdueTasks.length > 0 ? [
+        FlexMessageDesignSystem.createText('⚠️ งานที่เกินกำหนด:', 'sm', FlexMessageDesignSystem.colors.danger, 'bold'),
+        ...overdueTasks.map((task, index) => [
+          FlexMessageDesignSystem.createText(`${index + 1}. ${task.title}`, 'sm', FlexMessageDesignSystem.colors.danger, 'bold'),
+          FlexMessageDesignSystem.createText(`   📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM HH:mm')} ⚠️ เกินกำหนด`, 'xs', FlexMessageDesignSystem.colors.danger),
+          FlexMessageDesignSystem.createText(`   🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ]).flat(),
+        FlexMessageDesignSystem.createSeparator('small')
+      ] : []),
+      
+      // แสดงงานที่กำลังดำเนินการ
+      ...(inProgressTasks.length > 0 ? [
+        FlexMessageDesignSystem.createText('🔄 งานที่กำลังดำเนินการ:', 'sm', FlexMessageDesignSystem.colors.warning, 'bold'),
+        ...inProgressTasks.map((task, index) => [
+          FlexMessageDesignSystem.createText(`${overdueTasks.length + index + 1}. ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+          FlexMessageDesignSystem.createText(`   📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(`   🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ]).flat(),
+        FlexMessageDesignSystem.createSeparator('small')
+      ] : []),
+      
+      // แสดงงานที่รอดำเนินการ
+      ...(pendingTasks.length > 0 ? [
+        FlexMessageDesignSystem.createText('⏳ งานที่รอดำเนินการ:', 'sm', FlexMessageDesignSystem.colors.info, 'bold'),
+        ...pendingTasks.map((task, index) => [
+          FlexMessageDesignSystem.createText(`${overdueTasks.length + inProgressTasks.length + index + 1}. ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+          FlexMessageDesignSystem.createText(`   📅 กำหนดส่ง: ${moment(task.dueTime).format('DD/MM HH:mm')}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(`   🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ]).flat(),
+        FlexMessageDesignSystem.createSeparator('small')
+      ] : []),
+      
       ...(tasks.length > 5 ? [
         FlexMessageDesignSystem.createSeparator('small'),
         FlexMessageDesignSystem.createText(`และอีก ${tasks.length - 5} งาน...`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
       ] : []),
       FlexMessageDesignSystem.createSeparator('small'),
-      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่งโดยกดปุ่มเลข หรือกดปุ่มดูรายการไฟล์', 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      FlexMessageDesignSystem.createText('💡 เลือกงานที่ต้องการส่งโดยพิมพ์เลข 1, 2, 3... ในแชท', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+      FlexMessageDesignSystem.createText('💡 หรือกดปุ่มดูรายการไฟล์ด้านล่าง', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
+    // เอาปุ่มตัวเลขออก เหลือไว้เฉพาะปุ่มดูไฟล์
     const buttons = [
-      FlexMessageDesignSystem.createButton('📎', 'postback', 'action=show_personal_files', 'primary'),
-      ...tasks.map((task, index) => 
-        FlexMessageDesignSystem.createButton(
-          `${index + 1}`, 
-          'postback', 
-          `action=submit_task&taskId=${task.id}`, 
-          'secondary'
-        )
-      ).slice(0, 5), // แสดงสูงสุด 5 ปุ่ม
-      ...(tasks.length > 5 ? [
-        FlexMessageDesignSystem.createButton('📋', 'postback', 'action=show_more_personal_tasks', 'secondary')
-      ] : [])
+      FlexMessageDesignSystem.createButton('📎 ดูรายการไฟล์', 'postback', 'action=show_personal_files', 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(

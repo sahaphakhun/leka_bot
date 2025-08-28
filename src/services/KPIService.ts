@@ -1393,29 +1393,15 @@ export class KPIService {
         endDate = now.toDate();
       }
 
-      // ดึงงานทั้งหมดในกลุ่มที่เกี่ยวข้องกับช่วงเวลานั้น
+      // ดึงงานทั้งหมดในกลุ่มเพื่อคำนวณคะแนนที่ถูกต้อง
+      console.log(`🔍 Fetching ALL tasks for group ${internalGroupId} to calculate accurate scores`);
+      
       let tasksQuery = this.taskRepository
         .createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
-        .where('task.groupId = :groupId', { groupId: internalGroupId });
-
-      if (period === 'weekly' || period === 'monthly') {
-        // สำหรับ weekly/monthly: ดึงงานที่เสร็จหรือเกินกำหนดในช่วงเวลานั้น
-        tasksQuery = tasksQuery.andWhere(
-          '(task.completedAt BETWEEN :startDate AND :endDate OR ' +
-          'task.dueTime < :now OR ' +
-          'task.status = :overdueStatus)',
-          { 
-            startDate, 
-            endDate, 
-            now: now.toDate(),
-            overdueStatus: 'overdue'
-          }
-        );
-      } else {
-        // สำหรับ 'all': ดึงงานทั้งหมดในกลุ่ม
-        console.log(`🔍 Fetching ALL tasks for group ${internalGroupId} (no date filter)`);
-      }
+        .where('task.groupId = :groupId', { groupId: internalGroupId })
+        .andWhere('task.assignedUsers IS NOT NULL') // ต้องมีผู้รับผิดชอบ
+        .andWhere('task.assignedUsers.id IS NOT NULL'); // ตรวจสอบว่า assignee.id ไม่เป็น null
 
       const tasks = await tasksQuery.getMany();
       console.log(`📋 Found ${tasks.length} tasks to process for ${period} period`);
@@ -1442,12 +1428,12 @@ export class KPIService {
         console.log(`🔍 Sample tasks:`, sampleTasks);
       }
 
-      // ลบ KPI records เก่าสำหรับช่วงเวลานี้
+      // ลบ KPI records เก่าสำหรับกลุ่มนี้ (ไม่จำกัดช่วงเวลาเพื่อให้คำนวณใหม่ทั้งหมด)
+      console.log(`🗑️ Deleting old KPI records for group ${internalGroupId}...`);
       const deletedRecords = await this.kpiRepository
         .createQueryBuilder()
         .delete()
         .where('groupId = :groupId', { groupId: internalGroupId })
-        .andWhere('eventDate BETWEEN :startDate AND :endDate', { startDate, endDate })
         .execute();
 
       console.log(`🗑️ Deleted ${deletedRecords.affected || 0} old KPI records`);
@@ -1475,6 +1461,8 @@ export class KPIService {
           if (task.status === 'completed' && task.completedAt) {
             // งานเสร็จแล้ว - คำนวณประเภทการเสร็จ
             const completionType = this.calculateCompletionType(task);
+            
+            console.log(`✅ Processing completed task: ${task.title} (type: ${completionType})`);
             
             // บันทึก KPI สำหรับผู้รับผิดชอบทุกคน
             for (const assignee of task.assignedUsers) {
@@ -1543,10 +1531,12 @@ export class KPIService {
               processedUsers.add(assignee.id);
               overdueTasks++;
             }
-          } else {
-            // งานที่ยังไม่ถึงกำหนดส่ง - ไม่ต้องทำอะไร
-            if (task.dueTime && moment(task.dueTime).isAfter(now)) {
-              console.log(`⏳ Skipping pending task: ${task.title} (due: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')})`);
+          } else if (task.status === 'pending' || task.status === 'in_progress') {
+            // งานที่ยังไม่เสร็จ - ไม่ต้องบันทึก KPI แต่ต้องนับในสถิติ
+            console.log(`⏳ Task not completed: ${task.title} (status: ${task.status})`);
+            // เพิ่มผู้ใช้ในรายการที่ประมวลผลแล้ว (เพื่อให้แสดงใน leaderboard)
+            for (const assignee of task.assignedUsers) {
+              processedUsers.add(assignee.id);
             }
           }
         } catch (taskError) {

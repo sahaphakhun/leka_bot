@@ -135,10 +135,6 @@
                         <i class="fas fa-paperclip"></i>
                         ส่งงาน
                     </button>
-                    <button class="action-btn secondary" id="reviewTaskBtn">
-                        <i class="fas fa-check-circle"></i>
-                        ตรวจงาน
-                    </button>
                 </div>
 
                 <!-- Dashboard Sections -->
@@ -441,20 +437,7 @@
         </nav>
 
         <!-- Modals -->
-        <!-- Task Detail Modal -->
-        <div id="taskModal" class="modal">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h3 id="taskModalTitle">รายละเอียดงาน</h3>
-                    <button class="modal-close" id="taskModalClose">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-                <div class="modal-body" id="taskModalBody">
-                    <!-- จะใส่ด้วย JavaScript -->
-                </div>
-            </div>
-        </div>
+
 
         <!-- Add Task Modal -->
         <div id="addTaskModal" class="modal">
@@ -536,35 +519,22 @@
             </div>
         </div>
 
-        <!-- Review Task Modal -->
-        <div id="reviewTaskModal" class="modal">
+        <!-- View Task Modal -->
+        <div id="viewTaskModal" class="modal">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h3>ตรวจงาน</h3>
-                    <button class="modal-close" id="reviewTaskModalClose">
+                    <h3>ดูรายละเอียดงาน</h3>
+                    <button class="modal-close" id="viewTaskModalClose">
                         <i class="fas fa-times"></i>
                     </button>
                 </div>
                 <div class="modal-body">
-                    <form id="reviewTaskForm">
-                        <div class="form-group">
-                            <label for="reviewTaskId">เลือกงาน</label>
-                            <select id="reviewTaskId"></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="reviewComment">ความเห็น</label>
-                            <textarea id="reviewComment" rows="3"></textarea>
-                        </div>
-                        <div class="form-group">
-                            <label for="reviewNewDue">กำหนดส่งใหม่ (กรณีตีกลับ)</label>
-                            <input type="datetime-local" id="reviewNewDue">
-                        </div>
-                        <div class="form-actions">
-                            <button type="button" class="btn btn-outline" id="cancelReviewTask">ยกเลิก</button>
-                            <button type="button" class="btn btn-primary" id="approveTaskBtn">อนุมัติ</button>
-                            <button type="button" class="btn btn-outline" id="rejectTaskBtn">ตีกลับ</button>
-                        </div>
-                    </form>
+                    <div id="viewTaskContent">
+                        <!-- จะใส่เนื้อหาด้วย JavaScript -->
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="closeViewTask">ปิด</button>
+                    </div>
                 </div>
             </div>
         </div>

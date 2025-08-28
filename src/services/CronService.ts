@@ -67,7 +67,8 @@ export class CronService {
     // สรุปรายวัน 08:00 ส่งรายการงานที่ยังไม่เสร็จในแต่ละกลุ่ม
     const dailySummaryJob = cron.schedule('0 8 * * *', async () => {
       await this.sendDailyIncompleteTaskSummaries();
-      await this.sendManagerDailySummaries();
+      // ย้ายรายงานผู้จัดการไปส่งเฉพาะวันจันทร์
+      // await this.sendManagerDailySummaries();
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
@@ -76,6 +77,8 @@ export class CronService {
     // สรุปงานของผู้ใต้บังคับบัญชาให้หัวหน้างานทุกวันจันทร์ 08:00
     const supervisorSummaryJob = cron.schedule('0 8 * * 1', async () => {
       await this.sendSupervisorWeeklySummaries();
+      // เพิ่มรายงานผู้จัดการรายสัปดาห์ (รวมทุกกลุ่ม)
+      await this.sendManagerWeeklySummaries();
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
@@ -390,47 +393,98 @@ export class CronService {
   }
 
   /**
-   * สร้าง Flex Message สำหรับรายงานผู้จัดการ
+   * สร้าง Flex Message สำหรับรายงานผู้จัดการ (รวมทุกกลุ่ม)
    */
-  private createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): any {
-    const date = moment().tz(timezone).format('DD/MM/YYYY');
-    
+  private async sendManagerWeeklySummaries(): Promise<void> {
+    try {
+      console.log('📊 Sending manager weekly summaries (consolidated)...');
+
+      const groups = await this.taskService.getAllActiveGroups();
+      
+      // สร้าง Map เพื่อจัดกลุ่มข้อมูลตามผู้จัดการ
+      const managerGroups = new Map<string, Array<{ group: any; stats: any }>>();
+      
+      for (const group of groups) {
+        // ดึงสถิติรายสัปดาห์สำหรับกลุ่ม
+        const stats = await this.kpiService.getWeeklyStats(group.id);
+        
+        // ดึงสมาชิกที่เป็น admin ของกลุ่ม
+        const members = await (this.notificationService as any).userService.getGroupMembers(group.lineGroupId);
+        const managers = members.filter((m: any) => m.role === 'admin');
+        
+        // จัดกลุ่มข้อมูลตามผู้จัดการ
+        for (const manager of managers) {
+          if (!managerGroups.has(manager.lineUserId)) {
+            managerGroups.set(manager.lineUserId, []);
+          }
+          managerGroups.get(manager.lineUserId)!.push({ group, stats });
+        }
+      }
+      
+      // ส่งรายงานรวมให้แต่ละผู้จัดการ
+      for (const [managerLineUserId, groupData] of managerGroups) {
+        try {
+          // สร้าง Flex Message รวมสำหรับผู้จัดการคนนี้
+          const managerFlexMessage = this.createManagerWeeklyConsolidatedReportFlexMessage(groupData);
+          
+          // ส่งรายงาน
+          await (this.notificationService as any).lineService.pushMessage(managerLineUserId, managerFlexMessage);
+          console.log(`✅ Sent consolidated manager weekly report to: ${managerLineUserId}`);
+        } catch (err) {
+          console.warn('⚠️ Failed to send consolidated manager weekly report:', managerLineUserId, err);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sending manager weekly summaries:', error);
+    }
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับรายงานผู้จัดการ (รวมทุกกลุ่ม)
+   */
+  private createManagerWeeklyConsolidatedReportFlexMessage(groupData: Array<{ group: any; stats: any }>): any {
+    const date = moment().tz(config.app.defaultTimezone).format('DD/MM/YYYY');
+    const totalGroups = groupData.length;
+    const totalMembers = groupData.reduce((sum, g) => sum + (g.stats.totalMembers || 0), 0);
+    const totalCompletedTasks = groupData.reduce((sum, g) => sum + (g.stats.completedTasks || 0), 0);
+    const totalOverdueTasks = groupData.reduce((sum, g) => sum + (g.stats.overdueTasks || 0), 0);
+    const totalPendingReviewTasks = groupData.reduce((sum, g) => sum + (g.stats.pendingReviewTasks || 0), 0);
+
     const content = [
-      { ...FlexMessageDesignSystem.createText(`🗓️ วันที่ ${date}`, 'sm', FlexMessageDesignSystem.colors.textSecondary), align: 'center' },
+      { ...FlexMessageDesignSystem.createText(`📊 สรุปรายงานผู้จัดการรวมทุกกลุ่ม (${date})`, 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'), align: 'center' },
       FlexMessageDesignSystem.createSeparator('medium'),
-      FlexMessageDesignSystem.createBox('horizontal', [
-        { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('📋 งานทั้งหมด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(stats.totalTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
-        ]), flex: 1 },
-        { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('✅ เสร็จแล้ว', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(stats.completedTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.success, 'bold')
-        ]), flex: 1 }
-      ]),
-      FlexMessageDesignSystem.createBox('horizontal', [
-        { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('⚠️ เกินกำหนด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(stats.overdueTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.danger, 'bold')
-        ]), flex: 1 },
-        { ...FlexMessageDesignSystem.createBox('vertical', [
-          FlexMessageDesignSystem.createText('📝 รอตรวจ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(stats.pendingReviewTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.warning, 'bold')
-        ]), flex: 1 }
-      ])
+      FlexMessageDesignSystem.createBox('vertical', [
+        FlexMessageDesignSystem.createText(`👥 สมาชิกทั้งหมด: ${totalMembers} คน`, 'sm', FlexMessageDesignSystem.colors.textSecondary),
+        FlexMessageDesignSystem.createText(`📊 งานเสร็จแล้ว: ${totalCompletedTasks} งาน`, 'sm', FlexMessageDesignSystem.colors.success),
+        FlexMessageDesignSystem.createText(`⚠️ งานเกินกำหนด: ${totalOverdueTasks} งาน`, 'sm', FlexMessageDesignSystem.colors.danger),
+        FlexMessageDesignSystem.createText(`📝 งานรอตรวจ: ${totalPendingReviewTasks} งาน`, 'sm', FlexMessageDesignSystem.colors.warning)
+      ], 'small'),
+      FlexMessageDesignSystem.createSeparator('medium'),
+      FlexMessageDesignSystem.createText('📋 สรุปงานของแต่ละกลุ่ม', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
+      FlexMessageDesignSystem.createBox('vertical', groupData.map((item, index) => {
+        const group = item.group;
+        const stats = item.stats;
+        return FlexMessageDesignSystem.createBox('horizontal', [
+          { ...FlexMessageDesignSystem.createText(`${index + 1}. ${group.name}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'), flex: 1 },
+          { ...FlexMessageDesignSystem.createText(`👥 ${stats.totalMembers || 0} คน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(`📊 ${stats.completedTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.success), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(`⚠️ ${stats.overdueTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.danger), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(`📝 ${stats.pendingReviewTasks || 0} งาน`, 'sm', FlexMessageDesignSystem.colors.warning), flex: 0 }
+        ], 'small');
+      }), 'small')
     ];
 
     const buttons = [
       FlexMessageDesignSystem.createButton(
-        'ดู Dashboard',
+        'ดูรายละเอียดทั้งหมด',
         'uri',
-        `${config.baseUrl}/dashboard?groupId=${group.id}`,
+        `${config.baseUrl}/dashboard?groupId=${groupData[0].group.id}#manager-reports`, // สามารถปรับเป็นลิงก์ที่ต้องการได้
         'primary'
       )
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
-      '📊 รายงานผู้จัดการ',
+      '📊 สรุปรายงานผู้จัดการรวม',
       '📊',
       FlexMessageDesignSystem.colors.info,
       content,
@@ -506,6 +560,56 @@ export class CronService {
       '📊 รายงานหัวหน้างาน',
       '📊',
       FlexMessageDesignSystem.colors.neutral,
+      content,
+      buttons,
+      'large'
+    );
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับรายงานผู้จัดการ
+   */
+  private createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): any {
+    const date = moment().tz(timezone).format('DD/MM/YYYY');
+    
+    const content = [
+      { ...FlexMessageDesignSystem.createText(`🗓️ วันที่ ${date}`, 'sm', FlexMessageDesignSystem.colors.textSecondary), align: 'center' },
+      FlexMessageDesignSystem.createSeparator('medium'),
+      FlexMessageDesignSystem.createBox('horizontal', [
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('📋 งานทั้งหมด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.totalTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('✅ เสร็จแล้ว', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.completedTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.success, 'bold')
+        ]), flex: 1 }
+      ]),
+      FlexMessageDesignSystem.createBox('horizontal', [
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('⚠️ เกินกำหนด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.overdueTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.danger, 'bold')
+        ]), flex: 1 },
+        { ...FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createText('📝 รอตรวจ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
+          FlexMessageDesignSystem.createText(stats.pendingReviewTasks?.toString() || '0', 'lg', FlexMessageDesignSystem.colors.warning, 'bold')
+        ]), flex: 1 }
+      ])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton(
+        'ดู Dashboard',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}`,
+        'primary'
+      )
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      '📊 รายงานผู้จัดการ',
+      '📊',
+      FlexMessageDesignSystem.colors.info,
       content,
       buttons,
       'large'

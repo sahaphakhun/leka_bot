@@ -50,6 +50,9 @@ async function initApp() {
         // Setup navigation
         setupNavigation();
         
+        // Auto-sync leaderboard scores when dashboard loads
+        await autoSyncLeaderboard();
+        
         // Load initial data
         await loadDashboardData();
         
@@ -61,6 +64,61 @@ async function initApp() {
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการเริ่มต้น:', error);
         showToast('เกิดข้อผิดพลาดในการเริ่มต้น', 'error');
+    }
+}
+
+/**
+ * Auto-sync leaderboard scores when dashboard loads
+ * อัพเดทคะแนนอัตโนมัติเมื่อเปิดแดชบอร์ด
+ */
+async function autoSyncLeaderboard() {
+    try {
+        console.log('🔄 Auto-syncing leaderboard scores...');
+        
+        // ตรวจสอบว่าควรซิงค์หรือไม่ (ซิงค์ทุก 5 นาที)
+        const now = Date.now();
+        const syncInterval = 5 * 60 * 1000; // 5 นาที
+        
+        if (lastLeaderboardSync && (now - lastLeaderboardSync) < syncInterval) {
+            console.log('⏰ Leaderboard recently synced, skipping auto-sync');
+            return;
+        }
+        
+        // แสดงสถานะการซิงค์
+        const syncBtn = document.getElementById('syncLeaderboardBtn');
+        if (syncBtn) {
+            const originalText = syncBtn.textContent;
+            syncBtn.textContent = '🔄 ซิงค์...';
+            syncBtn.disabled = true;
+            
+            try {
+                // เรียก API sync-leaderboard
+                const response = await apiRequest(`/api/groups/${currentGroupId}/sync-leaderboard`, {
+                    method: 'POST',
+                    body: { period: 'weekly' }
+                });
+                
+                if (response.success) {
+                    console.log('✅ Auto-sync leaderboard successful:', response.data);
+                    lastLeaderboardSync = now;
+                    
+                    // อัพเดท mini leaderboard ทันที
+                    await loadMiniLeaderboard();
+                    
+                    showToast('อัพเดทคะแนนเรียบร้อยแล้ว', 'success');
+                } else {
+                    console.warn('⚠️ Auto-sync leaderboard failed:', response.error);
+                }
+            } finally {
+                // คืนค่าปุ่มเดิม
+                syncBtn.textContent = originalText;
+                syncBtn.disabled = false;
+            }
+        }
+        
+    } catch (error) {
+        console.error('❌ Error auto-syncing leaderboard:', error);
+        // ไม่แสดง error toast เพื่อไม่ให้รบกวนผู้ใช้
     }
 }
 
@@ -204,6 +262,9 @@ async function loadGroupData(groupId) {
  */
 async function loadDashboardData() {
     try {
+        // Auto-sync leaderboard scores before loading data
+        await autoSyncLeaderboard();
+        
         await Promise.all([
             loadStats(),
             loadUpcomingTasks(),
@@ -231,6 +292,13 @@ async function loadStats() {
         
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดสถิติ:', error);
+        // Fallback: แสดงข้อมูลเป็น 0
+        updateStats({
+            total: 0,
+            pending: 0,
+            completed: 0,
+            overdue: 0
+        });
     }
 }
 
@@ -248,6 +316,8 @@ async function loadUpcomingTasks() {
         
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดงานที่ใกล้ครบกำหนด:', error);
+        // Fallback: แสดงข้อความว่าไม่มีข้อมูล
+        updateUpcomingTasks([]);
     }
 }
 
@@ -256,15 +326,36 @@ async function loadUpcomingTasks() {
  */
 async function loadMiniLeaderboard() {
     try {
+        console.log('🔄 Loading mini leaderboard...');
+        
+        // แสดงสถานะการโหลด
+        const miniLeaderboardContainer = document.getElementById('miniLeaderboard');
+        if (miniLeaderboardContainer) {
+            miniLeaderboardContainer.innerHTML = '<div class="text-center text-gray-500">🔄 กำลังโหลด...</div>';
+        }
+        
         // ใช้ API ที่มีอยู่จริง
         const response = await apiRequest(`/api/groups/${currentGroupId}/leaderboard?period=weekly&limit=3`);
         if (!response.success) throw new Error('ไม่สามารถโหลดอันดับได้');
+        
+        console.log('✅ Mini leaderboard loaded:', response.data);
         
         // Update UI
         updateMiniLeaderboard(response.data);
         
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดอันดับ:', error);
+        
+        // แสดงข้อความ error ที่เป็นประโยชน์
+        const miniLeaderboardContainer = document.getElementById('miniLeaderboard');
+        if (miniLeaderboardContainer) {
+            miniLeaderboardContainer.innerHTML = `
+                <div class="text-center text-red-500">
+                    <div>❌ ไม่สามารถโหลดอันดับได้</div>
+                    <button onclick="loadMiniLeaderboard()" class="btn btn-sm mt-2">ลองใหม่</button>
+                </div>
+            `;
+        }
     }
 }
 
@@ -323,16 +414,15 @@ function setupEventListeners() {
         submitTaskBtn.addEventListener('click', () => showSubmitTaskModal());
     }
     
-    const reviewTaskBtn = document.getElementById('reviewTaskBtn');
-    if (reviewTaskBtn) {
-        reviewTaskBtn.addEventListener('click', () => showReviewTaskModal());
-    }
+
     
     // Sync leaderboard button
     const syncLeaderboardBtn = document.getElementById('syncLeaderboardBtn');
     if (syncLeaderboardBtn) {
         syncLeaderboardBtn.addEventListener('click', () => syncLeaderboard());
     }
+    
+
     
     // Modal close buttons
     setupModalCloseListeners();
@@ -348,10 +438,7 @@ function setupEventListeners() {
         submitTaskForm.addEventListener('submit', handleSubmitTask);
     }
     
-    const reviewTaskForm = document.getElementById('reviewTaskForm');
-    if (reviewTaskForm) {
-        reviewTaskForm.addEventListener('submit', handleReviewTask);
-    }
+
 }
 
 /**
@@ -368,6 +455,8 @@ function setupModalCloseListeners() {
         });
     });
     
+
+    
     // Close modal when clicking outside
     const modals = document.querySelectorAll('.modal');
     modals.forEach(modal => {
@@ -377,6 +466,17 @@ function setupModalCloseListeners() {
             }
         });
     });
+    
+    // Close view task modal button
+    const closeViewTaskBtn = document.getElementById('closeViewTask');
+    if (closeViewTaskBtn) {
+        closeViewTaskBtn.addEventListener('click', function() {
+            const modal = document.getElementById('viewTaskModal');
+            if (modal) {
+                modal.classList.remove('active');
+            }
+        });
+    }
 }
 
 /**
@@ -499,18 +599,30 @@ function updateUpcomingTasks(tasks) {
         return;
     }
     
-    const tasksHTML = tasks.map(task => `
-        <div class="task-item" onclick="showTaskDetail('${task.id}')">
-            <div class="task-header">
-                <h4 class="task-title">${task.title}</h4>
-                <span class="task-status ${task.status}">${getStatusText(task.status)}</span>
+    const tasksHTML = tasks.map(task => {
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+        let assigneeNames = 'ไม่ระบุ';
+        if (task.assignedUsers && task.assignedUsers.length > 0) {
+            assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (task.assignees && task.assignees.length > 0) {
+            assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (task.assignee) {
+            assigneeNames = task.assignee;
+        }
+        
+        return `
+            <div class="task-item" onclick="showTaskDetail('${task.id}')">
+                <div class="task-header">
+                    <h4 class="task-title">${task.title}</h4>
+                    <span class="task-status ${task.status}">${getStatusText(task.status)}</span>
+                </div>
+                <div class="task-meta">
+                    <span><i class="fas fa-user"></i> ${assigneeNames}</span>
+                    <span><i class="fas fa-clock"></i> ${formatDate(task.dueDate)}</span>
+                </div>
             </div>
-            <div class="task-meta">
-                <span><i class="fas fa-user"></i> ${task.assignee || 'ไม่ระบุ'}</span>
-                <span><i class="fas fa-clock"></i> ${formatDate(task.dueDate)}</span>
-            </div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     upcomingTasksContainer.innerHTML = tasksHTML;
 }
@@ -528,16 +640,25 @@ function updateMiniLeaderboard(leaderboardData) {
         return;
     }
     
-    const leaderboardHTML = leaderboardData.slice(0, 3).map((entry, index) => `
-        <div class="leaderboard-item">
-            <div class="leaderboard-rank rank-${index + 1}">${index + 1}</div>
-            <div class="leaderboard-user">
-                <div class="leaderboard-name">${entry.displayName}</div>
-                <div class="leaderboard-role">${entry.role || 'สมาชิก'}</div>
+    const leaderboardHTML = leaderboardData.slice(0, 3).map((entry, index) => {
+        // ใช้คะแนนที่ถูกต้องตาม API response
+        const score = entry.weeklyPoints || entry.monthlyPoints || entry.totalPoints || 0;
+        const tasksCompleted = entry.tasksCompleted || 0;
+        
+        return `
+            <div class="leaderboard-item">
+                <div class="leaderboard-rank rank-${index + 1}">${index + 1}</div>
+                <div class="leaderboard-user">
+                    <div class="leaderboard-name">${entry.displayName}</div>
+                    <div class="leaderboard-role">${entry.role || 'สมาชิก'}</div>
+                </div>
+                <div class="leaderboard-score">
+                    <div class="score-points">${score} คะแนน</div>
+                    <div class="score-tasks">${tasksCompleted} งาน</div>
+                </div>
             </div>
-            <div class="leaderboard-score">${entry.score}</div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     miniLeaderboardContainer.innerHTML = leaderboardHTML;
 }
@@ -618,55 +739,47 @@ function formatDate(dateString) {
 }
 
 /**
- * Sync leaderboard
+ * Sync leaderboard manually
  */
 async function syncLeaderboard() {
     try {
+        console.log('🔄 Manual leaderboard sync started...');
         showToast('กำลังซิงค์คะแนน...', 'info');
         
-        // ใช้ API ที่มีอยู่จริง
-        const response = await apiRequest(`/api/groups/${currentGroupId}/sync-leaderboard`, {
-            method: 'POST'
-        });
-        
-        if (!response.success) throw new Error('ไม่สามารถซิงค์คะแนนได้');
-        
-        showToast('ซิงค์คะแนนสำเร็จ', 'success');
-        
-        // Reload leaderboard data
-        if (currentView === 'leaderboard') {
-            await loadLeaderboardData();
-        } else {
-            await loadMiniLeaderboard();
-        }
-        
-    } catch (error) {
-        console.error('❌ เกิดข้อผิดพลาดในการซิงค์คะแนน:', error);
-        showToast('เกิดข้อผิดพลาดในการซิงค์คะแนน', 'error');
-    }
-}
-
-/**
- * Sync leaderboard
- */
-async function syncLeaderboard() {
-    try {
-        showToast('กำลังซิงค์คะแนน...', 'info');
-        
-        // ใช้ API ที่มีอยู่จริง
-        const response = await apiRequest(`/api/groups/${currentGroupId}/sync-leaderboard`, {
-            method: 'POST'
-        });
-        
-        if (!response.success) throw new Error('ไม่สามารถซิงค์คะแนนได้');
-        
-        showToast('ซิงค์คะแนนสำเร็จ', 'success');
-        
-        // Reload leaderboard data
-        if (currentView === 'leaderboard') {
-            await loadLeaderboardData();
-        } else {
-            await loadMiniLeaderboard();
+        // อัพเดทสถานะปุ่ม
+        const syncBtn = document.getElementById('syncLeaderboardBtn');
+        if (syncBtn) {
+            const originalText = syncBtn.textContent;
+            syncBtn.textContent = '🔄 ซิงค์...';
+            syncBtn.disabled = true;
+            
+            try {
+                // ใช้ API ที่มีอยู่จริง
+                const response = await apiRequest(`/api/groups/${currentGroupId}/sync-leaderboard`, {
+                    method: 'POST',
+                    body: { period: 'weekly' }
+                });
+                
+                if (!response.success) throw new Error('ไม่สามารถซิงค์คะแนนได้');
+                
+                console.log('✅ Manual sync successful:', response.data);
+                showToast('ซิงค์คะแนนสำเร็จ', 'success');
+                
+                // อัพเดทเวลาที่ซิงค์ล่าสุด
+                lastLeaderboardSync = Date.now();
+                
+                // Reload leaderboard data
+                if (currentView === 'leaderboard') {
+                    await loadLeaderboardData();
+                } else {
+                    await loadMiniLeaderboard();
+                }
+                
+            } finally {
+                // คืนค่าปุ่มเดิม
+                syncBtn.textContent = originalText;
+                syncBtn.disabled = false;
+            }
         }
         
     } catch (error) {
@@ -697,16 +810,7 @@ function showSubmitTaskModal() {
     }
 }
 
-/**
- * Show review task modal
- */
-function showReviewTaskModal() {
-    const modal = document.getElementById('reviewTaskModal');
-    if (modal) {
-        modal.classList.add('active');
-        loadReviewableTasks();
-    }
-}
+
 
 /**
  * Load task assignees for add task form
@@ -757,27 +861,7 @@ async function loadSubmitableTasks() {
     }
 }
 
-/**
- * Load reviewable tasks
- */
-async function loadReviewableTasks() {
-    try {
-        // ใช้ API ที่มีอยู่จริง
-        const response = await apiRequest(`/groups/${currentGroupId}/tasks?status=pending`);
-        if (!response.success) throw new Error('ไม่สามารถโหลดงานที่ตรวจได้');
-        
-        const reviewableTasks = response.data || [];
-        
-        const reviewTaskSelect = document.getElementById('reviewTaskId');
-        if (reviewTaskSelect) {
-            reviewTaskSelect.innerHTML = '<option value="">เลือกงาน</option>' +
-                reviewableTasks.map(task => `<option value="${task.id}">${task.title}</option>`).join('');
-        }
-        
-    } catch (error) {
-        console.error('❌ เกิดข้อผิดพลาดในการโหลดงานที่ตรวจได้:', error);
-    }
-}
+
 
 /**
  * Handle add task form submission
@@ -866,47 +950,7 @@ async function handleSubmitTask(e) {
     }
 }
 
-/**
- * Handle review task form submission
- */
-async function handleReviewTask(e) {
-    e.preventDefault();
-    
-    try {
-        const formData = new FormData(e.target);
-        const reviewData = {
-            taskId: formData.get('taskId'),
-            comment: formData.get('comment'),
-            newDueDate: formData.get('newDueDate')
-        };
-        
-        // ใช้ API ที่มีอยู่จริง
-        const response = await apiRequest(`/api/groups/${currentGroupId}/tasks/${reviewData.taskId}`, {
-            method: 'PUT',
-            body: reviewData
-        });
-        
-        if (!response.success) throw new Error('ไม่สามารถตรวจงานได้');
-        
-        showToast('ตรวจงานสำเร็จ', 'success');
-        
-        // Close modal
-        const modal = document.getElementById('reviewTaskModal');
-        if (modal) {
-            modal.classList.remove('active');
-        }
-        
-        // Reset form
-        e.target.reset();
-        
-        // Reload dashboard data
-        await loadDashboardData();
-        
-    } catch (error) {
-        console.error('❌ เกิดข้อผิดพลาดในการตรวจงาน:', error);
-        showToast('เกิดข้อผิดพลาดในการตรวจงาน', 'error');
-    }
-}
+
 
 /**
  * Show task detail modal
@@ -920,27 +964,41 @@ async function showTaskDetail(taskId) {
         const task = response.data;
         
         // Update modal content
-        const modalTitle = document.getElementById('taskModalTitle');
-        const modalBody = document.getElementById('taskModalBody');
+        const modalContent = document.getElementById('viewTaskContent');
         
-        if (modalTitle) modalTitle.textContent = task.title;
-        
-        if (modalBody) {
-            modalBody.innerHTML = `
+        if (modalContent) {
+            // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+            let assigneeNames = 'ไม่ระบุ';
+            if (task.assignedUsers && task.assignedUsers.length > 0) {
+                assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+            } else if (task.assignees && task.assignees.length > 0) {
+                assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+            } else if (task.assignee) {
+                assigneeNames = task.assignee;
+            }
+
+            modalContent.innerHTML = `
                 <div class="task-detail">
+                    <div class="task-header">
+                        <h4 class="task-title">${task.title}</h4>
+                        <span class="task-status ${task.status}">${getStatusText(task.status)}</span>
+                    </div>
                     <div class="task-info">
                         <p><strong>รายละเอียด:</strong> ${task.description || 'ไม่มีรายละเอียด'}</p>
                         <p><strong>สถานะ:</strong> <span class="task-status ${task.status}">${getStatusText(task.status)}</span></p>
                         <p><strong>ระดับความสำคัญ:</strong> ${getPriorityText(task.priority)}</p>
                         <p><strong>กำหนดส่ง:</strong> ${formatDate(task.dueDate)}</p>
-                        <p><strong>ผู้รับผิดชอบ:</strong> ${task.assignees?.map(a => a.displayName).join(', ') || 'ไม่ระบุ'}</p>
+                        <p><strong>ผู้รับผิดชอบ:</strong> ${assigneeNames}</p>
+                    </div>
+                    <div class="task-note">
+                        <p><em>หมายเหตุ: การอนุมัติงานต้องทำผ่านแชทส่วนตัวกับบอทเท่านั้น</em></p>
                     </div>
                 </div>
             `;
         }
         
         // Show modal
-        const modal = document.getElementById('taskModal');
+        const modal = document.getElementById('viewTaskModal');
         if (modal) {
             modal.classList.add('active');
         }
@@ -970,80 +1028,420 @@ async function loadCalendarData() {
         const month = currentDate.getMonth() + 1;
         const year = currentDate.getFullYear();
         
+        // ใช้ API ที่มีอยู่จริง
         const response = await apiRequest(`/api/groups/${currentGroupId}/calendar?month=${month}&year=${year}`);
         if (response.success) {
             // Update calendar display
             updateCalendarDisplay(response.data);
+        } else {
+            // Fallback: โหลดงานทั้งหมดแล้วกรองตามเดือน
+            const tasksResponse = await apiRequest(`/api/groups/${currentGroupId}/tasks`);
+            if (tasksResponse.success) {
+                const tasks = tasksResponse.data;
+                const monthTasks = tasks.filter(task => {
+                    if (!task.dueDate) return false;
+                    const taskDate = new Date(task.dueDate);
+                    return taskDate.getMonth() + 1 === month && taskDate.getFullYear() === year;
+                });
+                
+                updateCalendarDisplay({ tasks: monthTasks });
+            }
         }
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดข้อมูลปฏิทิน:', error);
+        showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลปฏิทิน', 'error');
     }
 }
 
 async function loadTasksData() {
     try {
+        // ใช้ API ที่มีอยู่จริง
         const response = await apiRequest(`/api/groups/${currentGroupId}/tasks`);
         if (response.success) {
             // Update tasks list
             updateTasksList(response.data);
+        } else {
+            // Fallback: แสดงข้อความว่าไม่มีข้อมูล
+            updateTasksList([]);
         }
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดข้อมูลงาน:', error);
+        showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลงาน', 'error');
+        updateTasksList([]);
     }
 }
 
 async function loadFilesData() {
     try {
+        // ใช้ API ที่มีอยู่จริง
         const response = await apiRequest(`/api/groups/${currentGroupId}/files`);
         if (response.success) {
             // Update files grid
             updateFilesGrid(response.data);
+        } else {
+            // Fallback: แสดงข้อความว่าไม่มีข้อมูล
+            updateFilesGrid([]);
         }
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดข้อมูลไฟล์:', error);
+        showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลไฟล์', 'error');
+        updateFilesGrid([]);
     }
 }
 
 async function loadLeaderboardData() {
     try {
+        console.log('🔄 Loading full leaderboard data...');
+        
+        // แสดงสถานะการโหลด
+        const leaderboardList = document.getElementById('leaderboardList');
+        if (leaderboardList) {
+            leaderboardList.innerHTML = '<div class="text-center text-gray-500">🔄 กำลังโหลดข้อมูลอันดับ...</div>';
+        }
+        
+        // ใช้ API ที่มีอยู่จริง
         const response = await apiRequest(`/api/groups/${currentGroupId}/leaderboard?period=weekly`);
         if (response.success) {
+            console.log('✅ Full leaderboard loaded:', response.data);
             // Update leaderboard list
             updateLeaderboardList(response.data);
+        } else {
+            console.warn('⚠️ Leaderboard API returned error:', response.error);
+            // Fallback: แสดงข้อความว่าไม่มีข้อมูล
+            updateLeaderboardList([]);
         }
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดข้อมูลอันดับ:', error);
+        showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลอันดับ', 'error');
+        
+        // แสดงข้อความ error ที่เป็นประโยชน์
+        const leaderboardList = document.getElementById('leaderboardList');
+        if (leaderboardList) {
+            leaderboardList.innerHTML = `
+                <div class="text-center text-red-500">
+                    <div>❌ ไม่สามารถโหลดข้อมูลอันดับได้</div>
+                    <button onclick="loadLeaderboardData()" class="btn btn-sm mt-2">ลองใหม่</button>
+                </div>
+            `;
+        }
     }
 }
 
 async function loadReportsData() {
     try {
-        // Load reports data
-        console.log('Loading reports data...');
+        const period = document.getElementById('reportPeriodSelect')?.value || 'weekly';
+        const userId = document.getElementById('reportUserSelect')?.value || '';
+        
+        // ใช้ API ที่มีอยู่จริง
+        const response = await apiRequest(`/api/groups/${currentGroupId}/reports/summary?period=${period}${userId ? `&userId=${userId}` : ''}`);
+        if (!response.success) throw new Error('ไม่สามารถโหลดข้อมูลรายงานได้');
+        
+        // Update reports display
+        updateReportsDisplay(response.data);
+        
+        // Load user-specific reports if user is selected
+        if (userId) {
+            const userResponse = await apiRequest(`/api/groups/${currentGroupId}/reports/by-users?userId=${userId}&period=${period}`);
+            if (userResponse.success) {
+                updateUserReportsTable(userResponse.data);
+            }
+        }
+        
     } catch (error) {
         console.error('❌ เกิดข้อผิดพลาดในการโหลดข้อมูลรายงาน:', error);
+        showToast('เกิดข้อผิดพลาดในการโหลดข้อมูลรายงาน', 'error');
     }
+}
+
+/**
+ * Update reports display
+ */
+function updateReportsDisplay(reportsData) {
+    // Update summary stats
+    const repCompleted = document.getElementById('repCompleted');
+    const repEarly = document.getElementById('repEarly');
+    const repOntime = document.getElementById('repOntime');
+    const repOverdue = document.getElementById('repOverdue');
+    
+    if (repCompleted) repCompleted.textContent = reportsData.completed || 0;
+    if (repEarly) repEarly.textContent = reportsData.early || 0;
+    if (repOntime) repOntime.textContent = reportsData.onTime || 0;
+    if (repOverdue) repOverdue.textContent = reportsData.overdue || 0;
+    
+    // Update charts if available
+    updateReportsCharts(reportsData);
+}
+
+/**
+ * Update user reports table
+ */
+function updateUserReportsTable(userReportsData) {
+    const repUsersTable = document.getElementById('repUsersTable');
+    
+    if (!repUsersTable) return;
+    
+    if (!userReportsData || userReportsData.length === 0) {
+        repUsersTable.innerHTML = '<tr><td colspan="6" class="text-center text-gray-500">ไม่มีข้อมูล</td></tr>';
+        return;
+    }
+    
+    const tableRows = userReportsData.map(user => {
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+        let assigneeNames = 'ไม่ระบุ';
+        if (user.assignedUsers && user.assignedUsers.length > 0) {
+            assigneeNames = user.assignedUsers.map(u => u.displayName || u.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (user.assignees && user.assignees.length > 0) {
+            assigneeNames = user.assignees.map(u => u.displayName || u.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (user.assignee) {
+            assigneeNames = user.assignee;
+        }
+        
+        return `
+            <tr>
+                <td>${user.displayName || user.name || 'ไม่ทราบชื่อ'}</td>
+                <td>${user.completedTasks || 0}</td>
+                <td>${user.earlyTasks || 0}</td>
+                <td>${user.onTimeTasks || 0}</td>
+                <td>${user.lateTasks || 0}</td>
+                <td>${user.overdueTasks || 0}</td>
+            </tr>
+        `;
+    }).join('');
+    
+    repUsersTable.innerHTML = tableRows;
+}
+
+/**
+ * Update reports charts
+ */
+function updateReportsCharts(reportsData) {
+    // Implementation for charts (Chart.js or similar)
+    console.log('Updating reports charts:', reportsData);
 }
 
 // Helper functions for updating UI
 function updateCalendarDisplay(calendarData) {
-    // Implementation for calendar display
-    console.log('Updating calendar display:', calendarData);
+    const calendarGrid = document.getElementById('calendarGrid');
+    
+    if (!calendarGrid) return;
+    
+    if (!calendarData || !calendarData.tasks || calendarData.tasks.length === 0) {
+        calendarGrid.innerHTML = '<p class="text-center text-gray-500">ไม่มีงานในเดือนนี้</p>';
+        return;
+    }
+    
+    // สร้างปฏิทินแบบตาราง
+    const currentDate = new Date();
+    const year = currentDate.getFullYear();
+    const month = currentDate.getMonth();
+    
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const startDate = new Date(firstDay);
+    startDate.setDate(startDate.getDate() - firstDay.getDay());
+    
+    let calendarHTML = '<div class="calendar-header">';
+    ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'].forEach(day => {
+        calendarHTML += `<div class="calendar-day-header">${day}</div>`;
+    });
+    calendarHTML += '</div>';
+    
+    calendarHTML += '<div class="calendar-body">';
+    
+    for (let week = 0; week < 6; week++) {
+        calendarHTML += '<div class="calendar-week">';
+        for (let day = 0; day < 7; day++) {
+            const currentDate = new Date(startDate);
+            currentDate.setDate(startDate.getDate() + week * 7 + day);
+            
+            const isCurrentMonth = currentDate.getMonth() === month;
+            const dateString = currentDate.toISOString().split('T')[0];
+            const dayTasks = calendarData.tasks.filter(task => {
+                const taskDate = new Date(task.dueDate).toISOString().split('T')[0];
+                return taskDate === dateString;
+            });
+            
+            calendarHTML += `
+                <div class="calendar-day ${isCurrentMonth ? 'current-month' : 'other-month'}">
+                    <div class="calendar-date">${currentDate.getDate()}</div>
+                    ${dayTasks.map(task => {
+                        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+                        let assigneeNames = 'ไม่ระบุ';
+                        if (task.assignedUsers && task.assignedUsers.length > 0) {
+                            assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+                        } else if (task.assignees && task.assignees.length > 0) {
+                            assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+                        } else if (task.assignee) {
+                            assigneeNames = task.assignee;
+                        }
+                        
+                        return `
+                            <div class="calendar-task" onclick="showTaskDetail('${task.id}')" title="${task.title} - ${assigneeNames}">
+                                <div class="task-title">${task.title}</div>
+                                <div class="task-assignee">${assigneeNames}</div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+        calendarHTML += '</div>';
+    }
+    
+    calendarHTML += '</div>';
+    calendarGrid.innerHTML = calendarHTML;
 }
 
 function updateTasksList(tasksData) {
-    // Implementation for tasks list
-    console.log('Updating tasks list:', tasksData);
+    const tasksListContainer = document.getElementById('tasksList');
+    
+    if (!tasksListContainer) return;
+    
+    if (!tasksData || tasksData.length === 0) {
+        tasksListContainer.innerHTML = '<p class="text-center text-gray-500">ไม่มีงานในระบบ</p>';
+        return;
+    }
+    
+    const tasksHTML = tasksData.map(task => {
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+        let assigneeNames = 'ไม่ระบุ';
+        if (task.assignedUsers && task.assignedUsers.length > 0) {
+            assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (task.assignees && task.assignees.length > 0) {
+            assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (task.assignee) {
+            assigneeNames = task.assignee;
+        }
+        
+        return `
+            <div class="task-item" onclick="showTaskDetail('${task.id}')">
+                <div class="task-header">
+                    <h4 class="task-title">${task.title}</h4>
+                    <span class="task-status ${task.status}">${getStatusText(task.status)}</span>
+                </div>
+                <div class="task-meta">
+                    <span><i class="fas fa-user"></i> ${assigneeNames}</span>
+                    <span><i class="fas fa-clock"></i> ${formatDate(task.dueDate)}</span>
+                    <span><i class="fas fa-flag"></i> ${getPriorityText(task.priority)}</span>
+                </div>
+                <div class="task-description">
+                    ${task.description ? task.description.substring(0, 100) + (task.description.length > 100 ? '...' : '') : 'ไม่มีรายละเอียด'}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    tasksListContainer.innerHTML = tasksHTML;
 }
 
 function updateFilesGrid(filesData) {
-    // Implementation for files grid
-    console.log('Updating files grid:', filesData);
+    const filesGridContainer = document.getElementById('filesGrid');
+    
+    if (!filesGridContainer) return;
+    
+    if (!filesData || filesData.length === 0) {
+        filesGridContainer.innerHTML = '<p class="text-center text-gray-500">ไม่มีไฟล์ในระบบ</p>';
+        return;
+    }
+    
+    const filesHTML = filesData.map(file => {
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees ของงานที่เกี่ยวข้อง
+        let assigneeNames = 'ไม่ระบุ';
+        if (file.task && file.task.assignedUsers && file.task.assignedUsers.length > 0) {
+            assigneeNames = file.task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (file.task && file.task.assignees && file.task.assignees.length > 0) {
+            assigneeNames = file.task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+        } else if (file.task && file.task.assignee) {
+            assigneeNames = file.task.assignee;
+        }
+        
+        return `
+            <div class="file-item" onclick="showFileDetail('${file.id}')">
+                <div class="file-icon">
+                    <i class="fas ${getFileIcon(file.mimeType)}"></i>
+                </div>
+                <div class="file-info">
+                    <div class="file-name">${file.originalName}</div>
+                    <div class="file-meta">
+                        <span><i class="fas fa-user"></i> ${file.uploadedBy || 'ไม่ระบุ'}</span>
+                        <span><i class="fas fa-clock"></i> ${formatDate(file.uploadedAt)}</span>
+                    </div>
+                    ${file.task ? `<div class="file-task">งาน: ${file.task.title} (${assigneeNames})</div>` : ''}
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    filesGridContainer.innerHTML = filesHTML;
+}
+
+/**
+ * Get file icon based on MIME type
+ */
+function getFileIcon(mimeType) {
+    if (!mimeType) return 'fa-file';
+    
+    if (mimeType.startsWith('image/')) return 'fa-image';
+    if (mimeType.startsWith('video/')) return 'fa-video';
+    if (mimeType.startsWith('audio/')) return 'fa-music';
+    if (mimeType.includes('pdf')) return 'fa-file-pdf';
+    if (mimeType.includes('word') || mimeType.includes('document')) return 'fa-file-word';
+    if (mimeType.includes('excel') || mimeType.includes('spreadsheet')) return 'fa-file-excel';
+    if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'fa-file-powerpoint';
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) return 'fa-file-archive';
+    
+    return 'fa-file';
 }
 
 function updateLeaderboardList(leaderboardData) {
-    // Implementation for leaderboard list
-    console.log('Updating leaderboard list:', leaderboardData);
+    const leaderboardListContainer = document.getElementById('leaderboardList');
+    
+    if (!leaderboardListContainer) return;
+    
+    if (!leaderboardData || leaderboardData.length === 0) {
+        leaderboardListContainer.innerHTML = '<p class="text-center text-gray-500">ไม่มีข้อมูลอันดับ</p>';
+        return;
+    }
+    
+    const leaderboardHTML = leaderboardData.map((entry, index) => {
+        // ใช้คะแนนที่ถูกต้องตาม API response
+        const weeklyPoints = entry.weeklyPoints || 0;
+        const monthlyPoints = entry.monthlyPoints || 0;
+        const totalPoints = entry.totalPoints || 0;
+        const tasksCompleted = entry.tasksCompleted || 0;
+        const tasksEarly = entry.tasksEarly || 0;
+        const tasksOnTime = entry.tasksOnTime || 0;
+        const tasksLate = entry.tasksLate || 0;
+        const tasksOvertime = entry.tasksOvertime || 0;
+        const tasksOverdue = entry.tasksOverdue || 0;
+        
+        return `
+            <div class="leaderboard-item">
+                <div class="leaderboard-rank rank-${index + 1}">${index + 1}</div>
+                <div class="leaderboard-user">
+                    <div class="leaderboard-name">${entry.displayName || entry.name || 'ไม่ทราบชื่อ'}</div>
+                    <div class="leaderboard-role">${entry.role || 'สมาชิก'}</div>
+                    <div class="leaderboard-stats">
+                        <span><i class="fas fa-check"></i> เสร็จแล้ว: ${tasksCompleted}</span>
+                        <span><i class="fas fa-clock"></i> ตรงเวลา: ${tasksOnTime}</span>
+                        <span><i class="fas fa-exclamation-triangle"></i> เกินกำหนด: ${tasksOverdue}</span>
+                        <span><i class="fas fa-star"></i> เร็ว: ${tasksEarly}</span>
+                        <span><i class="fas fa-hourglass-half"></i> ช้า: ${tasksLate}</span>
+                        <span><i class="fas fa-clock"></i> เกินเวลา: ${tasksOvertime}</span>
+                    </div>
+                </div>
+                <div class="leaderboard-score">
+                    <div class="score-number">${weeklyPoints}</div>
+                    <div class="score-label">คะแนนสัปดาห์</div>
+                    <div class="score-details">
+                        <small>เดือน: ${monthlyPoints} | รวม: ${totalPoints}</small>
+                    </div>
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    leaderboardListContainer.innerHTML = leaderboardHTML;
 }
 
 // Handle browser back/forward buttons
@@ -1053,6 +1451,102 @@ window.addEventListener('popstate', function() {
         switchView(hash);
     }
 });
+
+/**
+ * Show file detail modal
+ */
+async function showFileDetail(fileId) {
+    try {
+        // ใช้ API ที่มีอยู่จริง
+        const response = await apiRequest(`/api/groups/${currentGroupId}/files/${fileId}`);
+        if (!response.success) throw new Error('ไม่สามารถโหลดรายละเอียดไฟล์ได้');
+        
+        const file = response.data;
+        
+        // Update modal content
+        const modalTitle = document.getElementById('fileViewerTitle');
+        const modalContent = document.getElementById('fileViewerContent');
+        
+        if (modalTitle) modalTitle.textContent = file.originalName;
+        
+        if (modalContent) {
+            // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees ของงานที่เกี่ยวข้อง
+            let assigneeNames = 'ไม่ระบุ';
+            if (file.task && file.task.assignedUsers && file.task.assignedUsers.length > 0) {
+                assigneeNames = file.task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+            } else if (file.task && file.task.assignees && file.task.assignees.length > 0) {
+                assigneeNames = file.task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
+            } else if (file.task && file.task.assignee) {
+                assigneeNames = file.task.assignee;
+            }
+            
+            modalContent.innerHTML = `
+                <div class="file-detail">
+                    <div class="file-info">
+                        <p><strong>ชื่อไฟล์:</strong> ${file.originalName}</p>
+                        <p><strong>ขนาด:</strong> ${formatFileSize(file.size)}</p>
+                        <p><strong>ประเภท:</strong> ${file.mimeType || 'ไม่ระบุ'}</p>
+                        <p><strong>อัปโหลดโดย:</strong> ${file.uploadedBy || 'ไม่ระบุ'}</p>
+                        <p><strong>วันที่อัปโหลด:</strong> ${formatDate(file.uploadedAt)}</p>
+                        ${file.task ? `<p><strong>งานที่เกี่ยวข้อง:</strong> ${file.task.title}</p>` : ''}
+                        ${file.task ? `<p><strong>ผู้รับผิดชอบ:</strong> ${assigneeNames}</p>` : ''}
+                    </div>
+                    <div class="file-preview">
+                        ${getFilePreview(file)}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Show modal
+        const modal = document.getElementById('fileViewerModal');
+        if (modal) {
+            modal.classList.add('active');
+        }
+        
+    } catch (error) {
+        console.error('❌ เกิดข้อผิดพลาดในการโหลดรายละเอียดไฟล์:', error);
+        showToast('เกิดข้อผิดพลาดในการโหลดรายละเอียดไฟล์', 'error');
+    }
+}
+
+/**
+ * Format file size for display
+ */
+function formatFileSize(bytes) {
+    if (!bytes) return '0 Bytes';
+    
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+}
+
+/**
+ * Get file preview content
+ */
+function getFilePreview(file) {
+    if (!file.mimeType) return '<p>ไม่สามารถแสดงตัวอย่างได้</p>';
+    
+    if (file.mimeType.startsWith('image/')) {
+        return `<img src="/api/files/${file.id}/preview" alt="${file.originalName}" style="max-width: 100%; height: auto;">`;
+    } else if (file.mimeType.startsWith('video/')) {
+        return `<video controls style="max-width: 100%; height: auto;">
+            <source src="/api/files/${file.id}/preview" type="${file.mimeType}">
+            เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
+        </video>`;
+    } else if (file.mimeType.startsWith('audio/')) {
+        return `<audio controls style="width: 100%;">
+            <source src="/api/files/${file.id}/preview" type="${file.mimeType}">
+            เบราว์เซอร์ของคุณไม่รองรับการเล่นเสียง
+        </audio>`;
+    } else if (file.mimeType.includes('pdf')) {
+        return `<iframe src="/api/files/${file.id}/preview" width="100%" height="500" style="border: none;"></iframe>`;
+    } else {
+        return `<p>ไม่สามารถแสดงตัวอย่างไฟล์ประเภทนี้ได้</p>`;
+    }
+}
 
 // Handle initial hash
 if (window.location.hash) {

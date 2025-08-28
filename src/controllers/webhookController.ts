@@ -176,23 +176,31 @@ class WebhookController {
         try {
           const user = await this.userService.findByLineUserId(userId);
           if (user) {
-            const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
-            if (tasks.length > 0) {
+            // ดึงงานทั้งหมดรวมงานที่เกินกำหนด
+            const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
+            
+            if (allTasks.length > 0) {
               // หาไฟล์ที่ส่งล่าสุด (24 ชม.) เพื่อแสดงในการ์ด
               const personalGroupId = user.id;
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
+              // แยกงานตามสถานะ
+              const pendingTasks = allTasks.filter(task => task.status === 'pending');
+              const inProgressTasks = allTasks.filter(task => task.status === 'in_progress');
+              const overdueTasks = allTasks.filter(task => task.status === 'overdue');
+              
               // แสดงการ์ดใหญ่แสดงงานทั้งหมด พร้อมคำแนะนำการส่งงาน
-              const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, files, user);
+              const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(allTasks, files, user, overdueTasks);
               const guideText =
                 '💡 **วิธีการส่งงาน (มาตรฐานใหม่):**\n\n' +
-                `📝 เลือกงานที่ต้องการส่งโดยพิมพ์เลข 1-${tasks.length} ในแชท\n\n` +
+                `📝 เลือกงานที่ต้องการส่งโดยพิมพ์เลข 1-${allTasks.length} ในแชท\n\n` +
                 '✨ **ขั้นตอนการส่งงาน:**\n' +
                 '1. พิมพ์เลขเพื่อเลือกงาน\n' +
                 '2. ตรวจสอบข้อมูลในการ์ดยืนยัน\n' +
                 '3. เลือกวิธีการส่ง: "พร้อมไฟล์" หรือ "ไม่มีไฟล์"\n\n' +
-                '📎 **หมายเหตุ:** ถ้าต้องการแนบไฟล์ ส่งไฟล์ในแชทก่อนเลือกงาน';
+                '📎 **หมายเหตุ:** ถ้าต้องการแนบไฟล์ ส่งไฟล์ในแชทก่อนเลือกงาน\n\n' +
+                '⚠️ **งานที่เกินกำหนดจะแสดงด้วยสีแดงและเครื่องหมาย ⚠️**';
 
               await this.lineService.replyMessage(replyToken!, [allTasksCard, guideText]);
             } else {
@@ -211,11 +219,12 @@ class WebhookController {
         try {
           const user = await this.userService.findByLineUserId(userId);
           if (user) {
-            const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+            // ดึงงานทั้งหมดรวมงานที่เกินกำหนด
+            const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
             const taskIndex = parseInt(trimmedText) - 1;
             
-            if (taskIndex >= 0 && taskIndex < tasks.length) {
-              const selectedTask = tasks[taskIndex];
+            if (taskIndex >= 0 && taskIndex < allTasks.length) {
+              const selectedTask = allTasks[taskIndex];
               const personalGroupId = user.id;
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
@@ -226,7 +235,7 @@ class WebhookController {
             } else {
               await this.lineService.replyMessage(replyToken!, 
                 `❌ เลขที่ระบุไม่ถูกต้อง\n\n` +
-                `📝 กรุณาพิมพ์เลข 1-${tasks.length} เท่านั้น\n\n` +
+                `📝 กรุณาพิมพ์เลข 1-${allTasks.length} เท่านั้น\n\n` +
                 `💡 พิมพ์ "ส่งงาน" เพื่อดูรายการงานใหม่`
               );
             }
@@ -626,13 +635,19 @@ class WebhookController {
             try {
               const user = await this.userService.findByLineUserId(userId);
               if (user) {
-                const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+                // หางานที่ต้องส่ง (รวมงานที่เกินกำหนด)
+                const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
                 const personalGroupId = user.id;
                 const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
                 
-                if (tasks.length > 0) {
-                  const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, files, user);
+                if (allTasks.length > 0) {
+                  // แยกงานตามสถานะ
+                  const pendingTasks = allTasks.filter(task => task.status === 'pending');
+                  const inProgressTasks = allTasks.filter(task => task.status === 'in_progress');
+                  const overdueTasks = allTasks.filter(task => task.status === 'overdue');
+                  
+                  const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(allTasks, files, user, overdueTasks);
                   await this.lineService.replyMessage(replyToken, allTasksCard);
                 } else {
                   await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
@@ -673,27 +688,32 @@ class WebhookController {
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
-              // หางานที่ต้องส่ง (pending, in_progress)
-              const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+              // หางานที่ต้องส่ง (รวมงานที่เกินกำหนด)
+              const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
               
-                             if (tasks.length > 0) {
-                 if (tasks.length === 1) {
-                   // ถ้ามีงานเดียว แสดงงานนั้นพร้อมไฟล์
-                   const task = tasks[0];
-                   const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
-                   await this.lineService.replyMessage(replyToken, taskWithFilesCard);
-                   
-                   // แสดงการ์ดรายการไฟล์พร้อม taskId
-                   const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user, task.id);
-                   await this.lineService.replyMessage(replyToken, fileListCard);
-                 } else {
-                   // ถ้ามีหลายงาน แสดงรายการงานทั้งหมด
-                   const taskListCard = FlexMessageTemplateService.createPersonalTaskListCard(tasks, files, user);
-                   await this.lineService.replyMessage(replyToken, taskListCard);
-                 }
-               } else {
-                 await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
-               }
+              if (allTasks.length > 0) {
+                if (allTasks.length === 1) {
+                  // ถ้ามีงานเดียว แสดงงานนั้นพร้อมไฟล์
+                  const task = allTasks[0];
+                  const taskWithFilesCard = FlexMessageTemplateService.createPersonalTaskWithFilesCard(task, files, user);
+                  await this.lineService.replyMessage(replyToken, taskWithFilesCard);
+                  
+                  // แสดงการ์ดรายการไฟล์พร้อม taskId
+                  const fileListCard = FlexMessageTemplateService.createPersonalFileListCard(files, user, task.id);
+                  await this.lineService.replyMessage(replyToken, fileListCard);
+                } else {
+                  // ถ้ามีหลายงาน แสดงรายการงานทั้งหมด
+                  // แยกงานตามสถานะ
+                  const pendingTasks = allTasks.filter(task => task.status === 'pending');
+                  const inProgressTasks = allTasks.filter(task => task.status === 'in_progress');
+                  const overdueTasks = allTasks.filter(task => task.status === 'overdue');
+                  
+                  const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(allTasks, files, user, overdueTasks);
+                  await this.lineService.replyMessage(replyToken, allTasksCard);
+                }
+              } else {
+                await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
+              }
             }
           } catch (err: any) {
             await this.safeReplyError(replyToken, `❌ ไม่สามารถแสดงงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
@@ -770,13 +790,19 @@ class WebhookController {
             try {
               const user = await this.userService.findByLineUserId(userId);
               if (user) {
-                const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
+                // หางานที่ต้องส่ง (รวมงานที่เกินกำหนด)
+                const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
                 const personalGroupId = user.id;
                 const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
                 const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
                 
-                if (tasks.length > 0) {
-                  const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, files, user);
+                if (allTasks.length > 0) {
+                  // แยกงานตามสถานะ
+                  const pendingTasks = allTasks.filter(task => task.status === 'pending');
+                  const inProgressTasks = allTasks.filter(task => task.status === 'in_progress');
+                  const overdueTasks = allTasks.filter(task => task.status === 'overdue');
+                  
+                  const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(allTasks, files, user, overdueTasks);
                   await this.lineService.replyMessage(replyToken, allTasksCard);
                 } else {
                   await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
@@ -840,9 +866,15 @@ class WebhookController {
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
-              const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
-              if (tasks.length > 0) {
-                const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(tasks, files, user);
+              // หางานที่ต้องส่ง (รวมงานที่เกินกำหนด)
+              const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
+              if (allTasks.length > 0) {
+                // แยกงานตามสถานะ
+                const pendingTasks = allTasks.filter(task => task.status === 'pending');
+                const inProgressTasks = allTasks.filter(task => task.status === 'in_progress');
+                const overdueTasks = allTasks.filter(task => task.status === 'overdue');
+                
+                const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(allTasks, files, user, overdueTasks);
                 await this.lineService.replyMessage(replyToken, allTasksCard);
               } else {
                 await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานที่ต้องส่งแล้วค่ะ');
@@ -863,10 +895,16 @@ class WebhookController {
               const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
               const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
               
-              const tasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress']);
-              if (tasks.length > 5) {
-                const remainingTasks = tasks.slice(5);
-                const moreTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(remainingTasks, files, user);
+              // หางานที่ต้องส่ง (รวมงานที่เกินกำหนด)
+              const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
+              if (allTasks.length > 5) {
+                const remainingTasks = allTasks.slice(5);
+                // แยกงานตามสถานะ
+                const pendingTasks = remainingTasks.filter(task => task.status === 'pending');
+                const inProgressTasks = remainingTasks.filter(task => task.status === 'in_progress');
+                const overdueTasks = remainingTasks.filter(task => task.status === 'overdue');
+                
+                const moreTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(remainingTasks, files, user, overdueTasks);
                 await this.lineService.replyMessage(replyToken, moreTasksCard);
               } else {
                 await this.lineService.replyMessage(replyToken, '✅ ไม่มีงานเพิ่มเติมแล้วค่ะ');
