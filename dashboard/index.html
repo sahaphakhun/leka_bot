@@ -83,7 +83,7 @@
                     <i class="fas fa-plus"></i>
                     เพิ่มงานใหม่
                 </button>
-                 <button class="btn btn-outline btn-full" id="submitTaskBtn" style="margin-top:8px;">
+                 <button class="btn btn-primary btn-full" id="submitTaskBtn" style="margin-top:8px;">
                      <i class="fas fa-paperclip"></i>
                      ส่งงาน (ใช้งานได้ทันที)
                  </button>
@@ -91,9 +91,18 @@
                      <i class="fas fa-check-circle"></i>
                      ตรวจงาน
                  </button>
-                 <div id="actionHint" style="margin-top:10px; font-size: 12px; color: #6b7280; display:none;">
+                 <div id="actionHint" style="margin-top:10px; font-size: 12px; color: #6b7280; display:block;">
                      <i class="fas fa-info-circle"></i> ปุ่ม "เพิ่มงานใหม่" และ "ตรวจงาน" ต้องเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน<br>
-                     <i class="fas fa-check-circle"></i> ปุ่ม "ส่งงาน" สามารถใช้งานได้ทันที
+                     <i class="fas fa-check-circle"></i> ปุ่ม "ส่งงาน" สามารถใช้งานได้ทันทีโดยไม่ต้องมี userId<br>
+                     <i class="fas fa-star"></i> สามารถส่งงานได้ทุกงานที่ยังไม่เสร็จ (pending, overdue, submitted, rejected)<br>
+                     <i class="fas fa-exclamation-triangle"></i> งานที่เสร็จแล้ว (completed) จะไม่แสดงปุ่มส่งงาน<br>
+                     <i class="fas fa-lightbulb"></i> ระบบจะสร้าง temporary user อัตโนมัติสำหรับการส่งงาน<br>
+                     <i class="fas fa-upload"></i> สามารถแนบไฟล์ได้สูงสุด 5 ไฟล์ (รูปภาพ, PDF, ข้อความ)<br>
+                     <i class="fas fa-comment"></i> สามารถส่งหมายเหตุได้โดยไม่ต้องแนบไฟล์<br>
+                     <i class="fas fa-history"></i> งานที่ส่งแล้วจะเปลี่ยนสถานะเป็น "รอตรวจ" และส่งแจ้งเตือนไปยังผู้ตรวจ<br>
+                     <i class="fas fa-bell"></i> ผู้ตรวจจะได้รับแจ้งเตือนและมีเวลา 2 วันในการตรวจงาน<br>
+                     <i class="fas fa-shield-alt"></i> ระบบจะตรวจสอบไฟล์แนบและป้องกันไฟล์ที่ไม่ปลอดภัย<br>
+                     <i class="fas fa-sync-alt"></i> หลังจากส่งงานแล้ว สามารถส่งใหม่ได้หากต้องการแก้ไข
                  </div>
             </div>
         </aside>
@@ -179,7 +188,6 @@
                     <div class="dashboard-section">
                         <div class="section-header">
                             <h3>งานใกล้ครบกำหนด</h3>
-                            <a href="#tasks" class="section-link">ดูทั้งหมด <i class="fas fa-arrow-right"></i></a>
                         </div>
                         <div class="upcoming-tasks" id="upcomingTasks">
                             <!-- จะใส่ด้วย JavaScript -->
@@ -189,9 +197,6 @@
                     <div class="dashboard-section">
                         <div class="section-header">
                             <h3>อันดับประจำสัปดาห์</h3>
-                            <div class="section-actions">
-                                <a href="#leaderboard" class="section-link">ดูทั้งหมด <i class="fas fa-arrow-right"></i></a>
-                            </div>
                         </div>
                         <div class="mini-leaderboard" id="miniLeaderboard">
                             <!-- จะใส่ด้วย JavaScript -->

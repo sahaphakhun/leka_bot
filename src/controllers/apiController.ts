@@ -212,10 +212,13 @@ class ApiController {
       ];
       const MAX_ATTACHMENTS = 5;
 
-      if (!userId) {
-        res.status(400).json({ success: false, error: 'Missing userId (LINE User ID)' });
-        return;
+      // สร้าง temporary userId ถ้าไม่มี
+      let finalUserId = userId;
+      if (!finalUserId) {
+        finalUserId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        console.log('สร้าง temporary userId สำหรับการส่งงาน:', finalUserId);
       }
+      
       // อนุญาตให้ส่งงานได้แม้ไม่มีไฟล์/ลิงก์ (จะถือเป็นการส่งหมายเหตุอย่างเดียว)
 
       if (files.length > MAX_ATTACHMENTS) {
@@ -234,7 +237,7 @@ class ApiController {
         files.map(async f => {
           const saved = await this.fileService.saveFile({
             groupId,
-            uploadedBy: userId,
+            uploadedBy: finalUserId,
             messageId: f.originalname,
             content: f.buffer,
             originalName: f.originalname,
@@ -246,7 +249,7 @@ class ApiController {
       );
 
       // บันทึกเป็นการส่งงาน
-      const task = await this.taskService.recordSubmission(taskId, userId, savedFileIds, comment, links);
+      const task = await this.taskService.recordSubmission(taskId, finalUserId, savedFileIds, comment, links);
       res.json({ success: true, data: task, message: 'Submitted successfully' });
     } catch (error) {
       logger.error('❌ submitTask error:', error);

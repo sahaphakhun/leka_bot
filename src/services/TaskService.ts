@@ -708,11 +708,24 @@ export class TaskService {
       if (!foundTask) throw new Error('Task not found');
       task = foundTask;
 
-      // แปลง LINE → internal user id
-      const foundSubmitter = await queryRunner.manager.findOne(User, {
+      // แปลง LINE → internal user id หรือสร้าง temporary user
+      let foundSubmitter = await queryRunner.manager.findOne(User, {
         where: { lineUserId: submitterLineUserId }
       });
-      if (!foundSubmitter) throw new Error('Submitter not found');
+      
+      if (!foundSubmitter) {
+        // สร้าง temporary user สำหรับการส่งงาน
+        console.log(`สร้าง temporary user สำหรับการส่งงาน: ${submitterLineUserId}`);
+        foundSubmitter = queryRunner.manager.create(User, {
+          lineUserId: submitterLineUserId,
+          displayName: `ผู้ส่งงาน (${submitterLineUserId.substring(0, 8)}...)`,
+          groupId: task.groupId,
+          role: 'member',
+          isActive: true
+        });
+        foundSubmitter = await queryRunner.manager.save(foundSubmitter);
+      }
+      
       submitter = foundSubmitter;
 
       // ผูกไฟล์เข้ากับงานและอัปเดตข้อมูลไฟล์
