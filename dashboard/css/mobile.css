@@ -1,0 +1,299 @@
+/* ==================== */
+/* Mobile-First Enhancements */
+/* ==================== */
+
+/* Touch-friendly targets */
+.btn,
+.nav-item,
+.bottom-nav-item,
+.group-selector {
+  min-height: 44px !important;
+  min-width: 44px !important;
+}
+
+/* Enhanced mobile navigation */
+@media (max-width: 768px) {
+  /* Hide sidebar on mobile */
+  .sidebar {
+    transform: translateX(-100%) !important;
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1) !important;
+  }
+  
+  .sidebar.open {
+    transform: translateX(0) !important;
+  }
+  
+  /* Adjust main content */
+  .main-content {
+    margin-left: 0 !important;
+    padding: 1rem !important;
+  }
+  
+  /* Mobile-optimized headers */
+  .view-header {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    gap: 1rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .view-header h2 {
+    font-size: 1.5rem !important;
+    margin: 0 !important;
+  }
+  
+  /* Mobile-optimized grids */
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 1rem !important;
+  }
+  
+  .dashboard-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1.5rem !important;
+  }
+  
+  /* Mobile-optimized cards */
+  .dashboard-section,
+  .stat-card,
+  .task-item,
+  .file-item,
+  .leaderboard-item {
+    padding: 1.5rem !important;
+    margin-bottom: 1rem !important;
+  }
+  
+  /* Mobile-optimized buttons */
+  .btn {
+    width: 100% !important;
+    justify-content: center !important;
+    padding: 1rem !important;
+    font-size: 1rem !important;
+  }
+  
+  .btn-group {
+    flex-direction: column !important;
+    width: 100% !important;
+  }
+  
+  .btn-group .btn {
+    border-radius: 0 !important;
+    border-right: none !important;
+    border-bottom: 1px solid var(--color-gray-200) !important;
+  }
+  
+  .btn-group .btn:first-child {
+    border-top-left-radius: 0.75rem !important;
+    border-top-right-radius: 0.75rem !important;
+    border-bottom-left-radius: 0 !important;
+    border-bottom-right-radius: 0 !important;
+  }
+  
+  .btn-group .btn:last-child {
+    border-top-left-radius: 0 !important;
+    border-top-right-radius: 0 !important;
+    border-bottom-left-radius: 0.75rem !important;
+    border-bottom-right-radius: 0.75rem !important;
+    border-bottom: none !important;
+  }
+  
+  /* Mobile-optimized forms */
+  .form-section {
+    padding: 1.5rem !important;
+    margin-bottom: 1.5rem !important;
+  }
+  
+  .form-row {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  /* Mobile-optimized tables */
+  .reports-container table {
+    font-size: 0.875rem !important;
+  }
+  
+  .reports-container th,
+  .reports-container td {
+    padding: 0.75rem 0.5rem !important;
+  }
+  
+  /* Mobile-optimized calendar */
+  .calendar-day {
+    min-height: 60px !important;
+    padding: 0.5rem !important;
+  }
+  
+  .calendar-event {
+    font-size: 0.75rem !important;
+    padding: 1px 0.25rem !important;
+  }
+  
+  /* Mobile-optimized file grid */
+  .files-grid {
+    grid-template-columns: 1fr !important;
+    gap: 1rem !important;
+  }
+  
+  /* Mobile-optimized leaderboard */
+  .leaderboard-item {
+    flex-direction: column !important;
+    text-align: center !important;
+    gap: 1rem !important;
+  }
+  
+  .leaderboard-item .user-stats {
+    text-align: center !important;
+  }
+  
+  .leaderboard-item .rank {
+    width: 48px !important;
+    height: 48px !important;
+    font-size: 1.125rem !important;
+  }
+}
+
+/* Small mobile devices */
+@media (max-width: 480px) {
+  .header-container {
+    padding: 0 1rem !important;
+  }
+  
+  .main-content {
+    padding: 0.75rem !important;
+  }
+  
+  .stats-grid {
+    grid-template-columns: 1fr !important;
+  }
+  
+  .dashboard-section,
+  .stat-card,
+  .task-item,
+  .file-item,
+  .leaderboard-item {
+    padding: 1rem !important;
+  }
+  
+  .btn {
+    padding: 0.875rem !important;
+    font-size: 0.875rem !important;
+  }
+  
+  .view-header h2 {
+    font-size: 1.25rem !important;
+  }
+  
+  .calendar-day {
+    min-height: 50px !important;
+    padding: 0.25rem !important;
+  }
+  
+  .calendar-day-number {
+    font-size: 0.875rem !important;
+  }
+  
+  .bottom-nav {
+    height: 64px !important;
+  }
+  
+  .bottom-nav-item {
+    min-height: 48px !important;
+    padding: 0.5rem !important;
+  }
+  
+  .bottom-nav-item i {
+    font-size: 1.125rem !important;
+    margin-bottom: 2px !important;
+  }
+  
+  .bottom-nav-item span {
+    font-size: 0.75rem !important;
+  }
+}
+
+/* Landscape mobile */
+@media (max-width: 768px) and (orientation: landscape) {
+  .header {
+    height: 56px !important;
+  }
+  
+  .main-content {
+    padding-top: 56px !important;
+  }
+  
+  .bottom-nav {
+    height: 56px !important;
+  }
+  
+  .main-layout {
+    padding-bottom: 56px !important;
+  }
+}
+
+/* High-DPI displays */
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  .btn,
+  .nav-item,
+  .bottom-nav-item {
+    border-width: 0.5px !important;
+  }
+}
+
+/* Dark mode support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-gray-50: #171717;
+    --color-gray-100: #262626;
+    --color-gray-200: #404040;
+    --color-gray-300: #525252;
+    --color-gray-400: #737373;
+    --color-gray-500: #a3a3a3;
+    --color-gray-600: #d4d4d4;
+    --color-gray-700: #e5e5e5;
+    --color-gray-800: #f5f5f5;
+    --color-gray-900: #fafafa;
+    --color-white: #171717;
+  }
+  
+  body {
+    background: linear-gradient(135deg, #171717 0%, #262626 100%) !important;
+    color: #fafafa !important;
+  }
+  
+  .header,
+  .sidebar,
+  .bottom-nav {
+    background: rgba(23, 23, 23, 0.95) !important;
+    border-color: #404040 !important;
+  }
+  
+  .dashboard-section,
+  .stat-card,
+  .task-item,
+  .file-item,
+  .leaderboard-item {
+    background: rgba(23, 23, 23, 0.95) !important;
+    border-color: #404040 !important;
+  }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .nav-item:hover,
+  .btn:hover,
+  .stat-card:hover,
+  .task-item:hover,
+  .file-item:hover,
+  .leaderboard-item:hover {
+    transform: none !important;
+  }
+}
