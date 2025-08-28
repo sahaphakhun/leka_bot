@@ -1372,14 +1372,7 @@ class Dashboard {
             exportBtn._bound = true;
           }
         }
-        // เพิ่ม event listener สำหรับปุ่มซิงค์ leaderboard
-        {
-          const syncLeaderboardBtn = document.getElementById('syncLeaderboardBtn');
-          if (syncLeaderboardBtn && !syncLeaderboardBtn._bound) {
-            syncLeaderboardBtn.addEventListener('click', () => this.syncLeaderboard());
-            syncLeaderboardBtn._bound = true;
-          }
-        }
+        // ปุ่มซิงค์ leaderboard ถูกลบออกแล้ว - ไม่จำเป็น
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
       case 'calendar':
@@ -3958,62 +3951,7 @@ class Dashboard {
     }
   }
 
-  /**
-   * ซิงค์และคำนวณคะแนน leaderboard ใหม่
-   */
-  async syncLeaderboard() {
-    let originalText = '';
-    try {
-      console.log('🔄 เริ่มการซิงค์ leaderboard...');
-      
-      // แสดงสถานะการโหลด
-      const syncBtn = document.getElementById('syncLeaderboardBtn');
-      originalText = syncBtn.innerHTML;
-      syncBtn.disabled = true;
-      syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังซิงค์...';
-      
-      // เรียก API เพื่อซิงค์ leaderboard
-      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/sync-leaderboard`, {
-        method: 'POST',
-        body: JSON.stringify({
-          period: 'weekly' // สามารถเปลี่ยนเป็น 'monthly' หรือ 'all' ได้
-        })
-      });
-
-      if (response.success) {
-        console.log('✅ ซิงค์ leaderboard สำเร็จ:', response.data);
-        
-        // แสดงผลลัพธ์
-        const result = response.data;
-        this.showToast(
-          `ซิงค์สำเร็จ! ประมวลผลงาน ${result.processedTasks} ชิ้น อัปเดตผู้ใช้ ${result.updatedUsers} คน`,
-          'success'
-        );
-        
-        // Debug: ตรวจสอบข้อมูล KPI หลังการ sync
-        await this.debugKPIData();
-        
-        // รีโหลด mini leaderboard เพื่อแสดงข้อมูลใหม่
-        setTimeout(() => {
-          this.loadMiniLeaderboard();
-        }, 1000);
-        
-      } else {
-        console.error('❌ ซิงค์ leaderboard ล้มเหลว:', response.error);
-        this.showToast(`ซิงค์ล้มเหลว: ${response.error}`, 'error');
-      }
-      
-    } catch (error) {
-      console.error('❌ Error syncing leaderboard:', error);
-      this.showToast('เกิดข้อผิดพลาดในการซิงค์ leaderboard', 'error');
-      
-    } finally {
-      // คืนค่าปุ่มเป็นสถานะปกติ
-      const syncBtn = document.getElementById('syncLeaderboardBtn');
-      syncBtn.disabled = false;
-      syncBtn.innerHTML = originalText || '<i class="fas fa-sync-alt"></i> ซิงค์';
-    }
-  }
+  // syncLeaderboard function removed - no longer needed
 
   /**
    * Debug: ตรวจสอบข้อมูล KPI ในฐานข้อมูล

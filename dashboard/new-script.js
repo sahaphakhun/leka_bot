@@ -50,8 +50,7 @@ async function initApp() {
         // Setup navigation
         setupNavigation();
         
-        // Auto-sync leaderboard scores when dashboard loads
-        await autoSyncLeaderboard();
+        // Auto-sync leaderboard scores when dashboard loads (removed - no longer needed)
         
         // Load initial data
         await loadDashboardData();
@@ -67,60 +66,7 @@ async function initApp() {
     }
 }
 
-/**
- * Auto-sync leaderboard scores when dashboard loads
- * อัพเดทคะแนนอัตโนมัติเมื่อเปิดแดชบอร์ด
- */
-async function autoSyncLeaderboard() {
-    try {
-        console.log('🔄 Auto-syncing leaderboard scores...');
-        
-        // ตรวจสอบว่าควรซิงค์หรือไม่ (ซิงค์ทุก 5 นาที)
-        const now = Date.now();
-        const syncInterval = 5 * 60 * 1000; // 5 นาที
-        
-        if (lastLeaderboardSync && (now - lastLeaderboardSync) < syncInterval) {
-            console.log('⏰ Leaderboard recently synced, skipping auto-sync');
-            return;
-        }
-        
-        // แสดงสถานะการซิงค์
-        const syncBtn = document.getElementById('syncLeaderboardBtn');
-        if (syncBtn) {
-            const originalText = syncBtn.textContent;
-            syncBtn.textContent = '🔄 ซิงค์...';
-            syncBtn.disabled = true;
-            
-            try {
-                // เรียก API sync-leaderboard
-                const response = await apiRequest(`/api/groups/${currentGroupId}/sync-leaderboard`, {
-                    method: 'POST',
-                    body: { period: 'weekly' }
-                });
-                
-                if (response.success) {
-                    console.log('✅ Auto-sync leaderboard successful:', response.data);
-                    lastLeaderboardSync = now;
-                    
-                    // อัพเดท mini leaderboard ทันที
-                    await loadMiniLeaderboard();
-                    
-                    showToast('อัพเดทคะแนนเรียบร้อยแล้ว', 'success');
-                } else {
-                    console.warn('⚠️ Auto-sync leaderboard failed:', response.error);
-                }
-            } finally {
-                // คืนค่าปุ่มเดิม
-                syncBtn.textContent = originalText;
-                syncBtn.disabled = false;
-            }
-        }
-        
-    } catch (error) {
-        console.error('❌ Error auto-syncing leaderboard:', error);
-        // ไม่แสดง error toast เพื่อไม่ให้รบกวนผู้ใช้
-    }
-}
+// Auto-sync leaderboard function removed - no longer needed
 
 /**
  * API Request helper function
@@ -262,8 +208,7 @@ async function loadGroupData(groupId) {
  */
 async function loadDashboardData() {
     try {
-        // Auto-sync leaderboard scores before loading data
-        await autoSyncLeaderboard();
+        // Auto-sync leaderboard scores before loading data (removed - no longer needed)
         
         await Promise.all([
             loadStats(),
@@ -416,11 +361,7 @@ function setupEventListeners() {
     
 
     
-    // Sync leaderboard button
-    const syncLeaderboardBtn = document.getElementById('syncLeaderboardBtn');
-    if (syncLeaderboardBtn) {
-        syncLeaderboardBtn.addEventListener('click', () => syncLeaderboard());
-    }
+    // Sync leaderboard button removed - no longer needed
     
 
     
@@ -734,55 +675,7 @@ function formatDate(dateString) {
     }
 }
 
-/**
- * Sync leaderboard manually
- */
-async function syncLeaderboard() {
-    try {
-        console.log('🔄 Manual leaderboard sync started...');
-        showToast('กำลังซิงค์คะแนน...', 'info');
-        
-        // อัพเดทสถานะปุ่ม
-        const syncBtn = document.getElementById('syncLeaderboardBtn');
-        if (syncBtn) {
-            const originalText = syncBtn.textContent;
-            syncBtn.textContent = '🔄 ซิงค์...';
-            syncBtn.disabled = true;
-            
-            try {
-                // ใช้ API ที่มีอยู่จริง
-                const response = await apiRequest(`/api/groups/${currentGroupId}/sync-leaderboard`, {
-                    method: 'POST',
-                    body: { period: 'weekly' }
-                });
-                
-                if (!response.success) throw new Error('ไม่สามารถซิงค์คะแนนได้');
-                
-                console.log('✅ Manual sync successful:', response.data);
-                showToast('ซิงค์คะแนนสำเร็จ', 'success');
-                
-                // อัพเดทเวลาที่ซิงค์ล่าสุด
-                lastLeaderboardSync = Date.now();
-                
-                // Reload leaderboard data
-                if (currentView === 'leaderboard') {
-                    await loadLeaderboardData();
-                } else {
-                    await loadMiniLeaderboard();
-                }
-                
-            } finally {
-                // คืนค่าปุ่มเดิม
-                syncBtn.textContent = originalText;
-                syncBtn.disabled = false;
-            }
-        }
-        
-    } catch (error) {
-        console.error('❌ เกิดข้อผิดพลาดในการซิงค์คะแนน:', error);
-        showToast('เกิดข้อผิดพลาดในการซิงค์คะแนน', 'error');
-    }
-}
+// Manual sync leaderboard function removed - no longer needed
 
 /**
  * Show add task modal

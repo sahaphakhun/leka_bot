@@ -451,6 +451,114 @@ export class KPIService {
         .getRawMany();
       
       console.log(`🔍 Found ${debugKpiData.length} KPI records for ${periodFilter} in group ${internalGroupId}`);
+      
+      // ถ้าไม่มี KPI data ให้ดึงข้อมูลจาก task status แทน
+      if (debugKpiData.length === 0) {
+        console.log('⚠️ No KPI data found, falling back to task status data');
+        
+        // ดึงข้อมูลงานที่เสร็จแล้วในช่วงเวลาที่กำหนด
+        let taskQuery = this.taskRepository
+          .createQueryBuilder('task')
+          .leftJoin('task.assignedUsers', 'assignee')
+          .select([
+            'assignee.id as userId',
+            'task.id as taskId',
+            'task.completedAt as completedAt',
+            'task.dueTime as dueTime',
+            'task.status as status'
+          ])
+          .where('task.groupId = :groupId', { groupId: internalGroupId })
+          .andWhere('task.status = :status', { status: 'completed' });
+          
+        if (period === 'weekly' || period === 'monthly') {
+          taskQuery = taskQuery.andWhere('task.completedAt BETWEEN :start AND :end', { 
+            start: periodStart, 
+            end: periodEnd 
+          });
+        }
+        
+        const completedTasks = await taskQuery.getRawMany();
+        console.log(`🔍 Found ${completedTasks.length} completed tasks for ${periodFilter}`);
+        
+        // สร้าง KPI data จาก task status
+        for (const task of completedTasks) {
+          if (task.userId) {
+            const completedAt = new Date(task.completedAt);
+            const dueTime = new Date(task.dueTime);
+            const timeDiff = completedAt.getTime() - dueTime.getTime();
+            const hoursDiff = timeDiff / (1000 * 60 * 60);
+            
+            let type: 'early' | 'ontime' | 'late' | 'overtime';
+            let points: number;
+            
+            if (hoursDiff < -24) {
+              type = 'early';
+              points = config.app.kpiScoring.early;
+            } else if (hoursDiff <= 0) {
+              type = 'ontime';
+              points = config.app.kpiScoring.ontime;
+            } else if (hoursDiff <= 24) {
+              type = 'late';
+              points = config.app.kpiScoring.late;
+            } else {
+              type = 'overtime';
+              points = config.app.kpiScoring.overtime;
+            }
+            
+            // ตรวจสอบว่า KPI record นี้มีอยู่แล้วหรือไม่
+            const existingKpi = await this.kpiRepository.findOne({
+              where: {
+                userId: task.userId,
+                groupId: internalGroupId,
+                taskId: task.taskId
+              }
+            });
+            
+            if (!existingKpi) {
+              // สร้าง KPI record ใหม่
+              const kpiRecord = this.kpiRepository.create({
+                userId: task.userId,
+                groupId: internalGroupId,
+                taskId: task.taskId,
+                type: type,
+                points: points,
+                eventDate: completedAt,
+                createdAt: new Date()
+              });
+              
+              await this.kpiRepository.save(kpiRecord);
+              console.log(`✅ Created KPI record for user ${task.userId}: ${type} (${points} points)`);
+            } else {
+              console.log(`ℹ️ KPI record already exists for task ${task.taskId}`);
+            }
+          }
+        }
+        
+        // รีโหลด KPI data หลังจากสร้าง records ใหม่
+        const updatedKpiData = await this.kpiRepository
+          .createQueryBuilder('kpi')
+          .select([
+            'kpi.userId as userId',
+            'kpi.eventDate as eventDate',
+            'kpi.points as points',
+            'kpi.type as type'
+          ])
+          .where('kpi.groupId = :groupId', { groupId: internalGroupId });
+        
+        if (period === 'weekly' || period === 'monthly') {
+          updatedKpiData.andWhere('kpi.eventDate BETWEEN :start AND :end', { 
+            start: periodStart, 
+            end: periodEnd 
+          });
+        }
+        
+        const newDebugKpiData = await updatedKpiData
+          .orderBy('kpi.eventDate', 'DESC')
+          .limit(5)
+          .getRawMany();
+        
+        console.log(`🔍 After creating KPI records: Found ${newDebugKpiData.length} KPI records for ${periodFilter}`);
+      }
 
       // แสดง SQL query ที่ถูกสร้าง
       const sqlQuery = kpiQuery.getQueryAndParameters();
