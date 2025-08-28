@@ -82,12 +82,45 @@ class ApiService {
   }
 
   /**
+   * โหลดข้อมูลผู้ใช้
+   */
+  async getUserInfo(userId) {
+    try {
+      const response = await this.apiRequest(`/api/users/${userId}`);
+      return response.data || response;
+    } catch (error) {
+      console.error('Failed to load user info:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * โหลดข้อมูลกลุ่ม
+   */
+  async getGroupInfo(groupId) {
+    try {
+      const response = await this.apiRequest(`/api/groups/${groupId}`);
+      return response.data || response;
+    } catch (error) {
+      console.error('Failed to load group info:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * โหลดสถิติ (alias สำหรับ loadStats)
+   */
+  async getStats(groupId, period = 'this_week') {
+    return this.loadStats(groupId, period);
+  }
+
+  /**
    * โหลดสถิติ
    */
   async loadStats(groupId, period = 'this_week') {
     try {
       const response = await this.apiRequest(`/api/groups/${groupId}/stats?period=${period}`);
-      return response.data;
+      return response.data || response;
     } catch (error) {
       console.error('Failed to load stats:', error);
       throw error;

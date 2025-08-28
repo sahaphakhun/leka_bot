@@ -76,6 +76,11 @@ function startDashboard() {
   try {
     console.log('🎯 Starting Dashboard...');
     
+    // ตรวจสอบว่า Dashboard class มีอยู่จริงหรือไม่
+    if (typeof Dashboard === 'undefined') {
+      throw new Error('Dashboard class not found');
+    }
+    
     // สร้าง Dashboard instance
     const dashboard = new Dashboard();
     
@@ -85,7 +90,9 @@ function startDashboard() {
     console.log('✅ Dashboard started successfully');
     
     // แสดงข้อความสำเร็จ
-    showSuccessMessage('Dashboard พร้อมใช้งาน');
+    if (typeof dashboard.showSuccessMessage === 'function') {
+      dashboard.showSuccessMessage('Dashboard พร้อมใช้งาน');
+    }
     
   } catch (error) {
     console.error('❌ Failed to start dashboard:', error);
@@ -100,9 +107,9 @@ function loadScript(src, callback) {
   const script = document.createElement('script');
   script.src = src;
   script.onload = callback;
-  script.onerror = () => {
+  script.onerror = function() {
     console.error('❌ Failed to load script:', src);
-    showErrorMessage('ไม่สามารถโหลดไฟล์: ' + src);
+    if (callback) callback();
   };
   document.head.appendChild(script);
 }
@@ -111,23 +118,34 @@ function loadScript(src, callback) {
  * Show Error Message
  */
 function showErrorMessage(message) {
-  const errorContainer = document.createElement('div');
-  errorContainer.className = 'error-message-container';
-  errorContainer.innerHTML = `
-    <div class="error-message">
-      <i class="fas fa-exclamation-triangle"></i>
-      <h3>เกิดข้อผิดพลาด</h3>
-      <p>${message}</p>
-      <button onclick="location.reload()" class="btn btn-primary">ลองใหม่</button>
-    </div>
-  `;
+  console.error('❌ Error:', message);
   
-  const mainContent = document.querySelector('.main-content');
-  if (mainContent) {
-    mainContent.innerHTML = '';
-    mainContent.appendChild(errorContainer);
-  } else {
-    document.body.appendChild(errorContainer);
+  // สร้าง toast notification ถ้ามี
+  const toastContainer = document.getElementById('toastContainer');
+  if (toastContainer) {
+    const toast = document.createElement('div');
+    toast.className = 'toast error';
+    toast.innerHTML = `
+      <i class="fas fa-exclamation-circle"></i>
+      <span>${message}</span>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 100);
+
+    // Remove toast after 5 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 5000);
   }
 }
 
@@ -135,127 +153,123 @@ function showErrorMessage(message) {
  * Show Success Message
  */
 function showSuccessMessage(message) {
-  // สร้าง toast notification
-  if (window.DashboardUtils && window.DashboardUtils.showToast) {
-    window.DashboardUtils.showToast(message, 'success');
-  } else {
-    console.log('✅ ' + message);
-  }
-}
+  console.log('✅ Success:', message);
+  
+  // สร้าง toast notification ถ้ามี
+  const toastContainer = document.getElementById('toastContainer');
+  if (toastContainer) {
+    const toast = document.createElement('div');
+    toast.className = 'toast success';
+    toast.innerHTML = `
+      <i class="fas fa-check-circle"></i>
+      <span>${message}</span>
+    `;
+    
+    toastContainer.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 100);
 
-/**
- * Check Dependencies
- */
-function checkDependencies() {
-  const dependencies = [
-    { name: 'ApiService', path: 'js/api-service.js' },
-    { name: 'Dashboard', path: 'js/dashboard-core.js' },
-    { name: 'DashboardUtils', path: 'js/utils.js' }
-  ];
-  
-  const missing = dependencies.filter(dep => !window[dep.name]);
-  
-  if (missing.length > 0) {
-    console.log('📦 Missing dependencies:', missing.map(d => d.name));
-    return missing;
-  }
-  
-  return [];
-}
-
-/**
- * Load Missing Dependencies
- */
-function loadMissingDependencies(missingDeps, callback) {
-  if (missingDeps.length === 0) {
-    callback();
-    return;
-  }
-  
-  const dep = missingDeps.shift();
-  console.log(`📥 Loading ${dep.name} from ${dep.path}...`);
-  
-  loadScript(dep.path, () => {
-    console.log(`✅ ${dep.name} loaded successfully`);
-    loadMissingDependencies(missingDeps, callback);
-  });
-}
-
-/**
- * Fallback Error Handler
- */
-window.addEventListener('error', function(e) {
-  console.error('❌ Global error:', e.error);
-  
-  if (e.error && e.error.message && e.error.message.includes('Dashboard')) {
-    showErrorMessage('Dashboard มีปัญหา กรุณารีเฟรชหน้าเว็บ');
-  }
-});
-
-/**
- * Unhandled Promise Rejection Handler
- */
-window.addEventListener('unhandledrejection', function(e) {
-  console.error('❌ Unhandled promise rejection:', e.reason);
-  
-  if (e.reason && e.reason.message) {
-    showErrorMessage('เกิดข้อผิดพลาดที่ไม่คาดคิด: ' + e.reason.message);
-  }
-});
-
-/**
- * Performance Monitoring
- */
-if ('performance' in window) {
-  window.addEventListener('load', function() {
-    const perfData = performance.getEntriesByType('navigation')[0];
-    if (perfData) {
-      console.log('📊 Page load time:', Math.round(perfData.loadEventEnd - perfData.loadEventStart), 'ms');
-    }
-  });
-}
-
-/**
- * Service Worker Registration (ถ้ามี)
- */
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', function() {
-    // ตรวจสอบว่าไฟล์ sw.js มีอยู่หรือไม่ก่อนลงทะเบียน
-    fetch('/sw.js', { method: 'HEAD' })
-      .then(response => {
-        if (response.ok) {
-          return navigator.serviceWorker.register('/sw.js');
-        } else {
-          console.log('ℹ️ ServiceWorker file not found, skipping registration');
-          return Promise.reject('ServiceWorker file not found');
+    // Remove toast after 5 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
         }
-      })
+      }, 300);
+    }, 5000);
+  }
+}
+
+// ==================== 
+// Global Error Handling
+// ==================== 
+
+window.addEventListener('error', function(event) {
+  console.error('❌ Global error:', event.error);
+  
+  // ตรวจสอบว่าเป็น error ที่เกี่ยวกับ Dashboard หรือไม่
+  if (event.error && event.error.message && event.error.message.includes('Dashboard')) {
+    console.error('❌ Dashboard-related error detected');
+  }
+});
+
+window.addEventListener('unhandledrejection', function(event) {
+  console.error('❌ Unhandled promise rejection:', event.reason);
+});
+
+// ==================== 
+// Performance Monitoring
+// ==================== 
+
+// วัดเวลาการโหลดหน้า
+window.addEventListener('load', function() {
+  const loadTime = performance.now();
+  console.log(`📊 Page load time: ${loadTime.toFixed(0)} ms`);
+  
+  // ตรวจสอบ Service Worker
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js')
       .then(function(registration) {
-        console.log('✅ ServiceWorker registered:', registration.scope);
+        console.log('✅ ServiceWorker registration successful');
       })
-      .catch(function(error) {
-        if (error !== 'ServiceWorker file not found') {
-          console.log('❌ ServiceWorker registration failed:', error);
-        }
+      .catch(function(err) {
+        console.log('ℹ️ ServiceWorker file not found, skipping registration');
       });
-  });
-}
-
-/**
- * Offline Detection
- */
-window.addEventListener('online', function() {
-  console.log('🌐 Back online');
-  if (window.dashboardInstance) {
-    window.dashboardInstance.showToast('เชื่อมต่ออินเทอร์เน็ตแล้ว', 'success');
   }
 });
 
-window.addEventListener('offline', function() {
-  console.log('📴 Gone offline');
-  if (window.dashboardInstance) {
-    window.dashboardInstance.showToast('การเชื่อมต่ออินเทอร์เน็ตขาดหาย', 'warning');
+// ==================== 
+// Development Helpers
+// ==================== 
+
+// เพิ่ม global helpers สำหรับ development
+window.DashboardHelpers = {
+  showLoading: function() {
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+      loadingEl.classList.remove('hidden');
+    }
+  },
+  
+  hideLoading: function() {
+    const loadingEl = document.getElementById('loading');
+    if (loadingEl) {
+      loadingEl.classList.add('hidden');
+    }
+  },
+  
+  showToast: function(message, type = 'info') {
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+      <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+      <span>${message}</span>
+    `;
+
+    toastContainer.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 100);
+
+    // Remove toast after 5 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 5000);
   }
-});
+};
 
 console.log('📋 Dashboard main script loaded');
