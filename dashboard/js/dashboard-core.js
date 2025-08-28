@@ -13,6 +13,7 @@ if (typeof Dashboard === 'undefined') {
       this.initialAction = this.getActionFromUrl();
       this.apiBase = window.location.origin;
       this.isLoading = false;
+      this._currentCalendarDate = new Date();
       
       // ตั้งค่า timezone เริ่มต้น
       this.timezone = 'Asia/Bangkok';
@@ -439,7 +440,14 @@ if (typeof Dashboard === 'undefined') {
       if (typeof this.api.getStats === 'function') {
         return this.api.getStats(this.currentGroupId)
           .then(stats => {
-            this.renderStats(stats);
+            // ใช้ ViewRenderer ถ้ามี (รองรับทั้งรูปแบบ stats เดิมและแบบ nested)
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderDashboardStats === 'function') {
+              window.DashboardViewRenderer.renderDashboardStats(stats);
+            } else {
+              // รองรับ data ที่เป็น { members, stats, files }
+              const plain = stats && stats.stats ? stats.stats : stats;
+              this.renderStats(plain || {});
+            }
             return stats;
           })
           .catch(error => {
@@ -584,46 +592,210 @@ if (typeof Dashboard === 'undefined') {
     // Placeholder Methods
     // ==================== 
 
-    // These methods will be implemented based on specific requirements
+    // These methods load data from API and render via ViewRenderer
     loadUpcomingTasks() {
-      // Implementation for loading upcoming tasks
-      console.log('📋 Loading upcoming tasks...');
+      try {
+        if (!this.api || typeof this.api.loadUpcomingTasks !== 'function') return;
+        this.api.loadUpcomingTasks(this.currentGroupId)
+          .then((tasks) => {
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderUpcomingTasks === 'function') {
+              window.DashboardViewRenderer.renderUpcomingTasks(tasks || []);
+            } else if (typeof renderUpcomingTasks === 'function') {
+              renderUpcomingTasks(tasks || []);
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ loadUpcomingTasks failed:', err);
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderUpcomingTasks === 'function') {
+              window.DashboardViewRenderer.renderUpcomingTasks([]);
+            }
+          });
+      } catch (e) {
+        console.warn('⚠️ loadUpcomingTasks error:', e);
+      }
     }
 
     loadMiniLeaderboard() {
-      // Implementation for loading mini leaderboard
-      console.log('🏆 Loading mini leaderboard...');
+      try {
+        if (!this.api || typeof this.api.loadLeaderboard !== 'function') return;
+        this.api.loadLeaderboard(this.currentGroupId, 'weekly', 5)
+          .then((board) => {
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderMiniLeaderboard === 'function') {
+              window.DashboardViewRenderer.renderMiniLeaderboard(board || []);
+            } else if (typeof renderMiniLeaderboard === 'function') {
+              renderMiniLeaderboard(board || []);
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ loadMiniLeaderboard failed:', err);
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderMiniLeaderboard === 'function') {
+              window.DashboardViewRenderer.renderMiniLeaderboard([]);
+            }
+          });
+      } catch (e) {
+        console.warn('⚠️ loadMiniLeaderboard error:', e);
+      }
     }
 
     renderCalendar() {
-      // Implementation for rendering calendar
-      console.log('📅 Rendering calendar...');
+      try {
+        const date = this._currentCalendarDate || new Date();
+        const month = date.getMonth() + 1; // 1-12
+        const year = date.getFullYear();
+        if (!this.api || typeof this.api.loadCalendarEvents !== 'function') return;
+        this.api.loadCalendarEvents(this.currentGroupId, month, year)
+          .then((events) => {
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderCalendar === 'function') {
+              window.DashboardViewRenderer.renderCalendar(events || [], date);
+            } else if (typeof renderCalendar === 'function') {
+              renderCalendar(events || [], date);
+            }
+            const label = document.getElementById('currentMonthYear');
+            if (label) {
+              label.textContent = date.toLocaleDateString('th-TH', { year: 'numeric', month: 'long' });
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ renderCalendar failed:', err);
+          });
+      } catch (e) {
+        console.warn('⚠️ renderCalendar error:', e);
+      }
     }
 
-    loadTasks() {
-      // Implementation for loading tasks
-      console.log('📝 Loading tasks...');
+    previousMonth() {
+      const d = this._currentCalendarDate || new Date();
+      d.setMonth(d.getMonth() - 1);
+      this._currentCalendarDate = d;
+      this.renderCalendar();
     }
 
-    loadFiles() {
-      // Implementation for loading files
-      console.log('📁 Loading files...');
+    nextMonth() {
+      const d = this._currentCalendarDate || new Date();
+      d.setMonth(d.getMonth() + 1);
+      this._currentCalendarDate = d;
+      this.renderCalendar();
+    }
+
+    loadTasks(filters = {}) {
+      try {
+        if (!this.api || typeof this.api.loadTasks !== 'function') return;
+        this.api.loadTasks(this.currentGroupId, filters)
+          .then(({ data }) => {
+            // Cache
+            this._taskCache = data || [];
+            this._lastTaskFilters = filters || {};
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderTasksList === 'function') {
+              window.DashboardViewRenderer.renderTasksList(this._taskCache, this._lastTaskFilters);
+            } else if (typeof renderTasksList === 'function') {
+              renderTasksList(this._taskCache, this._lastTaskFilters);
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ loadTasks failed:', err);
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderTasksList === 'function') {
+              window.DashboardViewRenderer.renderTasksList([], filters || {});
+            }
+          });
+      } catch (e) {
+        console.warn('⚠️ loadTasks error:', e);
+      }
+    }
+
+    loadFiles(search = '') {
+      try {
+        if (!this.api || typeof this.api.loadFiles !== 'function') return;
+        this.api.loadFiles(this.currentGroupId, search)
+          .then((files) => {
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderFilesGrid === 'function') {
+              window.DashboardViewRenderer.renderFilesGrid(files || []);
+            } else if (typeof renderFilesGrid === 'function') {
+              renderFilesGrid(files || []);
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ loadFiles failed:', err);
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderFilesGrid === 'function') {
+              window.DashboardViewRenderer.renderFilesGrid([]);
+            }
+          });
+      } catch (e) {
+        console.warn('⚠️ loadFiles error:', e);
+      }
     }
 
     loadLeaderboard(period = 'weekly') {
-      // Implementation for loading leaderboard
-      console.log(`🏆 Loading leaderboard for period: ${period}`);
+      try {
+        if (!this.api || typeof this.api.loadLeaderboard !== 'function') return;
+        this.api.loadLeaderboard(this.currentGroupId, period)
+          .then((board) => {
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderLeaderboard === 'function') {
+              window.DashboardViewRenderer.renderLeaderboard(board || []);
+            } else if (typeof renderLeaderboard === 'function') {
+              renderLeaderboard(board || []);
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ loadLeaderboard failed:', err);
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderLeaderboard === 'function') {
+              window.DashboardViewRenderer.renderLeaderboard([]);
+            }
+          });
+      } catch (e) {
+        console.warn('⚠️ loadLeaderboard error:', e);
+      }
     }
 
-    loadReports() {
-      // Implementation for loading reports
-      console.log('📊 Loading reports...');
+    loadReports(period = 'weekly') {
+      try {
+        if (!this.api || typeof this.api.loadReports !== 'function') return;
+        this.api.loadReports(this.currentGroupId, period)
+          .then((reports) => {
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderReports === 'function') {
+              window.DashboardViewRenderer.renderReports(reports || []);
+            } else if (typeof renderReports === 'function') {
+              renderReports(reports || []);
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ loadReports failed:', err);
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderReports === 'function') {
+              window.DashboardViewRenderer.renderReports([]);
+            }
+          });
+      } catch (e) {
+        console.warn('⚠️ loadReports error:', e);
+      }
     }
 
     loadRecurringTasks() {
-      // Implementation for loading recurring tasks
-      console.log('🔄 Loading recurring tasks...');
+      try {
+        if (!this.api || typeof this.api.listRecurringTasks !== 'function') return;
+        this.api.listRecurringTasks(this.currentGroupId)
+          .then((items) => {
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderRecurringList === 'function') {
+              window.DashboardViewRenderer.renderRecurringList(items || []);
+            } else if (typeof renderRecurringList === 'function') {
+              renderRecurringList(items || []);
+            }
+          })
+          .catch((err) => {
+            console.warn('⚠️ loadRecurringTasks failed:', err);
+            if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderRecurringList === 'function') {
+              window.DashboardViewRenderer.renderRecurringList([]);
+            }
+          });
+      } catch (e) {
+        console.warn('⚠️ loadRecurringTasks error:', e);
+      }
     }
+
+    // Minimal stubs for actions referenced by renderer
+    openTaskModal(taskId) { console.log('openTaskModal', taskId); }
+    openEditTaskModal(taskId) { console.log('openEditTaskModal', taskId); }
+    viewFile(fileId) { console.log('viewFile', fileId); }
+    downloadFile(fileId) { console.log('downloadFile', fileId); }
+    addTagsToFile(fileId) { console.log('addTagsToFile', fileId); }
 
     openAddTaskModal() {
       // Implementation for opening add task modal

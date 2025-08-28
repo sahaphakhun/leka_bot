@@ -200,7 +200,7 @@ function formatDateTime(date, timezone = 'Asia/Bangkok') {
     
     const day = bangkokTime.getDate().toString().padStart(2, '0');
     const month = (bangkokTime.getMonth() + 1).toString().padStart(2, '0');
-    const year = convertToThaiYear(bangkkokTime.getFullYear());
+    const year = convertToThaiYear(bangkokTime.getFullYear());
     const hours = bangkokTime.getHours().toString().padStart(2, '0');
     const minutes = bangkokTime.getMinutes().toString().padStart(2, '0');
     return `${day}/${month}/${year} ${hours}:${minutes}`;
