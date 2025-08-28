@@ -123,6 +123,12 @@ class Dashboard {
     this.loadInitialData();
     this.hideLoading();
 
+    // ตรวจสอบ URL hash เมื่อโหลดหน้า
+    const hash = window.location.hash.substring(1);
+    if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports'].includes(hash)) {
+      this.switchView(hash);
+    }
+
     // อนุญาตให้ปุ่มส่งงานทำงานได้ทุกกรณี (ไม่ต้องรอ userId)
     if (!this.currentUserId) {
       // ปิดเฉพาะปุ่มที่ต้องการ userId จริงๆ
@@ -176,6 +182,28 @@ class Dashboard {
         // รองรับเฉพาะ month ณ ตอนนี้
         if (mode === 'month') this.switchCalendarMode(mode);
       });
+    });
+
+    // Section links (ดูทั้งหมด)
+    document.querySelectorAll('.section-link').forEach(link => {
+      link.addEventListener('click', (e) => {
+        e.preventDefault();
+        const href = e.currentTarget.getAttribute('href');
+        if (href && href.startsWith('#')) {
+          const viewName = href.substring(1); // เอา # ออก
+          this.switchView(viewName);
+          // อัปเดต URL hash
+          window.location.hash = href;
+        }
+      });
+    });
+
+    // Handle URL hash changes
+    window.addEventListener('hashchange', () => {
+      const hash = window.location.hash.substring(1); // เอา # ออก
+      if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports'].includes(hash)) {
+        this.switchView(hash);
+      }
     });
 
     // Modals
@@ -1355,6 +1383,9 @@ class Dashboard {
 
     this.currentView = viewName;
     this.loadViewData(viewName);
+
+    // อัปเดต URL hash
+    window.location.hash = `#${viewName}`;
 
     // Auto-close sidebar on mobile after navigation
     if (window.innerWidth <= 768) {
