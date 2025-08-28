@@ -1742,7 +1742,13 @@ class Dashboard {
             }
           </div>
         </div>
-        <div class="task-status ${task.status}">${this.getStatusText(task.status)}</div>
+        <div class="task-actions">
+          ${task.status === 'pending' ? `
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+              <i class="fas fa-upload"></i> ส่งงาน
+            </button>
+          ` : ''}
+        </div>
       </div>
     `).join('');
   }
@@ -2835,7 +2841,7 @@ class Dashboard {
 
    async populateSubmitTaskSelect(selectedTaskId = '') {
      try {
-       const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=pending`);
+       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?status=pending`);
        const tasks = response.data || [];
        const sel = document.getElementById('submitTaskId');
        
@@ -3968,4 +3974,8 @@ document.addEventListener('DOMContentLoaded', () => {
   window.dashboard = dashboard;
   // Backward-compat alias for inline handlers referencing `app.*`
   window.app = dashboard;
+  // Global submit button (dashboard header)
+  document.getElementById('openSubmitFromDashboardBtn')?.addEventListener('click', () => {
+    dashboard.openSubmitTaskModal('');
+  });
 });
