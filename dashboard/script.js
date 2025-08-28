@@ -1496,12 +1496,20 @@ class Dashboard {
 
   async loadUpcomingTasks() {
     try {
-      // ดึงงานทั้งหมดในกลุ่มที่ยังไม่ได้ส่ง โดยไม่กรองตามผู้ใช้
-      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?limit=5&status=pending`);
+      // ดึงงานทั้งหมดในกลุ่มที่ยังไม่เสร็จ (pending, overdue, in_progress) โดยไม่กรองตามผู้ใช้
+      // ใช้ API call เดียวเพื่อประสิทธิภาพที่ดีกว่า
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?limit=10`);
+      const allTasks = response.data || [];
+      
+      // กรองเฉพาะงานที่ยังไม่เสร็จและเรียงตามวันที่ครบกำหนด
+      const incompleteTasks = allTasks.filter(task => 
+        ['pending', 'overdue', 'in_progress'].includes(task.status)
+      );
+      const sortedTasks = incompleteTasks.sort((a, b) => new Date(a.dueTime) - new Date(b.dueTime)).slice(0, 5);
+      
       // อัปเดต cache ด้วยรายการล่าสุดบางส่วน เพื่อให้เปิด modal ได้แม้ยังไม่กดเข้า view Tasks
-      const latest = response.data || [];
-      this._taskCache = Array.from(new Map([...(this._taskCache||[]), ...latest].map(t => [t.id, t])).values());
-      this.updateUpcomingTasks(latest);
+      this._taskCache = Array.from(new Map([...(this._taskCache||[]), ...sortedTasks].map(t => [t.id, t])).values());
+      this.updateUpcomingTasks(sortedTasks);
     } catch (error) {
       console.error('Failed to load upcoming tasks:', error);
       
@@ -2872,17 +2880,24 @@ class Dashboard {
 
      async populateSubmitTaskSelect(selectedTaskId = '') {
     try {
-      // ดึงงานทั้งหมดในกลุ่มที่ยังไม่ได้ส่ง โดยไม่กรองตามผู้ใช้
-      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks?status=pending`);
-      const tasks = response.data || [];
+      // ดึงงานทั้งหมดในกลุ่มที่ยังไม่เสร็จ (pending, overdue, in_progress) โดยไม่กรองตามผู้ใช้
+      // ใช้ API call เดียวเพื่อประสิทธิภาพที่ดีกว่า
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks`);
+      const allTasks = response.data || [];
+      
+      // กรองเฉพาะงานที่ยังไม่เสร็จ
+      const incompleteTasks = allTasks.filter(task => 
+        ['pending', 'overdue', 'in_progress'].includes(task.status)
+      );
+      
       const sel = document.getElementById('submitTaskId');
       
-      if (tasks.length === 0) {
+      if (incompleteTasks.length === 0) {
         sel.innerHTML = '<option value="">ไม่มีงานที่รอการส่ง</option>';
         // แสดงข้อความแนะนำ
         this.showToast('ไม่มีงานที่รอการส่งในขณะนี้', 'info');
       } else {
-        sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+        sel.innerHTML = incompleteTasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title} (${this.getStatusText(t.status)})</option>`).join('');
       }
     } catch (error) {
        console.error('populateSubmitTaskSelect error:', error);
