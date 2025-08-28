@@ -600,14 +600,10 @@ function updateUpcomingTasks(tasks) {
     }
     
     const tasksHTML = tasks.map(task => {
-        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers
         let assigneeNames = 'ไม่ระบุ';
         if (task.assignedUsers && task.assignedUsers.length > 0) {
-            assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (task.assignees && task.assignees.length > 0) {
-            assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (task.assignee) {
-            assigneeNames = task.assignee;
+            assigneeNames = task.assignedUsers.map(user => user.displayName || 'ไม่ทราบชื่อ').join(', ');
         }
         
         return `
@@ -967,14 +963,10 @@ async function showTaskDetail(taskId) {
         const modalContent = document.getElementById('viewTaskContent');
         
         if (modalContent) {
-            // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+            // แสดงชื่อผู้รับผิดชอบจาก assignedUsers
             let assigneeNames = 'ไม่ระบุ';
             if (task.assignedUsers && task.assignedUsers.length > 0) {
-                assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-            } else if (task.assignees && task.assignees.length > 0) {
-                assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-            } else if (task.assignee) {
-                assigneeNames = task.assignee;
+                assigneeNames = task.assignedUsers.map(user => user.displayName || 'ไม่ทราบชื่อ').join(', ');
             }
 
             modalContent.innerHTML = `
@@ -1058,6 +1050,19 @@ async function loadTasksData() {
         // ใช้ API ที่มีอยู่จริง
         const response = await apiRequest(`/api/groups/${currentGroupId}/tasks`);
         if (response.success) {
+            console.log('📋 Tasks data loaded:', response.data);
+            // ตรวจสอบข้อมูลผู้รับผิดชอบ
+            if (response.data && response.data.length > 0) {
+                response.data.forEach((task, index) => {
+                    console.log(`Task ${index + 1}:`, {
+                        id: task.id,
+                        title: task.title,
+                        assignedUsers: task.assignedUsers,
+                        assignees: task.assignees,
+                        assignee: task.assignee
+                    });
+                });
+            }
             // Update tasks list
             updateTasksList(response.data);
         } else {
@@ -1186,14 +1191,10 @@ function updateUserReportsTable(userReportsData) {
     }
     
     const tableRows = userReportsData.map(user => {
-        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers
         let assigneeNames = 'ไม่ระบุ';
         if (user.assignedUsers && user.assignedUsers.length > 0) {
-            assigneeNames = user.assignedUsers.map(u => u.displayName || u.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (user.assignees && user.assignees.length > 0) {
-            assigneeNames = user.assignees.map(u => u.displayName || u.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (user.assignee) {
-            assigneeNames = user.assignee;
+            assigneeNames = user.assignedUsers.map(u => u.displayName || 'ไม่ทราบชื่อ').join(', ');
         }
         
         return `
@@ -1265,14 +1266,10 @@ function updateCalendarDisplay(calendarData) {
                 <div class="calendar-day ${isCurrentMonth ? 'current-month' : 'other-month'}">
                     <div class="calendar-date">${currentDate.getDate()}</div>
                     ${dayTasks.map(task => {
-                        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+                        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers
                         let assigneeNames = 'ไม่ระบุ';
                         if (task.assignedUsers && task.assignedUsers.length > 0) {
-                            assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-                        } else if (task.assignees && task.assignees.length > 0) {
-                            assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-                        } else if (task.assignee) {
-                            assigneeNames = task.assignee;
+                            assigneeNames = task.assignedUsers.map(user => user.displayName || 'ไม่ทราบชื่อ').join(', ');
                         }
                         
                         return `
@@ -1302,15 +1299,16 @@ function updateTasksList(tasksData) {
         return;
     }
     
+    console.log('🔄 Updating tasks list with data:', tasksData);
+    
     const tasksHTML = tasksData.map(task => {
-        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers
         let assigneeNames = 'ไม่ระบุ';
         if (task.assignedUsers && task.assignedUsers.length > 0) {
-            assigneeNames = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (task.assignees && task.assignees.length > 0) {
-            assigneeNames = task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (task.assignee) {
-            assigneeNames = task.assignee;
+            assigneeNames = task.assignedUsers.map(user => user.displayName || 'ไม่ทราบชื่อ').join(', ');
+            console.log(`✅ Task "${task.title}" has assignees:`, assigneeNames);
+        } else {
+            console.log(`⚠️ Task "${task.title}" has no assignedUsers:`, task.assignedUsers);
         }
         
         return `
@@ -1345,14 +1343,10 @@ function updateFilesGrid(filesData) {
     }
     
     const filesHTML = filesData.map(file => {
-        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees ของงานที่เกี่ยวข้อง
+        // แสดงชื่อผู้รับผิดชอบจาก assignedUsers ของงานที่เกี่ยวข้อง
         let assigneeNames = 'ไม่ระบุ';
         if (file.task && file.task.assignedUsers && file.task.assignedUsers.length > 0) {
-            assigneeNames = file.task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (file.task && file.task.assignees && file.task.assignees.length > 0) {
-            assigneeNames = file.task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-        } else if (file.task && file.task.assignee) {
-            assigneeNames = file.task.assignee;
+            assigneeNames = file.task.assignedUsers.map(user => user.displayName || 'ไม่ทราบชื่อ').join(', ');
         }
         
         return `
@@ -1470,14 +1464,10 @@ async function showFileDetail(fileId) {
         if (modalTitle) modalTitle.textContent = file.originalName;
         
         if (modalContent) {
-            // แสดงชื่อผู้รับผิดชอบจาก assignedUsers หรือ assignees ของงานที่เกี่ยวข้อง
+            // แสดงชื่อผู้รับผิดชอบจาก assignedUsers ของงานที่เกี่ยวข้อง
             let assigneeNames = 'ไม่ระบุ';
             if (file.task && file.task.assignedUsers && file.task.assignedUsers.length > 0) {
-                assigneeNames = file.task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-            } else if (file.task && file.task.assignees && file.task.assignees.length > 0) {
-                assigneeNames = file.task.assignees.map(user => user.displayName || user.name || 'ไม่ทราบชื่อ').join(', ');
-            } else if (file.task && file.task.assignee) {
-                assigneeNames = file.task.assignee;
+                assigneeNames = file.task.assignedUsers.map(user => user.displayName || 'ไม่ทราบชื่อ').join(', ');
             }
             
             modalContent.innerHTML = `
