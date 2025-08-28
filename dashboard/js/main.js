@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // ตรวจสอบว่าเป็นหน้า profile หรือ dashboard
   const isProfilePage = document.querySelector('.profile-container');
-  const isDashboardPage = document.querySelector('.dashboard-container');
+  const isDashboardPage = document.querySelector('.main-layout') || document.querySelector('#dashboardView');
   
   if (isProfilePage) {
     console.log('📱 Profile page detected');
@@ -21,7 +21,17 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('📊 Dashboard page detected');
     initializeDashboard();
   } else {
-    console.log('⚠️ Unknown page type');
+    console.log('⚠️ Unknown page type - checking for dashboard elements...');
+    // ลองตรวจสอบ elements อื่นๆ ที่อาจบ่งบอกว่าเป็น dashboard
+    const hasDashboardElements = document.querySelector('.header') || 
+                                document.querySelector('.sidebar') || 
+                                document.querySelector('.main-content');
+    if (hasDashboardElements) {
+      console.log('📊 Dashboard elements found, initializing...');
+      initializeDashboard();
+    } else {
+      console.log('❌ No dashboard elements found');
+    }
   }
 });
 
@@ -210,12 +220,23 @@ if ('performance' in window) {
  */
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', function() {
-    navigator.serviceWorker.register('/sw.js')
+    // ตรวจสอบว่าไฟล์ sw.js มีอยู่หรือไม่ก่อนลงทะเบียน
+    fetch('/sw.js', { method: 'HEAD' })
+      .then(response => {
+        if (response.ok) {
+          return navigator.serviceWorker.register('/sw.js');
+        } else {
+          console.log('ℹ️ ServiceWorker file not found, skipping registration');
+          return Promise.reject('ServiceWorker file not found');
+        }
+      })
       .then(function(registration) {
         console.log('✅ ServiceWorker registered:', registration.scope);
       })
       .catch(function(error) {
-        console.log('❌ ServiceWorker registration failed:', error);
+        if (error !== 'ServiceWorker file not found') {
+          console.log('❌ ServiceWorker registration failed:', error);
+        }
       });
   });
 }

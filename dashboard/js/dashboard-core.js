@@ -397,43 +397,140 @@ class Dashboard {
 
   // ฟังก์ชันเหล่านี้จะถูก implement ในไฟล์อื่น
   bindEvents() {
-    // จะถูก implement ใน event-handlers.js
+    // ใช้ event handlers จากไฟล์ event-handlers.js
+    if (window.DashboardEventHandlers && window.DashboardEventHandlers.bindAllEvents) {
+      window.DashboardEventHandlers.bindAllEvents();
+    } else {
+      console.warn('⚠️ DashboardEventHandlers not found, events may not work properly');
+    }
   }
 
   loadStats() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderDashboardStats) {
+      // โหลดข้อมูล stats จาก API และ render
+      this.api.loadStats(this.currentGroupId)
+        .then(stats => {
+          window.DashboardViewRenderer.renderDashboardStats(stats);
+        })
+        .catch(error => {
+          console.error('Failed to load stats:', error);
+          this.showToast('ไม่สามารถโหลดสถิติได้', 'error');
+        });
+    }
   }
 
   loadUpcomingTasks() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderUpcomingTasks) {
+      // โหลดข้อมูล upcoming tasks จาก API และ render
+      this.api.loadTasks(this.currentGroupId, { status: 'pending', limit: 5 })
+        .then(tasks => {
+          window.DashboardViewRenderer.renderUpcomingTasks(tasks);
+        })
+        .catch(error => {
+          console.error('Failed to load upcoming tasks:', error);
+        });
+    }
   }
 
   loadMiniLeaderboard() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderMiniLeaderboard) {
+      // โหลดข้อมูล leaderboard จาก API และ render
+      this.api.loadLeaderboard(this.currentGroupId, 'weekly')
+        .then(leaderboard => {
+          window.DashboardViewRenderer.renderMiniLeaderboard(leaderboard);
+        })
+        .catch(error => {
+          console.error('Failed to load leaderboard:', error);
+        });
+    }
   }
 
   loadCalendarEvents() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderCalendar) {
+      // โหลดข้อมูล calendar events จาก API และ render
+      this.api.loadTasks(this.currentGroupId)
+        .then(tasks => {
+          window.DashboardViewRenderer.renderCalendar(tasks);
+        })
+        .catch(error => {
+          console.error('Failed to load calendar events:', error);
+        });
+    }
   }
 
   loadTasks() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderTasksList) {
+      // โหลดข้อมูล tasks จาก API และ render
+      this.api.loadTasks(this.currentGroupId)
+        .then(tasks => {
+          window.DashboardViewRenderer.renderTasksList(tasks);
+        })
+        .catch(error => {
+          console.error('Failed to load tasks:', error);
+          this.showToast('ไม่สามารถโหลดงานได้', 'error');
+        });
+    }
   }
 
   loadGroupMembers() {
-    // จะถูก implement ใน view-renderer.js
+    // โหลดข้อมูล group members จาก API
+    this.api.loadGroupMembers(this.currentGroupId)
+      .then(members => {
+        // อัปเดต group selector
+        this.updateGroupSelector(members);
+      })
+      .catch(error => {
+        console.error('Failed to load group members:', error);
+      });
   }
 
   loadFiles() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderFilesGrid) {
+      // โหลดข้อมูล files จาก API และ render
+      this.api.loadFiles(this.currentGroupId)
+        .then(files => {
+          window.DashboardViewRenderer.renderFilesGrid(files);
+        })
+        .catch(error => {
+          console.error('Failed to load files:', error);
+          this.showToast('ไม่สามารถโหลดไฟล์ได้', 'error');
+        });
+    }
   }
 
   loadLeaderboard() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderLeaderboard) {
+      // โหลดข้อมูล leaderboard จาก API และ render
+      this.api.loadLeaderboard(this.currentGroupId, 'weekly')
+        .then(leaderboard => {
+          window.DashboardViewRenderer.renderLeaderboard(leaderboard);
+        })
+        .catch(error => {
+          console.error('Failed to load leaderboard:', error);
+          this.showToast('ไม่สามารถโหลดอันดับได้', 'error');
+        });
+    }
   }
 
   initReportsUI() {
-    // จะถูก implement ใน view-renderer.js
+    // ใช้ view renderer จากไฟล์ view-renderer.js
+    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderReports) {
+      // โหลดข้อมูล reports จาก API และ render
+      this.api.loadReports(this.currentGroupId)
+        .then(reports => {
+          window.DashboardViewRenderer.renderReports(reports);
+        })
+        .catch(error => {
+          console.error('Failed to load reports:', error);
+        });
+    }
   }
 
   openAddTaskModal() {

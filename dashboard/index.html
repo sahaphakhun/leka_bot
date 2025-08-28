@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dashboard - Leka Bot</title>
     
+    <!-- Favicon -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiMyNTYzZWIiLz4KPHBhdGggZD0iTTE2IDhjLTIuMjA5IDEuMTA0LTMuNTM2IDMuMzQ0LTMuNTM2IDUuOTM2IDAgMi41OTIgMS4zMjcgNC44MzIgMy41MzYgNS45MzZDMjAuNDczIDE4LjY2OCAyMS44IDIwLjkwOCAyMS44IDIzLjVjMCAyLjU5Mi0xLjMyNyA0LjgzMi0zLjUzNiA1LjkzNkMxNC42NzMgMjguMzMyIDEzLjMzNiAyNi4wOTIgMTMuMzM2IDIzLjVjMC0yLjU5MiAxLjMzNy00LjgzMiAzLjUzNi01LjkzNkMxOS4zNzMgMTYuNjY4IDIwLjcgMTQuNDI4IDIwLjcgMTEuODM2YzAtMi41OTItMS4zMjctNC44MzItMy41MzYtNS45MzZaIiBmaWxsPSJ3aGl0ZSIvPgo8L3N2Zz4K">
+    
     <!-- Font Awesome -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     
@@ -125,7 +128,7 @@
                     <i class="fas fa-bars"></i>
                 </button>
                 <div class="user-menu" id="userMenu">
-                    <img src="https://via.placeholder.com/32x32" alt="User Avatar" class="user-avatar" id="userAvatar">
+                    <img src="data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMzIiIGhlaWdodD0iMzIiIHZpZXdCb3g9IjAgMCAzMiAzMiIgZmlsbD0ibm9uZSIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj4KPGNpcmNsZSBjeD0iMTYiIGN5PSIxNiIgcj0iMTYiIGZpbGw9IiNFNUU3RUIiLz4KPHBhdGggZD0iTTE2IDhjLTIuMjA5IDEuMTA0LTMuNTM2IDMuMzQ0LTMuNTM2IDUuOTM2IDAgMi41OTIgMS4zMjcgNC44MzIgMy41MzYgNS45MzZDMjAuNDczIDE4LjY2OCAyMS44IDIwLjkwOCAyMS44IDIzLjVjMCAyLjU5Mi0xLjMyNyA0LjgzMi0zLjUzNiA1LjkzNkMxNC42NzMgMjguMzMyIDEzLjMzNiAyNi4wOTIgMTMuMzM2IDIzLjVjMC0yLjU5MiAxLjMzNy00LjgzMiAzLjUzNi01LjkzNkMxOS4zNzMgMTYuNjY4IDIwLjcgMTQuNDI4IDIwLjcgMTEuODM2YzAtMi41OTItMS4zMjctNC44MzItMy41MzYtNS45MzZaIiBmaWxsPSIjOUNBM0E2Ii8+Cjwvc3ZnPgo=" alt="User Avatar" class="user-avatar" id="userAvatar">
                     <div class="user-info">
                         <div class="user-name" id="userName">ผู้ใช้</div>
                         <div class="user-role" id="userRole">สมาชิก</div>
@@ -343,6 +346,8 @@
     <script src="js/utils.js"></script>
     <script src="js/api-service.js"></script>
     <script src="js/dashboard-core.js"></script>
+    <script src="js/event-handlers.js"></script>
+    <script src="js/view-renderer.js"></script>
     <script src="js/main.js"></script>
 </body>
 </html>
