@@ -40,14 +40,12 @@ document.addEventListener('DOMContentLoaded', function() {
  */
 function initializeDashboard() {
   try {
-    // ตรวจสอบ dependencies
+    // ตรวจสอบ dependencies ตามลำดับที่ถูกต้อง
     if (!window.ApiService) {
-      console.error('❌ ApiService not found. Loading utils first...');
-      loadScript('js/utils.js', () => {
-        loadScript('js/api-service.js', () => {
-          loadScript('js/dashboard-core.js', () => {
-            startDashboard();
-          });
+      console.error('❌ ApiService not found. Loading api-service.js...');
+      loadScript('js/api-service.js', () => {
+        loadScript('js/dashboard-core.js', () => {
+          startDashboard();
         });
       });
       return;

@@ -17,8 +17,19 @@ if (typeof Dashboard === 'undefined') {
       // ตั้งค่า timezone เริ่มต้น
       this.timezone = 'Asia/Bangkok';
       
-      // สร้าง API service instance
-      this.api = new ApiService(this.apiBase);
+      // สร้าง API service instance (เพิ่ม error handling)
+      try {
+        this.api = new ApiService(this.apiBase);
+      } catch (error) {
+        console.error('❌ Failed to create ApiService:', error);
+        // สร้าง fallback API service
+        this.api = {
+          getUserInfo: () => Promise.resolve({ displayName: 'ผู้ใช้', role: 'สมาชิก' }),
+          getGroupInfo: () => Promise.resolve({ name: 'กลุ่มเริ่มต้น', id: 'default' }),
+          getStats: () => Promise.resolve({ totalTasks: 0, completedTasks: 0, pendingTasks: 0, overdueTasks: 0 }),
+          loadStats: () => Promise.resolve({ totalTasks: 0, completedTasks: 0, pendingTasks: 0, overdueTasks: 0 })
+        };
+      }
       
       // Cache สำหรับข้อมูล
       this._taskCache = [];
@@ -37,40 +48,47 @@ if (typeof Dashboard === 'undefined') {
     // ==================== 
 
     init() {
-      this.bindEvents();
-      this.loadInitialData();
-      this.hideLoading();
-      this.initializeMobileFeatures();
+      try {
+        this.bindEvents();
+        this.loadInitialData();
+        this.hideLoading();
+        this.initializeMobileFeatures();
 
-      // ตรวจสอบ URL hash เมื่อโหลดหน้า
-      const hash = window.location.hash.substring(1);
-      if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports', 'recurring'].includes(hash)) {
-        this.switchView(hash);
-      }
+        // ตรวจสอบ URL hash เมื่อโหลดหน้า
+        const hash = window.location.hash.substring(1);
+        if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports', 'recurring'].includes(hash)) {
+          this.switchView(hash);
+        }
 
-      // อนุญาตให้ปุ่มส่งงานทำงานได้ทุกกรณี (ไม่ต้องรอ userId)
-      if (!this.currentUserId) {
-        // ปิดเฉพาะปุ่มที่ต้องการ userId จริงๆ
-        const needUserButtons = ['addTaskBtn', 'reviewTaskBtn'];
-        needUserButtons.forEach(id => {
-          const el = document.getElementById(id);
-          if (el) {
-            el.setAttribute('disabled', 'true');
-            el.classList.add('disabled');
-            el.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
+        // อนุญาตให้ปุ่มส่งงานทำงานได้ทุกกรณี (ไม่ต้องรอ userId)
+        if (!this.currentUserId) {
+          // ปิดเฉพาะปุ่มที่ต้องการ userId จริงๆ
+          const needUserButtons = ['addTaskBtn', 'reviewTaskBtn'];
+          needUserButtons.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+              el.setAttribute('disabled', 'true');
+              el.classList.add('disabled');
+              el.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
+            }
+          });
+          
+          // เปิดปุ่มส่งงานให้ใช้งานได้เสมอ
+          const submitBtn = document.getElementById('submitTaskBtn');
+          if (submitBtn) {
+            submitBtn.removeAttribute('disabled');
+            submitBtn.classList.remove('disabled');
+            submitBtn.title = 'ส่งงาน (สามารถใช้งานได้ทันที)';
           }
-        });
-        
-        // เปิดปุ่มส่งงานให้ใช้งานได้เสมอ
-        const submitBtn = document.getElementById('submitTaskBtn');
-        if (submitBtn) {
-          submitBtn.removeAttribute('disabled');
-          submitBtn.classList.remove('disabled');
-          submitBtn.title = 'ส่งงาน (สามารถใช้งานได้ทันที)';
+          
+          const hint = document.getElementById('actionHint');
+          if (hint) hint.style.display = 'block';
         }
         
-        const hint = document.getElementById('actionHint');
-        if (hint) hint.style.display = 'block';
+        console.log('✅ Dashboard initialized successfully');
+      } catch (error) {
+        console.error('❌ Failed to initialize dashboard:', error);
+        this.showErrorMessage('ไม่สามารถเริ่มต้น Dashboard ได้: ' + error.message);
       }
     }
 
