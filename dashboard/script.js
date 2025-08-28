@@ -123,9 +123,10 @@ class Dashboard {
     this.loadInitialData();
     this.hideLoading();
 
-    // เมื่อไม่มี userId ให้ปิดปุ่ม action ที่ต้องการตัวตน
+    // อนุญาตให้ปุ่มส่งงานทำงานได้ทุกกรณี (ไม่ต้องรอ userId)
     if (!this.currentUserId) {
-      const needUserButtons = ['addTaskBtn', 'submitTaskBtn', 'reviewTaskBtn'];
+      // ปิดเฉพาะปุ่มที่ต้องการ userId จริงๆ
+      const needUserButtons = ['addTaskBtn', 'reviewTaskBtn'];
       needUserButtons.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -134,6 +135,15 @@ class Dashboard {
           el.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
         }
       });
+      
+      // เปิดปุ่มส่งงานให้ใช้งานได้เสมอ
+      const submitBtn = document.getElementById('submitTaskBtn');
+      if (submitBtn) {
+        submitBtn.removeAttribute('disabled');
+        submitBtn.classList.remove('disabled');
+        submitBtn.title = 'ส่งงาน (สามารถใช้งานได้ทันที)';
+      }
+      
       const hint = document.getElementById('actionHint');
       if (hint) hint.style.display = 'block';
     }
@@ -2779,7 +2789,16 @@ class Dashboard {
 
        // อนุญาตให้ส่งได้แม้ไม่มีไฟล์
        const formData = new FormData();
-       formData.append('userId', this.currentUserId || this.currentUser?.lineUserId || 'unknown');
+       
+       // ใช้ userId ที่มี หรือสร้าง fallback value ที่เหมาะสม
+       let userId = this.currentUserId || this.currentUser?.lineUserId;
+       if (!userId) {
+         // สร้าง temporary userId สำหรับการส่งงาน
+         userId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+         console.log('สร้าง temporary userId สำหรับการส่งงาน:', userId);
+       }
+       
+       formData.append('userId', userId);
        formData.append('comment', comment || '');
        
        if (files && files.length > 0) {
@@ -2788,7 +2807,7 @@ class Dashboard {
          }
        }
 
-       console.log('Submitting task:', { taskId, userId: this.currentUserId, filesCount: files?.length || 0 });
+       console.log('Submitting task:', { taskId, userId, filesCount: files?.length || 0 });
 
        const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`, {
          method: 'POST',
@@ -2823,9 +2842,19 @@ class Dashboard {
        const response = await this.apiRequest(`/groups/${this.currentGroupId}/tasks?status=pending`);
        const tasks = response.data || [];
        const sel = document.getElementById('submitTaskId');
-       sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+       
+       if (tasks.length === 0) {
+         sel.innerHTML = '<option value="">ไม่มีงานที่รอการส่ง</option>';
+         // แสดงข้อความแนะนำ
+         this.showToast('ไม่มีงานที่รอการส่งในขณะนี้', 'info');
+       } else {
+         sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
+       }
      } catch (error) {
        console.error('populateSubmitTaskSelect error:', error);
+       const sel = document.getElementById('submitTaskId');
+       sel.innerHTML = '<option value="">เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
+       this.showToast('ไม่สามารถโหลดรายการงานได้', 'error');
      }
    }
 
