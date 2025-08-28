@@ -91,6 +91,45 @@
             color: #6c757d;
             margin-bottom: 1.5rem;
         }
+        
+        /* Mobile optimizations */
+        @media (max-width: 768px) {
+            .header-left .group-selector span {
+                display: none;
+            }
+            
+            .user-info {
+                display: none;
+            }
+            
+            .sidebar {
+                transform: translateX(-100%);
+            }
+            
+            .sidebar.open {
+                transform: translateX(0);
+            }
+        }
+        
+        /* Smooth scrolling for mobile */
+        html {
+            scroll-behavior: smooth;
+        }
+        
+        /* Better touch targets for mobile */
+        @media (max-width: 768px) {
+            .btn {
+                min-height: 44px;
+            }
+            
+            .nav-item {
+                min-height: 48px;
+            }
+            
+            .bottom-nav-item {
+                min-height: 60px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -192,7 +231,7 @@
                     <div class="view-actions">
                         <button class="btn btn-primary" id="addTaskBtn">
                             <i class="fas fa-plus"></i>
-                            เพิ่มงาน
+                            <span class="btn-text">เพิ่มงาน</span>
                         </button>
                     </div>
                 </div>
@@ -254,7 +293,7 @@
                     <div class="view-actions">
                         <button class="btn btn-primary" id="addTaskBtn2">
                             <i class="fas fa-plus"></i>
-                            เพิ่มงาน
+                            <span class="btn-text">เพิ่มงาน</span>
                         </button>
                     </div>
                 </div>
@@ -272,7 +311,7 @@
                     <div class="view-actions">
                         <button class="btn btn-primary" id="uploadFileBtn">
                             <i class="fas fa-upload"></i>
-                            อัปโหลด
+                            <span class="btn-text">อัปโหลด</span>
                         </button>
                     </div>
                 </div>
@@ -309,7 +348,7 @@
                     <div class="view-actions">
                         <button class="btn btn-primary" id="generateReportBtn">
                             <i class="fas fa-download"></i>
-                            สร้างรายงาน
+                            <span class="btn-text">สร้างรายงาน</span>
                         </button>
                     </div>
                 </div>
@@ -327,7 +366,7 @@
                     <div class="view-actions">
                         <button class="btn btn-primary" id="addRecurringBtn">
                             <i class="fas fa-plus"></i>
-                            เพิ่มงานประจำ
+                            <span class="btn-text">เพิ่มงานประจำ</span>
                         </button>
                     </div>
                 </div>

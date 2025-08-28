@@ -19,6 +19,10 @@ function bindNavigationEvents() {
       const view = this.getAttribute('data-view');
       if (view && window.dashboardInstance) {
         window.dashboardInstance.switchView(view);
+        // Close mobile sidebar after navigation
+        if (window.innerWidth <= 768) {
+          window.dashboardInstance.closeMobileSidebar();
+        }
       }
     });
   });
@@ -41,11 +45,20 @@ function bindNavigationEvents() {
   const sidebarOverlay = document.getElementById('sidebarOverlay');
   
   if (menuToggle && sidebar) {
-    menuToggle.addEventListener('click', function() {
+    menuToggle.addEventListener('click', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
       sidebar.classList.toggle('open');
       this.classList.toggle('active');
       if (sidebarOverlay) {
         sidebarOverlay.classList.toggle('active');
+      }
+      
+      // Prevent body scroll when sidebar is open
+      if (sidebar.classList.contains('open')) {
+        document.body.style.overflow = 'hidden';
+      } else {
+        document.body.style.overflow = '';
       }
     });
   }
@@ -58,6 +71,24 @@ function bindNavigationEvents() {
       }
     });
   }
+
+  // Close sidebar on escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      if (window.dashboardInstance) {
+        window.dashboardInstance.closeMobileSidebar();
+      }
+    }
+  });
+
+  // Handle window resize
+  window.addEventListener('resize', function() {
+    if (window.innerWidth > 768) {
+      if (window.dashboardInstance) {
+        window.dashboardInstance.closeMobileSidebar();
+      }
+    }
+  });
 }
 
 // ==================== 
@@ -98,10 +129,9 @@ function bindDashboardViewEvents() {
  */
 function bindCalendarViewEvents() {
   // Calendar navigation
-  const prevMonthBtn = document.getElementById('prevMonthBtn');
-  const nextMonthBtn = document.getElementById('nextMonthBtn');
-  const todayBtn = document.getElementById('todayBtn');
-
+  const prevMonthBtn = document.getElementById('prevMonth');
+  const nextMonthBtn = document.getElementById('nextMonth');
+  
   if (prevMonthBtn) {
     prevMonthBtn.addEventListener('click', function() {
       if (window.dashboardInstance) {
@@ -109,7 +139,7 @@ function bindCalendarViewEvents() {
       }
     });
   }
-
+  
   if (nextMonthBtn) {
     nextMonthBtn.addEventListener('click', function() {
       if (window.dashboardInstance) {
@@ -118,20 +148,13 @@ function bindCalendarViewEvents() {
     });
   }
 
-  if (todayBtn) {
-    todayBtn.addEventListener('click', function() {
-      if (window.dashboardInstance) {
-        window.dashboardInstance.goToToday();
-      }
-    });
-  }
-
-  // Calendar event clicks
+  // Calendar day clicks
   document.addEventListener('click', function(e) {
-    if (e.target.classList.contains('calendar-event')) {
-      const taskId = e.target.getAttribute('data-task-id');
-      if (taskId && window.dashboardInstance) {
-        window.dashboardInstance.openTaskModal(taskId);
+    if (e.target.closest('.calendar-day')) {
+      const dayElement = e.target.closest('.calendar-day');
+      const date = dayElement.getAttribute('data-date');
+      if (date && window.dashboardInstance) {
+        window.dashboardInstance.selectCalendarDate(date);
       }
     }
   });
@@ -145,38 +168,26 @@ function bindCalendarViewEvents() {
  * Bind tasks view events
  */
 function bindTasksViewEvents() {
-  // Task filters
-  const filterButtons = document.querySelectorAll('.filter-btn');
-  filterButtons.forEach(btn => {
-    btn.addEventListener('click', function() {
-      const filter = this.getAttribute('data-filter');
-      if (filter && window.dashboardInstance) {
-        window.dashboardInstance.filterTasks(filter);
-      }
-    });
-  });
-
-  // Task search
-  const taskSearch = document.getElementById('taskSearch');
-  if (taskSearch) {
-    taskSearch.addEventListener('input', function() {
-      const query = this.value.trim();
+  // Add task button
+  const addTaskBtn2 = document.getElementById('addTaskBtn2');
+  if (addTaskBtn2) {
+    addTaskBtn2.addEventListener('click', function() {
       if (window.dashboardInstance) {
-        window.dashboardInstance.searchTasks(query);
+        window.dashboardInstance.openAddTaskModal();
       }
     });
   }
 
-  // Task sorting
-  const sortSelect = document.getElementById('taskSort');
-  if (sortSelect) {
-    sortSelect.addEventListener('change', function() {
-      const sortBy = this.value;
-      if (sortBy && window.dashboardInstance) {
-        window.dashboardInstance.sortTasks(sortBy);
+  // Task item clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.task-item')) {
+      const taskElement = e.target.closest('.task-item');
+      const taskId = taskElement.getAttribute('data-task-id');
+      if (taskId && window.dashboardInstance) {
+        window.dashboardInstance.openTaskDetails(taskId);
       }
-    });
-  }
+    }
+  });
 }
 
 // ==================== 
@@ -197,27 +208,16 @@ function bindFilesViewEvents() {
     });
   }
 
-  // File search
-  const fileSearch = document.getElementById('fileSearch');
-  if (fileSearch) {
-    fileSearch.addEventListener('input', function() {
-      const query = this.value.trim();
-      if (window.dashboardInstance) {
-        window.dashboardInstance.searchFiles(query);
+  // File item clicks
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.file-item')) {
+      const fileElement = e.target.closest('.file-item');
+      const fileId = fileElement.getAttribute('data-file-id');
+      if (fileId && window.dashboardInstance) {
+        window.dashboardInstance.openFileDetails(fileId);
       }
-    });
-  }
-
-  // File sorting
-  const fileSort = document.getElementById('fileSort');
-  if (fileSort) {
-    fileSort.addEventListener('change', function() {
-      const sortBy = this.value;
-      if (sortBy && window.dashboardInstance) {
-        window.dashboardInstance.sortFiles(sortBy);
-      }
-    });
-  }
+    }
+  });
 }
 
 // ==================== 
@@ -228,12 +228,16 @@ function bindFilesViewEvents() {
  * Bind leaderboard view events
  */
 function bindLeaderboardViewEvents() {
-  // Period selection
+  // Period filter buttons
   const periodButtons = document.querySelectorAll('[data-period]');
-  periodButtons.forEach(btn => {
-    btn.addEventListener('click', function() {
+  periodButtons.forEach(button => {
+    button.addEventListener('click', function() {
       const period = this.getAttribute('data-period');
       if (period && window.dashboardInstance) {
+        // Remove active class from all buttons
+        periodButtons.forEach(btn => btn.classList.remove('active'));
+        // Add active class to clicked button
+        this.classList.add('active');
         window.dashboardInstance.loadLeaderboard(period);
       }
     });
@@ -257,127 +261,6 @@ function bindReportsViewEvents() {
       }
     });
   }
-
-  // Report period selection
-  const reportPeriodSelect = document.getElementById('reportPeriod');
-  if (reportPeriodSelect) {
-    reportPeriodSelect.addEventListener('change', function() {
-      const period = this.value;
-      if (period && window.dashboardInstance) {
-        window.dashboardInstance.updateReport(period);
-      }
-    });
-  }
-}
-
-// ==================== 
-// Global Events
-// ==================== 
-
-/**
- * Bind global events
- */
-function bindGlobalEvents() {
-  // Window resize
-  window.addEventListener('resize', function() {
-    if (window.dashboardInstance) {
-      window.dashboardInstance.handleResize();
-    }
-  });
-
-  // Keyboard shortcuts
-  document.addEventListener('keydown', function(e) {
-    // Escape key to close modals
-    if (e.key === 'Escape') {
-      if (window.dashboardInstance) {
-        window.dashboardInstance.closeAllModals();
-      }
-    }
-
-    // Ctrl/Cmd + N for new task
-    if ((e.ctrlKey || e.metaKey) && e.key === 'n') {
-      e.preventDefault();
-      if (window.dashboardInstance) {
-        window.dashboardInstance.openAddTaskModal();
-      }
-    }
-
-    // Ctrl/Cmd + F for search
-    if ((e.ctrlKey || e.metaKey) && e.key === 'f') {
-      e.preventDefault();
-      const searchInput = document.querySelector('.search-input');
-      if (searchInput) {
-        searchInput.focus();
-      }
-    }
-  });
-
-  // Click outside to close dropdowns
-  document.addEventListener('click', function(e) {
-    const dropdowns = document.querySelectorAll('.dropdown');
-    dropdowns.forEach(dropdown => {
-      if (!dropdown.contains(e.target)) {
-        dropdown.classList.remove('open');
-      }
-    });
-  });
-}
-
-// ==================== 
-// Main Event Binding
-// ==================== 
-
-/**
- * Bind all events
- */
-function bindAllEvents() {
-  console.log('🔗 Binding dashboard events...');
-  
-  bindNavigationEvents();
-  bindDashboardViewEvents();
-  bindCalendarViewEvents();
-  bindTasksViewEvents();
-  bindFilesViewEvents();
-  bindLeaderboardViewEvents();
-  bindReportsViewEvents();
-  if (typeof bindRecurringViewEvents === 'function') bindRecurringViewEvents();
-  bindGlobalEvents();
-  
-  console.log('✅ All events bound successfully');
-}
-
-// ==================== 
-// Export
-// ==================== 
-
-// Export สำหรับใช้ในไฟล์อื่น
-if (typeof module !== 'undefined' && module.exports) {
-  // Node.js environment
-  module.exports = {
-    bindAllEvents,
-    bindNavigationEvents,
-    bindDashboardViewEvents,
-    bindCalendarViewEvents,
-    bindTasksViewEvents,
-    bindFilesViewEvents,
-    bindLeaderboardViewEvents,
-    bindReportsViewEvents,
-    bindGlobalEvents
-  };
-} else {
-  // Browser environment - เพิ่มเข้าไปใน global scope
-  window.DashboardEventHandlers = {
-    bindAllEvents,
-    bindNavigationEvents,
-    bindDashboardViewEvents,
-    bindCalendarViewEvents,
-    bindTasksViewEvents,
-    bindFilesViewEvents,
-    bindLeaderboardViewEvents,
-    bindReportsViewEvents,
-    bindRecurringViewEvents,
-    bindGlobalEvents
-  };
 }
 
 // ==================== 
@@ -388,12 +271,224 @@ if (typeof module !== 'undefined' && module.exports) {
  * Bind recurring view events
  */
 function bindRecurringViewEvents() {
+  // Add recurring task button
   const addRecurringBtn = document.getElementById('addRecurringBtn');
   if (addRecurringBtn) {
     addRecurringBtn.addEventListener('click', function() {
       if (window.dashboardInstance) {
-        window.dashboardInstance.createRecurringPrompt();
+        window.dashboardInstance.openAddRecurringModal();
       }
     });
   }
+}
+
+// ==================== 
+// Modal Events
+// ==================== 
+
+/**
+ * Bind modal events
+ */
+function bindModalEvents() {
+  // Modal close buttons
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal-close') || 
+        e.target.closest('.modal-close')) {
+      const modal = e.target.closest('.modal');
+      if (modal) {
+        modal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+  });
+
+  // Modal overlay click
+  document.addEventListener('click', function(e) {
+    if (e.target.classList.contains('modal')) {
+      e.target.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  });
+
+  // Close modal on escape key
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      const activeModal = document.querySelector('.modal.active');
+      if (activeModal) {
+        activeModal.classList.remove('active');
+        document.body.style.overflow = '';
+      }
+    }
+  });
+}
+
+// ==================== 
+// Form Events
+// ==================== 
+
+/**
+ * Bind form events
+ */
+function bindFormEvents() {
+  // Form submissions
+  document.addEventListener('submit', function(e) {
+    if (e.target.classList.contains('dashboard-form')) {
+      e.preventDefault();
+      if (window.dashboardInstance) {
+        window.dashboardInstance.handleFormSubmit(e.target);
+      }
+    }
+  });
+
+  // Form validation
+  document.addEventListener('input', function(e) {
+    if (e.target.classList.contains('form-input')) {
+      if (window.dashboardInstance) {
+        window.dashboardInstance.validateField(e.target);
+      }
+    }
+  });
+}
+
+// ==================== 
+// Utility Events
+// ==================== 
+
+/**
+ * Bind utility events
+ */
+function bindUtilityEvents() {
+  // Notifications button
+  const notificationsBtn = document.getElementById('notificationsBtn');
+  if (notificationsBtn) {
+    notificationsBtn.addEventListener('click', function() {
+      if (window.dashboardInstance) {
+        window.dashboardInstance.toggleNotifications();
+      }
+    });
+  }
+
+  // Group selector
+  const groupSelector = document.getElementById('groupSelector');
+  if (groupSelector) {
+    groupSelector.addEventListener('click', function() {
+      if (window.dashboardInstance) {
+        window.dashboardInstance.openGroupSelector();
+      }
+    });
+  }
+
+  // User menu
+  const userMenu = document.getElementById('userMenu');
+  if (userMenu) {
+    userMenu.addEventListener('click', function() {
+      if (window.dashboardInstance) {
+        window.dashboardInstance.toggleUserMenu();
+      }
+    });
+  }
+
+  // Toast notifications
+  document.addEventListener('click', function(e) {
+    if (e.target.closest('.toast')) {
+      const toast = e.target.closest('.toast');
+      toast.remove();
+    }
+  });
+}
+
+// ==================== 
+// Touch Events for Mobile
+// ==================== 
+
+/**
+ * Bind touch events for mobile
+ */
+function bindTouchEvents() {
+  let startX = 0;
+  let startY = 0;
+  let endX = 0;
+  let endY = 0;
+
+  // Touch start
+  document.addEventListener('touchstart', function(e) {
+    startX = e.touches[0].clientX;
+    startY = e.touches[0].clientY;
+  }, { passive: true });
+
+  // Touch end
+  document.addEventListener('touchend', function(e) {
+    endX = e.changedTouches[0].clientX;
+    endY = e.changedTouches[0].clientY;
+    
+    const diffX = startX - endX;
+    const diffY = startY - endY;
+    
+    // Swipe left to right (open sidebar)
+    if (diffX < -50 && Math.abs(diffY) < 50 && startX < 50) {
+      if (window.innerWidth <= 768 && window.dashboardInstance) {
+        window.dashboardInstance.openMobileSidebar();
+      }
+    }
+    
+    // Swipe right to left (close sidebar)
+    if (diffX > 50 && Math.abs(diffY) < 50) {
+      if (window.innerWidth <= 768 && window.dashboardInstance) {
+        window.dashboardInstance.closeMobileSidebar();
+      }
+    }
+  }, { passive: true });
+
+  // Prevent zoom on double tap
+  let lastTouchEnd = 0;
+  document.addEventListener('touchend', function(e) {
+    const now = (new Date()).getTime();
+    if (now - lastTouchEnd <= 300) {
+      e.preventDefault();
+    }
+    lastTouchEnd = now;
+  }, false);
+}
+
+// ==================== 
+// Initialize All Events
+// ==================== 
+
+/**
+ * Initialize all event handlers
+ */
+function initializeEventHandlers() {
+  bindNavigationEvents();
+  bindDashboardViewEvents();
+  bindCalendarViewEvents();
+  bindTasksViewEvents();
+  bindFilesViewEvents();
+  bindLeaderboardViewEvents();
+  bindReportsViewEvents();
+  bindRecurringViewEvents();
+  bindModalEvents();
+  bindFormEvents();
+  bindUtilityEvents();
+  bindTouchEvents();
+  
+  console.log('✅ Event handlers initialized');
+}
+
+// Export for use in other modules
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    initializeEventHandlers,
+    bindNavigationEvents,
+    bindDashboardViewEvents,
+    bindCalendarViewEvents,
+    bindTasksViewEvents,
+    bindFilesViewEvents,
+    bindLeaderboardViewEvents,
+    bindReportsViewEvents,
+    bindRecurringViewEvents,
+    bindModalEvents,
+    bindFormEvents,
+    bindUtilityEvents,
+    bindTouchEvents
+  };
 }

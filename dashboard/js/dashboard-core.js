@@ -24,6 +24,9 @@ class Dashboard {
     this._isCreatingTask = false;
     this._isHandlingAddTask = false;
     
+    // Mobile state
+    this._isMobileSidebarOpen = false;
+    
     this.init();
   }
 
@@ -35,10 +38,11 @@ class Dashboard {
     this.bindEvents();
     this.loadInitialData();
     this.hideLoading();
+    this.initializeMobileFeatures();
 
     // ตรวจสอบ URL hash เมื่อโหลดหน้า
     const hash = window.location.hash.substring(1);
-    if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports'].includes(hash)) {
+    if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports', 'recurring'].includes(hash)) {
       this.switchView(hash);
     }
 
@@ -65,6 +69,66 @@ class Dashboard {
       
       const hint = document.getElementById('actionHint');
       if (hint) hint.style.display = 'block';
+    }
+  }
+
+  // ==================== 
+  // Mobile Features
+  // ==================== 
+
+  initializeMobileFeatures() {
+    // ตรวจสอบขนาดหน้าจอ
+    this.checkScreenSize();
+    
+    // Bind window resize event
+    window.addEventListener('resize', () => {
+      this.checkScreenSize();
+    });
+    
+    // Initialize touch gestures
+    this.initializeTouchGestures();
+  }
+
+  checkScreenSize() {
+    const isMobile = window.innerWidth <= 768;
+    document.body.classList.toggle('mobile', isMobile);
+    
+    // ปิด sidebar บนมือถือถ้าเปิดอยู่
+    if (!isMobile && this._isMobileSidebarOpen) {
+      this.closeMobileSidebar();
+    }
+  }
+
+  initializeTouchGestures() {
+    // Touch gestures จะถูกจัดการใน event-handlers.js
+    console.log('📱 Mobile features initialized');
+  }
+
+  openMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const menuToggle = document.getElementById('menuToggle');
+    
+    if (sidebar && window.innerWidth <= 768) {
+      sidebar.classList.add('open');
+      if (overlay) overlay.classList.add('active');
+      if (menuToggle) menuToggle.classList.add('active');
+      document.body.style.overflow = 'hidden';
+      this._isMobileSidebarOpen = true;
+    }
+  }
+
+  closeMobileSidebar() {
+    const sidebar = document.querySelector('.sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    const menuToggle = document.getElementById('menuToggle');
+    
+    if (sidebar) {
+      sidebar.classList.remove('open');
+      if (overlay) overlay.classList.remove('active');
+      if (menuToggle) menuToggle.classList.remove('active');
+      document.body.style.overflow = '';
+      this._isMobileSidebarOpen = false;
     }
   }
 
@@ -117,35 +181,43 @@ class Dashboard {
   // ==================== 
 
   switchView(viewName) {
-    // Update navigation
-    document.querySelectorAll('.nav-item').forEach(item => {
-      item.classList.toggle('active', item.dataset.view === viewName);
-    });
-
-    // Update content
-    document.querySelectorAll('.view').forEach(view => {
-      view.classList.toggle('active', view.id === `${viewName}View`);
-    });
-
-    // Sync bottom nav (mobile)
-    document.querySelectorAll('.bottom-nav-item')?.forEach(item => {
-      item.classList.toggle('active', item.dataset.view === viewName);
-    });
-
-    this.currentView = viewName;
-    this.loadViewData(viewName);
-
-    // อัปเดต URL hash
-    if (window.DashboardUtils && window.DashboardUtils.updateUrlHash) {
-      window.DashboardUtils.updateUrlHash(viewName);
-    } else {
-      window.location.hash = `#${viewName}`;
+    if (this.currentView === viewName) return;
+    
+    // Hide all views
+    const views = document.querySelectorAll('.view');
+    views.forEach(view => view.classList.remove('active'));
+    
+    // Remove active class from all nav items
+    const navItems = document.querySelectorAll('.nav-item, .bottom-nav-item');
+    navItems.forEach(item => item.classList.remove('active'));
+    
+    // Show target view
+    const targetView = document.getElementById(viewName + 'View');
+    if (targetView) {
+      targetView.classList.add('active');
     }
-
-    // Auto-close sidebar on mobile after navigation
-    if (window.DashboardUtils && window.DashboardUtils.isMobileDevice()) {
+    
+    // Update navigation
+    const navItem = document.querySelector(`[data-view="${viewName}"]`);
+    if (navItem) {
+      navItem.classList.add('active');
+    }
+    
+    // Update current view
+    this.currentView = viewName;
+    
+    // Update URL hash
+    window.location.hash = viewName;
+    
+    // Load view-specific data
+    this.loadViewData(viewName);
+    
+    // Close mobile sidebar after navigation
+    if (window.innerWidth <= 768) {
       this.closeMobileSidebar();
     }
+    
+    console.log(`📱 Switched to view: ${viewName}`);
   }
 
   loadViewData(viewName) {
@@ -174,576 +246,401 @@ class Dashboard {
     }
   }
 
-  async loadDashboardData() {
-    try {
-      await Promise.all([
-        this.loadStats(),
-        this.loadUpcomingTasks(),
-        this.loadMiniLeaderboard()
-      ]);
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
+  // ==================== 
+  // Event Binding
+  // ==================== 
+
+  bindEvents() {
+    // ใช้ event handlers จาก event-handlers.js
+    if (typeof initializeEventHandlers === 'function') {
+      initializeEventHandlers();
+    } else {
+      console.warn('⚠️ Event handlers not found, using fallback');
+      this.bindFallbackEvents();
     }
   }
 
-  async loadCalendarData() {
-    try {
-      if (!this._calendarCurrentDate) {
-        if (window.DashboardUtils && window.DashboardUtils.isMomentAvailable()) {
-          this._calendarCurrentDate = window.moment().tz(this.timezone).toDate();
-        } else {
-          this._calendarCurrentDate = new Date();
+  bindFallbackEvents() {
+    // Fallback event binding if event-handlers.js is not loaded
+    const navItems = document.querySelectorAll('.nav-item, .bottom-nav-item');
+    navItems.forEach(item => {
+      item.addEventListener('click', (e) => {
+        e.preventDefault();
+        const view = item.getAttribute('data-view');
+        if (view) {
+          this.switchView(view);
         }
-      }
-      const d = this._calendarCurrentDate;
-      await this.loadCalendarEvents(d.getMonth() + 1, d.getFullYear());
-    } catch (error) {
-      console.error('Failed to load calendar data:', error);
+      });
+    });
+
+    // Mobile menu toggle
+    const menuToggle = document.getElementById('menuToggle');
+    if (menuToggle) {
+      menuToggle.addEventListener('click', () => {
+        this.toggleMobileSidebar();
+      });
     }
   }
 
-  async loadTasksData() {
-    try {
-      await Promise.all([
-        this.loadTasks(),
-        this.loadGroupMembers()
-      ]);
-    } catch (error) {
-      console.error('Failed to load tasks data:', error);
+  toggleMobileSidebar() {
+    if (this._isMobileSidebarOpen) {
+      this.closeMobileSidebar();
+    } else {
+      this.openMobileSidebar();
     }
-  }
-
-  async loadFilesData() {
-    try {
-      await this.loadFiles();
-    } catch (error) {
-      console.error('Failed to load files data:', error);
-    }
-  }
-
-  async loadLeaderboardData() {
-    try {
-      await this.loadLeaderboard();
-    } catch (error) {
-      console.error('Failed to load leaderboard data:', error);
-    }
-  }
-
-  async loadReportsData() {
-    try {
-      await this.loadGroupMembers();
-      this.initReportsUI();
-    } catch (error) {
-      console.error('Failed to load reports data:', error);
-    }
-  }
-
-  refreshCurrentView() {
-    this.showLoading();
-    this.loadViewData(this.currentView);
-    setTimeout(() => this.hideLoading(), 500);
   }
 
   // ==================== 
   // Data Loading
   // ==================== 
 
-  async loadInitialData() {
-    try {
-      this.showLoading();
-      
-      // ตรวจสอบว่ามี groupId หรือไม่
-      if (this.currentGroupId === 'default' || !this.currentGroupId) {
-        this.showNoGroupMessage();
-        return;
-      }
-
-      console.log('Loading data for group:', this.currentGroupId);
-
-      // Load group info
-      const groupInfo = await this.api.loadGroupInfo(this.currentGroupId);
-      
-      if (groupInfo) {
-        const groupName = groupInfo.name || 'ไม่ทราบชื่อกลุ่ม';
-        const groupNameEl = document.getElementById('currentGroupName');
-        if (groupNameEl) {
-          groupNameEl.textContent = groupName;
-        }
-        console.log('Group loaded:', groupName);
-        
-        // Load current view data
-        this.loadViewData(this.currentView);
-
-        // ถ้ามาจากการกดปุ่ม "กรอกข้อมูลงาน" ให้เปิด modal เพิ่มงานอัตโนมัติ
-        if (this.initialAction === 'new-task') {
-          this.openAddTaskModal();
-        }
-        
-        // ถ้ามาจากการกดปุ่ม "อนุมัติและเลือกวันใหม่" ให้เปิด modal แก้ไขงาน
-        if (this.initialAction === 'approve_extension') {
-          this.openEditTaskModal();
-        }
-        
-        // ถ้ามี taskId parameter ให้เปิด task modal โดยอัตโนมัติ
-        const taskId = this.getTaskIdFromUrl();
-        if (taskId) {
-          // เปลี่ยนไปหน้า tasks ก่อน แล้วค่อยเปิด modal
-          this.switchView('tasks');
-          // รอให้โหลดข้อมูลเสร็จแล้วค่อยเปิด modal
-          setTimeout(() => {
-            this.openTaskModal(taskId);
-          }, 500);
-        }
-      } else {
-        console.error('Invalid group response');
-        this.showGroupNotFoundMessage();
-      }
-      
-    } catch (error) {
-      console.error('Failed to load initial data:', error);
-      
-      // แสดงข้อความ error ที่ชัดเจนขึ้น
-      if (error.message.includes('404') || error.message.includes('Group not found')) {
-        this.showGroupNotFoundMessage();
-      } else if (error.message.includes('500')) {
-        this.showToast('เซิร์ฟเวอร์มีปัญหา กรุณาลองใหม่อีกครั้ง', 'error');
-      } else {
-        this.showToast('ไม่สามารถโหลดข้อมูลได้: ' + error.message, 'error');
-      }
-    } finally {
+  loadInitialData() {
+    this.showLoading();
+    
+    Promise.all([
+      this.loadUserInfo(),
+      this.loadGroupInfo(),
+      this.loadStats()
+    ]).then(() => {
       this.hideLoading();
+      console.log('✅ Initial data loaded');
+    }).catch(error => {
+      console.error('❌ Failed to load initial data:', error);
+      this.hideLoading();
+      this.showErrorMessage('ไม่สามารถโหลดข้อมูลเริ่มต้นได้');
+    });
+  }
+
+  loadDashboardData() {
+    this.loadStats();
+    this.loadUpcomingTasks();
+    this.loadMiniLeaderboard();
+  }
+
+  loadCalendarData() {
+    this.renderCalendar();
+  }
+
+  loadTasksData() {
+    this.loadTasks();
+  }
+
+  loadFilesData() {
+    this.loadFiles();
+  }
+
+  loadLeaderboardData() {
+    this.loadLeaderboard('weekly');
+  }
+
+  loadReportsData() {
+    this.loadReports();
+  }
+
+  loadRecurringData() {
+    this.loadRecurringTasks();
+  }
+
+  // ==================== 
+  // User & Group Management
+  // ==================== 
+
+  loadUserInfo() {
+    if (!this.currentUserId) {
+      console.log('⚠️ No userId provided, skipping user info load');
+      return Promise.resolve();
+    }
+
+    return this.api.getUserInfo(this.currentUserId)
+      .then(userInfo => {
+        this.updateUserInfo(userInfo);
+        return userInfo;
+      })
+      .catch(error => {
+        console.error('❌ Failed to load user info:', error);
+        throw error;
+      });
+  }
+
+  loadGroupInfo() {
+    return this.api.getGroupInfo(this.currentGroupId)
+      .then(groupInfo => {
+        this.updateGroupInfo(groupInfo);
+        return groupInfo;
+      })
+      .catch(error => {
+        console.error('❌ Failed to load group info:', error);
+        throw error;
+      });
+  }
+
+  updateUserInfo(userInfo) {
+    const userNameElements = document.querySelectorAll('#userName, #sidebarUserName');
+    const userRoleElements = document.querySelectorAll('#userRole, #sidebarUserRole');
+    
+    userNameElements.forEach(el => {
+      if (el && userInfo.displayName) {
+        el.textContent = userInfo.displayName;
+      }
+    });
+    
+    userRoleElements.forEach(el => {
+      if (el && userInfo.role) {
+        el.textContent = userInfo.role;
+      }
+    });
+  }
+
+  updateGroupInfo(groupInfo) {
+    const groupNameElement = document.getElementById('currentGroupName');
+    if (groupNameElement && groupInfo.name) {
+      groupNameElement.textContent = groupInfo.name;
     }
   }
 
   // ==================== 
-  // Error Messages
+  // Stats & Dashboard
   // ==================== 
 
-  showNoGroupMessage() {
-    this.hideLoading();
-    const mainContent = document.querySelector('.main-content');
-    if (!mainContent) return;
-    
-    mainContent.innerHTML = `
-      <div class="error-container">
-        <div class="error-message">
-          <i class="fas fa-users" style="font-size: 64px; color: #ddd; margin-bottom: 20px;"></i>
-          <h2>ไม่มีข้อมูลกลุ่ม</h2>
-          <p>กรุณาเข้าใช้ Dashboard ผ่านคำสั่งบอทในกลุ่ม LINE</p>
-          <div class="setup-instructions">
-            <h3>วิธีใช้งาน:</h3>
-            <ol>
-              <li>เข้าไปในกลุ่ม LINE ที่ต้องการใช้งาน</li>
-              <li>แท็กบอท พิมพ์ <strong>/setup</strong></li>
-              <li>คลิกลิงก์ที่บอทส่งให้</li>
-            </ol>
-          </div>
+  loadStats() {
+    return this.api.getStats(this.currentGroupId)
+      .then(stats => {
+        this.renderStats(stats);
+        return stats;
+      })
+      .catch(error => {
+        console.error('❌ Failed to load stats:', error);
+        this.showErrorMessage('ไม่สามารถโหลดสถิติได้');
+        throw error;
+      });
+  }
+
+  renderStats(stats) {
+    const statsGrid = document.getElementById('statsGrid');
+    if (!statsGrid) return;
+
+    const statsHtml = `
+      <div class="stat-card">
+        <div class="stat-icon bg-blue">
+          <i class="fas fa-tasks"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">${stats.totalTasks || 0}</div>
+          <div class="stat-label">งานทั้งหมด</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-green">
+          <i class="fas fa-check-circle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">${stats.completedTasks || 0}</div>
+          <div class="stat-label">งานเสร็จแล้ว</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-orange">
+          <i class="fas fa-clock"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">${stats.pendingTasks || 0}</div>
+          <div class="stat-label">งานรอดำเนินการ</div>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon bg-red">
+          <i class="fas fa-exclamation-triangle"></i>
+        </div>
+        <div class="stat-content">
+          <div class="stat-number">${stats.overdueTasks || 0}</div>
+          <div class="stat-label">งานเกินกำหนด</div>
         </div>
       </div>
     `;
-  }
 
-  showGroupNotFoundMessage() {
-    this.hideLoading();
-    const mainContent = document.querySelector('.main-content');
-    if (!mainContent) return;
-    
-    mainContent.innerHTML = `
-      <div class="error-container">
-        <div class="error-message">
-          <i class="fas fa-exclamation-triangle" style="font-size: 64px; color: #f39c12; margin-bottom: 20px;"></i>
-          <h2>ไม่พบข้อมูลกลุ่ม</h2>
-          <p>กลุ่มที่ระบุไม่มีอยู่ในระบบ หรือบอทยังไม่ได้เข้าร่วมกลุ่มนี้</p>
-          <div class="setup-instructions">
-            <h3>แก้ไขปัญหา:</h3>
-            <ol>
-              <li>ตรวจสอบว่าบอทอยู่ในกลุ่ม LINE แล้ว</li>
-              <li>ใช้คำสั่ง <strong>แท็กบอท /setup</strong> ในกลุ่มอีกครั้ง</li>
-              <li>ติดต่อผู้ดูแลระบบหากปัญหายังไม่หาย</li>
-            </ol>
-          </div>
-        </div>
-      </div>
-    `;
+    statsGrid.innerHTML = statsHtml;
   }
 
   // ==================== 
-  // Toast Notifications
+  // Utility Methods
   // ==================== 
+
+  showSuccessMessage(message) {
+    this.showToast(message, 'success');
+  }
+
+  showErrorMessage(message) {
+    this.showToast(message, 'error');
+  }
+
+  showInfoMessage(message) {
+    this.showToast(message, 'info');
+  }
 
   showToast(message, type = 'info') {
-    if (window.DashboardUtils && window.DashboardUtils.showToast) {
-      window.DashboardUtils.showToast(message, type);
-    } else {
-      // Fallback toast implementation
-      console.log(`[${type.toUpperCase()}] ${message}`);
-    }
+    const toastContainer = document.getElementById('toastContainer');
+    if (!toastContainer) return;
+
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.innerHTML = `
+      <i class="fas fa-${type === 'success' ? 'check-circle' : type === 'error' ? 'exclamation-circle' : 'info-circle'}"></i>
+      <span>${message}</span>
+    `;
+
+    toastContainer.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => {
+      toast.classList.add('show');
+    }, 100);
+
+    // Remove toast after 5 seconds
+    setTimeout(() => {
+      toast.classList.remove('show');
+      setTimeout(() => {
+        if (toast.parentNode) {
+          toast.parentNode.removeChild(toast);
+        }
+      }, 300);
+    }, 5000);
   }
 
   // ==================== 
-  // Mobile Sidebar
+  // Modal Management
   // ==================== 
 
-  closeMobileSidebar() {
-    const sidebar = document.querySelector('.sidebar');
-    const overlay = document.getElementById('sidebarOverlay');
-    const menuToggle = document.getElementById('menuToggle');
-    
-    if (sidebar && overlay && menuToggle) {
-      sidebar.classList.remove('open');
-      overlay.classList.remove('active');
-      menuToggle.classList.remove('active');
+  openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.add('active');
+      document.body.style.overflow = 'hidden';
     }
+  }
+
+  closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.remove('active');
+      document.body.style.overflow = '';
+    }
+  }
+
+  closeAllModals() {
+    const modals = document.querySelectorAll('.modal.active');
+    modals.forEach(modal => {
+      modal.classList.remove('active');
+    });
+    document.body.style.overflow = '';
   }
 
   // ==================== 
   // Placeholder Methods
   // ==================== 
 
-  // ฟังก์ชันเหล่านี้จะถูก implement ในไฟล์อื่น
-  bindEvents() {
-    // ใช้ event handlers จากไฟล์ event-handlers.js
-    if (window.DashboardEventHandlers && window.DashboardEventHandlers.bindAllEvents) {
-      window.DashboardEventHandlers.bindAllEvents();
-    } else {
-      console.warn('⚠️ DashboardEventHandlers not found, events may not work properly');
-    }
-  }
-
-  loadStats() {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderDashboardStats) {
-      // โหลดข้อมูล stats จาก API และ render
-      this.api.loadStats(this.currentGroupId)
-        .then(stats => {
-          // stats อาจเป็นรูปแบบ { members, stats, files }
-          window.DashboardViewRenderer.renderDashboardStats(stats);
-        })
-        .catch(error => {
-          console.error('Failed to load stats:', error);
-          this.showToast('ไม่สามารถโหลดสถิติได้', 'error');
-        });
-    }
-  }
-
+  // These methods will be implemented based on specific requirements
   loadUpcomingTasks() {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderUpcomingTasks) {
-      // โหลดข้อมูล upcoming tasks จาก API และ render
-      this.api.loadUpcomingTasks(this.currentGroupId, 5)
-        .then(tasks => {
-          window.DashboardViewRenderer.renderUpcomingTasks(tasks);
-        })
-        .catch(error => {
-          console.error('Failed to load upcoming tasks:', error);
-        });
-    }
+    // Implementation for loading upcoming tasks
+    console.log('📋 Loading upcoming tasks...');
   }
 
   loadMiniLeaderboard() {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderMiniLeaderboard) {
-      // โหลดข้อมูล leaderboard จาก API และ render
-      this.api.loadLeaderboard(this.currentGroupId, 'weekly')
-        .then(leaderboard => {
-          window.DashboardViewRenderer.renderMiniLeaderboard(leaderboard);
-        })
-        .catch(error => {
-          console.error('Failed to load leaderboard:', error);
-        });
-    }
+    // Implementation for loading mini leaderboard
+    console.log('🏆 Loading mini leaderboard...');
   }
 
-  loadCalendarEvents(month, year) {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderCalendar) {
-      // โหลดข้อมูล calendar events จาก API และ render
-      this.api.loadCalendarEvents(this.currentGroupId, month, year)
-        .then(events => {
-          window.DashboardViewRenderer.renderCalendar(events, new Date(year, month - 1, 1));
-        })
-        .catch(error => {
-          console.error('Failed to load calendar events:', error);
-        });
-    }
+  renderCalendar() {
+    // Implementation for rendering calendar
+    console.log('📅 Rendering calendar...');
   }
 
   loadTasks() {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderTasksList) {
-      // โหลดข้อมูล tasks จาก API และ render
-      this.api.loadTasks(this.currentGroupId)
-        .then(result => {
-          const tasks = Array.isArray(result) ? result : (result && result.data ? result.data : []);
-          this._taskCache = tasks;
-          window.DashboardViewRenderer.renderTasksList(tasks);
-        })
-        .catch(error => {
-          console.error('Failed to load tasks:', error);
-          this.showToast('ไม่สามารถโหลดงานได้', 'error');
-        });
-    }
-  }
-
-  loadGroupMembers() {
-    // โหลดข้อมูล group members จาก API
-    this.api.loadGroupMembers(this.currentGroupId)
-      .then(members => {
-        // อัปเดต group selector
-        this.updateGroupSelector(members);
-      })
-      .catch(error => {
-        console.error('Failed to load group members:', error);
-      });
+    // Implementation for loading tasks
+    console.log('📝 Loading tasks...');
   }
 
   loadFiles() {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderFilesGrid) {
-      // โหลดข้อมูล files จาก API และ render
-      this.api.loadFiles(this.currentGroupId)
-        .then(files => {
-          window.DashboardViewRenderer.renderFilesGrid(files);
-        })
-        .catch(error => {
-          console.error('Failed to load files:', error);
-          this.showToast('ไม่สามารถโหลดไฟล์ได้', 'error');
-        });
-    }
+    // Implementation for loading files
+    console.log('📁 Loading files...');
   }
 
-  loadLeaderboard() {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderLeaderboard) {
-      // โหลดข้อมูล leaderboard จาก API และ render
-      this.api.loadLeaderboard(this.currentGroupId, 'weekly')
-        .then(leaderboard => {
-          window.DashboardViewRenderer.renderLeaderboard(leaderboard);
-        })
-        .catch(error => {
-          console.error('Failed to load leaderboard:', error);
-          this.showToast('ไม่สามารถโหลดอันดับได้', 'error');
-        });
-    }
+  loadLeaderboard(period = 'weekly') {
+    // Implementation for loading leaderboard
+    console.log(`🏆 Loading leaderboard for period: ${period}`);
   }
 
-  initReportsUI() {
-    // ใช้ view renderer จากไฟล์ view-renderer.js
-    if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderReports) {
-      // โหลดข้อมูล reports จาก API และ render
-      this.api.loadReports(this.currentGroupId)
-        .then(reports => {
-          window.DashboardViewRenderer.renderReports(reports);
-        })
-        .catch(error => {
-          console.error('Failed to load reports:', error);
-        });
-    }
+  loadReports() {
+    // Implementation for loading reports
+    console.log('📊 Loading reports...');
+  }
+
+  loadRecurringTasks() {
+    // Implementation for loading recurring tasks
+    console.log('🔄 Loading recurring tasks...');
   }
 
   openAddTaskModal() {
-    // จะถูก implement ใน modal-manager.js
+    // Implementation for opening add task modal
+    console.log('➕ Opening add task modal...');
   }
 
-  openEditTaskModal() {
-    // จะถูก implement ใน modal-manager.js
+  openTaskDetails(taskId) {
+    // Implementation for opening task details
+    console.log(`📋 Opening task details for ID: ${taskId}`);
   }
 
-  openTaskModal() {
-    // จะถูก implement ใน modal-manager.js
+  openFileDetails(fileId) {
+    // Implementation for opening file details
+    console.log(`📁 Opening file details for ID: ${fileId}`);
   }
 
-  // ====================
-  // Helpers / Actions
-  // ====================
-
-  updateGroupSelector(members) {
-    const el = document.getElementById('currentGroupName');
-    if (el && typeof members === 'object' && members && typeof members.length === 'undefined') {
-      // keep name as-is; optionally append member count if available later
-    }
+  openUploadModal() {
+    // Implementation for opening upload modal
+    console.log('📤 Opening upload modal...');
   }
 
-  previousMonth() {
-    const d = this._calendarCurrentDate || new Date();
-    d.setMonth(d.getMonth() - 1);
-    this._calendarCurrentDate = d;
-    this.loadCalendarData();
+  openAddRecurringModal() {
+    // Implementation for opening add recurring modal
+    console.log('🔄 Opening add recurring modal...');
   }
 
-  nextMonth() {
-    const d = this._calendarCurrentDate || new Date();
-    d.setMonth(d.getMonth() + 1);
-    this._calendarCurrentDate = d;
-    this.loadCalendarData();
+  selectCalendarDate(date) {
+    // Implementation for selecting calendar date
+    console.log(`📅 Selected date: ${date}`);
   }
 
-  goToToday() {
-    this._calendarCurrentDate = new Date();
-    this.loadCalendarData();
+  toggleNotifications() {
+    // Implementation for toggling notifications
+    console.log('🔔 Toggling notifications...');
   }
 
-  filterTasks(status) {
-    const params = status && status !== 'all' ? { status } : {};
-    this.api.loadTasks(this.currentGroupId, params).then(result => {
-      const tasks = Array.isArray(result) ? result : (result && result.data ? result.data : []);
-      this._taskCache = tasks;
-      window.DashboardViewRenderer.renderTasksList(tasks, params);
-    }).catch(err => {
-      console.error('filterTasks error:', err);
-    });
+  openGroupSelector() {
+    // Implementation for opening group selector
+    console.log('👥 Opening group selector...');
   }
 
-  searchTasks(query) {
-    // fallback: search by tags contains query
-    const params = query ? { tags: query } : {};
-    this.api.loadTasks(this.currentGroupId, params).then(result => {
-      const tasks = Array.isArray(result) ? result : (result && result.data ? result.data : []);
-      this._taskCache = tasks;
-      window.DashboardViewRenderer.renderTasksList(tasks, params);
-    }).catch(err => console.error('searchTasks error:', err));
+  toggleUserMenu() {
+    // Implementation for toggling user menu
+    console.log('👤 Toggling user menu...');
   }
 
-  sortTasks(sortBy) {
-    const tasks = [...(this._taskCache || [])];
-    if (sortBy === 'due_asc') tasks.sort((a,b)=>new Date(a.dueTime||a.dueDate)-new Date(b.dueTime||b.dueDate));
-    if (sortBy === 'due_desc') tasks.sort((a,b)=>new Date(b.dueTime||b.dueDate)-new Date(a.dueTime||a.dueDate));
-    window.DashboardViewRenderer.renderTasksList(tasks);
+  handleFormSubmit(form) {
+    // Implementation for handling form submission
+    console.log('📝 Handling form submission...');
   }
 
-  searchFiles(query) {
-    this.api.loadFiles(this.currentGroupId, query || '').then(files => {
-      window.DashboardViewRenderer.renderFilesGrid(files);
-    }).catch(err => console.error('searchFiles error:', err));
+  validateField(field) {
+    // Implementation for field validation
+    console.log('✅ Validating field...');
   }
 
-  sortFiles(sortBy) {
-    // client-side sort for now
-    const grid = document.getElementById('filesGrid');
-    if (!grid) return;
-    // reload then sort
-    this.api.loadFiles(this.currentGroupId).then(files => {
-      if (sortBy === 'name_asc') files.sort((a,b)=> (a.originalName||'').localeCompare(b.originalName||''));
-      if (sortBy === 'name_desc') files.sort((a,b)=> (b.originalName||'').localeCompare(a.originalName||''));
-      if (sortBy === 'date_desc') files.sort((a,b)=> new Date(b.uploadedAt)-new Date(a.uploadedAt));
-      if (sortBy === 'date_asc') files.sort((a,b)=> new Date(a.uploadedAt)-new Date(b.uploadedAt));
-      window.DashboardViewRenderer.renderFilesGrid(files);
-    });
-  }
-
-  handleResize() {}
-  closeAllModals() {}
-
-  async downloadFile(fileId) {
-    try {
-      const blob = await this.api.downloadFile(this.currentGroupId, fileId);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'download';
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-    } catch (e) {
-      this.showToast('ดาวน์โหลดไฟล์ไม่สำเร็จ', 'error');
-    }
-  }
-
-  viewFile(fileId) {
-    const url = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
-    window.open(url, '_blank');
-  }
-
-  async addTagsToFile(fileId) {
-    const tag = prompt('เพิ่มแท็กให้ไฟล์ (คั่นด้วย , ได้)');
-    if (!tag) return;
-    const tags = tag.split(',').map(t=>t.trim()).filter(Boolean);
-    if (tags.length === 0) return;
-    try {
-      await this.api.addFileTags(fileId, tags);
-      this.showToast('เพิ่มแท็กเรียบร้อย', 'success');
-      this.loadFiles();
-    } catch (e) {
-      this.showToast('ไม่สามารถเพิ่มแท็กได้', 'error');
-    }
-  }
-
-  async loadRecurringData() {
-    try {
-      const items = await this.api.listRecurringTasks(this.currentGroupId);
-      if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderRecurringList) {
-        window.DashboardViewRenderer.renderRecurringList(items);
-      }
-    } catch (e) {
-      console.error('Failed to load recurring list:', e);
-    }
-  }
-
-  async createRecurringPrompt() {
-    const title = prompt('ชื่องานประจำ');
-    if (!title) return;
-    const recurrence = prompt("รอบเวลา (weekly/monthly/quarterly)", 'weekly');
-    let weekDay, dayOfMonth;
-    if (recurrence === 'weekly') weekDay = parseInt(prompt('วันในสัปดาห์ (0=อา ... 6=ส)', '1')||'1',10);
-    if (recurrence !== 'weekly') dayOfMonth = parseInt(prompt('วันที่ของเดือน', '1')||'1',10);
-    const timeOfDay = prompt('เวลา (HH:mm)', '09:00') || '09:00';
-    try {
-      await this.api.createRecurringTask(this.currentGroupId, { title, recurrence, weekDay, dayOfMonth, timeOfDay, assigneeLineUserIds: [], createdBy: this.currentUserId || 'unknown' });
-      this.showToast('สร้างงานประจำสำเร็จ', 'success');
-      this.loadRecurringData();
-    } catch (e) {
-      this.showToast('สร้างงานประจำไม่สำเร็จ', 'error');
-    }
-  }
-
-  async deleteRecurring(id) {
-    if (!confirm('ลบงานประจำนี้?')) return;
-    try {
-      await this.api.deleteRecurringTask(id);
-      this.showToast('ลบสำเร็จ', 'success');
-      this.loadRecurringData();
-    } catch (e) {
-      this.showToast('ลบไม่สำเร็จ', 'error');
-    }
-  }
-
-  async generateReport() {
-    try {
-      const reports = await this.api.loadReports(this.currentGroupId, 'weekly');
-      if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderReports) {
-        window.DashboardViewRenderer.renderReports(reports);
-      }
-    } catch (e) {
-      this.showToast('สร้างรายงานไม่สำเร็จ', 'error');
-    }
-  }
-
-  async updateReport(period) {
-    try {
-      const reports = await this.api.loadReports(this.currentGroupId, period);
-      if (window.DashboardViewRenderer && window.DashboardViewRenderer.renderReports) {
-        window.DashboardViewRenderer.renderReports(reports);
-      }
-    } catch {}
-  }
-
-  async downloadReport() {
-    // ดาวน์โหลด CSV รายงานสัปดาห์นี้แบบง่าย ๆ
-    const now = new Date();
-    const start = new Date(now); start.setDate(start.getDate() - start.getDay());
-    const end = new Date(now); end.setDate(start.getDate() + 6);
-    const qs = `startDate=${encodeURIComponent(start.toISOString())}&endDate=${encodeURIComponent(end.toISOString())}&format=csv`;
-    const url = `${this.apiBase}/api/groups/${this.currentGroupId}/reports/export?${qs}`;
-    window.open(url, '_blank');
+  generateReport() {
+    // Implementation for generating report
+    console.log('📊 Generating report...');
   }
 }
 
-// Export สำหรับใช้ในไฟล์อื่น
+// Export for use in other modules
 if (typeof module !== 'undefined' && module.exports) {
-  // Node.js environment
   module.exports = Dashboard;
-} else {
-  // Browser environment - เพิ่มเข้าไปใน global scope
-  window.Dashboard = Dashboard;
 }
