@@ -14,13 +14,18 @@ function renderDashboardStats(stats) {
   const statsGrid = document.getElementById('statsGrid');
   if (!statsGrid) return;
 
+  // รองรับทั้งรูปแบบเดิม (ค่าตัวเลขตรง) และรูปแบบ { stats, members, files }
+  const s = (stats && stats.stats) ? stats.stats : stats || {};
+  const members = stats && stats.members ? stats.members : null;
+  const files = stats && stats.files ? stats.files : null;
+
   const statsHtml = `
     <div class="stat-card">
       <div class="stat-icon">
         <i class="fas fa-tasks"></i>
       </div>
       <div class="stat-content">
-        <div class="stat-value">${stats.totalTasks || 0}</div>
+        <div class="stat-value">${s.totalTasks || 0}</div>
         <div class="stat-label">งานทั้งหมด</div>
       </div>
     </div>
@@ -29,7 +34,7 @@ function renderDashboardStats(stats) {
         <i class="fas fa-check-circle"></i>
       </div>
       <div class="stat-content">
-        <div class="stat-value">${stats.completedTasks || 0}</div>
+        <div class="stat-value">${s.completedTasks || 0}</div>
         <div class="stat-label">งานเสร็จแล้ว</div>
       </div>
     </div>
@@ -38,7 +43,7 @@ function renderDashboardStats(stats) {
         <i class="fas fa-clock"></i>
       </div>
       <div class="stat-content">
-        <div class="stat-value">${stats.pendingTasks || 0}</div>
+        <div class="stat-value">${s.pendingTasks || 0}</div>
         <div class="stat-label">งานรอดำเนินการ</div>
       </div>
     </div>
@@ -47,10 +52,26 @@ function renderDashboardStats(stats) {
         <i class="fas fa-exclamation-triangle"></i>
       </div>
       <div class="stat-content">
-        <div class="stat-value">${stats.overdueTasks || 0}</div>
+        <div class="stat-value">${s.overdueTasks || 0}</div>
         <div class="stat-label">งานเกินกำหนด</div>
       </div>
     </div>
+    ${members ? `
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-users"></i></div>
+      <div class="stat-content">
+        <div class="stat-value">${members.totalMembers || 0}</div>
+        <div class="stat-label">สมาชิกทั้งหมด</div>
+      </div>
+    </div>` : ''}
+    ${files ? `
+    <div class="stat-card">
+      <div class="stat-icon"><i class="fas fa-folder"></i></div>
+      <div class="stat-content">
+        <div class="stat-value">${files.totalFiles || 0}</div>
+        <div class="stat-label">ไฟล์ทั้งหมด</div>
+      </div>
+    </div>` : ''}
   `;
 
   statsGrid.innerHTML = statsHtml;
@@ -73,18 +94,21 @@ function renderUpcomingTasks(tasks) {
     return;
   }
 
-  const tasksHtml = tasks.map(task => `
+  const tasksHtml = tasks.map(task => {
+    const due = task.dueTime || task.dueDate || task.end || task.start;
+    const assigneeName = task.assigneeName || (task.assignedUsers && task.assignedUsers[0] ? task.assignedUsers[0].displayName : 'ไม่ระบุ');
+    return `
     <div class="task-item" data-task-id="${task.id}">
       <div class="task-info">
         <div class="task-title">${escapeHtml(task.title)}</div>
         <div class="task-meta">
           <span class="task-due-date">
             <i class="fas fa-calendar"></i>
-            ${formatDate(task.dueDate)}
+            ${formatDate(due)}
           </span>
           <span class="task-assignee">
             <i class="fas fa-user"></i>
-            ${escapeHtml(task.assigneeName || 'ไม่ระบุ')}
+            ${escapeHtml(assigneeName)}
           </span>
         </div>
       </div>
@@ -94,7 +118,7 @@ function renderUpcomingTasks(tasks) {
         </button>
       </div>
     </div>
-  `).join('');
+  `}).join('');
 
   upcomingTasksContainer.innerHTML = tasksHtml;
 }
@@ -137,7 +161,7 @@ function renderMiniLeaderboard(leaderboard) {
  * Render calendar
  */
 function renderCalendar(events, currentDate = new Date()) {
-  const calendarContainer = document.getElementById('calendarContainer');
+  const calendarContainer = document.getElementById('calendarContainer') || document.getElementById('calendarGrid');
   if (!calendarContainer) return;
 
   const year = currentDate.getFullYear();
@@ -183,7 +207,8 @@ function renderCalendar(events, currentDate = new Date()) {
     const dateStr = date.toISOString().split('T')[0];
     
     const dayEvents = events.filter(event => {
-      const eventDate = new Date(event.dueDate);
+      const when = event.start || event.dueTime || event.dueDate;
+      const eventDate = new Date(when);
       return eventDate.toDateString() === date.toDateString();
     });
 
@@ -231,6 +256,8 @@ function renderTasksList(tasks, filters = {}) {
   const tasksHtml = tasks.map(task => {
     const statusClass = getTaskStatusClass(task.status);
     const priorityClass = getTaskPriorityClass(task.priority);
+    const due = task.dueTime || task.dueDate || task.end || task.start;
+    const assigneeName = task.assigneeName || (task.assignedUsers && task.assignedUsers[0] ? task.assignedUsers[0].displayName : 'ไม่ระบุ');
     
     return `
       <div class="task-card ${statusClass}" data-task-id="${task.id}">
@@ -245,11 +272,11 @@ function renderTasksList(tasks, filters = {}) {
         <div class="task-meta">
           <div class="task-assignee">
             <i class="fas fa-user"></i>
-            ${escapeHtml(task.assigneeName || 'ไม่ระบุ')}
+            ${escapeHtml(assigneeName)}
           </div>
           <div class="task-due-date">
             <i class="fas fa-calendar"></i>
-            ${formatDate(task.dueDate)}
+            ${formatDate(due)}
           </div>
           <div class="task-status">
             <i class="fas fa-circle"></i>
@@ -299,6 +326,7 @@ function renderFilesGrid(files) {
   const filesHtml = files.map(file => {
     const fileIcon = getFileIcon(file.mimeType);
     const fileColor = getFileColor(file.mimeType);
+    const uploaderName = (file.uploadedByUser && file.uploadedByUser.displayName) || file.uploaderName || 'ไม่ระบุ';
     
     return `
       <div class="file-card" data-file-id="${file.id}">
@@ -309,7 +337,7 @@ function renderFilesGrid(files) {
           <div class="file-name">${escapeHtml(file.originalName)}</div>
           <div class="file-meta">
             <span class="file-size">${formatFileSize(file.size)}</span>
-            <span class="file-uploader">${escapeHtml(file.uploaderName || 'ไม่ระบุ')}</span>
+            <span class="file-uploader">${escapeHtml(uploaderName)}</span>
           </div>
           <div class="file-date">${formatDate(file.uploadedAt)}</div>
         </div>
@@ -319,6 +347,9 @@ function renderFilesGrid(files) {
           </button>
           <button class="btn btn-sm btn-outline" onclick="window.dashboardInstance.viewFile('${file.id}')">
             <i class="fas fa-eye"></i>
+          </button>
+          <button class="btn btn-sm btn-outline" title="เพิ่มแท็ก" onclick="window.dashboardInstance.addTagsToFile('${file.id}')">
+            <i class="fas fa-tags"></i>
           </button>
         </div>
       </div>
@@ -434,6 +465,45 @@ function renderReports(reports) {
   reportsContent.innerHTML = reportsHtml;
 }
 
+// ====================
+// Recurring View Renderer
+// ====================
+
+function renderRecurringList(items) {
+  const container = document.getElementById('recurringList');
+  if (!container) return;
+  if (!items || items.length === 0) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <i class="fas fa-rotate"></i>
+        <p>ยังไม่มีงานประจำ</p>
+      </div>`;
+    return;
+  }
+  const html = items.map(it => `
+    <div class="task-card">
+      <div class="task-header">
+        <div class="task-title">${escapeHtml(it.title || 'งานประจำ')}</div>
+        <div class="task-priority ${getTaskPriorityClass(it.priority || 'medium')}">
+          <i class="fas fa-flag"></i>
+          ${getTaskPriorityText(it.priority || 'medium')}
+        </div>
+      </div>
+      <div class="task-meta">
+        <div><i class="fas fa-rotate"></i> ${escapeHtml(it.recurrence)}</div>
+        <div><i class="fas fa-clock"></i> ${escapeHtml(it.timeOfDay || '09:00')}</div>
+      </div>
+      <div class="task-actions">
+        <button class="btn btn-sm btn-outline" onclick="window.dashboardInstance.deleteRecurring('${it.id}')">
+          <i class="fas fa-trash"></i>
+          ลบ
+        </button>
+      </div>
+    </div>
+  `).join('');
+  container.innerHTML = html;
+}
+
 // ==================== 
 // Utility Functions
 // ==================== 
@@ -489,36 +559,38 @@ function getTaskPriorityText(priority) {
 // ==================== 
 
 // Export สำหรับใช้ในไฟล์อื่น
-if (typeof module !== 'undefined' && module.exports) {
-  // Node.js environment
-  module.exports = {
-    renderDashboardStats,
-    renderUpcomingTasks,
-    renderMiniLeaderboard,
-    renderCalendar,
-    renderTasksList,
-    renderFilesGrid,
-    renderLeaderboard,
-    renderReports,
-    getTaskStatusClass,
-    getTaskStatusText,
-    getTaskPriorityClass,
-    getTaskPriorityText
-  };
-} else {
-  // Browser environment - เพิ่มเข้าไปใน global scope
-  window.DashboardViewRenderer = {
-    renderDashboardStats,
-    renderUpcomingTasks,
-    renderMiniLeaderboard,
-    renderCalendar,
-    renderTasksList,
-    renderFilesGrid,
-    renderLeaderboard,
-    renderReports,
-    getTaskStatusClass,
-    getTaskStatusText,
-    getTaskPriorityClass,
-    getTaskPriorityText
-  };
-}
+  if (typeof module !== 'undefined' && module.exports) {
+    // Node.js environment
+    module.exports = {
+      renderDashboardStats,
+      renderUpcomingTasks,
+      renderMiniLeaderboard,
+      renderCalendar,
+      renderTasksList,
+      renderFilesGrid,
+      renderLeaderboard,
+      renderReports,
+      renderRecurringList,
+      getTaskStatusClass,
+      getTaskStatusText,
+      getTaskPriorityClass,
+      getTaskPriorityText
+    };
+  } else {
+    // Browser environment - เพิ่มเข้าไปใน global scope
+    window.DashboardViewRenderer = {
+      renderDashboardStats,
+      renderUpcomingTasks,
+      renderMiniLeaderboard,
+      renderCalendar,
+      renderTasksList,
+      renderFilesGrid,
+      renderLeaderboard,
+      renderReports,
+      renderRecurringList,
+      getTaskStatusClass,
+      getTaskStatusText,
+      getTaskPriorityClass,
+      getTaskPriorityText
+    };
+  }

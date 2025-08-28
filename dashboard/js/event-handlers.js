@@ -340,6 +340,7 @@ function bindAllEvents() {
   bindFilesViewEvents();
   bindLeaderboardViewEvents();
   bindReportsViewEvents();
+  if (typeof bindRecurringViewEvents === 'function') bindRecurringViewEvents();
   bindGlobalEvents();
   
   console.log('✅ All events bound successfully');
@@ -374,6 +375,25 @@ if (typeof module !== 'undefined' && module.exports) {
     bindFilesViewEvents,
     bindLeaderboardViewEvents,
     bindReportsViewEvents,
+    bindRecurringViewEvents,
     bindGlobalEvents
   };
+}
+
+// ==================== 
+// Recurring View Events
+// ==================== 
+
+/**
+ * Bind recurring view events
+ */
+function bindRecurringViewEvents() {
+  const addRecurringBtn = document.getElementById('addRecurringBtn');
+  if (addRecurringBtn) {
+    addRecurringBtn.addEventListener('click', function() {
+      if (window.dashboardInstance) {
+        window.dashboardInstance.createRecurringPrompt();
+      }
+    });
+  }
 }

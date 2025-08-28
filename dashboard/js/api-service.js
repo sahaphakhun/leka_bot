@@ -146,6 +146,35 @@ class ApiService {
   }
 
   /**
+   * โหลดรายงานสรุปสำหรับกลุ่ม (แปลงให้อยู่ในรูปแบบที่ UI ใช้ได้ทันที)
+   */
+  async loadReports(groupId, period = 'weekly') {
+    try {
+      const resp = await this.apiRequest(`/api/groups/${groupId}/reports/summary?period=${period}`);
+      const s = resp && resp.data ? resp.data : null;
+      if (!s || !s.totals) return [];
+
+      const totals = s.totals;
+      const completionRate = typeof totals.completionRate === 'number' ? totals.completionRate : 0;
+      const inferredTotal = completionRate > 0 ? Math.round((totals.completed * 100) / completionRate) : (totals.completed + (totals.overdue || 0));
+      const nowIso = new Date().toISOString();
+      return [
+        {
+          id: `summary-${period}`,
+          title: period === 'monthly' ? 'สรุปรายงาน (รายเดือน)' : 'สรุปรายงาน (รายสัปดาห์)',
+          generatedAt: nowIso,
+          totalTasks: inferredTotal,
+          completedTasks: totals.completed || 0,
+          completionRate: Math.round((completionRate + Number.EPSILON) * 10) / 10
+        }
+      ];
+    } catch (error) {
+      console.error('Failed to load reports:', error);
+      throw error;
+    }
+  }
+
+  /**
    * โหลดไฟล์
    */
   async loadFiles(groupId, search = '') {
@@ -434,6 +463,58 @@ class ApiService {
       return response.data;
     } catch (error) {
       console.error('Failed to create recurring task:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * ดึงรายการงานประจำของกลุ่ม
+   */
+  async listRecurringTasks(groupId) {
+    try {
+      const response = await this.apiRequest(`/groups/${groupId}/recurring`);
+      return response.data || [];
+    } catch (error) {
+      console.error('Failed to list recurring tasks:', error);
+      throw error;
+    }
+  }
+
+  /** อัปเดตงานประจำ */
+  async updateRecurringTask(id, updates) {
+    try {
+      const response = await this.apiRequest(`/recurring/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(updates)
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to update recurring task:', error);
+      throw error;
+    }
+  }
+
+  /** ลบงานประจำ */
+  async deleteRecurringTask(id) {
+    try {
+      const response = await this.apiRequest(`/recurring/${id}`, { method: 'DELETE' });
+      return response.success;
+    } catch (error) {
+      console.error('Failed to delete recurring task:', error);
+      throw error;
+    }
+  }
+
+  /** เพิ่มแท็กให้ไฟล์ */
+  async addFileTags(fileId, tags) {
+    try {
+      const response = await this.apiRequest(`/files/${fileId}/tags`, {
+        method: 'POST',
+        body: JSON.stringify({ tags })
+      });
+      return response.data;
+    } catch (error) {
+      console.error('Failed to add file tags:', error);
       throw error;
     }
   }

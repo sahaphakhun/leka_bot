@@ -167,6 +167,10 @@
                     <i class="fas fa-chart-bar"></i>
                     <span>รายงาน</span>
                 </a>
+                <a href="#" class="nav-item" data-view="recurring">
+                    <i class="fas fa-rotate"></i>
+                    <span>งานประจำ</span>
+                </a>
             </nav>
             <div class="sidebar-footer">
                 <div class="user-info">
@@ -315,6 +319,22 @@
                     </div>
                 </div>
             </div>
+
+            <!-- Recurring View -->
+            <div id="recurringView" class="view">
+                <div class="view-header">
+                    <h2>งานประจำ</h2>
+                    <div class="view-actions">
+                        <button class="btn btn-primary" id="addRecurringBtn">
+                            <i class="fas fa-plus"></i>
+                            เพิ่มงานประจำ
+                        </button>
+                    </div>
+                </div>
+                <div class="tasks-container">
+                    <div id="recurringList"></div>
+                </div>
+            </div>
         </main>
     </div>
 
@@ -339,6 +359,10 @@
         <a href="#" class="bottom-nav-item" data-view="leaderboard">
             <i class="fas fa-trophy"></i>
             <span>อันดับ</span>
+        </a>
+        <a href="#" class="bottom-nav-item" data-view="recurring">
+            <i class="fas fa-rotate"></i>
+            <span>งานประจำ</span>
         </a>
     </nav>
 
