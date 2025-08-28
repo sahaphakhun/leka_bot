@@ -162,6 +162,19 @@ class Dashboard {
         e.preventDefault();
         const view = e.currentTarget.dataset.view;
         this.switchView(view);
+        
+        // ปิด sidebar บน mobile
+        if (window.innerWidth <= 768) {
+          const sidebar = document.querySelector('.sidebar');
+          const overlay = document.getElementById('sidebarOverlay');
+          const menuToggle = document.getElementById('menuToggle');
+          
+          if (sidebar && overlay && menuToggle) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            menuToggle.classList.remove('active');
+          }
+        }
       });
     });
 
@@ -171,6 +184,19 @@ class Dashboard {
         e.preventDefault();
         const view = e.currentTarget.dataset.view;
         this.switchView(view);
+        
+        // ปิด sidebar บน mobile
+        if (window.innerWidth <= 768) {
+          const sidebar = document.querySelector('.sidebar');
+          const overlay = document.getElementById('sidebarOverlay');
+          const menuToggle = document.getElementById('menuToggle');
+          
+          if (sidebar && overlay && menuToggle) {
+            sidebar.classList.remove('open');
+            overlay.classList.remove('active');
+            menuToggle.classList.remove('active');
+          }
+        }
       });
     });
 
@@ -194,6 +220,19 @@ class Dashboard {
           this.switchView(viewName);
           // อัปเดต URL hash
           window.location.hash = href;
+          
+                     // ปิด sidebar บน mobile
+           if (window.innerWidth <= 768) {
+             const sidebar = document.querySelector('.sidebar');
+             const overlay = document.getElementById('sidebarOverlay');
+             const menuToggle = document.getElementById('menuToggle');
+             
+             if (sidebar && overlay && menuToggle) {
+               sidebar.classList.remove('open');
+               overlay.classList.remove('active');
+               menuToggle.classList.remove('active');
+             }
+           }
         }
       });
     });
@@ -203,6 +242,36 @@ class Dashboard {
       const hash = window.location.hash.substring(1); // เอา # ออก
       if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports'].includes(hash)) {
         this.switchView(hash);
+      }
+    });
+    
+    // ปิด sidebar เมื่อ resize หน้าจอ
+    window.addEventListener('resize', () => {
+      if (window.innerWidth > 768) {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const menuToggle = document.getElementById('menuToggle');
+        
+        if (sidebar && overlay && menuToggle) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+          menuToggle.classList.remove('active');
+        }
+      }
+    });
+    
+    // ปิด sidebar เมื่อกด ESC key
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const sidebar = document.querySelector('.sidebar');
+        const overlay = document.getElementById('sidebarOverlay');
+        const menuToggle = document.getElementById('menuToggle');
+        
+        if (sidebar && overlay && menuToggle && sidebar.classList.contains('open')) {
+          sidebar.classList.remove('open');
+          overlay.classList.remove('active');
+          menuToggle.classList.remove('active');
+        }
       }
     });
 
@@ -357,7 +426,28 @@ class Dashboard {
 
     // Mobile menu toggle
     document.getElementById('menuToggle')?.addEventListener('click', () => {
-      document.querySelector('.sidebar')?.classList.toggle('open');
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const menuToggle = document.getElementById('menuToggle');
+      
+      if (sidebar && overlay && menuToggle) {
+        sidebar.classList.toggle('open');
+        overlay.classList.toggle('active');
+        menuToggle.classList.toggle('active');
+      }
+    });
+    
+    // Close sidebar when clicking overlay
+    document.getElementById('sidebarOverlay')?.addEventListener('click', () => {
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const menuToggle = document.getElementById('menuToggle');
+      
+      if (sidebar && overlay && menuToggle) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        menuToggle.classList.remove('active');
+      }
     });
 
     // Filters
@@ -1389,7 +1479,15 @@ class Dashboard {
 
     // Auto-close sidebar on mobile after navigation
     if (window.innerWidth <= 768) {
-      document.querySelector('.sidebar')?.classList.remove('open');
+      const sidebar = document.querySelector('.sidebar');
+      const overlay = document.getElementById('sidebarOverlay');
+      const menuToggle = document.getElementById('menuToggle');
+      
+      if (sidebar && overlay && menuToggle) {
+        sidebar.classList.remove('open');
+        overlay.classList.remove('active');
+        menuToggle.classList.remove('active');
+      }
     }
   }
 

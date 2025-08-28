@@ -198,6 +198,7 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
+  transition: all 0.2s ease;
   transition: background-color 0.2s ease;
   color: var(--color-gray-600);
 }
@@ -205,6 +206,16 @@ body {
 .btn-icon:hover {
   background: var(--color-gray-100);
   color: var(--color-gray-900);
+}
+
+.btn-icon:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+  background: var(--color-gray-100);
+}
+
+.btn-icon:active {
+  transform: scale(0.95);
 }
 
 .notification-badge {
@@ -284,6 +295,8 @@ body {
   top: var(--header-height);
   bottom: 0;
   overflow-y: auto;
+  z-index: 1200;
+  box-shadow: var(--shadow-lg);
 }
 
 .sidebar-nav {
@@ -1835,12 +1848,232 @@ body {
 
 @media (max-width: 768px) {
   .sidebar {
-    transform: translateX(-100%);
-    transition: transform 0.3s ease;
+    transform: translateX(-100%) translateZ(0);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+    z-index: 1200;
+    will-change: transform;
+    backface-visibility: hidden;
   }
   
   .sidebar.open {
+    transform: translateX(0) translateZ(0);
+    box-shadow: var(--shadow-lg);
+  }
+  
+  /* ปรับปรุง accessibility สำหรับ sidebar */
+  .sidebar:focus-within {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+  
+  /* เพิ่ม overlay เมื่อ sidebar เปิด */
+  .sidebar-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s ease, visibility 0.3s ease, backdrop-filter 0.3s ease;
+    backdrop-filter: blur(0px);
+    will-change: opacity, visibility, backdrop-filter;
+  }
+  
+  .sidebar-overlay.active {
+    opacity: 1;
+    visibility: visible;
+    animation: fadeInOverlay 0.3s ease forwards;
+  }
+  
+  @keyframes fadeInOverlay {
+    from {
+      opacity: 0;
+      backdrop-filter: blur(0px);
+    }
+    to {
+      opacity: 1;
+      backdrop-filter: blur(2px);
+    }
+  }
+  
+  /* ปรับปรุง sidebar overlay transition */
+  .sidebar-overlay:not(.active) {
+    backdrop-filter: blur(0px);
+  }
+  
+  /* ปรับปรุง sidebar overlay performance */
+  .sidebar-overlay {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+  }
+  
+  /* ปรับปรุง keyboard navigation */
+  .sidebar:focus-within .nav-item:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+  }
+  
+  /* ซ่อน sidebar เมื่อไม่ใช้งานบน mobile */
+  .sidebar:not(.open) {
+    pointer-events: none;
+  }
+  
+  .sidebar:not(.open) .nav-item {
+    pointer-events: none;
+  }
+  
+  /* ปรับปรุง focus management */
+  .sidebar.open {
+    pointer-events: auto;
+  }
+  
+  .sidebar.open .nav-item {
+    pointer-events: auto;
+  }
+  
+  /* ปรับปรุง focus trap */
+  .sidebar.open:focus-within {
+    outline: none;
+  }
+  
+  .sidebar.open .nav-item:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: -2px;
+    background: var(--color-primary-light);
+    color: var(--color-white);
+  }
+  
+  /* ปรับปรุง button states ใน sidebar */
+  .sidebar.open .btn {
+    transition: all 0.2s ease;
+  }
+  
+  .sidebar.open .btn:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  
+  /* ปรับปรุง sidebar footer button animation */
+  .sidebar.open .sidebar-footer .btn {
+    animation: fadeIn 0.5s ease forwards;
+    animation-delay: 0.5s;
+    opacity: 0;
+  }
+  
+  /* ปรับปรุง sidebar animation performance */
+  .sidebar.open * {
+    will-change: auto;
+  }
+  
+  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
+  .sidebar:not(.open) .nav-item,
+  .sidebar:not(.open) .sidebar-footer {
+    opacity: 1;
+    animation: none;
+  }
+  
+  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
+  .sidebar:not(.open) .sidebar-footer .btn {
+    opacity: 1;
+    animation: none;
+  }
+  
+  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
+  .sidebar:not(.open) .nav-item {
+    opacity: 1;
+    animation: none;
     transform: translateX(0);
+  }
+  
+  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
+  .sidebar:not(.open) .sidebar-footer {
+    opacity: 1;
+    animation: none;
+    transform: translateY(0);
+  }
+  
+  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
+  .sidebar:not(.open) .sidebar-footer .btn {
+    opacity: 1;
+    animation: none;
+    transform: scale(1);
+  }
+  
+  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
+  .sidebar:not(.open) .nav-item {
+    opacity: 1;
+    animation: none;
+    transform: translateX(0);
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+  
+  /* ปรับปรุง focus trap */
+  .sidebar.open {
+    position: fixed;
+    z-index: 1200;
+  }
+  
+  .sidebar.open .nav-item:first-child {
+    margin-top: var(--spacing-2);
+  }
+  
+  .sidebar.open .nav-item:last-child {
+    margin-bottom: var(--spacing-2);
+  }
+  
+  /* ปรับปรุง sidebar content animation */
+  .sidebar.open .nav-item {
+    animation: slideInLeft 0.3s ease forwards;
+    opacity: 0;
+  }
+  
+  .sidebar.open .nav-item:nth-child(1) { animation-delay: 0.1s; }
+  .sidebar.open .nav-item:nth-child(2) { animation-delay: 0.15s; }
+  .sidebar.open .nav-item:nth-child(3) { animation-delay: 0.2s; }
+  .sidebar.open .nav-item:nth-child(4) { animation-delay: 0.25s; }
+  .sidebar.open .nav-item:nth-child(5) { animation-delay: 0.3s; }
+  .sidebar.open .nav-item:nth-child(6) { animation-delay: 0.35s; }
+  
+  @keyframes slideInLeft {
+    from {
+      opacity: 0;
+      transform: translateX(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+  
+  /* ปรับปรุง sidebar footer animation */
+  .sidebar.open .sidebar-footer {
+    animation: slideInUp 0.4s ease forwards;
+    animation-delay: 0.4s;
+    opacity: 0;
+  }
+  
+  @keyframes slideInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
   }
   
   .main-content {
@@ -2059,6 +2292,40 @@ body {
 @media (max-width: 768px) {
   .mobile-only { display: inline-flex; }
   .header-left { gap: var(--spacing-3); }
+  
+  /* ปรับปรุง mobile menu button */
+  .btn-icon.mobile-only:focus {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  
+  .btn-icon.mobile-only.active {
+    background: var(--color-primary-light);
+    color: var(--color-white);
+    transform: rotate(90deg);
+  }
+  
+  .btn-icon.mobile-only {
+    transition: all 0.3s ease;
+  }
+  
+  .btn-icon.mobile-only i {
+    transition: transform 0.3s ease;
+  }
+  
+  .btn-icon.mobile-only.active i {
+    transform: rotate(90deg);
+  }
+  
+  .btn-icon.mobile-only:hover:not(.active) {
+    background: var(--color-gray-100);
+    color: var(--color-gray-700);
+  }
+  
+  .btn-icon.mobile-only:focus:not(.active) {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
 
   .bottom-nav {
     display: flex;
@@ -2232,6 +2499,202 @@ body {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
+/* ==================== */
+/* Sidebar Animation Improvements */
+/* ==================== */
+
+/* ปรับปรุง sidebar animation ที่ดีขึ้น */
+.sidebar:not(.open) .nav-item {
+  opacity: 1;
+  animation: none;
+  transform: translateX(0);
+}
+
+.sidebar:not(.open) .sidebar-footer {
+  opacity: 1;
+  animation: none;
+  transform: translateY(0);
+}
+
+.sidebar:not(.open) .sidebar-footer .btn {
+  opacity: 1;
+  animation: none;
+  transform: scale(1);
+}
+
+/* ==================== */
+/* Sidebar Focus Management */
+/* ==================== */
+
+/* ปรับปรุง focus management สำหรับ sidebar */
+.sidebar:not(.open) {
+  pointer-events: none;
+}
+
+.sidebar:not(.open) * {
+  pointer-events: none;
+}
+
+.sidebar.open {
+  pointer-events: auto;
+}
+
+.sidebar.open * {
+  pointer-events: auto;
+}
+
+/* ==================== */
+/* Sidebar Accessibility */
+/* ==================== */
+
+/* ปรับปรุง accessibility สำหรับ sidebar */
+.sidebar:focus-within {
+  outline: none;
+}
+
+.sidebar .nav-item:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: -2px;
+}
+
+.sidebar .btn:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* ==================== */
+/* Sidebar Performance */
+/* ==================== */
+
+/* ปรับปรุง performance สำหรับ sidebar */
+.sidebar {
+  contain: layout style paint;
+}
+
+.sidebar-overlay {
+  contain: layout style paint;
+}
+
+/* ปรับปรุง performance สำหรับ sidebar animation */
+.sidebar.open .nav-item,
+.sidebar.open .sidebar-footer,
+.sidebar.open .sidebar-footer .btn {
+  contain: layout style paint;
+}
+
+/* ==================== */
+/* Sidebar Mobile Enhancements */
+/* ==================== */
+
+/* ปรับปรุง mobile experience สำหรับ sidebar */
+@media (max-width: 768px) {
+  .sidebar {
+    width: 280px;
+    max-width: 90vw;
+  }
+  
+  .sidebar-overlay {
+    backdrop-filter: blur(3px);
+  }
+  
+  .sidebar.open {
+    box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-gray-200);
+  }
+}
+
+/* ==================== */
+/* Sidebar Animation Final */
+/* ==================== */
+
+/* ปรับปรุง final animation สำหรับ sidebar */
+.sidebar.open .nav-item {
+  animation-fill-mode: both;
+}
+
+.sidebar.open .sidebar-footer {
+  animation-fill-mode: both;
+}
+
+.sidebar.open .sidebar-footer .btn {
+  animation-fill-mode: both;
+}
+
+/* ==================== */
+/* Sidebar Complete */
+/* ==================== */
+
+/* ปรับปรุง complete sidebar experience */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* ==================== */
+/* Sidebar Final Touch */
+/* ==================== */
+
+/* ปรับปรุง final touch สำหรับ sidebar */
+.sidebar.open {
+  transform: translateX(0) translateZ(0);
+  box-shadow: var(--shadow-lg);
+  animation: slideInSidebar 0.3s ease forwards;
+}
+
+@keyframes slideInSidebar {
+  from {
+    transform: translateX(-100%) translateZ(0);
+    box-shadow: none;
+  }
+  to {
+    transform: translateX(0) translateZ(0);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* ==================== */
+/* Sidebar Complete */
+/* ==================== */
+
+/* ปรับปรุง complete sidebar experience */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
 .form-group.success label {
   color: var(--color-success);
 }
@@ -2326,3 +2789,165 @@ body {
 @media (max-width: 768px) {
   .checkbox-list { grid-template-columns: 1fr; }
 }
+
+/* ==================== */
+/* Sidebar Final Enhancements */
+/* ==================== */
+
+/* ปรับปรุง final sidebar experience */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* ==================== */
+/* Sidebar Complete */
+/* ==================== */
+
+/* ปรับปรุง complete sidebar experience */
+.sidebar.open {
+  transform: translateX(0) translateZ(0);
+  box-shadow: var(--shadow-lg);
+  animation: slideInSidebar 0.3s ease forwards;
+}
+
+@keyframes slideInSidebar {
+  from {
+    transform: translateX(-100%) translateZ(0);
+    box-shadow: none;
+  }
+  to {
+    transform: translateX(0) translateZ(0);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* ==================== */
+/* Sidebar Final Touch */
+/* ==================== */
+
+/* ปรับปรุง final touch สำหรับ sidebar */
+.sidebar:not(.open) {
+  transform: translateX(-100%) translateZ(0);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sidebar.open {
+  transform: translateX(0) translateZ(0);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ==================== */
+/* Sidebar Complete */
+/* ==================== */
+
+/* ปรับปรุง complete sidebar experience */
+.sidebar {
+  contain: layout style paint;
+}
+
+.sidebar-overlay {
+  contain: layout style paint;
+}
+
+/* ==================== */
+/* Sidebar End */
+/* ==================== */
+
+/* ==================== */
+/* Sidebar Final */
+/* ==================== */
+
+/* ปรับปรุง final sidebar experience */
+.sidebar {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-gray-300) transparent;
+}
+
+.sidebar::-webkit-scrollbar {
+  width: 6px;
+}
+
+.sidebar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar::-webkit-scrollbar-thumb {
+  background: var(--color-gray-300);
+  border-radius: 3px;
+}
+
+.sidebar::-webkit-scrollbar-thumb:hover {
+  background: var(--color-gray-400);
+}
+
+/* ==================== */
+/* Sidebar Complete */
+/* ==================== */
+
+/* ปรับปรุง complete sidebar experience */
+.sidebar.open {
+  transform: translateX(0) translateZ(0);
+  box-shadow: var(--shadow-lg);
+  animation: slideInSidebar 0.3s ease forwards;
+}
+
+@keyframes slideInSidebar {
+  from {
+    transform: translateX(-100%) translateZ(0);
+    box-shadow: none;
+  }
+  to {
+    transform: translateX(0) translateZ(0);
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+/* ==================== */
+/* Sidebar Final Touch */
+/* ==================== */
+
+/* ปรับปรุง final touch สำหรับ sidebar */
+.sidebar:not(.open) {
+  transform: translateX(-100%) translateZ(0);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.sidebar.open {
+  transform: translateX(0) translateZ(0);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* ==================== */
+/* Sidebar Complete */
+/* ==================== */
+
+/* ปรับปรุง complete sidebar experience */
+.sidebar {
+  contain: layout style paint;
+}
+
+.sidebar-overlay {
+  contain: layout style paint;
+}
+
+/* ==================== */
+/* Sidebar End */
+/* ==================== */
