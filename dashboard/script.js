@@ -1372,7 +1372,14 @@ class Dashboard {
             exportBtn._bound = true;
           }
         }
-        // ปุ่มซิงค์ leaderboard ถูกลบออกแล้ว - ไม่จำเป็น
+        // เพิ่ม event listener สำหรับปุ่มซิงค์ leaderboard
+        {
+          const syncLeaderboardBtn = document.getElementById('syncLeaderboardBtn');
+          if (syncLeaderboardBtn && !syncLeaderboardBtn._bound) {
+            syncLeaderboardBtn.addEventListener('click', () => this.syncLeaderboard());
+            syncLeaderboardBtn._bound = true;
+          }
+        }
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
       case 'calendar':
@@ -1781,38 +1788,17 @@ class Dashboard {
               ${hasAttachments ? `<span style="color: #3b82f6; font-weight: 500;">📎 ${task.attachedFiles.length} ไฟล์</span>` : ''}
             </div>
             <div style="display: flex; gap: 8px;">
-              ${(task.status === 'pending' || task.status === 'overdue') ? `
-                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')" title="ส่งงานนี้ (ใช้งานได้ทันที)">
+              ${task.status === 'pending' ? `
+                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
                   <i class="fas fa-upload"></i> ส่งงาน
                 </button>
               ` : ''}
               ${task.status === 'in_progress' ? `
-                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); app.handleApproveTask('${task.id}')" title="อนุมัติงานนี้ (ต้องเข้าผ่านลิงก์จากบอท)">
+                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); app.handleApproveTask('${task.id}')">
                   <i class="fas fa-check"></i> อนุมัติ
                 </button>
-                <button class="btn btn-sm btn-warning" onclick="event.stopPropagation(); app.handleRejectTask('${task.id}')" title="ตีกลับงานนี้ (ต้องเข้าผ่านลิงก์จากบอท)">
+                <button class="btn btn-sm btn-warning" onclick="event.stopPropagation(); app.handleRejectTask('${task.id}')">
                   <i class="fas fa-times"></i> ตีกลับ
-                </button>
-              ` : ''}
-              ${task.status === 'completed' ? `
-                <span class="status completed" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #dcfce7; color: #166534;">
-                  <i class="fas fa-check-circle"></i> เสร็จแล้ว
-                </span>
-              ` : ''}
-              ${task.status === 'submitted' ? `
-                <span class="status submitted" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #fef3c7; color: #92400e;">
-                  <i class="fas fa-clock"></i> รอตรวจ
-                </span>
-                <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')" title="ส่งงานใหม่ (ใช้งานได้ทันที)">
-                  <i class="fas fa-upload"></i> ส่งใหม่
-                </button>
-              ` : ''}
-              ${task.status === 'rejected' ? `
-                <span class="status rejected" style="padding: 4px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 500; background: #fee2e2; color: #991b1b;">
-                  <i class="fas fa-times-circle"></i> ตีกลับ
-                </span>
-                <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')" title="ส่งงานใหม่ (ใช้งานได้ทันที)">
-                  <i class="fas fa-upload"></i> ส่งใหม่
                 </button>
               ` : ''}
             </div>
@@ -2303,7 +2289,7 @@ class Dashboard {
 
             <div class="task-assignees">
               <h4>ผู้รับผิดชอบ</h4>
-              <p>${task.assignees?.map(a => a.displayName).join(', ') || 'ไม่ระบุ'}</p>
+              <p>${(task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || 'ไม่ระบุ'}</p>
             </div>
 
             ${attachedFiles.length > 0 ? `
@@ -2804,8 +2790,15 @@ class Dashboard {
        // อนุญาตให้ส่งได้แม้ไม่มีไฟล์
        const formData = new FormData();
        
-       // ไม่ต้องส่ง userId แล้ว เพราะ API จะสร้าง temporary user ให้
-       // formData.append('userId', userId);
+       // ใช้ userId ที่มี หรือสร้าง fallback value ที่เหมาะสม
+       let userId = this.currentUserId || this.currentUser?.lineUserId;
+       if (!userId) {
+         // สร้าง temporary userId สำหรับการส่งงาน
+         userId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+         console.log('สร้าง temporary userId สำหรับการส่งงาน:', userId);
+       }
+       
+       formData.append('userId', userId);
        formData.append('comment', comment || '');
        
        if (files && files.length > 0) {
@@ -2814,7 +2807,7 @@ class Dashboard {
          }
        }
 
-       console.log('Submitting task:', { taskId, filesCount: files?.length || 0 });
+       console.log('Submitting task:', { taskId, userId, filesCount: files?.length || 0 });
 
        const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`, {
          method: 'POST',
@@ -3965,7 +3958,62 @@ class Dashboard {
     }
   }
 
-  // syncLeaderboard function removed - no longer needed
+  /**
+   * ซิงค์และคำนวณคะแนน leaderboard ใหม่
+   */
+  async syncLeaderboard() {
+    let originalText = '';
+    try {
+      console.log('🔄 เริ่มการซิงค์ leaderboard...');
+      
+      // แสดงสถานะการโหลด
+      const syncBtn = document.getElementById('syncLeaderboardBtn');
+      originalText = syncBtn.innerHTML;
+      syncBtn.disabled = true;
+      syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังซิงค์...';
+      
+      // เรียก API เพื่อซิงค์ leaderboard
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/sync-leaderboard`, {
+        method: 'POST',
+        body: JSON.stringify({
+          period: 'weekly' // สามารถเปลี่ยนเป็น 'monthly' หรือ 'all' ได้
+        })
+      });
+
+      if (response.success) {
+        console.log('✅ ซิงค์ leaderboard สำเร็จ:', response.data);
+        
+        // แสดงผลลัพธ์
+        const result = response.data;
+        this.showToast(
+          `ซิงค์สำเร็จ! ประมวลผลงาน ${result.processedTasks} ชิ้น อัปเดตผู้ใช้ ${result.updatedUsers} คน`,
+          'success'
+        );
+        
+        // Debug: ตรวจสอบข้อมูล KPI หลังการ sync
+        await this.debugKPIData();
+        
+        // รีโหลด mini leaderboard เพื่อแสดงข้อมูลใหม่
+        setTimeout(() => {
+          this.loadMiniLeaderboard();
+        }, 1000);
+        
+      } else {
+        console.error('❌ ซิงค์ leaderboard ล้มเหลว:', response.error);
+        this.showToast(`ซิงค์ล้มเหลว: ${response.error}`, 'error');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error syncing leaderboard:', error);
+      this.showToast('เกิดข้อผิดพลาดในการซิงค์ leaderboard', 'error');
+      
+    } finally {
+      // คืนค่าปุ่มเป็นสถานะปกติ
+      const syncBtn = document.getElementById('syncLeaderboardBtn');
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = originalText || '<i class="fas fa-sync-alt"></i> ซิงค์';
+    }
+  }
 
   /**
    * Debug: ตรวจสอบข้อมูล KPI ในฐานข้อมูล

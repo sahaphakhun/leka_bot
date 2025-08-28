@@ -1,74 +1,93 @@
-# การแก้ไขปัญหา Leaderboard และลบปุ่มซิงค์
+# การแก้ไขปัญหา Leaderboard API 500 Error
 
-## ปัญหาที่พบ
-1. **Leaderboard แสดงข้อมูลเป็น 0 ทั้งหมด** - แม้จะมีการส่งงานหรือเกินกำหนด แต่หน้าเว็บแสดง:
-   - ส่งงาน 0
-   - เสร็จ 0
-   - งานทั้งหมด 0
-   - คะแนน 0
-
-2. **ปุ่มซิงค์ไม่จำเป็น** - หากข้อมูลถูกต้องแต่แรก ไม่จำเป็นต้องกดปุ่มซิงค์
-
-## การแก้ไขที่ทำ
-
-### 1. ลบปุ่มซิงค์ออกจาก UI
-- **ไฟล์ที่แก้ไข:**
-  - `dashboard/new-index.html` - ลบปุ่ม syncLeaderboardBtn
-  - `dashboard/index.html` - ลบปุ่ม syncLeaderboardBtn
-
-### 2. ลบการอ้างอิงปุ่มซิงค์ออกจาก JavaScript
-- **ไฟล์ที่แก้ไข:**
-  - `dashboard/new-script.js` - ลบ event listener และฟังก์ชัน autoSyncLeaderboard, syncLeaderboard
-  - `dashboard/script.js` - ลบ event listener และฟังก์ชัน syncLeaderboard
-
-### 3. แก้ไขปัญหา KPI Service
-- **ไฟล์ที่แก้ไข:** `src/services/KPIService.ts`
-- **การแก้ไข:**
-  - เพิ่มการ fallback ไปดึงข้อมูลจาก task status เมื่อไม่มี KPI data
-  - สร้าง KPI records อัตโนมัติจากงานที่เสร็จแล้ว
-  - ตรวจสอบและป้องกันการสร้าง KPI records ซ้ำ
-
-## การทำงานใหม่
-
-### 1. การดึงข้อมูล Leaderboard
-```typescript
-// เมื่อไม่มี KPI data จะดึงข้อมูลจาก task status แทน
-if (debugKpiData.length === 0) {
-  // ดึงงานที่เสร็จแล้วในช่วงเวลาที่กำหนด
-  const completedTasks = await taskQuery.getRawMany();
-  
-  // สร้าง KPI records จาก task status
-  for (const task of completedTasks) {
-    // คำนวณคะแนนตามเวลาที่เสร็จ
-    // สร้าง KPI record
-  }
-}
+## ปัญหาที่เกิดขึ้น
+```
+GET https://lekabot-production.up.railway.app/api/groups/2f5b9113-b8cf-4196-8929-bff6b26cbd65/leaderboard?period=weekly&limit=3 500 (Internal Server Error)
 ```
 
-### 2. การคำนวณคะแนน
-- **Early** (เสร็จก่อนกำหนด 24 ชั่วโมง): +10 คะแนน
-- **On Time** (เสร็จตรงเวลา): +8 คะแนน  
-- **Late** (เสร็จช้าไม่เกิน 24 ชั่วโมง): +5 คะแนน
-- **Overtime** (เสร็จช้าเกิน 24 ชั่วโมง): +2 คะแนน
+## สาเหตุที่เป็นไปได้
+1. **Timezone Issues**: การใช้ `moment().tz()` อาจจะล้มเหลวใน production environment
+2. **Database Query Errors**: การใช้ `AVG()` และ `SUM()` ใน query builder อาจจะมีปัญหา
+3. **Foreign Key Issues**: ความสัมพันธ์ระหว่างตารางอาจจะไม่ถูกต้อง
+4. **Missing Data**: กลุ่มหรือสมาชิกอาจจะไม่มีข้อมูล
 
-### 3. การแสดงผล
-- Leaderboard จะแสดงข้อมูลจริงจากงานที่เสร็จแล้ว
-- ไม่จำเป็นต้องกดปุ่มซิงค์อีกต่อไป
-- ข้อมูลจะอัปเดตอัตโนมัติเมื่อมีการส่งงาน
+## การแก้ไขที่ทำไปแล้ว
+
+### 1. ปรับปรุง KPIService.ts
+- เพิ่ม error handling สำหรับ timezone operations
+- เพิ่ม fallback สำหรับ local time หาก timezone ล้มเหลว
+- ปรับปรุง SQL query โดยใช้ `COALESCE()` เพื่อป้องกัน NULL values
+- เพิ่ม detailed logging สำหรับ debugging
+
+### 2. ปรับปรุง apiController.ts
+- เพิ่ม validation สำหรับ groupId
+- ปรับปรุง error handling และ response codes
+- เพิ่ม detailed error logging
+- ส่ง error details ใน development mode
+
+### 3. สร้าง Test Script
+- สร้าง `src/scripts/testLeaderboard.ts` สำหรับทดสอบ API
+- เพิ่ม script `npm run test:leaderboard` ใน package.json
+
+## วิธีการทดสอบ
+
+### 1. ทดสอบด้วย Test Script
+```bash
+npm run test:leaderboard
+```
+
+### 2. ทดสอบด้วย API โดยตรง
+```bash
+curl "https://lekabot-production.up.railway.app/api/groups/2f5b9113-b8cf-4196-8929-bff6b26cbd65/leaderboard?period=weekly&limit=3"
+```
+
+### 3. ตรวจสอบ Logs
+ดู console logs ใน production environment เพื่อหา error details
+
+## การตรวจสอบเพิ่มเติม
+
+### 1. ตรวจสอบ Database Schema
+```bash
+npm run db:check-schema
+```
+
+### 2. ตรวจสอบ KPI Foreign Keys
+```bash
+npm run db:check-kpi-foreign-keys
+```
+
+### 3. ตรวจสอบ Group และ Members
+- ตรวจสอบว่ากลุ่มมีอยู่จริงในฐานข้อมูล
+- ตรวจสอบว่ามีสมาชิกในกลุ่ม
+- ตรวจสอบว่ามี KPI records
+
+## การแก้ไขเพิ่มเติมที่อาจจะต้องทำ
+
+### 1. แก้ไข Timezone Configuration
+หากยังมีปัญหา timezone ให้แก้ไขใน `config.ts`:
+```typescript
+defaultTimezone: 'UTC' // ใช้ UTC แทน Asia/Bangkok
+```
+
+### 2. แก้ไข Database Connection
+ตรวจสอบ database connection ใน production:
+```typescript
+// ใน database.ts
+ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false
+```
+
+### 3. เพิ่ม Error Monitoring
+เพิ่ม error monitoring service เช่น Sentry หรือ LogRocket
 
 ## ผลลัพธ์ที่คาดหวัง
-1. ✅ Leaderboard แสดงข้อมูลจริงแทนที่จะเป็น 0
-2. ✅ ไม่มีปุ่มซิงค์ในหน้าเว็บ
-3. ✅ ข้อมูลอัปเดตอัตโนมัติเมื่อมีการส่งงาน
-4. ✅ ระบบทำงานได้โดยไม่ต้องกดปุ่มซิงค์
+หลังจากแก้ไขแล้ว API ควรจะ:
+- ✅ ส่งคืน leaderboard data ได้ปกติ
+- ✅ ไม่มี 500 error
+- ✅ มี detailed error messages หากมีปัญหา
+- ✅ รองรับ fallback สำหรับ timezone issues
 
-## การทดสอบ
-1. สร้างงานใหม่และกำหนดให้สมาชิก
-2. ให้สมาชิกส่งงาน (เสร็จก่อน/ตรงเวลา/ช้า)
-3. ตรวจสอบ leaderboard ว่าข้อมูลถูกต้อง
-4. ตรวจสอบว่าไม่มีปุ่มซิงค์ในหน้าเว็บ
-
-## หมายเหตุ
-- การแก้ไขนี้จะทำให้ระบบทำงานได้โดยอัตโนมัติ
-- ไม่จำเป็นต้องกดปุ่มซิงค์อีกต่อไป
-- ข้อมูลจะถูกต้องและทันสมัยเสมอ
+## การติดตามผล
+1. ตรวจสอบ production logs หลังจาก deploy
+2. ทดสอบ API endpoint อีกครั้ง
+3. ตรวจสอบ dashboard ว่าสามารถโหลด leaderboard ได้
+4. ติดตาม error rate ใน production
