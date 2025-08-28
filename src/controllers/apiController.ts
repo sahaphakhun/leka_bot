@@ -1200,6 +1200,16 @@ class ApiController {
         return;
       }
 
+      // ซิงค์คะแนนจากงานแบบเรียลไทม์ก่อน (บันทึก KPI ลงฐานข้อมูลตามช่วงเวลา)
+      try {
+        await this.kpiService.syncLeaderboardScores(
+          groupId,
+          period as 'weekly' | 'monthly' | 'all'
+        );
+      } catch (syncErr) {
+        console.warn('⚠️ Sync leaderboard failed, continue with existing KPI records:', syncErr);
+      }
+
       const leaderboard = await this.kpiService.getGroupLeaderboard(
         groupId, 
         period as 'weekly' | 'monthly' | 'all'

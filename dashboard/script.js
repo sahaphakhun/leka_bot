@@ -3968,4 +3968,4 @@ document.addEventListener('DOMContentLoaded', () => {
   window.dashboard = dashboard;
   // Backward-compat alias for inline handlers referencing `app.*`
   window.app = dashboard;
-});s
+});
