@@ -1,0 +1,250 @@
+/* ==================== */
+/* Dashboard Cards Optimization */
+/* ==================== */
+
+/* ปรับปรุง Stats Grid ให้มีขนาดเล็กลง */
+.stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)) !important;
+  gap: var(--spacing-3) !important;
+  margin-bottom: var(--spacing-4) !important;
+}
+
+/* ปรับปรุง Stat Card ให้มีขนาดเล็กลง */
+.stat-card {
+  padding: var(--spacing-3) !important;
+  min-height: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+/* ปรับปรุง Stat Icon ให้เล็กลง */
+.stat-icon {
+  width: 36px !important;
+  height: 36px !important;
+  font-size: var(--font-size-lg) !important;
+  margin-bottom: var(--spacing-2) !important;
+}
+
+/* ปรับปรุง Stat Number ให้เล็กลง */
+.stat-number {
+  font-size: var(--font-size-xl) !important;
+  font-weight: 700 !important;
+  margin-bottom: var(--spacing-1) !important;
+  line-height: 1.1 !important;
+}
+
+/* ปรับปรุง Stat Label ให้เล็กลง */
+.stat-label {
+  font-size: var(--font-size-xs) !important;
+  font-weight: 500 !important;
+  text-align: center !important;
+  line-height: 1.2 !important;
+}
+
+/* ปรับปรุง Dashboard Grid */
+.dashboard-grid {
+  gap: var(--spacing-4) !important;
+  margin-top: var(--spacing-4) !important;
+}
+
+/* ปรับปรุง Dashboard Section ให้เล็กลง */
+.dashboard-section {
+  padding: var(--spacing-4) !important;
+  min-height: auto !important;
+}
+
+/* ปรับปรุง Section Header */
+.section-header {
+  margin-bottom: var(--spacing-3) !important;
+  padding-bottom: var(--spacing-2) !important;
+}
+
+.section-header h3 {
+  font-size: var(--font-size-lg) !important;
+  margin-bottom: var(--spacing-1) !important;
+}
+
+/* ปรับปรุง Section Link */
+.section-link {
+  font-size: var(--font-size-xs) !important;
+  padding: var(--spacing-1) var(--spacing-2) !important;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: var(--spacing-2) !important;
+  }
+  
+  .stat-card {
+    padding: var(--spacing-2) !important;
+  }
+  
+  .stat-icon {
+    width: 32px !important;
+    height: 32px !important;
+    font-size: var(--font-size-base) !important;
+    margin-bottom: var(--spacing-1) !important;
+  }
+  
+  .stat-number {
+    font-size: var(--font-size-lg) !important;
+  }
+  
+  .stat-label {
+    font-size: 10px !important;
+  }
+  
+  .dashboard-section {
+    padding: var(--spacing-3) !important;
+  }
+  
+  .section-header h3 {
+    font-size: var(--font-size-base) !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .stats-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: var(--spacing-2) !important;
+  }
+  
+  .stat-card {
+    padding: var(--spacing-2) !important;
+  }
+  
+  .stat-icon {
+    width: 28px !important;
+    height: 28px !important;
+    font-size: var(--font-size-sm) !important;
+  }
+  
+  .stat-number {
+    font-size: var(--font-size-base) !important;
+  }
+  
+  .stat-label {
+    font-size: 9px !important;
+  }
+  
+  .dashboard-section {
+    padding: var(--spacing-2) !important;
+  }
+}
+
+/* Tablet Optimizations */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .stats-grid {
+    grid-template-columns: repeat(3, 1fr) !important;
+    gap: var(--spacing-3) !important;
+  }
+  
+  .stat-card {
+    padding: var(--spacing-3) !important;
+  }
+  
+  .stat-icon {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: var(--font-size-lg) !important;
+  }
+  
+  .stat-number {
+    font-size: var(--font-size-xl) !important;
+  }
+  
+  .stat-label {
+    font-size: var(--font-size-sm) !important;
+  }
+}
+
+/* Desktop Optimizations */
+@media (min-width: 1025px) {
+  .stats-grid {
+    grid-template-columns: repeat(6, 1fr) !important;
+    gap: var(--spacing-3) !important;
+  }
+  
+  .stat-card {
+    padding: var(--spacing-3) !important;
+  }
+  
+  .stat-icon {
+    width: 40px !important;
+    height: 40px !important;
+    font-size: var(--font-size-lg) !important;
+  }
+  
+  .stat-number {
+    font-size: var(--font-size-xl) !important;
+  }
+  
+  .stat-label {
+    font-size: var(--font-size-sm) !important;
+  }
+}
+
+/* Hover Effects Optimization */
+.stat-card:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--shadow-md) !important;
+}
+
+.stat-card:hover .stat-icon {
+  transform: scale(1.05) !important;
+}
+
+/* Compact Mode for Better Space Usage */
+.dashboard-compact .stat-card {
+  padding: var(--spacing-2) !important;
+}
+
+.dashboard-compact .stat-icon {
+  width: 32px !important;
+  height: 32px !important;
+  font-size: var(--font-size-base) !important;
+  margin-bottom: var(--spacing-1) !important;
+}
+
+.dashboard-compact .stat-number {
+  font-size: var(--font-size-lg) !important;
+}
+
+.dashboard-compact .stat-label {
+  font-size: var(--font-size-xs) !important;
+}
+
+/* Enhanced Content Alignment */
+.stat-content {
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  width: 100% !important;
+}
+
+/* Better Spacing for Text */
+.stat-number,
+.stat-label {
+  margin: 0 !important;
+  padding: 0 !important;
+}
+
+/* Optimized Grid Layout */
+.stats-grid {
+  display: grid !important;
+  align-items: stretch !important;
+}
+
+.stat-card {
+  display: flex !important;
+  flex-direction: column !important;
+  justify-content: center !important;
+  align-items: center !important;
+  text-align: center !important;
+}

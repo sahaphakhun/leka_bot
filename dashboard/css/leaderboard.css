@@ -1,0 +1,291 @@
+/* ==================== */
+/* Leaderboard Styles */
+/* ==================== */
+
+/* Mini Leaderboard */
+.leaderboard-item.mini {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-3);
+  padding: var(--spacing-3);
+  background: var(--color-white);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-gray-200);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: var(--spacing-2);
+}
+
+.leaderboard-item.mini:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+  border-color: var(--color-primary);
+}
+
+/* Rank Styling */
+.rank {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: var(--font-size-lg);
+  color: var(--color-white);
+  background: var(--color-gray-500);
+  flex-shrink: 0;
+}
+
+.rank.gold {
+  background: linear-gradient(135deg, #fbbf24, #f59e0b);
+  box-shadow: 0 4px 12px rgba(251, 191, 36, 0.4);
+}
+
+.rank.silver {
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  box-shadow: 0 4px 12px rgba(156, 163, 175, 0.4);
+}
+
+.rank.bronze {
+  background: linear-gradient(135deg, #d97706, #b45309);
+  box-shadow: 0 4px 12px rgba(217, 119, 6, 0.4);
+}
+
+/* Member Info */
+.member-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.member-name {
+  font-weight: 600;
+  color: var(--color-gray-900);
+  font-size: var(--font-size-base);
+  margin-bottom: var(--spacing-1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.member-score {
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+  font-weight: 500;
+}
+
+/* User Stats */
+.user-stats {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: var(--spacing-1);
+  flex-shrink: 0;
+}
+
+.user-score {
+  font-weight: 600;
+  color: var(--color-success);
+  font-size: var(--font-size-sm);
+  background: rgba(16, 185, 129, 0.1);
+  padding: var(--spacing-1) var(--spacing-2);
+  border-radius: var(--radius-md);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+/* Main Leaderboard */
+.leaderboard-item {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-4);
+  padding: var(--spacing-4);
+  background: var(--color-white);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-gray-200);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  margin-bottom: var(--spacing-3);
+}
+
+.leaderboard-item:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
+  border-color: var(--color-primary);
+}
+
+.leaderboard-item .rank {
+  width: 48px;
+  height: 48px;
+  font-size: var(--font-size-xl);
+}
+
+.leaderboard-item .member-info {
+  flex: 1;
+}
+
+.leaderboard-item .member-name {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-2);
+}
+
+.leaderboard-item .member-score {
+  font-size: var(--font-size-base);
+  color: var(--color-gray-700);
+}
+
+.leaderboard-item .user-stats {
+  text-align: right;
+}
+
+.leaderboard-item .user-score {
+  font-size: var(--font-size-lg);
+  padding: var(--spacing-2) var(--spacing-3);
+}
+
+/* Empty State */
+.leaderboard-item.empty {
+  text-align: center;
+  padding: var(--spacing-8);
+  color: var(--color-gray-500);
+  border: 2px dashed var(--color-gray-300);
+  background: var(--color-gray-50);
+}
+
+.leaderboard-item.empty i {
+  font-size: 3rem;
+  margin-bottom: var(--spacing-4);
+  opacity: 0.5;
+}
+
+/* Mobile Optimizations */
+@media (max-width: 768px) {
+  .leaderboard-item.mini {
+    padding: var(--spacing-2);
+    gap: var(--spacing-2);
+  }
+  
+  .rank {
+    width: 36px;
+    height: 36px;
+    font-size: var(--font-size-base);
+  }
+  
+  .member-name {
+    font-size: var(--font-size-sm);
+  }
+  
+  .member-score {
+    font-size: var(--font-size-xs);
+  }
+  
+  .user-score {
+    font-size: var(--font-size-xs);
+    padding: var(--spacing-1);
+  }
+  
+  .leaderboard-item {
+    padding: var(--spacing-3);
+    gap: var(--spacing-3);
+  }
+  
+  .leaderboard-item .rank {
+    width: 40px;
+    height: 40px;
+    font-size: var(--font-size-lg);
+  }
+  
+  .leaderboard-item .member-name {
+    font-size: var(--font-size-base);
+  }
+  
+  .leaderboard-item .user-score {
+    font-size: var(--font-size-base);
+    padding: var(--spacing-1) var(--spacing-2);
+  }
+}
+
+/* Small Mobile */
+@media (max-width: 480px) {
+  .leaderboard-item.mini {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-2);
+  }
+  
+  .user-stats {
+    align-items: center;
+  }
+  
+  .leaderboard-item {
+    flex-direction: column;
+    text-align: center;
+    gap: var(--spacing-3);
+  }
+  
+  .leaderboard-item .user-stats {
+    text-align: center;
+  }
+}
+
+/* Loading State */
+.leaderboard-item.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.leaderboard-item.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 20px;
+  height: 20px;
+  border: 2px solid var(--color-gray-300);
+  border-top: 2px solid var(--color-primary);
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  transform: translate(-50%, -50%);
+}
+
+/* Animation for new entries */
+.leaderboard-item {
+  animation: slideInRight 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.leaderboard-item:nth-child(1) { animation-delay: 0.1s; }
+.leaderboard-item:nth-child(2) { animation-delay: 0.2s; }
+.leaderboard-item:nth-child(3) { animation-delay: 0.3s; }
+.leaderboard-item:nth-child(4) { animation-delay: 0.4s; }
+.leaderboard-item:nth-child(5) { animation-delay: 0.5s; }
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* Hover effects for rank */
+.rank:hover {
+  transform: scale(1.1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Focus states */
+.leaderboard-item:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+  .rank {
+    border: 2px solid var(--color-gray-900);
+  }
+  
+  .leaderboard-item {
+    border-width: 2px;
+  }
+}

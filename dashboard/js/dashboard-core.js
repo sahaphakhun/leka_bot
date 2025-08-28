@@ -677,6 +677,11 @@ if (typeof Dashboard === 'undefined') {
       this.renderCalendar();
     }
 
+    goToToday() {
+      this._currentCalendarDate = new Date();
+      this.renderCalendar();
+    }
+
     loadTasks(filters = {}) {
       try {
         if (!this.api || typeof this.api.loadTasks !== 'function') return;

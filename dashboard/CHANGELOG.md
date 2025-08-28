@@ -15,6 +15,7 @@
 - **Spacing**: เพิ่ม spacing และ padding ที่เหมาะสมมากขึ้น
 - **Shadows**: ปรับปรุง shadows ให้ดูนุ่มนวลและทันสมัย
 - **Border Radius**: เพิ่ม border-radius ที่มีความนุ่มนวลมากขึ้น
+- **Dashboard Cards**: ปรับปรุงขนาดการ์ดให้เล็กลงและเหมาะสมกับข้อความมากขึ้น
 
 ### 📱 Mobile Enhancements
 - **Touch Targets**: เพิ่มขนาด touch targets เป็น 44px ตามมาตรฐาน
@@ -33,6 +34,10 @@
 - `css/modern.css` - Modern UI enhancements
 - `css/mobile.css` - Mobile-first improvements
 - `css/animations.css` - Advanced animations and micro-interactions
+- `css/dashboard-cards.css` - Optimized dashboard card sizes
+- `css/task-details.css` - Task details modal and badges styling
+- `css/leaderboard.css` - Enhanced leaderboard styling and rank classes
+- `css/calendar.css` - Modern calendar grid layout and styling
 - `README-UI-IMPROVEMENTS.md` - UI improvements documentation
 - `CHANGELOG.md` - This changelog file
 
@@ -40,6 +45,10 @@
 - `css/base.css` - Updated CSS variables and base styles
 - `css/layout.css` - Enhanced layout components
 - `index.html` - Added new CSS files and improved meta tags
+- `js/view-renderer.js` - Added task details modal functionality, fixed leaderboard scores, and enhanced calendar layout
+- `js/dashboard-core.js` - Added goToToday calendar function
+- `js/api-service.js` - Added getTask API method
+- `CHANGELOG.md` - Updated with new features
 
 ### 🎯 Key Changes
 
@@ -72,6 +81,38 @@
 - High contrast mode support
 - Reduced motion support
 - Screen reader friendly
+
+#### 5. Dashboard Card Optimizations
+- Reduced card padding and spacing
+- Smaller icons and text sizes
+- Better responsive grid layout
+- Optimized for content density
+- Improved mobile experience
+
+#### 6. Task Details Feature
+- Clickable task items in dashboard
+- Detailed task information modal
+- Priority and status badges
+- Task description preview
+- Edit task functionality
+- Responsive modal design
+
+#### 7. Leaderboard Score Fix
+- Fixed weekly points display in dashboard
+- Enhanced leaderboard styling with rank classes
+- Gold, silver, bronze medals for top 3
+- Real score calculation from API data
+- Improved mobile responsiveness
+
+#### 8. Calendar Grid Layout
+- Transformed calendar from single row to proper grid layout
+- 7 columns (days of week) x 6 rows (weeks) structure
+- Proper CSS Grid implementation with grid-template-columns
+- Enhanced calendar styling with modern design
+- Day events with priority colors and hover effects
+- Navigation buttons for month navigation
+- "Go to Today" functionality
+- Day events modal for viewing all tasks in a day
 
 ### 🚀 Performance Improvements
 - Hardware-accelerated animations

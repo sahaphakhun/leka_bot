@@ -166,6 +166,19 @@ class ApiService {
   }
 
   /**
+   * ดึงข้อมูลงานเฉพาะ
+   */
+  async getTask(taskId) {
+    try {
+      const response = await this.apiRequest(`/api/tasks/${taskId}`);
+      return response.data || response;
+    } catch (error) {
+      console.error('Failed to get task:', error);
+      throw error;
+    }
+  }
+
+  /**
    * โหลดข้อมูลปฏิทิน
    */
   async loadCalendarEvents(groupId, month, year) {

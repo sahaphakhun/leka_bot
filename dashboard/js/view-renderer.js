@@ -97,10 +97,29 @@ function renderUpcomingTasks(tasks) {
   const tasksHtml = tasks.map(task => {
     const due = task.dueTime || task.dueDate || task.end || task.start;
     const assigneeName = task.assigneeName || (task.assignedUsers && task.assignedUsers[0] ? task.assignedUsers[0].displayName : 'ไม่ระบุ');
+    const priority = task.priority || 'normal';
+    const status = task.status || 'pending';
+    
+    // สร้าง priority badge
+    const priorityBadge = priority === 'high' ? '<span class="priority-badge high">สูง</span>' : 
+                         priority === 'medium' ? '<span class="priority-badge medium">ปานกลาง</span>' : 
+                         '<span class="priority-badge low">ต่ำ</span>';
+    
+    // สร้าง status badge
+    const statusBadge = status === 'completed' ? '<span class="status-badge completed">เสร็จแล้ว</span>' :
+                       status === 'in_progress' ? '<span class="status-badge in-progress">กำลังดำเนินการ</span>' :
+                       '<span class="status-badge pending">รอดำเนินการ</span>';
+    
     return `
-    <div class="task-item" data-task-id="${task.id}">
+    <div class="task-item clickable" data-task-id="${task.id}" onclick="showTaskDetails('${task.id}')">
       <div class="task-info">
-        <div class="task-title">${escapeHtml(task.title)}</div>
+        <div class="task-header">
+          <div class="task-title">${escapeHtml(task.title)}</div>
+          <div class="task-badges">
+            ${priorityBadge}
+            ${statusBadge}
+          </div>
+        </div>
         <div class="task-meta">
           <span class="task-due-date">
             <i class="fas fa-calendar"></i>
@@ -111,10 +130,12 @@ function renderUpcomingTasks(tasks) {
             ${escapeHtml(assigneeName)}
           </span>
         </div>
+        ${task.description ? `<div class="task-description">${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}</div>` : ''}
       </div>
       <div class="task-actions">
-        <button class="btn btn-sm btn-outline" onclick="window.dashboardInstance.openTaskModal('${task.id}')">
+        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); showTaskDetails('${task.id}')">
           <i class="fas fa-eye"></i>
+          <span>ดูรายละเอียด</span>
         </button>
       </div>
     </div>
@@ -140,15 +161,40 @@ function renderMiniLeaderboard(leaderboard) {
     return;
   }
 
-  const leaderboardHtml = leaderboard.slice(0, 5).map((member, index) => `
-    <div class="leaderboard-item">
-      <div class="rank">${index + 1}</div>
-      <div class="member-info">
-        <div class="member-name">${escapeHtml(member.displayName)}</div>
-        <div class="member-score">${member.score || 0} คะแนน</div>
+  const leaderboardHtml = leaderboard.slice(0, 5).map((member, index) => {
+    // ดึงข้อมูลคะแนนตามที่ใช้จริงในระบบ
+    const score = Number(member.weeklyPoints || member.monthlyPoints || member.totalPoints || member.score || 0);
+    const tasks = Number(member.tasksCompleted || member.weeklyTasksCompleted || member.completedTasks || 0);
+    
+    // กำหนดอันดับ
+    let rankIcon, rankClass;
+    if (index === 0) {
+      rankIcon = '🥇';
+      rankClass = 'gold';
+    } else if (index === 1) {
+      rankIcon = '🥈';
+      rankClass = 'silver';
+    } else if (index === 2) {
+      rankIcon = '🥉';
+      rankClass = 'bronze';
+    } else {
+      rankIcon = String(index + 1);
+      rankClass = '';
+    }
+    
+    return `
+      <div class="leaderboard-item mini">
+        <div class="rank ${rankClass}">${rankIcon}</div>
+        <div class="member-info">
+          <div class="member-name">${escapeHtml(member.displayName || member.name || member.realName || 'ไม่ทราบชื่อ')}</div>
+          <div class="member-score">${score.toFixed(1)} คะแนน</div>
+        </div>
+        <div class="user-stats">
+          <div class="user-score">${tasks} งาน</div>
+        </div>
       </div>
-    </div>
-  `).join('');
+    `;
+  }).join('');
 
   leaderboardContainer.innerHTML = leaderboardHtml;
 }
@@ -173,26 +219,27 @@ function renderCalendar(events, currentDate = new Date()) {
   startDate.setDate(startDate.getDate() - firstDay.getDay());
 
   let calendarHtml = `
-    <div class="calendar-header">
-      <button class="btn btn-icon" id="prevMonthBtn">
-        <i class="fas fa-chevron-left"></i>
-      </button>
-      <h3>${new Date(year, month).toLocaleDateString('th-TH', { year: 'numeric', month: 'long' })}</h3>
-      <button class="btn btn-icon" id="nextMonthBtn">
-        <i class="fas fa-chevron-right"></i>
-      </button>
-    </div>
-    <div class="calendar-grid">
-      <div class="calendar-weekdays">
-        <div class="weekday">อา</div>
-        <div class="weekday">จ</div>
-        <div class="weekday">อ</div>
-        <div class="weekday">พ</div>
-        <div class="weekday">พฤ</div>
-        <div class="weekday">ศ</div>
-        <div class="weekday">ส</div>
+    <div class="calendar-container">
+      <div class="calendar-header">
+        <button class="btn btn-icon" id="prevMonthBtn" onclick="window.dashboardInstance.navigateCalendar(-1)">
+          <i class="fas fa-chevron-left"></i>
+        </button>
+        <h3>${new Date(year, month).toLocaleDateString('th-TH', { year: 'numeric', month: 'long' })}</h3>
+        <button class="btn btn-icon" id="nextMonthBtn" onclick="window.dashboardInstance.navigateCalendar(1)">
+          <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
-      <div class="calendar-days">
+      <div class="calendar-grid">
+        <div class="calendar-weekdays">
+          <div class="weekday">อา</div>
+          <div class="weekday">จ</div>
+          <div class="weekday">อ</div>
+          <div class="weekday">พ</div>
+          <div class="weekday">พฤ</div>
+          <div class="weekday">ศ</div>
+          <div class="weekday">ส</div>
+        </div>
+        <div class="calendar-days">
   `;
 
   const today = new Date();
@@ -213,23 +260,127 @@ function renderCalendar(events, currentDate = new Date()) {
     });
 
     calendarHtml += `
-      <div class="calendar-day ${isCurrentMonth ? 'current-month' : 'other-month'} ${isToday ? 'today' : ''}" data-date="${dateStr}">
+      <div class="calendar-day ${isCurrentMonth ? 'current-month' : 'other-month'} ${isToday ? 'today' : ''}" 
+           data-date="${dateStr}" 
+           data-year="${date.getFullYear()}" 
+           data-month="${date.getMonth() + 1}" 
+           data-day="${date.getDate()}">
         <div class="day-number">${date.getDate()}</div>
-        ${dayEvents.map(event => `
-          <div class="calendar-event" data-task-id="${event.id}" title="${escapeHtml(event.title)}">
-            ${escapeHtml(event.title)}
-          </div>
-        `).join('')}
+        <div class="calendar-events">
+          ${dayEvents.slice(0, 3).map(event => `
+            <div class="calendar-event ${event.priority || 'medium'}" 
+                 data-task-id="${event.id}" 
+                 title="${escapeHtml(event.title)}"
+                 onclick="showTaskDetails('${event.id}')">
+              ${escapeHtml(event.title)}
+            </div>
+          `).join('')}
+          ${dayEvents.length > 3 ? `
+            <div class="calendar-event-more" 
+                 onclick="showDayEvents('${dateStr}', ${JSON.stringify(dayEvents).replace(/"/g, '&quot;')})">
+              +${dayEvents.length - 3} อีก
+            </div>
+          ` : ''}
+        </div>
       </div>
     `;
   }
 
   calendarHtml += `
+        </div>
+      </div>
+      <div class="calendar-navigation">
+        <button class="btn btn-secondary" onclick="window.dashboardInstance.navigateCalendar(-1)">
+          <i class="fas fa-chevron-left"></i>
+          เดือนก่อน
+        </button>
+        <button class="btn btn-primary" onclick="window.dashboardInstance.goToToday()">
+          <i class="fas fa-calendar-day"></i>
+          วันนี้
+        </button>
+        <button class="btn btn-secondary" onclick="window.dashboardInstance.navigateCalendar(1)">
+          เดือนถัดไป
+          <i class="fas fa-chevron-right"></i>
+        </button>
       </div>
     </div>
   `;
 
   calendarContainer.innerHTML = calendarHtml;
+  
+  // เพิ่ม event listeners สำหรับการคลิกวัน
+  const calendarDays = calendarContainer.querySelectorAll('.calendar-day');
+  calendarDays.forEach(day => {
+    day.addEventListener('click', (e) => {
+      if (!e.target.closest('.calendar-event') && !e.target.closest('.calendar-event-more')) {
+        const year = parseInt(day.dataset.year);
+        const month = parseInt(day.dataset.month);
+        const dayNum = parseInt(day.dataset.day);
+        if (window.dashboardInstance && window.dashboardInstance.selectCalendarDate) {
+          window.dashboardInstance.selectCalendarDate(new Date(year, month - 1, dayNum));
+        }
+      }
+    });
+  });
+}
+
+/**
+ * แสดงรายการงานทั้งหมดในวันนั้น
+ */
+function showDayEvents(dateStr, events) {
+  if (!events || events.length === 0) {
+    alert('ไม่มีงานในวันนี้');
+    return;
+  }
+
+  const eventsList = events.map(event => `
+    <div class="day-event-item">
+      <div class="event-priority ${event.priority || 'medium'}"></div>
+      <div class="event-content">
+        <div class="event-title">${escapeHtml(event.title)}</div>
+        <div class="event-time">${event.start || event.dueTime || 'ไม่มีเวลากำหนด'}</div>
+      </div>
+      <button class="btn btn-sm btn-primary" onclick="showTaskDetails('${event.id}')">
+        <i class="fas fa-eye"></i>
+      </button>
+    </div>
+  `).join('');
+
+  const modalHtml = `
+    <div id="dayEventsModal" class="modal-overlay">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>งานในวันที่ ${new Date(dateStr).toLocaleDateString('th-TH')}</h3>
+          <button class="modal-close" onclick="closeDayEventsModal()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="day-events-list">
+            ${eventsList}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary" onclick="closeDayEventsModal()">
+            <i class="fas fa-times"></i>
+            ปิด
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+}
+
+/**
+ * ปิด modal รายการงานรายวัน
+ */
+function closeDayEventsModal() {
+  const modal = document.getElementById('dayEventsModal');
+  if (modal) {
+    modal.remove();
+  }
 }
 
 // ==================== 
@@ -505,8 +656,172 @@ function renderRecurringList(items) {
 }
 
 // ==================== 
-// Utility Functions
+// Task Details Modal
 // ==================== 
+
+/**
+ * Show task details modal
+ */
+function showTaskDetails(taskId) {
+  // เรียก API เพื่อดึงข้อมูลงาน
+  if (window.dashboardInstance && window.dashboardInstance.apiService) {
+    window.dashboardInstance.apiService.getTask(taskId)
+      .then(task => {
+        renderTaskDetailsModal(task);
+      })
+      .catch(error => {
+        console.error('Error fetching task details:', error);
+        showToast('เกิดข้อผิดพลาดในการดึงข้อมูลงาน', 'error');
+      });
+  } else {
+    // Fallback: ใช้ข้อมูลจาก upcoming tasks
+    const taskItem = document.querySelector(`[data-task-id="${taskId}"]`);
+    if (taskItem) {
+      const taskData = {
+        id: taskId,
+        title: taskItem.querySelector('.task-title').textContent,
+        description: taskItem.querySelector('.task-description')?.textContent || 'ไม่มีคำอธิบาย',
+        dueDate: taskItem.querySelector('.task-due-date').textContent.replace('📅', '').trim(),
+        assignee: taskItem.querySelector('.task-assignee').textContent.replace('👤', '').trim()
+      };
+      renderTaskDetailsModal(taskData);
+    }
+  }
+}
+
+/**
+ * Render task details modal
+ */
+function renderTaskDetailsModal(task) {
+  const modalHtml = `
+    <div class="modal active" id="taskDetailsModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>รายละเอียดงาน</h3>
+          <button class="btn-icon" onclick="closeTaskDetailsModal()">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="task-details">
+            <div class="task-detail-section">
+              <h4>ชื่องาน</h4>
+              <p class="task-title-detail">${escapeHtml(task.title)}</p>
+            </div>
+            
+            ${task.description ? `
+            <div class="task-detail-section">
+              <h4>คำอธิบาย</h4>
+              <p class="task-description-detail">${escapeHtml(task.description)}</p>
+            </div>
+            ` : ''}
+            
+            <div class="task-detail-section">
+              <h4>สถานะ</h4>
+              <div class="task-status-detail">
+                <span class="status-badge ${getTaskStatusClass(task.status)}">${getTaskStatusText(task.status)}</span>
+              </div>
+            </div>
+            
+            <div class="task-detail-section">
+              <h4>ความสำคัญ</h4>
+              <div class="task-priority-detail">
+                <span class="priority-badge ${getTaskPriorityClass(task.priority)}">${getTaskPriorityText(task.priority)}</span>
+              </div>
+            </div>
+            
+            <div class="task-detail-section">
+              <h4>กำหนดส่ง</h4>
+              <p class="task-due-detail">
+                <i class="fas fa-calendar"></i>
+                ${formatDate(task.dueTime || task.dueDate || task.end || task.start)}
+              </p>
+            </div>
+            
+            <div class="task-detail-section">
+              <h4>ผู้รับผิดชอบ</h4>
+              <p class="task-assignee-detail">
+                <i class="fas fa-user"></i>
+                ${escapeHtml(task.assigneeName || (task.assignedUsers && task.assignedUsers[0] ? task.assignedUsers[0].displayName : 'ไม่ระบุ'))}
+              </p>
+            </div>
+            
+            ${task.createdAt ? `
+            <div class="task-detail-section">
+              <h4>วันที่สร้าง</h4>
+              <p class="task-created-detail">
+                <i class="fas fa-clock"></i>
+                ${formatDate(task.createdAt)}
+              </p>
+            </div>
+            ` : ''}
+            
+            ${task.updatedAt ? `
+            <div class="task-detail-section">
+              <h4>อัปเดตล่าสุด</h4>
+              <p class="task-updated-detail">
+                <i class="fas fa-edit"></i>
+                ${formatDate(task.updatedAt)}
+              </p>
+            </div>
+            ` : ''}
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-outline" onclick="closeTaskDetailsModal()">
+            <i class="fas fa-times"></i>
+            ปิด
+          </button>
+          <button class="btn btn-primary" onclick="editTask('${task.id}')">
+            <i class="fas fa-edit"></i>
+            แก้ไข
+          </button>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // เพิ่ม modal ลงใน body
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
+  
+  // เพิ่ม event listener สำหรับปิด modal เมื่อคลิกพื้นหลัง
+  const modal = document.getElementById('taskDetailsModal');
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) {
+      closeTaskDetailsModal();
+    }
+  });
+}
+
+/**
+ * Close task details modal
+ */
+function closeTaskDetailsModal() {
+  const modal = document.getElementById('taskDetailsModal');
+  if (modal) {
+    modal.remove();
+  }
+}
+
+/**
+ * Edit task function
+ */
+function editTask(taskId) {
+  closeTaskDetailsModal();
+  // เปลี่ยนไปหน้า tasks และเปิด modal แก้ไข
+  if (window.dashboardInstance) {
+    window.dashboardInstance.switchView('tasks');
+    setTimeout(() => {
+      if (window.dashboardInstance.openTaskModal) {
+        window.dashboardInstance.openTaskModal(taskId);
+      }
+    }, 300);
+  }
+}
+
+// ==================== 
+// Utility Functions
+// ====================
 
 /**
  * Get task status class
