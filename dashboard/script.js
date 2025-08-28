@@ -380,7 +380,7 @@ class Dashboard {
     // Debug leaderboard button
     const debugLeaderboardBtn = document.getElementById('debugLeaderboardBtn');
     if (debugLeaderboardBtn && !debugLeaderboardBtn._bound) {
-      debugLeaderboardBtn.addEventListener('click', () => this.debugKPIData());
+              // Debug button removed - no longer needed
       debugLeaderboardBtn._bound = true;
     }
 
@@ -1374,11 +1374,7 @@ class Dashboard {
         }
         // เพิ่ม event listener สำหรับปุ่มซิงค์ leaderboard
         {
-          const syncLeaderboardBtn = document.getElementById('syncLeaderboardBtn');
-          if (syncLeaderboardBtn && !syncLeaderboardBtn._bound) {
-            syncLeaderboardBtn.addEventListener('click', () => this.syncLeaderboard());
-            syncLeaderboardBtn._bound = true;
-          }
+          // Sync leaderboard button removed - no longer needed
         }
         // ปุ่มแจ้งเตือนถูกลบออกจาก UI แล้ว
         break;
@@ -3958,132 +3954,9 @@ class Dashboard {
     }
   }
 
-  /**
-   * ซิงค์และคำนวณคะแนน leaderboard ใหม่
-   */
-  async syncLeaderboard() {
-    let originalText = '';
-    try {
-      console.log('🔄 เริ่มการซิงค์ leaderboard...');
-      
-      // แสดงสถานะการโหลด
-      const syncBtn = document.getElementById('syncLeaderboardBtn');
-      originalText = syncBtn.innerHTML;
-      syncBtn.disabled = true;
-      syncBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> กำลังซิงค์...';
-      
-      // เรียก API เพื่อซิงค์ leaderboard
-      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/sync-leaderboard`, {
-        method: 'POST',
-        body: JSON.stringify({
-          period: 'weekly' // สามารถเปลี่ยนเป็น 'monthly' หรือ 'all' ได้
-        })
-      });
+  // syncLeaderboard function removed - no longer needed
 
-      if (response.success) {
-        console.log('✅ ซิงค์ leaderboard สำเร็จ:', response.data);
-        
-        // แสดงผลลัพธ์
-        const result = response.data;
-        this.showToast(
-          `ซิงค์สำเร็จ! ประมวลผลงาน ${result.processedTasks} ชิ้น อัปเดตผู้ใช้ ${result.updatedUsers} คน`,
-          'success'
-        );
-        
-        // Debug: ตรวจสอบข้อมูล KPI หลังการ sync
-        await this.debugKPIData();
-        
-        // รีโหลด mini leaderboard เพื่อแสดงข้อมูลใหม่
-        setTimeout(() => {
-          this.loadMiniLeaderboard();
-        }, 1000);
-        
-      } else {
-        console.error('❌ ซิงค์ leaderboard ล้มเหลว:', response.error);
-        this.showToast(`ซิงค์ล้มเหลว: ${response.error}`, 'error');
-      }
-      
-    } catch (error) {
-      console.error('❌ Error syncing leaderboard:', error);
-      this.showToast('เกิดข้อผิดพลาดในการซิงค์ leaderboard', 'error');
-      
-    } finally {
-      // คืนค่าปุ่มเป็นสถานะปกติ
-      const syncBtn = document.getElementById('syncLeaderboardBtn');
-      syncBtn.disabled = false;
-      syncBtn.innerHTML = originalText || '<i class="fas fa-sync-alt"></i> ซิงค์';
-    }
-  }
-
-  /**
-   * Debug: ตรวจสอบข้อมูล KPI ในฐานข้อมูล
-   */
-  async debugKPIData() {
-    try {
-      console.log('🔍 Debug: ตรวจสอบข้อมูล KPI...');
-      
-      // เรียก API เพื่อดึงข้อมูล KPI debug
-      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/leaderboard?period=weekly&debug=true`);
-      
-      if (response.success) {
-        console.log('📊 Debug KPI Data:', response.data);
-        console.log('🔍 Debug Raw Data:', response.debug);
-        
-        // แสดงข้อมูลใน console อย่างละเอียด
-        if (response.data && Array.isArray(response.data)) {
-          console.log('👥 Leaderboard Users:');
-          response.data.forEach((user, index) => {
-            console.log(`👤 User ${index + 1}:`, {
-              userId: user.userId,
-              displayName: user.displayName,
-              weeklyPoints: user.weeklyPoints,
-              monthlyPoints: user.monthlyPoints,
-              totalPoints: user.totalPoints,
-              tasksCompleted: user.tasksCompleted,
-              tasksEarly: user.tasksEarly,
-              tasksOnTime: user.tasksOnTime,
-              tasksLate: user.tasksLate,
-              tasksOvertime: user.tasksOvertime,
-              tasksOverdue: user.tasksOverdue,
-              rank: user.rank,
-              trend: user.trend
-            });
-          });
-        }
-        
-        // แสดงข้อมูล debug raw data
-        if (response.debug) {
-          console.log('📋 KPI Raw Records:');
-          console.log(`Total Records: ${response.debug.totalRecords}`);
-          console.log(`Summary by Type:`, response.debug.summary.byType);
-          console.log(`Total Points: ${response.debug.summary.totalPoints}`);
-          console.log(`Average Points: ${response.debug.summary.averagePoints}`);
-          
-          if (response.debug.records && response.debug.records.length > 0) {
-            console.log('📝 Individual KPI Records:');
-            response.debug.records.forEach((record, index) => {
-              console.log(`Record ${index + 1}:`, {
-                id: record.id,
-                userId: record.userId,
-                taskId: record.taskId,
-                type: record.type,
-                points: record.points,
-                eventDate: record.eventDate,
-                weekOf: record.weekOf,
-                monthOf: record.monthOf,
-                userDisplayName: record.userDisplayName
-              });
-            });
-          }
-        }
-      } else {
-        console.error('❌ Debug KPI failed:', response.error);
-      }
-      
-    } catch (error) {
-      console.error('❌ Error debugging KPI data:', error);
-    }
-  }
+  // debugKPIData function removed - no longer needed
 
 }
 
@@ -4095,4 +3968,4 @@ document.addEventListener('DOMContentLoaded', () => {
   window.dashboard = dashboard;
   // Backward-compat alias for inline handlers referencing `app.*`
   window.app = dashboard;
-});
+});s

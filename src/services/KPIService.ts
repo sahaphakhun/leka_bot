@@ -22,6 +22,40 @@ export class KPIService {
     this.groupRepository = AppDataSource.getRepository(Group);
   }
 
+  /**
+   * แปลง groupId ที่มาจาก URL ให้เป็น internal UUID ของกลุ่ม
+   * - รองรับ LINE Group ID
+   * - รองรับค่า 'default' โดยเลือกกลุ่มที่อัปเดตล่าสุดเป็นค่าเริ่มต้น (สำหรับ deployment บน Railway)
+   */
+  private async resolveInternalGroupIdOrDefault(inputGroupId: string): Promise<string | null> {
+    try {
+      // ถ้าระบุเป็น UUID อยู่แล้ว ให้คืนค่าทันที
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(inputGroupId)) {
+        return inputGroupId;
+      }
+
+      // ถ้าเป็นค่า 'default' ให้เลือกกลุ่มที่อัปเดตล่าสุด
+      if (inputGroupId === 'default') {
+        const latestGroup = await this.groupRepository
+          .createQueryBuilder('group')
+          .orderBy('group.updatedAt', 'DESC')
+          .getOne();
+        return latestGroup ? latestGroup.id : null;
+      }
+
+      // พยายาม map จาก LINE Group ID → internal UUID
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: inputGroupId } });
+      if (groupByLineId) return groupByLineId.id;
+
+      // หาไม่เจอ
+      return null;
+    } catch (e) {
+      console.warn('⚠️ Failed to resolve group id, falling back to null:', e);
+      return null;
+    }
+  }
+
   /** สรุปรายงานตามช่วงเวลา: กลุ่ม/บุคคล */
   public async getReportSummary(
     groupId: string,
@@ -46,10 +80,15 @@ export class KPIService {
     };
   }> {
     try {
-      // รองรับ LINE Group ID → internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) internalGroupId = groupByLineId.id;
+      // รองรับ LINE Group ID และ 'default' → internal UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) {
+        return {
+          periodStart: new Date(),
+          periodEnd: new Date(),
+          totals: { completed: 0, early: 0, ontime: 0, late: 0, overtime: 0, overdue: 0, rejected: 0, completionRate: 0 }
+        };
+      }
 
       const now = moment().tz(config.app.defaultTimezone);
       const periodStart = options.startDate
@@ -157,10 +196,9 @@ export class KPIService {
     options: { startDate?: Date; endDate?: Date; period?: 'weekly' | 'monthly' } = {}
   ): Promise<Array<{ userId: string; displayName: string; completed: number; early: number; ontime: number; late: number; overtime: number }>> {
     try {
-      // รองรับ LINE Group ID → internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) internalGroupId = groupByLineId.id;
+      // รองรับ LINE Group ID และ 'default' → internal UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) return [];
 
       const now = moment().tz(config.app.defaultTimezone);
       const periodStart = options.startDate
@@ -356,13 +394,12 @@ export class KPIService {
   ): Promise<Leaderboard[]> {
     try {
       console.log(`🔍 Getting leaderboard for group: ${groupId}, period: ${period}`);
-      
-      // รองรับการส่งค่าเป็น LINE Group ID หรือ internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) {
-        internalGroupId = groupByLineId.id;
-        console.log(`🔄 Converted LINE Group ID to internal ID: ${internalGroupId}`);
+
+      // แปลง groupId (รองรับ 'default' และ LINE Group ID)
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) {
+        console.warn(`⚠️ No valid group found for groupId=${groupId}`);
+        return [];
       }
       
       // ดึงสมาชิกทั้งหมดในกลุ่มก่อน
@@ -775,11 +812,18 @@ export class KPIService {
     period: string;
   }> {
     try {
-      // รองรับ LINE Group ID → internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) {
-        internalGroupId = groupByLineId.id;
+      // รองรับ LINE Group ID และ 'default' → internal UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) {
+        return {
+          totalTasks: 0,
+          completedTasks: 0,
+          pendingTasks: 0,
+          overdueTasks: 0,
+          avgCompletionTime: 0,
+          topPerformer: 'ไม่มีข้อมูล',
+          period: period === 'this_week' ? 'สัปดาห์นี้' : period === 'last_week' ? 'สัปดาห์ก่อน' : 'ทั้งหมด'
+        };
       }
 
       let startDate: Date | null = null;
@@ -947,11 +991,21 @@ export class KPIService {
     avgPointsPerTask: number;
   }> {
     try {
-      // รองรับ LINE Group ID → internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) {
-        internalGroupId = groupByLineId.id;
+      // รองรับ LINE Group ID และ 'default' → internal UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) {
+        return {
+          totalPoints: 0,
+          rank: 0,
+          tasksCompleted: 0,
+          tasksEarly: 0,
+          tasksOnTime: 0,
+          tasksLate: 0,
+          tasksOvertime: 0,
+          tasksOverdue: 0,
+          completionRate: 0,
+          avgPointsPerTask: 0
+        };
       }
 
       let dateFilter: any = {};
@@ -1334,10 +1388,9 @@ export class KPIService {
    */
   public async updateGroupLeaderboard(groupId: string, period: 'weekly' | 'monthly'): Promise<void> {
     try {
-      // รองรับ LINE Group ID → internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) internalGroupId = groupByLineId.id;
+      // รองรับ LINE Group ID และ 'default' → internal UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) return;
 
       // อัปเดต Leaderboard
       const leaderboard = await this.getGroupLeaderboard(internalGroupId, period);
@@ -1370,11 +1423,22 @@ export class KPIService {
   }> {
     try {
       console.log(`🔄 Starting leaderboard sync for group: ${groupId}, period: ${period}`);
-
-      // รองรับ LINE Group ID → internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) internalGroupId = groupByLineId.id;
+      // รองรับ LINE Group ID และ 'default' → internal UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) {
+        return {
+          processedTasks: 0,
+          updatedUsers: 0,
+          details: {
+            completedTasks: 0,
+            overdueTasks: 0,
+            earlyCompletions: 0,
+            onTimeCompletions: 0,
+            lateCompletions: 0,
+            overtimeCompletions: 0
+          }
+        };
+      }
 
       // กำหนดช่วงเวลาตาม period
       const now = moment().tz(config.app.defaultTimezone);
@@ -1594,12 +1658,10 @@ export class KPIService {
     try {
       console.log(`🔍 Getting debug KPI data for group: ${groupId}, period: ${period}`);
       
-      // รองรับการส่งค่าเป็น LINE Group ID หรือ internal UUID
-      let internalGroupId = groupId;
-      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: groupId } });
-      if (groupByLineId) {
-        internalGroupId = groupByLineId.id;
-        console.log(`🔄 Converted LINE Group ID to internal ID: ${internalGroupId}`);
+      // รองรับการส่งค่าเป็น 'default' และ LINE Group ID → internal UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) {
+        return { totalRecords: 0, records: [], summary: { byType: {}, totalPoints: 0, averagePoints: 0 } };
       }
 
       // ดึงข้อมูล KPI raw data
