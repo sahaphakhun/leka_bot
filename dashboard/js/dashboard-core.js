@@ -921,8 +921,53 @@ if (typeof Dashboard === 'undefined') {
     }
 
     // Minimal stubs for actions referenced by renderer
-    openTaskModal(taskId) { console.log('openTaskModal', taskId); }
-    openEditTaskModal(taskId) { console.log('openEditTaskModal', taskId); }
+    async openTaskModal(taskId) { 
+      console.log('openTaskModal', taskId);
+      try {
+        if (!this.currentGroupId) {
+          this.showErrorMessage('ไม่สามารถดูรายละเอียดงานได้: ไม่พบข้อมูลกลุ่ม');
+          return;
+        }
+        
+        // ดึงข้อมูลงาน
+        const task = await this.api.getTask(this.currentGroupId, taskId);
+        if (!task) {
+          this.showErrorMessage('ไม่พบงานที่ระบุ');
+          return;
+        }
+        
+        // แสดง modal รายละเอียดงาน
+        this.showTaskDetailsModal(task);
+        
+      } catch (error) {
+        console.error('❌ Error opening task modal:', error);
+        this.showErrorMessage('ไม่สามารถดูรายละเอียดงานได้: ' + error.message);
+      }
+    }
+    
+    async openEditTaskModal(taskId) { 
+      console.log('openEditTaskModal', taskId);
+      try {
+        if (!this.currentGroupId) {
+          this.showErrorMessage('ไม่สามารถแก้ไขงานได้: ไม่พบข้อมูลกลุ่ม');
+          return;
+        }
+        
+        // ดึงข้อมูลงาน
+        const task = await this.api.getTask(this.currentGroupId, taskId);
+        if (!task) {
+          this.showErrorMessage('ไม่พบงานที่ระบุ');
+          return;
+        }
+        
+        // แสดง modal แก้ไขงาน
+        this.showEditTaskModal(task);
+        
+      } catch (error) {
+        console.error('❌ Error opening edit task modal:', error);
+        this.showErrorMessage('ไม่สามารถแก้ไขงานได้: ' + error.message);
+      }
+    }
     
     /**
      * ดูไฟล์
@@ -1017,6 +1062,37 @@ if (typeof Dashboard === 'undefined') {
     openTaskDetails(taskId) {
       // Implementation for opening task details
       console.log(`📋 Opening task details for ID: ${taskId}`);
+    }
+    
+    /**
+     * ทำเสร็จแล้ว
+     */
+    async completeTask(taskId) {
+      try {
+        console.log('✅ Completing task:', taskId);
+        
+        if (!this.currentGroupId) {
+          this.showErrorMessage('ไม่สามารถทำเสร็จงานได้: ไม่พบข้อมูลกลุ่ม');
+          return;
+        }
+        
+        // แสดง loading
+        this.showLoading('กำลังอัปเดตสถานะงาน...');
+        
+        // อัปเดตสถานะงานเป็น completed
+        await this.updateTask(taskId, { status: 'completed' });
+        
+        this.hideLoading();
+        this.showSuccessMessage('อัปเดตสถานะงานสำเร็จ');
+        
+        // รีเฟรชข้อมูลงาน
+        this.loadTasks();
+        
+      } catch (error) {
+        console.error('❌ Error completing task:', error);
+        this.hideLoading();
+        this.showErrorMessage('ไม่สามารถทำเสร็จงานได้: ' + error.message);
+      }
     }
 
     openFileDetails(fileId) {
@@ -1227,6 +1303,255 @@ if (typeof Dashboard === 'undefined') {
         });
       } catch (error) {
         return 'ไม่ระบุ';
+      }
+    }
+    
+    /**
+     * แสดง modal รายละเอียดงาน
+     */
+    showTaskDetailsModal(task) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>รายละเอียดงาน</h3>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="task-details">
+              <div class="task-detail-section">
+                <h4>${escapeHtml(task.title)}</h4>
+                <div class="task-priority-badge ${getTaskPriorityClass(task.priority)}">
+                  ${getTaskPriorityText(task.priority)}
+                </div>
+              </div>
+              
+              ${task.description ? `
+                <div class="task-detail-section">
+                  <label>คำอธิบาย:</label>
+                  <p>${escapeHtml(task.description)}</p>
+                </div>
+              ` : ''}
+              
+              <div class="task-detail-grid">
+                <div class="task-detail-item">
+                  <label>สถานะ:</label>
+                  <span class="task-status-badge ${getTaskStatusClass(task.status)}">
+                    ${getTaskStatusText(task.status)}
+                  </span>
+                </div>
+                
+                <div class="task-detail-item">
+                  <label>ผู้รับผิดชอบ:</label>
+                  <span>${escapeHtml(task.assigneeName || 'ไม่ระบุ')}</span>
+                </div>
+                
+                <div class="task-detail-item">
+                  <label>วันที่ครบกำหนด:</label>
+                  <span>${this.formatDate(task.dueTime || task.dueDate || task.end || task.start)}</span>
+                </div>
+                
+                ${task.projectName ? `
+                  <div class="task-detail-item">
+                    <label>โปรเจกต์:</label>
+                    <span>${escapeHtml(task.projectName)}</span>
+                  </div>
+                ` : ''}
+                
+                ${task.tags && task.tags.length > 0 ? `
+                  <div class="task-detail-item">
+                    <label>แท็ก:</label>
+                    <div class="task-tags">
+                      ${task.tags.map(tag => `
+                        <span class="task-tag">${escapeHtml(tag)}</span>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+                
+                ${task.attachments && task.attachments.length > 0 ? `
+                  <div class="task-detail-item">
+                    <label>ไฟล์แนบ:</label>
+                    <div class="task-attachments">
+                      ${task.attachments.map(attachment => `
+                        <div class="attachment-item">
+                          <i class="fas fa-paperclip"></i>
+                          <span>${escapeHtml(attachment.name || attachment)}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+                
+                ${task.comments && task.comments.length > 0 ? `
+                  <div class="task-detail-item">
+                    <label>ความคิดเห็น:</label>
+                    <div class="task-comments">
+                      ${task.comments.map(comment => `
+                        <div class="comment-item">
+                          <span class="comment-author">${escapeHtml(comment.author || 'ไม่ระบุ')}</span>
+                          <span class="comment-text">${escapeHtml(comment.text || comment)}</span>
+                        </div>
+                      `).join('')}
+                    </div>
+                  </div>
+                ` : ''}
+              </div>
+              
+              <div class="task-actions">
+                ${task.status === 'pending' ? `
+                  <button class="btn btn-warning" onclick="window.dashboardInstance.submitTask('${task.id}')">
+                    <i class="fas fa-paper-plane"></i>
+                    ส่งงาน
+                  </button>
+                ` : ''}
+                ${task.status === 'pending' ? `
+                  <button class="btn btn-primary" onclick="window.dashboardInstance.openEditTaskModal('${task.id}')">
+                    <i class="fas fa-edit"></i>
+                    แก้ไข
+                  </button>
+                ` : ''}
+                <button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">
+                  ปิด
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // ปิด modal เมื่อคลิกพื้นหลัง
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+    
+    /**
+     * แสดง modal แก้ไขงาน
+     */
+    showEditTaskModal(task) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>แก้ไขงาน</h3>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form id="editTaskForm" class="edit-task-form">
+              <div class="form-group">
+                <label for="editTitle">ชื่องาน:</label>
+                <input type="text" id="editTitle" name="title" value="${escapeHtml(task.title)}" required>
+              </div>
+              
+              <div class="form-group">
+                <label for="editDescription">คำอธิบาย:</label>
+                <textarea id="editDescription" name="description" rows="4">${escapeHtml(task.description || '')}</textarea>
+              </div>
+              
+              <div class="form-row">
+                <div class="form-group">
+                  <label for="editPriority">ความสำคัญ:</label>
+                  <select id="editPriority" name="priority">
+                    <option value="low" ${task.priority === 'low' ? 'selected' : ''}>ต่ำ</option>
+                    <option value="normal" ${task.priority === 'normal' ? 'selected' : ''}>ปกติ</option>
+                    <option value="medium" ${task.priority === 'medium' ? 'selected' : ''}>ปานกลาง</option>
+                    <option value="high" ${task.priority === 'high' ? 'selected' : ''}>สูง</option>
+                  </select>
+                </div>
+                
+                <div class="form-group">
+                  <label for="editDueDate">วันที่ครบกำหนด:</label>
+                  <input type="datetime-local" id="editDueDate" name="dueDate" 
+                         value="${task.dueTime || task.dueDate || task.end || task.start ? new Date(task.dueTime || task.dueDate || task.end || task.start).toISOString().slice(0, 16) : ''}">
+                </div>
+              </div>
+              
+              <div class="form-actions">
+                <button type="button" class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">
+                  ยกเลิก
+                </button>
+                <button type="submit" class="btn btn-primary">
+                  <i class="fas fa-save"></i>
+                  บันทึก
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // จัดการการส่งฟอร์ม
+      const form = modal.querySelector('#editTaskForm');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const formData = new FormData(form);
+        const updateData = {
+          title: formData.get('title'),
+          description: formData.get('description'),
+          priority: formData.get('priority'),
+          dueDate: formData.get('dueDate')
+        };
+        
+        try {
+          this.showLoading('กำลังบันทึกการเปลี่ยนแปลง...');
+          
+          // ส่งข้อมูลไปยัง API
+          await this.updateTask(task.id, updateData);
+          
+          this.hideLoading();
+          this.showSuccessMessage('บันทึกการเปลี่ยนแปลงสำเร็จ');
+          modal.remove();
+          
+          // รีเฟรชข้อมูลงาน
+          this.loadTasks();
+          
+        } catch (error) {
+          this.hideLoading();
+          this.showErrorMessage('ไม่สามารถบันทึกการเปลี่ยนแปลงได้: ' + error.message);
+        }
+      });
+      
+      // ปิด modal เมื่อคลิกพื้นหลัง
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+    
+    /**
+     * อัปเดตงาน
+     */
+    async updateTask(taskId, updateData) {
+      try {
+        const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(updateData)
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'ไม่สามารถอัปเดตงานได้');
+        }
+        
+        return await response.json();
+        
+      } catch (error) {
+        console.error('❌ Error updating task:', error);
+        throw error;
       }
     }
     

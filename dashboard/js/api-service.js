@@ -569,6 +569,38 @@ class ApiService {
       throw error;
     }
   }
+  
+  /**
+   * ดึงข้อมูลงาน
+   */
+  async getTask(groupId, taskId) {
+    try {
+      console.log(`📋 Getting task: ${taskId} from group: ${groupId}`);
+      
+      const response = await this.apiRequest(`/api/groups/${groupId}/tasks/${taskId}`);
+      
+      if (!response || !response.data) {
+        throw new Error('ไม่พบข้อมูลงาน');
+      }
+      
+      console.log(`✅ Task retrieved:`, response.data);
+      return response.data;
+      
+    } catch (error) {
+      console.error('❌ Failed to get task:', error);
+      
+      // จัดการ error ที่เฉพาะเจาะจง
+      if (error.message.includes('ไม่พบข้อมูลงาน')) {
+        throw new Error('ไม่พบงานที่ระบุ');
+      } else if (error.message.includes('Access denied')) {
+        throw new Error('ไม่มีสิทธิ์เข้าถึงงานนี้');
+      } else if (error.message.includes('Group not found')) {
+        throw new Error('ไม่พบกลุ่มที่ระบุ');
+      }
+      
+      throw error;
+    }
+  }
 
   /**
    * โหลดข้อมูลกลุ่ม
