@@ -170,8 +170,19 @@ class ApiService {
    */
   async getTask(taskId) {
     try {
-      const response = await this.apiRequest(`/api/tasks/${taskId}`);
-      return response.data || response;
+      // Primary: matches backend route `/api/task/:taskId`
+      try {
+        const response = await this.apiRequest(`/api/task/${taskId}`);
+        return response.data || response;
+      } catch (primaryErr) {
+        // Fallback for legacy/pluralized route if available
+        try {
+          const resp2 = await this.apiRequest(`/api/tasks/${taskId}`);
+          return resp2.data || resp2;
+        } catch (secondaryErr) {
+          throw primaryErr;
+        }
+      }
     } catch (error) {
       console.error('Failed to get task:', error);
       throw error;

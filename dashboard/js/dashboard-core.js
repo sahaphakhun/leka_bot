@@ -21,6 +21,8 @@ if (typeof Dashboard === 'undefined') {
       // สร้าง API service instance (เพิ่ม error handling)
       try {
         this.api = new ApiService(this.apiBase);
+        // Provide backward-compatible alias for renderer/helpers expecting `apiService`
+        this.apiService = this.api;
       } catch (error) {
         console.error('❌ Failed to create ApiService:', error);
         // สร้าง fallback API service
@@ -30,6 +32,7 @@ if (typeof Dashboard === 'undefined') {
           getStats: () => Promise.resolve({ totalTasks: 0, completedTasks: 0, pendingTasks: 0, overdueTasks: 0 }),
           loadStats: () => Promise.resolve({ totalTasks: 0, completedTasks: 0, pendingTasks: 0, overdueTasks: 0 })
         };
+        this.apiService = this.api;
       }
       
       // Cache สำหรับข้อมูล
@@ -129,13 +132,30 @@ if (typeof Dashboard === 'undefined') {
     // ==================== 
 
     getGroupIdFromUrl() {
+      // 1) Query string
       const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get('groupId') || 'default';
+      const q = urlParams.get('groupId');
+      if (q) return q;
+
+      // 2) Path patterns e.g. /dashboard/group/:groupId or /group/:groupId
+      try {
+        const path = window.location.pathname || '';
+        const match = path.match(/(?:^|\/)group\/([^\/?#]+)/i);
+        if (match && match[1]) return decodeURIComponent(match[1]);
+      } catch (_) {}
+
+      // 3) Fallback
+      return 'default';
     }
 
     getUserIdFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get('userId') || '';
+      // support multiple param names just in case
+      return (
+        urlParams.get('userId') ||
+        urlParams.get('uid') ||
+        ''
+      );
     }
 
     getActionFromUrl() {
@@ -145,7 +165,15 @@ if (typeof Dashboard === 'undefined') {
 
     getTaskIdFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
-      return urlParams.get('taskId');
+      const fromQuery = urlParams.get('taskId');
+      if (fromQuery) return fromQuery;
+      // Also support /dashboard/task/:taskId
+      try {
+        const path = window.location.pathname || '';
+        const match = path.match(/(?:^|\/)task\/([^\/?#]+)/i);
+        if (match && match[1]) return decodeURIComponent(match[1]);
+      } catch (_) {}
+      return null;
     }
 
     handleUrlParameters() {
@@ -362,21 +390,48 @@ if (typeof Dashboard === 'undefined') {
     // Data Loading
     // ==================== 
 
-    loadInitialData() {
+    async loadInitialData() {
       this.showLoading();
-      
-      Promise.all([
-        this.loadUserInfo(),
-        this.loadGroupInfo(),
-        this.loadStats()
-      ]).then(() => {
+
+      // If no explicit groupId but we have a taskId from URL, try resolving groupId from task
+      try {
+        if ((!this.currentGroupId || this.currentGroupId === 'default') && this.getTaskIdFromUrl()) {
+          const tId = this.getTaskIdFromUrl();
+          if (this.api && typeof this.api.getTask === 'function' && tId) {
+            console.log('🔎 Resolving groupId from taskId:', tId);
+            try {
+              const task = await this.api.getTask(tId);
+              if (task && task.groupId) {
+                this.currentGroupId = task.groupId;
+                // Refresh group label if possible
+                try { await this.loadGroupInfo(); } catch (e) { console.warn('loadGroupInfo after resolve failed:', e); }
+              }
+            } catch (e) {
+              console.warn('⚠️ Could not resolve groupId from taskId:', e?.message || e);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ groupId resolution step failed:', e);
+      }
+
+      try {
+        const results = await Promise.allSettled([
+          this.loadUserInfo(),
+          this.loadGroupInfo(),
+          this.loadStats()
+        ]);
+
+        const rejected = results.filter(r => r.status === 'rejected');
+        if (rejected.length > 0) {
+          console.warn('⚠️ Some initial data failed:', rejected.map(r => r.reason?.message || r.reason));
+        }
+        console.log('✅ Initial data loaded (with allSettled)');
+      } catch (error) {
+        console.error('❌ Unexpected error during initial load:', error);
+      } finally {
         this.hideLoading();
-        console.log('✅ Initial data loaded');
-      }).catch(error => {
-        console.error('❌ Failed to load initial data:', error);
-        this.hideLoading();
-        this.showErrorMessage('ไม่สามารถโหลดข้อมูลเริ่มต้นได้');
-      });
+      }
     }
 
     loadDashboardData() {

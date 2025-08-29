@@ -399,6 +399,10 @@ function renderTasksList(tasks, filters = {}) {
       <div class="empty-state">
         <i class="fas fa-tasks"></i>
         <p>ไม่มีงานที่ตรงกับเงื่อนไข</p>
+        <button class="btn btn-primary" onclick="window.dashboardInstance.openAddTaskModal()">
+          <i class="fas fa-plus"></i>
+          เพิ่มงานใหม่
+        </button>
       </div>
     `;
     return;
@@ -409,9 +413,10 @@ function renderTasksList(tasks, filters = {}) {
     const priorityClass = getTaskPriorityClass(task.priority);
     const due = task.dueTime || task.dueDate || task.end || task.start;
     const assigneeName = task.assigneeName || (task.assignedUsers && task.assignedUsers[0] ? task.assignedUsers[0].displayName : 'ไม่ระบุ');
+    const isOverdue = due && new Date(due) < new Date() && task.status !== 'completed';
     
     return `
-      <div class="task-card ${statusClass}" data-task-id="${task.id}">
+      <div class="task-card ${statusClass} ${isOverdue ? 'status-overdue' : ''}" data-task-id="${task.id}">
         <div class="task-header">
           <div class="task-title">${escapeHtml(task.title)}</div>
           <div class="task-priority ${priorityClass}">
@@ -419,15 +424,18 @@ function renderTasksList(tasks, filters = {}) {
             ${getTaskPriorityText(task.priority)}
           </div>
         </div>
-        <div class="task-description">${escapeHtml(task.description || '')}</div>
+        ${task.description ? `
+          <div class="task-description">${escapeHtml(task.description)}</div>
+        ` : ''}
         <div class="task-meta">
           <div class="task-assignee">
             <i class="fas fa-user"></i>
             ${escapeHtml(assigneeName)}
           </div>
-          <div class="task-due-date">
+          <div class="task-due-date ${isOverdue ? 'overdue' : ''}">
             <i class="fas fa-calendar"></i>
             ${formatDate(due)}
+            ${isOverdue ? ' <i class="fas fa-exclamation-triangle" style="color: var(--color-danger);"></i>' : ''}
           </div>
           <div class="task-status">
             <i class="fas fa-circle"></i>
@@ -435,14 +443,20 @@ function renderTasksList(tasks, filters = {}) {
           </div>
         </div>
         <div class="task-actions">
-          <button class="btn btn-sm btn-outline" onclick="window.dashboardInstance.openTaskModal('${task.id}')">
+          <button class="btn btn-sm btn-outline" onclick="window.dashboardInstance.openTaskModal('${task.id}')" title="ดูรายละเอียด">
             <i class="fas fa-eye"></i>
-            ดู
+            <span class="btn-text">ดู</span>
           </button>
           ${task.status === 'pending' ? `
-            <button class="btn btn-sm btn-primary" onclick="window.dashboardInstance.openEditTaskModal('${task.id}')">
+            <button class="btn btn-sm btn-primary" onclick="window.dashboardInstance.openEditTaskModal('${task.id}')" title="แก้ไขงาน">
               <i class="fas fa-edit"></i>
-              แก้ไข
+              <span class="btn-text">แก้ไข</span>
+            </button>
+          ` : ''}
+          ${task.status === 'pending' ? `
+            <button class="btn btn-sm btn-success" onclick="window.dashboardInstance.completeTask('${task.id}')" title="ทำเสร็จแล้ว">
+              <i class="fas fa-check"></i>
+              <span class="btn-text">เสร็จ</span>
             </button>
           ` : ''}
         </div>
@@ -836,7 +850,9 @@ function getTaskPriorityClass(priority) {
   switch (priority) {
     case 'high': return 'priority-high';
     case 'medium': return 'priority-medium';
-    default: return 'priority-low';
+    case 'low': return 'priority-low';
+    case 'normal': return 'priority-normal';
+    default: return 'priority-normal';
   }
 }
 
@@ -847,7 +863,9 @@ function getTaskPriorityText(priority) {
   switch (priority) {
     case 'high': return 'สูง';
     case 'medium': return 'ปานกลาง';
-    default: return 'ต่ำ';
+    case 'low': return 'ต่ำ';
+    case 'normal': return 'ปกติ';
+    default: return 'ปกติ';
   }
 }
 
