@@ -135,13 +135,14 @@ if (typeof Dashboard === 'undefined') {
       // 1) Query string
       const urlParams = new URLSearchParams(window.location.search);
       const q = urlParams.get('groupId');
-      if (q) return q;
+      const isInvalid = (v) => !v || v === 'undefined' || v === 'null' || v === 'default';
+      if (!isInvalid(q)) return q;
 
       // 2) Path patterns e.g. /dashboard/group/:groupId or /group/:groupId
       try {
         const path = window.location.pathname || '';
         const match = path.match(/(?:^|\/)group\/([^\/?#]+)/i);
-        if (match && match[1]) return decodeURIComponent(match[1]);
+        if (match && match[1] && !isInvalid(match[1])) return decodeURIComponent(match[1]);
       } catch (_) {}
 
       // 3) Fallback
@@ -509,9 +510,19 @@ if (typeof Dashboard === 'undefined') {
     }
 
     loadGroupInfo() {
+      const gid = this.currentGroupId;
+      const invalid = !gid || gid === 'default' || gid === 'undefined' || gid === 'null';
+
+      if (invalid) {
+        console.log('ℹ️ No valid groupId; skipping group info API');
+        const groupInfo = { name: 'กลุ่มเริ่มต้น', id: gid || 'default' };
+        this.updateGroupInfo(groupInfo);
+        return Promise.resolve(groupInfo);
+      }
+
       // ตรวจสอบว่า API method มีอยู่หรือไม่
       if (typeof this.api.getGroupInfo === 'function') {
-        return this.api.getGroupInfo(this.currentGroupId)
+        return this.api.getGroupInfo(gid)
           .then(groupInfo => {
             this.updateGroupInfo(groupInfo);
             return groupInfo;
@@ -520,16 +531,13 @@ if (typeof Dashboard === 'undefined') {
             console.error('❌ Failed to load group info:', error);
             throw error;
           });
-      } else {
-        // Fallback: ใช้ข้อมูลจาก URL หรือค่าเริ่มต้น
-        console.log('⚠️ getGroupInfo method not available, using fallback');
-        const groupInfo = {
-          name: this.currentGroupId === 'default' ? 'กลุ่มเริ่มต้น' : `กลุ่ม ${this.currentGroupId}`,
-          id: this.currentGroupId
-        };
-        this.updateGroupInfo(groupInfo);
-        return Promise.resolve(groupInfo);
       }
+
+      // Fallback: ใช้ข้อมูลจาก URL หรือค่าเริ่มต้น
+      console.log('⚠️ getGroupInfo method not available, using fallback');
+      const fallback = { name: gid === 'default' ? 'กลุ่มเริ่มต้น' : `กลุ่ม ${gid}`, id: gid };
+      this.updateGroupInfo(fallback);
+      return Promise.resolve(fallback);
     }
 
     updateUserInfo(userInfo) {
@@ -561,15 +569,32 @@ if (typeof Dashboard === 'undefined') {
     // ==================== 
 
     loadStats() {
+      const gid = this.currentGroupId;
+      const invalid = !gid || gid === 'default' || gid === 'undefined' || gid === 'null';
+
+      const renderEmpty = () => {
+        const sampleStats = { totalTasks: 0, completedTasks: 0, pendingTasks: 0, overdueTasks: 0 };
+        if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderDashboardStats === 'function') {
+          window.DashboardViewRenderer.renderDashboardStats(sampleStats);
+        } else {
+          this.renderStats(sampleStats);
+        }
+        return Promise.resolve(sampleStats);
+      };
+
+      if (invalid) {
+        console.log('ℹ️ No valid groupId; skipping stats API');
+        return renderEmpty();
+      }
+
       // ตรวจสอบว่า API method มีอยู่หรือไม่
       if (typeof this.api.getStats === 'function') {
-        return this.api.getStats(this.currentGroupId)
+        return this.api.getStats(gid)
           .then(stats => {
             // ใช้ ViewRenderer ถ้ามี (รองรับทั้งรูปแบบ stats เดิมและแบบ nested)
             if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.renderDashboardStats === 'function') {
               window.DashboardViewRenderer.renderDashboardStats(stats);
             } else {
-              // รองรับ data ที่เป็น { members, stats, files }
               const plain = stats && stats.stats ? stats.stats : stats;
               this.renderStats(plain || {});
             }
@@ -580,18 +605,11 @@ if (typeof Dashboard === 'undefined') {
             this.showErrorMessage('ไม่สามารถโหลดสถิติได้');
             throw error;
           });
-      } else {
-        // Fallback: แสดงข้อมูลตัวอย่าง
-        console.log('⚠️ getStats method not available, showing sample data');
-        const sampleStats = {
-          totalTasks: 0,
-          completedTasks: 0,
-          pendingTasks: 0,
-          overdueTasks: 0
-        };
-        this.renderStats(sampleStats);
-        return Promise.resolve(sampleStats);
       }
+
+      // Fallback: แสดงข้อมูลตัวอย่าง
+      console.log('⚠️ getStats method not available, showing sample data');
+      return renderEmpty();
     }
 
     renderStats(stats) {

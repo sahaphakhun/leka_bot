@@ -86,7 +86,12 @@ class ApiService {
    */
   async getUserInfo(userId) {
     try {
-      const response = await this.apiRequest(`/api/users/${userId}`);
+      // Include groupId if available to get role info
+      const currentGroupId = (window.dashboardInstance && window.dashboardInstance.currentGroupId) || null;
+      const q = currentGroupId && currentGroupId !== 'default' && currentGroupId !== 'undefined' && currentGroupId !== 'null'
+        ? `?groupId=${encodeURIComponent(currentGroupId)}`
+        : '';
+      const response = await this.apiRequest(`/api/users/${userId}${q}`);
       return response.data || response;
     } catch (error) {
       console.error('Failed to load user info:', error);

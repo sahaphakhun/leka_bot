@@ -1065,6 +1065,56 @@ class ApiController {
     }
   }
 
+  /**
+   * GET /api/users/:userId - ดึงข้อมูลผู้ใช้แบบพื้นฐาน (สำหรับ Dashboard header)
+   */
+  public async getUserBasic(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const { groupId } = req.query as { groupId?: string };
+
+      if (!userId) {
+        res.status(400).json({ success: false, error: 'User ID is required' });
+        return;
+      }
+
+      const user = await this.userService.findById(userId);
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
+      }
+
+      let role: string | undefined = undefined;
+      if (groupId && typeof groupId === 'string') {
+        try {
+          const membership = await this.userService.findGroupMembership(userId, groupId);
+          role = membership?.role;
+        } catch (_) {
+          // ignore membership lookup errors
+        }
+      }
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          id: user.id,
+          lineUserId: user.lineUserId,
+          displayName: user.displayName,
+          realName: user.realName,
+          email: user.email,
+          timezone: user.timezone,
+          isVerified: user.isVerified,
+          role
+        }
+      };
+
+      res.json(response);
+    } catch (error) {
+      logger.error('❌ Error getting user info:', error);
+      res.status(500).json({ success: false, error: 'Failed to get user info' });
+    }
+  }
+
   /** อัปเดตผู้รับรายงานสรุปอัตโนมัติ (เฉพาะผู้บริหาร/แอดมิน) */
   public async updateReportRecipients(req: Request, res: Response): Promise<void> {
     try {
@@ -2171,6 +2221,8 @@ apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(
 apiRouter.post('/groups/:groupId/sync-leaderboard', apiController.syncLeaderboard.bind(apiController));
 apiRouter.get('/users/:userId/score-history/:groupId', apiController.getUserScoreHistory.bind(apiController));
 apiRouter.get('/users/:userId/average-score/:groupId', apiController.getUserAverageScore.bind(apiController));
+// Basic user info for dashboard header
+apiRouter.get('/users/:userId', apiController.getUserBasic.bind(apiController));
   apiRouter.post('/groups/:groupId/settings/report-recipients', apiController.updateReportRecipients.bind(apiController));
   // Reports routes (ผู้บริหาร)
   apiRouter.get('/groups/:groupId/reports/summary', apiController.getReportsSummary.bind(apiController));
