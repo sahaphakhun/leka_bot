@@ -886,3 +886,210 @@
     min-width: auto;
   }
 }
+
+/* ==================== */
+/* Submit Task Form */
+/* ==================== */
+
+.submit-task-form {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-4);
+}
+
+.submit-task-form .form-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-2);
+}
+
+.submit-task-form label {
+  font-weight: 600;
+  color: var(--color-gray-700);
+  font-size: var(--font-size-sm);
+}
+
+.submit-task-form textarea {
+  padding: var(--spacing-3);
+  border: 1px solid var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  resize: vertical;
+  min-height: 80px;
+  transition: border-color 0.2s ease;
+}
+
+.submit-task-form textarea:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.submit-task-form input[type="file"] {
+  padding: var(--spacing-2);
+  border: 2px dashed var(--color-gray-300);
+  border-radius: var(--radius-lg);
+  background: var(--color-gray-50);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.submit-task-form input[type="file"]:hover {
+  border-color: var(--color-primary);
+  background: var(--color-primary-50);
+}
+
+.submit-task-form input[type="file"]:focus {
+  outline: none;
+  border-color: var(--color-primary);
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.file-upload-hint {
+  font-size: var(--font-size-xs);
+  color: var(--color-gray-500);
+  margin-top: var(--spacing-1);
+}
+
+.form-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  justify-content: flex-end;
+  padding-top: var(--spacing-4);
+  border-top: 1px solid var(--color-gray-200);
+}
+
+/* ==================== */
+/* Warning Button */
+/* ==================== */
+
+.btn-warning {
+  background: var(--color-warning);
+  color: white;
+  border: 1px solid var(--color-warning);
+}
+
+.btn-warning:hover {
+  background: var(--color-warning-dark, #d97706);
+  border-color: var(--color-warning-dark, #d97706);
+}
+
+.btn-warning:focus {
+  box-shadow: 0 0 0 3px rgba(245, 158, 11, 0.3);
+}
+
+/* ==================== */
+/* Task Item (Dashboard) */
+/* ==================== */
+
+.task-item {
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-200);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  margin-bottom: var(--spacing-3);
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.task-item:hover {
+  border-color: var(--color-primary);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transform: translateY(-1px);
+}
+
+.task-item.clickable {
+  cursor: pointer;
+}
+
+.task-item .task-info {
+  flex: 1;
+}
+
+.task-item .task-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: var(--spacing-3);
+  gap: var(--spacing-3);
+}
+
+.task-item .task-title {
+  font-weight: 600;
+  color: var(--color-gray-900);
+  font-size: var(--font-size-base);
+  line-height: 1.4;
+  flex: 1;
+  margin: 0;
+}
+
+.task-item .task-priority-text {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+  font-weight: 500;
+}
+
+.task-item .task-meta-compact {
+  margin-bottom: var(--spacing-3);
+}
+
+.task-item .task-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
+  align-items: center;
+  margin-bottom: var(--spacing-2);
+}
+
+.task-item .task-meta-row:last-child {
+  margin-bottom: 0;
+}
+
+.task-item .task-meta-row > span {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-1);
+  font-size: var(--font-size-sm);
+  color: var(--color-gray-600);
+}
+
+.task-item .task-assignee {
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.task-item .task-due-date {
+  color: var(--color-warning);
+  font-weight: 500;
+}
+
+.task-item .task-status {
+  color: var(--color-success);
+  font-weight: 500;
+}
+
+.task-item .task-description {
+  color: var(--color-gray-600);
+  font-size: var(--font-size-sm);
+  line-height: 1.5;
+  margin-top: var(--spacing-2);
+}
+
+.task-item .task-actions {
+  display: flex;
+  gap: var(--spacing-2);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.task-item .task-actions .btn {
+  padding: var(--spacing-2) var(--spacing-3);
+  font-size: var(--font-size-sm);
+  border-radius: var(--radius-lg);
+  transition: all 0.2s ease;
+}
+
+.task-item .task-actions .btn:hover {
+  transform: translateY(-1px);
+}

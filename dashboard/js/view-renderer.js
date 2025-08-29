@@ -115,28 +115,39 @@ function renderUpcomingTasks(tasks) {
       <div class="task-info">
         <div class="task-header">
           <div class="task-title">${escapeHtml(task.title)}</div>
-          <div class="task-badges">
-            ${priorityBadge}
-            ${statusBadge}
+          <div class="task-priority-text">${getTaskPriorityText(priority)}</div>
+        </div>
+        <div class="task-meta-compact">
+          <div class="task-meta-row">
+            <span class="task-assignee">
+              <i class="fas fa-user"></i>
+              ${escapeHtml(assigneeName)}
+            </span>
+            <span class="task-due-date">
+              <i class="fas fa-calendar"></i>
+              ${formatDate(due)}
+            </span>
+            <span class="task-status">
+              <i class="fas fa-circle"></i>
+              ${getTaskStatusText(status)}
+            </span>
           </div>
+          ${task.description ? `
+            <div class="task-description">${escapeHtml(task.description.substring(0, 80))}${task.description.length > 80 ? '...' : ''}</div>
+          ` : ''}
         </div>
-        <div class="task-meta">
-          <span class="task-due-date">
-            <i class="fas fa-calendar"></i>
-            ${formatDate(due)}
-          </span>
-          <span class="task-assignee">
-            <i class="fas fa-user"></i>
-            ${escapeHtml(assigneeName)}
-          </span>
-        </div>
-        ${task.description ? `<div class="task-description">${escapeHtml(task.description.substring(0, 100))}${task.description.length > 100 ? '...' : ''}</div>` : ''}
       </div>
       <div class="task-actions">
         <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); showTaskDetails('${task.id}')">
           <i class="fas fa-eye"></i>
           <span>ดูรายละเอียด</span>
         </button>
+        ${status === 'pending' ? `
+          <button class="btn btn-sm btn-warning" onclick="event.stopPropagation(); window.dashboardInstance.submitTask('${task.id}')">
+            <i class="fas fa-paper-plane"></i>
+            <span>ส่งงาน</span>
+          </button>
+        ` : ''}
       </div>
     </div>
   `}).join('');
@@ -419,75 +430,55 @@ function renderTasksList(tasks, filters = {}) {
       <div class="task-card ${statusClass} ${isOverdue ? 'status-overdue' : ''}" data-task-id="${task.id}">
         <div class="task-header">
           <div class="task-title">${escapeHtml(task.title)}</div>
-          <div class="task-priority ${priorityClass}">
-            <i class="fas fa-flag"></i>
-            ${getTaskPriorityText(task.priority)}
-          </div>
+          <div class="task-priority-text">${getTaskPriorityText(task.priority)}</div>
         </div>
         ${task.description ? `
           <div class="task-description">${escapeHtml(task.description)}</div>
         ` : ''}
-        ${task.projectName ? `
-          <div class="task-project">
-            <i class="fas fa-folder"></i>
-            <span>${escapeHtml(task.projectName)}</span>
+        <div class="task-meta-compact">
+          <div class="task-meta-row">
+            <span class="task-assignee">
+              <i class="fas fa-user"></i>
+              ${escapeHtml(assigneeName)}
+            </span>
+            <span class="task-due-date ${isOverdue ? 'overdue' : ''}">
+              <i class="fas fa-calendar"></i>
+              ${formatDate(due)}
+              ${isOverdue ? ' <i class="fas fa-exclamation-triangle" style="color: var(--color-danger);"></i>' : ''}
+            </span>
+            <span class="task-status">
+              <i class="fas fa-circle"></i>
+              ${getTaskStatusText(task.status)}
+            </span>
           </div>
-        ` : ''}
-        ${task.tags && task.tags.length > 0 ? `
-          <div class="task-tags">
-            ${task.tags.map(tag => `
-              <span class="task-tag">${escapeHtml(tag)}</span>
-            `).join('')}
-          </div>
-        ` : ''}
-        <div class="task-meta">
-          <div class="task-assignee">
-            <i class="fas fa-user"></i>
-            ${escapeHtml(assigneeName)}
-          </div>
-          <div class="task-due-date ${isOverdue ? 'overdue' : ''}">
-            <i class="fas fa-calendar"></i>
-            ${formatDate(due)}
-            ${isOverdue ? ' <i class="fas fa-exclamation-triangle" style="color: var(--color-danger);"></i>' : ''}
-          </div>
-          ${task.startDate ? `
-            <div class="task-start-date">
-              <i class="fas fa-play"></i>
-              เริ่มเมื่อ ${formatDate(task.startDate)}
-            </div>
-          ` : ''}
-          <div class="task-status">
-            <i class="fas fa-circle"></i>
-            ${getTaskStatusText(task.status)}
-          </div>
-          ${task.completedAt ? `
-            <div class="task-completed">
-              <i class="fas fa-check-circle"></i>
-              เสร็จเมื่อ ${formatDate(task.completedAt)}
-            </div>
-          ` : ''}
-          ${task.createdAt ? `
-            <div class="task-created">
-              <i class="fas fa-clock"></i>
-              สร้างเมื่อ ${formatDate(task.createdAt)}
-            </div>
-          ` : ''}
-          ${task.attachments && task.attachments.length > 0 ? `
-            <div class="task-attachments">
-              <i class="fas fa-paperclip"></i>
-              ${task.attachments.length} ไฟล์แนบ
-            </div>
-          ` : ''}
-          ${task.comments && task.comments.length > 0 ? `
-            <div class="task-comments">
-              <i class="fas fa-comment"></i>
-              ${task.comments.length} ความคิดเห็น
-            </div>
-          ` : ''}
-          ${task.updatedAt && task.updatedAt !== task.createdAt ? `
-            <div class="task-updated">
-              <i class="fas fa-edit"></i>
-              อัปเดตเมื่อ ${formatDate(task.updatedAt)}
+          ${(task.projectName || (task.tags && task.tags.length > 0) || task.attachments?.length > 0 || task.comments?.length > 0) ? `
+            <div class="task-meta-row">
+              ${task.projectName ? `
+                <span class="task-project">
+                  <i class="fas fa-folder"></i>
+                  ${escapeHtml(task.projectName)}
+                </span>
+              ` : ''}
+              ${task.tags && task.tags.length > 0 ? `
+                <span class="task-tags">
+                  ${task.tags.slice(0, 2).map(tag => `
+                    <span class="task-tag">${escapeHtml(tag)}</span>
+                  `).join('')}
+                  ${task.tags.length > 2 ? `<span class="task-tag-more">+${task.tags.length - 2}</span>` : ''}
+                </span>
+              ` : ''}
+              ${task.attachments && task.attachments.length > 0 ? `
+                <span class="task-attachments">
+                  <i class="fas fa-paperclip"></i>
+                  ${task.attachments.length}
+                </span>
+              ` : ''}
+              ${task.comments && task.comments.length > 0 ? `
+                <span class="task-comments">
+                  <i class="fas fa-comment"></i>
+                  ${task.comments.length}
+                </span>
+              ` : ''}
             </div>
           ` : ''}
         </div>
@@ -506,6 +497,12 @@ function renderTasksList(tasks, filters = {}) {
             <button class="btn btn-sm btn-success" onclick="window.dashboardInstance.completeTask('${task.id}')" title="ทำเสร็จแล้ว">
               <i class="fas fa-check"></i>
               <span class="btn-text">เสร็จ</span>
+            </button>
+          ` : ''}
+          ${task.status === 'pending' ? `
+            <button class="btn btn-sm btn-warning" onclick="window.dashboardInstance.submitTask('${task.id}')" title="ส่งงาน">
+              <i class="fas fa-paper-plane"></i>
+              <span class="btn-text">ส่งงาน</span>
             </button>
           ` : ''}
         </div>

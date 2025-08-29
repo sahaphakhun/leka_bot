@@ -987,6 +987,27 @@ if (typeof Dashboard === 'undefined') {
       console.log('🏷️ Adding tags to file:', fileId);
       this.showErrorMessage('ฟีเจอร์เพิ่มแท็กยังไม่พร้อมใช้งาน');
     }
+    
+    /**
+     * ส่งงาน
+     */
+    async submitTask(taskId) {
+      try {
+        console.log('📤 Submitting task:', taskId);
+        
+        if (!this.currentGroupId) {
+          this.showErrorMessage('ไม่สามารถส่งงานได้: ไม่พบข้อมูลกลุ่ม');
+          return;
+        }
+        
+        // แสดง modal ส่งงาน
+        this.showSubmitTaskModal(taskId);
+        
+      } catch (error) {
+        console.error('❌ Error submitting task:', error);
+        this.showErrorMessage('ไม่สามารถส่งงานได้: ' + error.message);
+      }
+    }
 
     openAddTaskModal() {
       // Implementation for opening add task modal
@@ -1206,6 +1227,112 @@ if (typeof Dashboard === 'undefined') {
         });
       } catch (error) {
         return 'ไม่ระบุ';
+      }
+    }
+    
+    /**
+     * แสดง modal ส่งงาน
+     */
+    showSubmitTaskModal(taskId) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>ส่งงาน</h3>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <form id="submitTaskForm" class="submit-task-form">
+              <div class="form-group">
+                <label for="submitComment">ความคิดเห็น (ไม่บังคับ):</label>
+                <textarea id="submitComment" name="comment" rows="3" placeholder="เพิ่มความคิดเห็นหรือคำอธิบายเกี่ยวกับงานที่ส่ง..."></textarea>
+              </div>
+              <div class="form-group">
+                <label for="submitFiles">ไฟล์แนบ (ไม่บังคับ):</label>
+                <input type="file" id="submitFiles" name="files" multiple>
+                <div class="file-upload-hint">สามารถเลือกไฟล์ได้หลายไฟล์</div>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">
+                  ยกเลิก
+                </button>
+                <button type="submit" class="btn btn-warning">
+                  <i class="fas fa-paper-plane"></i>
+                  ส่งงาน
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // จัดการการส่งฟอร์ม
+      const form = modal.querySelector('#submitTaskForm');
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        const comment = form.querySelector('#submitComment').value;
+        const files = form.querySelector('#submitFiles').files;
+        
+        try {
+          this.showLoading('กำลังส่งงาน...');
+          
+          // ส่งข้อมูลไปยัง API
+          await this.submitTaskToAPI(taskId, comment, files);
+          
+          this.hideLoading();
+          this.showSuccessMessage('ส่งงานสำเร็จ');
+          modal.remove();
+          
+          // รีเฟรชข้อมูลงาน
+          this.loadTasks();
+          
+        } catch (error) {
+          this.hideLoading();
+          this.showErrorMessage('ไม่สามารถส่งงานได้: ' + error.message);
+        }
+      });
+      
+      // ปิด modal เมื่อคลิกพื้นหลัง
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+    
+    /**
+     * ส่งงานไปยัง API
+     */
+    async submitTaskToAPI(taskId, comment, files) {
+      try {
+        const formData = new FormData();
+        formData.append('comment', comment || '');
+        
+        if (files && files.length > 0) {
+          for (let i = 0; i < files.length; i++) {
+            formData.append('files', files[i]);
+          }
+        }
+        
+        const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`, {
+          method: 'POST',
+          body: formData
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error || 'ไม่สามารถส่งงานได้');
+        }
+        
+        return await response.json();
+        
+      } catch (error) {
+        console.error('❌ Error submitting task to API:', error);
+        throw error;
       }
     }
   }
