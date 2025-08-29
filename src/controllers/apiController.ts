@@ -1078,7 +1078,14 @@ class ApiController {
         return;
       }
 
-      const user = await this.userService.findById(userId);
+      // Determine if the provided userId is an internal UUID or a LINE User ID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+
+      // Resolve user by either DB UUID (id) or LINE User ID (lineUserId)
+      const user = isUuid
+        ? await this.userService.findById(userId)
+        : await this.userService.findByLineUserId(userId);
+
       if (!user) {
         res.status(404).json({ success: false, error: 'User not found' });
         return;
@@ -1087,8 +1094,15 @@ class ApiController {
       let role: string | undefined = undefined;
       if (groupId && typeof groupId === 'string') {
         try {
-          const membership = await this.userService.findGroupMembership(userId, groupId);
-          role = membership?.role;
+          // Accept both group UUID and LINE Group ID
+          const isGroupUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+          const group = isGroupUuid
+            ? await this.userService.findGroupById(groupId)
+            : await this.userService.findGroupByLineId(groupId);
+          if (group) {
+            const membership = await this.userService.findGroupMembership(user.id, group.id);
+            role = membership?.role;
+          }
         } catch (_) {
           // ignore membership lookup errors
         }
