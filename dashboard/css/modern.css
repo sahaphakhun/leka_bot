@@ -140,6 +140,39 @@
   color: #6366f1 !important;
 }
 
+/* Desktop Bottom Navigation Enhancements */
+@media (min-width: 769px) {
+  .bottom-nav {
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    border-radius: 1.5rem 1.5rem 0 0 !important;
+    box-shadow: 0 -8px 25px -5px rgba(0, 0, 0, 0.1) !important;
+    padding: 1rem 1.5rem !important;
+  }
+  
+  .bottom-nav-item {
+    min-width: 80px !important;
+    padding: 1rem !important;
+  }
+  
+  .bottom-nav-item i {
+    font-size: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .bottom-nav-item span {
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+  }
+  
+  .bottom-nav-item:hover {
+    transform: translateY(-4px) !important;
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3) !important;
+  }
+}
+
 /* Enhanced Forms */
 .form-group input,
 .form-group textarea,

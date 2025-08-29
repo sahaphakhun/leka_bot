@@ -201,6 +201,33 @@
   }
 }
 
+/* Desktop Bottom Navigation */
+@media (min-width: 769px) {
+  .bottom-nav {
+    height: 80px !important;
+    max-width: 1200px !important;
+    margin: 0 auto !important;
+    left: 50% !important;
+    transform: translateX(-50%) !important;
+    border-radius: 1.5rem 1.5rem 0 0 !important;
+  }
+  
+  .bottom-nav-item {
+    min-height: 60px !important;
+    padding: 1rem !important;
+  }
+  
+  .bottom-nav-item i {
+    font-size: 1.25rem !important;
+    margin-bottom: 0.5rem !important;
+  }
+  
+  .bottom-nav-item span {
+    font-size: 0.875rem !important;
+    font-weight: 600 !important;
+  }
+}
+
 /* Landscape mobile */
 @media (max-width: 768px) and (orientation: landscape) {
   .header {

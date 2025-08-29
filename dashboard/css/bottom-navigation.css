@@ -118,9 +118,37 @@
 
 @media (min-width: 769px) {
   .bottom-nav {
-    display: none; /* ซ่อนบนหน้าจอใหญ่ */
+    padding: var(--spacing-3) var(--spacing-2);
+    max-width: 1200px;
+    margin: 0 auto;
+    left: 50%;
+    transform: translateX(-50%);
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
+    box-shadow: 0 -8px 25px -5px rgba(0, 0, 0, 0.1);
+  }
+  
+  .bottom-nav-item {
+    min-width: 80px;
+    padding: var(--spacing-3);
+  }
+  
+  .bottom-nav-item i {
+    font-size: var(--font-size-xl);
+    margin-bottom: var(--spacing-2);
+  }
+  
+  .bottom-nav-item span {
+    font-size: var(--font-size-sm);
+    font-weight: 600;
+  }
+  
+  .bottom-nav-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.3);
   }
 }
+
+
 
 /* Hover Effects */
 .bottom-nav-item:hover {
