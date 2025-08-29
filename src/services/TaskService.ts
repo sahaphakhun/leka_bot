@@ -35,6 +35,33 @@ export class TaskService {
     this.userService = new UserService();
   }
 
+  /**
+   * แปลง groupId ให้เป็น internal UUID ของกลุ่ม
+   * - รองรับ UUID ตรง
+   * - รองรับค่า 'default' (เลือกกลุ่มที่อัปเดตล่าสุด)
+   * - รองรับ LINE Group ID
+   */
+  private async resolveInternalGroupIdOrDefault(inputGroupId: string): Promise<string | null> {
+    try {
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(inputGroupId)) return inputGroupId;
+
+      if (inputGroupId === 'default') {
+        const latestGroup = await this.groupRepository
+          .createQueryBuilder('group')
+          .orderBy('group.updatedAt', 'DESC')
+          .getOne();
+        return latestGroup ? latestGroup.id : null;
+      }
+
+      const groupByLineId = await this.groupRepository.findOne({ where: { lineGroupId: inputGroupId } });
+      return groupByLineId ? groupByLineId.id : null;
+    } catch (e) {
+      console.warn('⚠️ Failed to resolve group id in TaskService:', e);
+      return null;
+    }
+  }
+
   /** ดึงงานตาม ID พร้อม relations หลัก */
   public async getTaskById(taskId: string): Promise<Task | null> {
     try {
@@ -901,20 +928,17 @@ export class TaskService {
     } = {}
   ): Promise<{ tasks: Task[]; total: number }> {
     try {
-      // ค้นหา Group entity จาก LINE Group ID หรือ UUID
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
-      const group = isUuid
-        ? await this.groupRepository.findOneBy({ id: groupId as any })
-        : await this.groupRepository.findOneBy({ lineGroupId: groupId });
-      if (!group) {
-        throw new Error(`Group not found for LINE ID: ${groupId}`);
+      // รองรับ 'default', LINE Group ID และ UUID
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) {
+        return { tasks: [], total: 0 };
       }
 
       const queryBuilder = this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.createdByUser', 'creator')
         .leftJoinAndSelect('task.attachedFiles', 'file')
-        .where('task.groupId = :groupId', { groupId: group.id });
+        .where('task.groupId = :groupId', { groupId: internalGroupId });
 
       if (options.status) {
         queryBuilder.andWhere('task.status = :status', { status: options.status });
@@ -1033,9 +1057,11 @@ export class TaskService {
    */
   public async getOverdueTasksByGroup(groupId: string): Promise<Task[]> {
     try {
+      const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
+      if (!internalGroupId) return [];
       return await this.taskRepository.find({
         where: { 
-          groupId,
+          groupId: internalGroupId,
           status: 'overdue'
         },
         relations: ['assignedUsers', 'group']
