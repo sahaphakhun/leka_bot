@@ -427,6 +427,19 @@ function renderTasksList(tasks, filters = {}) {
         ${task.description ? `
           <div class="task-description">${escapeHtml(task.description)}</div>
         ` : ''}
+        ${task.projectName ? `
+          <div class="task-project">
+            <i class="fas fa-folder"></i>
+            <span>${escapeHtml(task.projectName)}</span>
+          </div>
+        ` : ''}
+        ${task.tags && task.tags.length > 0 ? `
+          <div class="task-tags">
+            ${task.tags.map(tag => `
+              <span class="task-tag">${escapeHtml(tag)}</span>
+            `).join('')}
+          </div>
+        ` : ''}
         <div class="task-meta">
           <div class="task-assignee">
             <i class="fas fa-user"></i>
@@ -437,10 +450,46 @@ function renderTasksList(tasks, filters = {}) {
             ${formatDate(due)}
             ${isOverdue ? ' <i class="fas fa-exclamation-triangle" style="color: var(--color-danger);"></i>' : ''}
           </div>
+          ${task.startDate ? `
+            <div class="task-start-date">
+              <i class="fas fa-play"></i>
+              เริ่มเมื่อ ${formatDate(task.startDate)}
+            </div>
+          ` : ''}
           <div class="task-status">
             <i class="fas fa-circle"></i>
             ${getTaskStatusText(task.status)}
           </div>
+          ${task.completedAt ? `
+            <div class="task-completed">
+              <i class="fas fa-check-circle"></i>
+              เสร็จเมื่อ ${formatDate(task.completedAt)}
+            </div>
+          ` : ''}
+          ${task.createdAt ? `
+            <div class="task-created">
+              <i class="fas fa-clock"></i>
+              สร้างเมื่อ ${formatDate(task.createdAt)}
+            </div>
+          ` : ''}
+          ${task.attachments && task.attachments.length > 0 ? `
+            <div class="task-attachments">
+              <i class="fas fa-paperclip"></i>
+              ${task.attachments.length} ไฟล์แนบ
+            </div>
+          ` : ''}
+          ${task.comments && task.comments.length > 0 ? `
+            <div class="task-comments">
+              <i class="fas fa-comment"></i>
+              ${task.comments.length} ความคิดเห็น
+            </div>
+          ` : ''}
+          ${task.updatedAt && task.updatedAt !== task.createdAt ? `
+            <div class="task-updated">
+              <i class="fas fa-edit"></i>
+              อัปเดตเมื่อ ${formatDate(task.updatedAt)}
+            </div>
+          ` : ''}
         </div>
         <div class="task-actions">
           <button class="btn btn-sm btn-outline" onclick="window.dashboardInstance.openTaskModal('${task.id}')" title="ดูรายละเอียด">

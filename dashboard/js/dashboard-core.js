@@ -292,7 +292,12 @@ if (typeof Dashboard === 'undefined') {
     // ==================== 
 
     switchView(viewName) {
-      if (this.currentView === viewName) return;
+      if (this.currentView === viewName) {
+        // If already on the same view, still ensure its data is loaded
+        this.loadViewData(viewName);
+        console.log(`🔄 Refreshing current view data: ${viewName}`);
+        return;
+      }
       
       // Hide all views
       const views = document.querySelectorAll('.view');
@@ -918,9 +923,70 @@ if (typeof Dashboard === 'undefined') {
     // Minimal stubs for actions referenced by renderer
     openTaskModal(taskId) { console.log('openTaskModal', taskId); }
     openEditTaskModal(taskId) { console.log('openEditTaskModal', taskId); }
-    viewFile(fileId) { console.log('viewFile', fileId); }
-    downloadFile(fileId) { console.log('downloadFile', fileId); }
-    addTagsToFile(fileId) { console.log('addTagsToFile', fileId); }
+    
+    /**
+     * ดูไฟล์
+     */
+    async viewFile(fileId) {
+      try {
+        console.log('🔍 Viewing file:', fileId);
+        
+        if (!this.currentGroupId) {
+          this.showErrorMessage('ไม่สามารถดูไฟล์ได้: ไม่พบข้อมูลกลุ่ม');
+          return;
+        }
+        
+        // ดึงข้อมูลไฟล์
+        const fileInfo = await this.api.getFileInfo(this.currentGroupId, fileId);
+        if (!fileInfo) {
+          this.showErrorMessage('ไม่พบไฟล์ที่ระบุ');
+          return;
+        }
+        
+        // แสดง modal ข้อมูลไฟล์
+        this.showFileViewModal(fileInfo);
+        
+      } catch (error) {
+        console.error('❌ Error viewing file:', error);
+        this.showErrorMessage('ไม่สามารถดูไฟล์ได้: ' + error.message);
+      }
+    }
+    
+    /**
+     * ดาวน์โหลดไฟล์
+     */
+    async downloadFile(fileId) {
+      try {
+        console.log('📥 Downloading file:', fileId);
+        
+        if (!this.currentGroupId) {
+          this.showErrorMessage('ไม่สามารถดาวน์โหลดไฟล์ได้: ไม่พบข้อมูลกลุ่ม');
+          return;
+        }
+        
+        // แสดง loading
+        this.showLoading('กำลังดาวน์โหลดไฟล์...');
+        
+        // ดาวน์โหลดไฟล์ผ่าน API service (จะจัดการ download อัตโนมัติ)
+        await this.api.downloadFile(this.currentGroupId, fileId);
+        
+        this.hideLoading();
+        this.showSuccessMessage('ดาวน์โหลดไฟล์สำเร็จ');
+        
+      } catch (error) {
+        console.error('❌ Error downloading file:', error);
+        this.hideLoading();
+        this.showErrorMessage('ไม่สามารถดาวน์โหลดไฟล์ได้: ' + error.message);
+      }
+    }
+    
+    /**
+     * เพิ่มแท็กให้ไฟล์
+     */
+    addTagsToFile(fileId) { 
+      console.log('🏷️ Adding tags to file:', fileId);
+      this.showErrorMessage('ฟีเจอร์เพิ่มแท็กยังไม่พร้อมใช้งาน');
+    }
 
     openAddTaskModal() {
       // Implementation for opening add task modal
@@ -980,6 +1046,167 @@ if (typeof Dashboard === 'undefined') {
     generateReport() {
       // Implementation for generating report
       console.log('📊 Generating report...');
+    }
+    
+    /**
+     * แสดง modal ดูไฟล์
+     */
+    showFileViewModal(fileInfo) {
+      const modal = document.createElement('div');
+      modal.className = 'modal-overlay';
+      modal.innerHTML = `
+        <div class="modal-content">
+          <div class="modal-header">
+            <h3>รายละเอียดไฟล์</h3>
+            <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="file-info-grid">
+              <div class="file-info-item">
+                <label>ชื่อไฟล์:</label>
+                <span>${fileInfo.originalName || 'ไม่ระบุ'}</span>
+              </div>
+              <div class="file-info-item">
+                <label>ประเภท:</label>
+                <span>${fileInfo.mimeType || 'ไม่ระบุ'}</span>
+              </div>
+              <div class="file-info-item">
+                <label>ขนาด:</label>
+                <span>${this.formatFileSize(fileInfo.size) || 'ไม่ระบุ'}</span>
+              </div>
+              <div class="file-info-item">
+                <label>อัปโหลดเมื่อ:</label>
+                <span>${this.formatDate(fileInfo.uploadedAt) || 'ไม่ระบุ'}</span>
+              </div>
+              <div class="file-info-item">
+                <label>อัปโหลดโดย:</label>
+                <span>${fileInfo.uploadedByUser?.displayName || fileInfo.uploaderName || 'ไม่ระบุ'}</span>
+              </div>
+            </div>
+            <div class="file-actions">
+              <button class="btn btn-primary" onclick="window.dashboardInstance.downloadFile('${fileInfo.id}')">
+                <i class="fas fa-download"></i>
+                ดาวน์โหลด
+              </button>
+              <button class="btn btn-outline" onclick="this.closest('.modal-overlay').remove()">
+                ปิด
+              </button>
+            </div>
+          </div>
+        </div>
+      `;
+      
+      document.body.appendChild(modal);
+      
+      // ปิด modal เมื่อคลิกพื้นหลัง
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          modal.remove();
+        }
+      });
+    }
+    
+    /**
+     * แสดงข้อความสำเร็จ
+     */
+    showSuccessMessage(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-success';
+      toast.innerHTML = `
+        <i class="fas fa-check-circle"></i>
+        <span>${message}</span>
+      `;
+      
+      document.body.appendChild(toast);
+      
+      // แสดง toast
+      setTimeout(() => toast.classList.add('show'), 100);
+      
+      // ซ่อน toast หลังจาก 3 วินาที
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 3000);
+    }
+    
+    /**
+     * แสดงข้อความผิดพลาด
+     */
+    showErrorMessage(message) {
+      const toast = document.createElement('div');
+      toast.className = 'toast toast-error';
+      toast.innerHTML = `
+        <i class="fas fa-exclamation-circle"></i>
+        <span>${message}</span>
+      `;
+      
+      document.body.appendChild(toast);
+      
+      // แสดง toast
+      setTimeout(() => toast.classList.add('show'), 100);
+      
+      // ซ่อน toast หลังจาก 5 วินาที
+      setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+      }, 5000);
+    }
+    
+    /**
+     * แสดง loading
+     */
+    showLoading(message = 'กำลังโหลด...') {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        const loadingText = loading.querySelector('.loading-text');
+        if (loadingText) {
+          loadingText.textContent = message;
+        }
+        loading.style.display = 'flex';
+      }
+    }
+    
+    /**
+     * ซ่อน loading
+     */
+    hideLoading() {
+      const loading = document.getElementById('loading');
+      if (loading) {
+        loading.style.display = 'none';
+      }
+    }
+    
+    /**
+     * จัดรูปแบบขนาดไฟล์
+     */
+    formatFileSize(bytes) {
+      if (!bytes) return '0 B';
+      
+      const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+      const i = Math.floor(Math.log(bytes) / Math.log(1024));
+      return Math.round(bytes / Math.pow(1024, i) * 100) / 100 + ' ' + sizes[i];
+    }
+    
+    /**
+     * จัดรูปแบบวันที่
+     */
+    formatDate(dateString) {
+      if (!dateString) return 'ไม่ระบุ';
+      
+      try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) return 'ไม่ระบุ';
+        
+        return date.toLocaleDateString('th-TH', {
+          year: 'numeric',
+          month: 'long',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        });
+      } catch (error) {
+        return 'ไม่ระบุ';
+      }
     }
   }
 

@@ -468,15 +468,72 @@ class ApiService {
    */
   async downloadFile(groupId, fileId) {
     try {
-      const response = await fetch(`${this.apiBase}/api/groups/${groupId}/files/${fileId}/download`);
-      if (response.ok) {
-        const blob = await response.blob();
-        return blob;
-      } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      console.log(`📥 Downloading file: ${fileId} from group: ${groupId}`);
+      
+      const response = await fetch(`${this.apiBase}/api/groups/${groupId}/files/${fileId}/download`, {
+        method: 'GET',
+        headers: {
+          'Accept': '*/*',
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      if (!response.ok) {
+        let errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+        
+        try {
+          const errorText = await response.text();
+          if (errorText) {
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMessage = errorJson.error || errorJson.message || errorMessage;
+            } catch {
+              errorMessage = errorText || errorMessage;
+            }
+          }
+        } catch (e) {
+          console.warn('⚠️ Could not read error response:', e);
+        }
+        
+        console.error(`❌ Download failed: ${response.status} ${response.statusText}`, errorMessage);
+        throw new Error(errorMessage);
       }
+      
+      // ดึงข้อมูลไฟล์เพื่อใช้ชื่อไฟล์ที่ถูกต้อง
+      let fileName = `file_${fileId}`;
+      try {
+        const contentDisposition = response.headers.get('Content-Disposition');
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename[^;=\n]*=((['"]).*?\2|[^;\n]*)/);
+          if (filenameMatch && filenameMatch[1]) {
+            fileName = filenameMatch[1].replace(/['"]/g, '');
+          }
+        }
+      } catch (e) {
+        console.warn('⚠️ Could not parse filename from headers:', e);
+      }
+      
+      const blob = await response.blob();
+      
+      // สร้าง download link
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = fileName;
+      a.style.display = 'none';
+      
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      
+      // ล้าง URL object
+      window.URL.revokeObjectURL(url);
+      
+      console.log(`✅ File downloaded successfully: ${fileName}`);
+      return blob;
+      
     } catch (error) {
-      console.error('Failed to download file:', error);
+      console.error('❌ Failed to download file:', error);
       throw error;
     }
   }
@@ -486,10 +543,29 @@ class ApiService {
    */
   async getFileInfo(groupId, fileId) {
     try {
+      console.log(`🔍 Getting file info: ${fileId} from group: ${groupId}`);
+      
       const response = await this.apiRequest(`/api/groups/${groupId}/files/${fileId}`);
+      
+      if (!response || !response.data) {
+        throw new Error('ไม่พบข้อมูลไฟล์');
+      }
+      
+      console.log(`✅ File info retrieved:`, response.data);
       return response.data;
+      
     } catch (error) {
-      console.error('Failed to get file info:', error);
+      console.error('❌ Failed to get file info:', error);
+      
+      // จัดการ error ที่เฉพาะเจาะจง
+      if (error.message.includes('ไม่พบข้อมูลไฟล์')) {
+        throw new Error('ไม่พบไฟล์ที่ระบุ');
+      } else if (error.message.includes('Access denied')) {
+        throw new Error('ไม่มีสิทธิ์เข้าถึงไฟล์นี้');
+      } else if (error.message.includes('Group not found')) {
+        throw new Error('ไม่พบกลุ่มที่ระบุ');
+      }
+      
       throw error;
     }
   }
