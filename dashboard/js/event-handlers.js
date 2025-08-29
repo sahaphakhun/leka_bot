@@ -11,21 +11,7 @@
  * Bind navigation events
  */
 function bindNavigationEvents() {
-  // Sidebar navigation
-  const navItems = document.querySelectorAll('.nav-item');
-  navItems.forEach(item => {
-    item.addEventListener('click', function(e) {
-      e.preventDefault();
-      const view = this.getAttribute('data-view');
-      if (view && window.dashboardInstance) {
-        window.dashboardInstance.switchView(view);
-        // Close mobile sidebar after navigation
-        if (window.innerWidth <= 768) {
-          window.dashboardInstance.closeMobileSidebar();
-        }
-      }
-    });
-  });
+
 
   // Mobile bottom navigation
   const bottomNavItems = document.querySelectorAll('.bottom-nav-item');
@@ -39,56 +25,7 @@ function bindNavigationEvents() {
     });
   });
 
-  // Mobile menu toggle
-  const menuToggle = document.getElementById('menuToggle');
-  const sidebar = document.querySelector('.sidebar');
-  const sidebarOverlay = document.getElementById('sidebarOverlay');
-  
-  if (menuToggle && sidebar) {
-    menuToggle.addEventListener('click', function(e) {
-      e.preventDefault();
-      e.stopPropagation();
-      sidebar.classList.toggle('open');
-      this.classList.toggle('active');
-      if (sidebarOverlay) {
-        sidebarOverlay.classList.toggle('active');
-      }
-      
-      // Prevent body scroll when sidebar is open
-      if (sidebar.classList.contains('open')) {
-        document.body.style.overflow = 'hidden';
-      } else {
-        document.body.style.overflow = '';
-      }
-    });
-  }
 
-  // Sidebar overlay click
-  if (sidebarOverlay) {
-    sidebarOverlay.addEventListener('click', function() {
-      if (window.dashboardInstance) {
-        window.dashboardInstance.closeMobileSidebar();
-      }
-    });
-  }
-
-  // Close sidebar on escape key
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      if (window.dashboardInstance) {
-        window.dashboardInstance.closeMobileSidebar();
-      }
-    }
-  });
-
-  // Handle window resize
-  window.addEventListener('resize', function() {
-    if (window.innerWidth > 768) {
-      if (window.dashboardInstance) {
-        window.dashboardInstance.closeMobileSidebar();
-      }
-    }
-  });
 }
 
 // ==================== 
@@ -424,19 +361,7 @@ function bindTouchEvents() {
     const diffX = startX - endX;
     const diffY = startY - endY;
     
-    // Swipe left to right (open sidebar)
-    if (diffX < -50 && Math.abs(diffY) < 50 && startX < 50) {
-      if (window.innerWidth <= 768 && window.dashboardInstance) {
-        window.dashboardInstance.openMobileSidebar();
-      }
-    }
-    
-    // Swipe right to left (close sidebar)
-    if (diffX > 50 && Math.abs(diffY) < 50) {
-      if (window.innerWidth <= 768 && window.dashboardInstance) {
-        window.dashboardInstance.closeMobileSidebar();
-      }
-    }
+
   }, { passive: true });
 
   // Prevent zoom on double tap

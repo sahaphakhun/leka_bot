@@ -38,8 +38,7 @@ if (typeof Dashboard === 'undefined') {
       this._isCreatingTask = false;
       this._isHandlingAddTask = false;
       
-      // Mobile state
-      this._isMobileSidebarOpen = false;
+      
       
       this.init();
     }
@@ -60,6 +59,9 @@ if (typeof Dashboard === 'undefined') {
         if (hash && ['dashboard', 'calendar', 'tasks', 'files', 'leaderboard', 'reports', 'recurring'].includes(hash)) {
           this.switchView(hash);
         }
+
+        // ตรวจสอบ URL parameters สำหรับ taskId และ action
+        this.handleUrlParameters();
 
         // อนุญาตให้ปุ่มส่งงานทำงานได้ทุกกรณี (ไม่ต้องรอ userId)
         if (!this.currentUserId) {
@@ -113,11 +115,6 @@ if (typeof Dashboard === 'undefined') {
     checkScreenSize() {
       const isMobile = window.innerWidth <= 768;
       document.body.classList.toggle('mobile', isMobile);
-      
-      // ปิด sidebar บนมือถือถ้าเปิดอยู่
-      if (!isMobile && this._isMobileSidebarOpen) {
-        this.closeMobileSidebar();
-      }
     }
 
     initializeTouchGestures() {
@@ -125,33 +122,7 @@ if (typeof Dashboard === 'undefined') {
       console.log('📱 Mobile features initialized');
     }
 
-    openMobileSidebar() {
-      const sidebar = document.querySelector('.sidebar');
-      const overlay = document.getElementById('sidebarOverlay');
-      const menuToggle = document.getElementById('menuToggle');
-      
-      if (sidebar && window.innerWidth <= 768) {
-        sidebar.classList.add('open');
-        if (overlay) overlay.classList.add('active');
-        if (menuToggle) menuToggle.classList.add('active');
-        document.body.style.overflow = 'hidden';
-        this._isMobileSidebarOpen = true;
-      }
-    }
 
-    closeMobileSidebar() {
-      const sidebar = document.querySelector('.sidebar');
-      const overlay = document.getElementById('sidebarOverlay');
-      const menuToggle = document.getElementById('menuToggle');
-      
-      if (sidebar) {
-        sidebar.classList.remove('open');
-        if (overlay) overlay.classList.remove('active');
-        if (menuToggle) menuToggle.classList.remove('active');
-        document.body.style.overflow = '';
-        this._isMobileSidebarOpen = false;
-      }
-    }
 
     // ==================== 
     // URL Utilities
@@ -175,6 +146,97 @@ if (typeof Dashboard === 'undefined') {
     getTaskIdFromUrl() {
       const urlParams = new URLSearchParams(window.location.search);
       return urlParams.get('taskId');
+    }
+
+    handleUrlParameters() {
+      const taskId = this.getTaskIdFromUrl();
+      const action = this.getActionFromUrl();
+      
+      if (taskId && action === 'view') {
+        console.log(`🔍 Found taskId: ${taskId} with action: ${action}`);
+        
+        // รอให้ข้อมูลแดชบอร์ดโหลดเสร็จก่อน แล้วค่อยเปิด task details
+        this.waitForDashboardData().then(() => {
+          this.openTaskDetailsFromUrl(taskId);
+        }).catch(error => {
+          console.error('❌ Failed to wait for dashboard data:', error);
+          // Fallback: ลองเปิด task details โดยตรง
+          this.openTaskDetailsFromUrl(taskId);
+        });
+      }
+    }
+
+    waitForDashboardData() {
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 15; // เพิ่มจำนวนครั้ง
+        
+        const checkData = () => {
+          attempts++;
+          
+          // ตรวจสอบว่าข้อมูลแดชบอร์ดโหลดเสร็จแล้วหรือไม่
+          const statsLoaded = document.getElementById('totalTasks') && 
+                             document.getElementById('totalTasks').textContent !== '' &&
+                             document.getElementById('totalTasks').textContent !== '0';
+          const tasksLoaded = document.getElementById('upcomingTasks') && 
+                             document.getElementById('upcomingTasks').children.length > 0;
+          const leaderboardLoaded = document.getElementById('miniLeaderboard') && 
+                                   document.getElementById('miniLeaderboard').children.length > 0;
+          
+          console.log(`🔍 Check attempt ${attempts}:`, {
+            statsLoaded,
+            tasksLoaded,
+            leaderboardLoaded,
+            totalTasks: document.getElementById('totalTasks')?.textContent,
+            upcomingTasksCount: document.getElementById('upcomingTasks')?.children.length,
+            leaderboardCount: document.getElementById('miniLeaderboard')?.children.length
+          });
+          
+          if (statsLoaded && tasksLoaded && leaderboardLoaded) {
+            console.log('✅ Dashboard data fully loaded, proceeding with task details');
+            resolve();
+          } else if (attempts >= maxAttempts) {
+            console.warn('⚠️ Max attempts reached, proceeding anyway');
+            resolve();
+          } else {
+            console.log(`⏳ Waiting for dashboard data... (attempt ${attempts}/${maxAttempts})`);
+            setTimeout(checkData, 300); // ลดเวลาเป็น 300ms
+          }
+        };
+        
+        checkData();
+      });
+    }
+
+    openTaskDetailsFromUrl(taskId) {
+      console.log(`🎯 Opening task details for taskId: ${taskId}`);
+      
+      try {
+        // ตรวจสอบว่ามีฟังก์ชัน showTaskDetails หรือไม่
+        if (typeof window.showTaskDetails === 'function') {
+          console.log('✅ Using window.showTaskDetails');
+          window.showTaskDetails(taskId);
+        } else if (window.DashboardViewRenderer && typeof window.DashboardViewRenderer.showTaskDetails === 'function') {
+          console.log('✅ Using DashboardViewRenderer.showTaskDetails');
+          window.DashboardViewRenderer.showTaskDetails(taskId);
+        } else {
+          console.warn('⚠️ showTaskDetails function not found, trying fallback');
+          // Fallback: เปลี่ยนไปหน้า tasks และเปิด task modal
+          this.switchView('tasks');
+          setTimeout(() => {
+            if (this.openTaskModal) {
+              this.openTaskModal(taskId);
+            } else {
+              console.error('❌ openTaskModal also not found');
+              // แสดงข้อความให้ผู้ใช้ทราบ
+              this.showErrorMessage(`ไม่สามารถเปิดรายละเอียดงาน ${taskId} ได้`);
+            }
+          }, 300);
+        }
+      } catch (error) {
+        console.error('❌ Error opening task details:', error);
+        this.showErrorMessage(`เกิดข้อผิดพลาดในการเปิดรายละเอียดงาน: ${error.message}`);
+      }
     }
 
     // ==================== 
@@ -233,10 +295,7 @@ if (typeof Dashboard === 'undefined') {
       // Load view-specific data
       this.loadViewData(viewName);
       
-      // Close mobile sidebar after navigation
-      if (window.innerWidth <= 768) {
-        this.closeMobileSidebar();
-      }
+      
       
       console.log(`📱 Switched to view: ${viewName}`);
     }
@@ -294,22 +353,10 @@ if (typeof Dashboard === 'undefined') {
         });
       });
 
-      // Mobile menu toggle
-      const menuToggle = document.getElementById('menuToggle');
-      if (menuToggle) {
-        menuToggle.addEventListener('click', () => {
-          this.toggleMobileSidebar();
-        });
-      }
+
     }
 
-    toggleMobileSidebar() {
-      if (this._isMobileSidebarOpen) {
-        this.closeMobileSidebar();
-      } else {
-        this.openMobileSidebar();
-      }
-    }
+
 
     // ==================== 
     // Data Loading
@@ -333,9 +380,27 @@ if (typeof Dashboard === 'undefined') {
     }
 
     loadDashboardData() {
-      this.loadStats();
-      this.loadUpcomingTasks();
-      this.loadMiniLeaderboard();
+      console.log('🔄 Loading dashboard data...');
+      
+      // โหลดข้อมูลแบบ parallel เพื่อความเร็ว
+      Promise.all([
+        this.loadStats(),
+        this.loadUpcomingTasks(),
+        this.loadMiniLeaderboard()
+      ]).then(() => {
+        console.log('✅ Dashboard data loaded successfully');
+        
+        // ตรวจสอบว่ามี URL parameters ที่ต้องจัดการหรือไม่
+        const taskId = this.getTaskIdFromUrl();
+        const action = this.getActionFromUrl();
+        
+        if (taskId && action === 'view') {
+          console.log('🎯 Dashboard loaded, now opening task details');
+          this.openTaskDetailsFromUrl(taskId);
+        }
+      }).catch(error => {
+        console.error('❌ Failed to load dashboard data:', error);
+      });
     }
 
     loadCalendarData() {
@@ -408,8 +473,8 @@ if (typeof Dashboard === 'undefined') {
     }
 
     updateUserInfo(userInfo) {
-      const userNameElements = document.querySelectorAll('#userName, #sidebarUserName');
-      const userRoleElements = document.querySelectorAll('#userRole, #sidebarUserRole');
+      const userNameElements = document.querySelectorAll('#userName');
+      const userRoleElements = document.querySelectorAll('#userRole');
       
       userNameElements.forEach(el => {
         if (el && userInfo.displayName) {

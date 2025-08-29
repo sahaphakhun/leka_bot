@@ -1,0 +1,219 @@
+/* ==================== */
+/* Bottom Navigation Styles */
+/* ==================== */
+
+/* Bottom Navigation Container */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: var(--color-white);
+  border-top: 1px solid var(--color-gray-200);
+  padding: var(--spacing-2) var(--spacing-1);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 1000;
+  box-shadow: 0 -4px 6px -1px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(10px);
+}
+
+/* Bottom Navigation Items */
+.bottom-nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--spacing-2);
+  border-radius: var(--radius-lg);
+  color: var(--color-gray-600);
+  text-decoration: none;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  min-width: 60px;
+  position: relative;
+  flex: 1;
+}
+
+.bottom-nav-item:hover {
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.1);
+  transform: translateY(-2px);
+}
+
+.bottom-nav-item.active {
+  color: var(--color-primary);
+  background: rgba(99, 102, 241, 0.1);
+}
+
+.bottom-nav-item.active::after {
+  content: '';
+  position: absolute;
+  bottom: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 20px;
+  height: 3px;
+  background: var(--color-primary);
+  border-radius: 2px;
+}
+
+/* Bottom Navigation Icons */
+.bottom-nav-item i {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--spacing-1);
+  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.bottom-nav-item:hover i {
+  transform: scale(1.1);
+}
+
+.bottom-nav-item.active i {
+  transform: scale(1.1);
+}
+
+/* Bottom Navigation Text */
+.bottom-nav-item span {
+  font-size: 10px;
+  font-weight: 500;
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* Responsive Design */
+@media (max-width: 480px) {
+  .bottom-nav {
+    padding: var(--spacing-1);
+  }
+  
+  .bottom-nav-item {
+    padding: var(--spacing-1);
+    min-width: 50px;
+  }
+  
+  .bottom-nav-item i {
+    font-size: var(--font-size-base);
+    margin-bottom: 2px;
+  }
+  
+  .bottom-nav-item span {
+    font-size: 9px;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .bottom-nav-item {
+    min-width: 55px;
+  }
+  
+  .bottom-nav-item span {
+    font-size: 10px;
+  }
+}
+
+@media (min-width: 769px) {
+  .bottom-nav {
+    display: none; /* ซ่อนบนหน้าจอใหญ่ */
+  }
+}
+
+/* Hover Effects */
+.bottom-nav-item:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(99, 102, 241, 0.2);
+}
+
+.bottom-nav-item:active {
+  transform: translateY(0);
+  transition: transform 0.1s;
+}
+
+/* Focus States */
+.bottom-nav-item:focus {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+/* Loading State */
+.bottom-nav-item.loading {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.bottom-nav-item.loading i {
+  animation: pulse 1.5s infinite;
+}
+
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+/* High Contrast Mode */
+@media (prefers-contrast: high) {
+  .bottom-nav {
+    border-top-width: 2px;
+  }
+  
+  .bottom-nav-item.active::after {
+    height: 4px;
+  }
+}
+
+/* Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  .bottom-nav-item,
+  .bottom-nav-item i {
+    transition: none;
+  }
+  
+  .bottom-nav-item:hover {
+    transform: none;
+  }
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  .bottom-nav {
+    background: var(--color-gray-900);
+    border-top-color: var(--color-gray-700);
+  }
+  
+  .bottom-nav-item {
+    color: var(--color-gray-400);
+  }
+  
+  .bottom-nav-item:hover,
+  .bottom-nav-item.active {
+    color: var(--color-primary-light);
+    background: rgba(99, 102, 241, 0.2);
+  }
+}
+
+/* Landscape Orientation */
+@media (orientation: landscape) and (max-height: 500px) {
+  .bottom-nav {
+    padding: var(--spacing-1);
+  }
+  
+  .bottom-nav-item {
+    padding: var(--spacing-1);
+  }
+  
+  .bottom-nav-item span {
+    display: none; /* ซ่อนข้อความใน landscape mode */
+  }
+  
+  .bottom-nav-item i {
+    margin-bottom: 0;
+  }
+}

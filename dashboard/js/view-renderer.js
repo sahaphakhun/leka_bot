@@ -772,10 +772,6 @@ function renderTaskDetailsModal(task) {
             <i class="fas fa-times"></i>
             ปิด
           </button>
-          <button class="btn btn-primary" onclick="editTask('${task.id}')">
-            <i class="fas fa-edit"></i>
-            แก้ไข
-          </button>
         </div>
       </div>
     </div>
@@ -803,21 +799,7 @@ function closeTaskDetailsModal() {
   }
 }
 
-/**
- * Edit task function
- */
-function editTask(taskId) {
-  closeTaskDetailsModal();
-  // เปลี่ยนไปหน้า tasks และเปิด modal แก้ไข
-  if (window.dashboardInstance) {
-    window.dashboardInstance.switchView('tasks');
-    setTimeout(() => {
-      if (window.dashboardInstance.openTaskModal) {
-        window.dashboardInstance.openTaskModal(taskId);
-      }
-    }, 300);
-  }
-}
+
 
 // ==================== 
 // Utility Functions

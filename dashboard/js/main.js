@@ -24,7 +24,6 @@ document.addEventListener('DOMContentLoaded', function() {
     console.log('⚠️ Unknown page type - checking for dashboard elements...');
     // ลองตรวจสอบ elements อื่นๆ ที่อาจบ่งบอกว่าเป็น dashboard
     const hasDashboardElements = document.querySelector('.header') || 
-                                document.querySelector('.sidebar') || 
                                 document.querySelector('.main-content');
     if (hasDashboardElements) {
       console.log('📊 Dashboard elements found, initializing...');
