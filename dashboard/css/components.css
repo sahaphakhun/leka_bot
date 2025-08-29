@@ -1326,6 +1326,39 @@
   min-height: 100px;
 }
 
+/* ==================== */
+/* Modal Footer Actions */
+/* ==================== */
+
+.modal-footer {
+  padding: var(--spacing-4) var(--spacing-5);
+  border-top: 1px solid var(--color-gray-200);
+  background: var(--color-gray-50);
+}
+
+.modal-actions {
+  display: flex;
+  gap: var(--spacing-3);
+  justify-content: flex-end;
+  align-items: center;
+}
+
+.modal-actions .btn {
+  min-width: 100px;
+}
+
+@media (max-width: 768px) {
+  .modal-actions {
+    flex-direction: column;
+    gap: var(--spacing-2);
+  }
+  
+  .modal-actions .btn {
+    width: 100%;
+    min-width: auto;
+  }
+}
+
 /* File Preview Modal */
 .file-preview-modal .modal-content {
   max-width: 90vw;

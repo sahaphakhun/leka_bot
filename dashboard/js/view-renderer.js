@@ -835,10 +835,24 @@ function renderTaskDetailsModal(task) {
           </div>
         </div>
         <div class="modal-footer">
-          <button class="btn btn-outline" onclick="closeTaskDetailsModal()">
-            <i class="fas fa-times"></i>
-            ปิด
-          </button>
+          <div class="modal-actions">
+            ${task.status === 'pending' ? `
+              <button class="btn btn-warning" onclick="submitTaskFromModal('${task.id}')">
+                <i class="fas fa-paper-plane"></i>
+                ส่งงาน
+              </button>
+            ` : ''}
+            ${task.status === 'pending' ? `
+              <button class="btn btn-primary" onclick="editTaskFromModal('${task.id}')">
+                <i class="fas fa-edit"></i>
+                แก้ไข
+              </button>
+            ` : ''}
+            <button class="btn btn-outline" onclick="closeTaskDetailsModal()">
+              <i class="fas fa-times"></i>
+              ปิด
+            </button>
+          </div>
         </div>
       </div>
     </div>
@@ -863,6 +877,30 @@ function closeTaskDetailsModal() {
   const modal = document.getElementById('taskDetailsModal');
   if (modal) {
     modal.remove();
+  }
+}
+
+/**
+ * ส่งงานจาก modal
+ */
+function submitTaskFromModal(taskId) {
+  if (window.dashboardInstance) {
+    window.dashboardInstance.submitTask(taskId);
+    closeTaskDetailsModal();
+  } else {
+    showToast('ไม่สามารถส่งงานได้: ไม่พบข้อมูลแดชบอร์ด', 'error');
+  }
+}
+
+/**
+ * แก้ไขงานจาก modal
+ */
+function editTaskFromModal(taskId) {
+  if (window.dashboardInstance) {
+    window.dashboardInstance.openEditTaskModal(taskId);
+    closeTaskDetailsModal();
+  } else {
+    showToast('ไม่สามารถแก้ไขงานได้: ไม่พบข้อมูลแดชบอร์ด', 'error');
   }
 }
 

@@ -552,6 +552,54 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createSeparator('medium')
     ];
 
+    // เพิ่มงานเกินกำหนด (แสดงเต็ม)
+    const overdueTasks = tasks.filter(t => t.status === 'overdue');
+    if (overdueTasks.length > 0) {
+      contentItems.push(
+        FlexMessageDesignSystem.createText('🚨 งานเกินกำหนด (ต้องทำด่วน!)', 'md', FlexMessageDesignSystem.colors.danger, 'bold')
+      );
+      
+      // สร้างรายการงานย่อสำหรับงานเกินกำหนด
+      const createOverdueTaskList = (taskList: any[], maxItems: number = 5) => {
+        if (taskList.length === 0) return [];
+        
+        const displayTasks = taskList.slice(0, maxItems);
+        const remainingCount = taskList.length - maxItems;
+        
+        const taskItems: any[] = [];
+        
+        // เพิ่มงานที่แสดง
+        for (const task of displayTasks) {
+          const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
+          const dueDate = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
+          const priorityEmoji = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
+          
+          taskItems.push(
+            FlexMessageDesignSystem.createBox('vertical', [
+              FlexMessageDesignSystem.createText(`• ${priorityEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
+              FlexMessageDesignSystem.createText(`  👥 ${assigneeNames} | 📅 ${dueDate}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+            ], 'small', 'small', '#F8F9FA', 'xs')
+          );
+        }
+        
+        // เพิ่มข้อความแสดงงานที่เหลือ
+        if (remainingCount > 0) {
+          taskItems.push(
+            FlexMessageDesignSystem.createText(`... และอีก ${remainingCount} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          );
+        }
+        
+        return taskItems;
+      };
+      
+      const overdueTaskItems = createOverdueTaskList(overdueTasks, 5);
+      for (const item of overdueTaskItems) {
+        contentItems.push(item);
+      }
+      
+      contentItems.push(FlexMessageDesignSystem.createSeparator('small'));
+    }
+
     // เพิ่มงานที่กำลังดำเนินการ
     if (inProgressTasks.length > 0) {
       contentItems.push(
