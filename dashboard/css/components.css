@@ -1325,3 +1325,79 @@
   resize: vertical;
   min-height: 100px;
 }
+
+/* File Preview Modal */
+.file-preview-modal .modal-content {
+  max-width: 90vw;
+  max-height: 90vh;
+  width: 800px;
+}
+
+.file-preview-container {
+  margin-bottom: var(--spacing-5);
+  text-align: center;
+  background: var(--color-gray-50);
+  border-radius: var(--radius-lg);
+  padding: var(--spacing-4);
+  border: 2px dashed var(--color-gray-300);
+}
+
+.file-preview-image img {
+  border: 1px solid var(--color-gray-200);
+  box-shadow: var(--shadow-md);
+}
+
+.file-preview-pdf iframe,
+.file-preview-text iframe {
+  border: 1px solid var(--color-gray-300);
+  box-shadow: var(--shadow-sm);
+}
+
+.file-preview-video video {
+  border: 1px solid var(--color-gray-300);
+  box-shadow: var(--shadow-md);
+}
+
+.file-preview-audio,
+.file-preview-office,
+.file-preview-default {
+  padding: var(--spacing-6);
+  text-align: center;
+}
+
+.audio-preview-icon,
+.office-preview-icon,
+.default-preview-icon {
+  margin-bottom: var(--spacing-4);
+}
+
+.file-preview-audio audio {
+  background: var(--color-white);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-sm);
+}
+
+/* Responsive File Preview */
+@media (max-width: 768px) {
+  .file-preview-modal .modal-content {
+    width: 95vw;
+    max-height: 85vh;
+  }
+  
+  .file-preview-container {
+    padding: var(--spacing-3);
+  }
+  
+  .file-preview-image img {
+    max-height: 250px;
+  }
+  
+  .file-preview-pdf iframe,
+  .file-preview-text iframe {
+    height: 250px;
+  }
+  
+  .file-preview-video video {
+    max-height: 250px;
+  }
+}

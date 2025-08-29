@@ -371,7 +371,7 @@ export class CronService {
         
         // สร้าง Flex Message สำหรับรายงานผู้จัดการ
         const tz = group.timezone || config.app.defaultTimezone;
-        const managerFlexMessage = this.createManagerDailyReportFlexMessage(group, stats, tz);
+        const managerFlexMessage = await this.createManagerDailyReportFlexMessage(group, stats, tz);
 
         // ส่งรายงานให้ผู้จัดการที่กำหนด (ในอนาคตจะดึงจากฐานข้อมูล)
         // สำหรับตอนนี้ส่งให้ admin ของกลุ่ม
@@ -569,8 +569,11 @@ export class CronService {
   /**
    * สร้าง Flex Message สำหรับรายงานผู้จัดการ
    */
-  private createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): any {
+  private async createManagerDailyReportFlexMessage(group: any, stats: any, timezone: string): Promise<any> {
     const date = moment().tz(timezone).format('DD/MM/YYYY');
+    
+    // ดึงรายการงานที่เกินกำหนดเพื่อแสดงรายละเอียด
+    const overdueTaskDetails = await this.taskService.getOverdueTasksByGroup(group.id);
     
     const content = [
       { ...FlexMessageDesignSystem.createText(`🗓️ วันที่ ${date}`, 'sm', FlexMessageDesignSystem.colors.textSecondary), align: 'center' },
@@ -596,6 +599,45 @@ export class CronService {
         ]), flex: 1 }
       ])
     ];
+
+    // เพิ่มรายละเอียดงานที่เกินกำหนด
+    if (overdueTaskDetails.length > 0) {
+      content.push(
+        FlexMessageDesignSystem.createSeparator('medium'),
+        { ...FlexMessageDesignSystem.createText('🚨 งานที่เกินกำหนด (ต้องติดตามด่วน!)', 'md', FlexMessageDesignSystem.colors.danger, 'bold'), align: 'center' }
+      );
+
+      // แสดงงานที่เกินกำหนด (สูงสุด 5 งาน)
+      const displayTasks = overdueTaskDetails.slice(0, 5);
+      const remainingCount = overdueTaskDetails.length - 5;
+
+      for (const task of displayTasks) {
+        const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
+        const dueDate = moment(task.dueTime).tz(timezone).format('DD/MM HH:mm');
+        const priorityEmoji = task.priority === 'high' ? '🔴' : task.priority === 'medium' ? '🟡' : '🟢';
+        
+        content.push(
+          FlexMessageDesignSystem.createBox('vertical', [
+            FlexMessageDesignSystem.createText(`• ${priorityEmoji} ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold', true),
+            FlexMessageDesignSystem.createText(`  👥 ${assigneeNames}`, 'xs', FlexMessageDesignSystem.colors.textSecondary),
+            FlexMessageDesignSystem.createText(`  📅 กำหนด: ${dueDate} | 🎯 ${FlexMessageDesignSystem.getPriorityText(task.priority)}`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          ], 'small', 'small', '#F8F9FA', 'xs')
+        );
+      }
+
+      // แสดงจำนวนงานที่เหลือ
+      if (remainingCount > 0) {
+        content.push(
+          { ...FlexMessageDesignSystem.createText(`... และอีก ${remainingCount} งานที่เกินกำหนด`, 'xs', FlexMessageDesignSystem.colors.danger), align: 'center' }
+        );
+      }
+
+      // เพิ่มคำแนะนำ
+      content.push(
+        FlexMessageDesignSystem.createSeparator('small'),
+        { ...FlexMessageDesignSystem.createText('💡 ควรติดตามงานที่เกินกำหนดและช่วยเหลือทีมให้เสร็จทันเวลา', 'sm', FlexMessageDesignSystem.colors.textSecondary), align: 'center' }
+      );
+    }
 
     const buttons = [
       FlexMessageDesignSystem.createButton(

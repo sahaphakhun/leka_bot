@@ -551,23 +551,79 @@ class ApiService {
         throw new Error('ไม่พบข้อมูลไฟล์');
       }
       
-      console.log(`✅ File info retrieved:`, response.data);
-      return response.data;
+      // ตรวจสอบและเพิ่มข้อมูลที่จำเป็น
+      const fileData = response.data;
+      
+      // ถ้าไม่มี mimeType ให้เดาจากชื่อไฟล์
+      if (!fileData.mimeType && fileData.originalName) {
+        fileData.mimeType = this.getMimeTypeFromFileName(fileData.originalName);
+      }
+      
+      console.log(`✅ File info retrieved:`, fileData);
+      return fileData;
       
     } catch (error) {
       console.error('❌ Failed to get file info:', error);
-      
-      // จัดการ error ที่เฉพาะเจาะจง
-      if (error.message.includes('ไม่พบข้อมูลไฟล์')) {
-        throw new Error('ไม่พบไฟล์ที่ระบุ');
-      } else if (error.message.includes('Access denied')) {
-        throw new Error('ไม่มีสิทธิ์เข้าถึงไฟล์นี้');
-      } else if (error.message.includes('Group not found')) {
-        throw new Error('ไม่พบกลุ่มที่ระบุ');
-      }
-      
       throw error;
     }
+  }
+  
+  /**
+   * เดา MIME type จากชื่อไฟล์
+   */
+  getMimeTypeFromFileName(fileName) {
+    const extension = fileName.toLowerCase().split('.').pop();
+    
+    const mimeTypes = {
+      // รูปภาพ
+      'jpg': 'image/jpeg',
+      'jpeg': 'image/jpeg',
+      'png': 'image/png',
+      'gif': 'image/gif',
+      'bmp': 'image/bmp',
+      'webp': 'image/webp',
+      'svg': 'image/svg+xml',
+      
+      // เอกสาร
+      'pdf': 'application/pdf',
+      'doc': 'application/msword',
+      'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel',
+      'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint',
+      'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      
+      // ข้อความ
+      'txt': 'text/plain',
+      'html': 'text/html',
+      'css': 'text/css',
+      'js': 'application/javascript',
+      'json': 'application/json',
+      'xml': 'application/xml',
+      'csv': 'text/csv',
+      
+      // วิดีโอ
+      'mp4': 'video/mp4',
+      'avi': 'video/x-msvideo',
+      'mov': 'video/quicktime',
+      'wmv': 'video/x-ms-wmv',
+      'flv': 'video/x-flv',
+      'webm': 'video/webm',
+      
+      // เสียง
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'ogg': 'audio/ogg',
+      'aac': 'audio/aac',
+      'm4a': 'audio/mp4',
+      
+      // อื่นๆ
+      'zip': 'application/zip',
+      'rar': 'application/x-rar-compressed',
+      '7z': 'application/x-7z-compressed'
+    };
+    
+    return mimeTypes[extension] || 'application/octet-stream';
   }
   
   /**
@@ -666,40 +722,6 @@ class ApiService {
       return response.success;
     } catch (error) {
       console.error('Failed to delete recurring task:', error);
-      throw error;
-    }
-  }
-
-  /** เพิ่มแท็กให้ไฟล์ */
-  async addFileTags(fileId, tags) {
-    try {
-      const response = await this.apiRequest(`/files/${fileId}/tags`, {
-        method: 'POST',
-        body: JSON.stringify({ tags })
-      });
-      return response.data;
-    } catch (error) {
-      console.error('Failed to add file tags:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * อนุมัติการเลื่อนเวลา
-   */
-  async approveExtension(groupId, taskId, extensionData) {
-    try {
-      const response = await this.apiRequest(`/api/groups/${groupId}/tasks/${taskId}/approve-extension`, {
-        method: 'POST',
-        body: JSON.stringify({
-          newDueDate: extensionData.newDueDate,
-          newDueTime: extensionData.newDueTime || '23:59'
-        })
-      });
-      
-      return response;
-    } catch (error) {
-      console.error('Failed to approve extension:', error);
       throw error;
     }
   }

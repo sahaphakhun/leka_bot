@@ -725,7 +725,14 @@ function renderRecurringList(items) {
 function showTaskDetails(taskId) {
   // เรียก API เพื่อดึงข้อมูลงาน
   if (window.dashboardInstance && window.dashboardInstance.apiService) {
-    window.dashboardInstance.apiService.getTask(taskId)
+    const groupId = window.dashboardInstance.currentGroupId;
+    if (!groupId) {
+      console.error('No groupId available');
+      showToast('ไม่พบข้อมูลกลุ่ม', 'error');
+      return;
+    }
+    
+    window.dashboardInstance.apiService.getTask(groupId, taskId)
       .then(task => {
         renderTaskDetailsModal(task);
       })

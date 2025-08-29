@@ -1151,13 +1151,20 @@ if (typeof Dashboard === 'undefined') {
     showFileViewModal(fileInfo) {
       const modal = document.createElement('div');
       modal.className = 'modal-overlay';
+      
+      // สร้างส่วนพรีวิวไฟล์
+      const previewContent = this.generateFilePreview(fileInfo);
+      
       modal.innerHTML = `
-        <div class="modal-content">
+        <div class="modal-content file-preview-modal">
           <div class="modal-header">
             <h3>รายละเอียดไฟล์</h3>
             <button class="modal-close" onclick="this.closest('.modal-overlay').remove()">&times;</button>
           </div>
           <div class="modal-body">
+            <div class="file-preview-container">
+              ${previewContent}
+            </div>
             <div class="file-info-grid">
               <div class="file-info-item">
                 <label>ชื่อไฟล์:</label>
@@ -1659,6 +1666,136 @@ if (typeof Dashboard === 'undefined') {
         console.error('❌ Error submitting task to API:', error);
         throw error;
       }
+    }
+
+    /**
+     * สร้างเนื้อหาพรีวิวไฟล์
+     */
+    generateFilePreview(fileInfo) {
+      const mimeType = fileInfo.mimeType || '';
+      const fileName = fileInfo.originalName || '';
+      const fileId = fileInfo.id;
+      const previewUrl = `${this.apiBase}/api/groups/${this.currentGroupId}/files/${fileId}/preview`;
+      
+      // รูปภาพ
+      if (mimeType.startsWith('image/')) {
+        return `
+          <div class="file-preview-image">
+            <img src="${previewUrl}" alt="${fileName}" 
+                 style="max-width: 100%; max-height: 400px; object-fit: contain; border-radius: 8px;"
+                 onerror="this.parentElement.innerHTML='<div class=&quot;default-preview-icon&quot;><i class=&quot;fas fa-image&quot; style=&quot;font-size: 48px; color: #ef4444;&quot;></i></div><p style=&quot;text-align: center; margin-top: 16px; color: #ef4444;&quot;>ไม่สามารถโหลดรูปภาพได้</p>'">
+          </div>
+        `;
+      }
+      
+      // PDF
+      if (mimeType === 'application/pdf') {
+        return `
+          <div class="file-preview-pdf">
+            <iframe src="${previewUrl}" 
+                    style="width: 100%; height: 400px; border: none; border-radius: 8px;"
+                    onload="console.log('PDF loaded successfully')"
+                    onerror="this.parentElement.innerHTML='<div class=&quot;default-preview-icon&quot;><i class=&quot;fas fa-file-pdf&quot; style=&quot;font-size: 48px; color: #ef4444;&quot;></i></div><p style=&quot;text-align: center; margin-top: 16px; color: #ef4444;&quot;>ไม่สามารถโหลด PDF ได้</p>'">
+            </iframe>
+          </div>
+        `;
+      }
+      
+      // ไฟล์ข้อความ
+      if (mimeType.startsWith('text/') || 
+          mimeType === 'application/json' ||
+          mimeType === 'application/javascript' ||
+          mimeType === 'application/xml') {
+        return `
+          <div class="file-preview-text">
+            <iframe src="${previewUrl}" 
+                    style="width: 100%; height: 300px; border: 1px solid #e5e7eb; border-radius: 8px; background: #f9fafb;"
+                    onerror="this.parentElement.innerHTML='<div class=&quot;default-preview-icon&quot;><i class=&quot;fas fa-file-alt&quot; style=&quot;font-size: 48px; color: #ef4444;&quot;></i></div><p style=&quot;text-align: center; margin-top: 16px; color: #ef4444;&quot;>ไม่สามารถโหลดไฟล์ข้อความได้</p>'">
+            </iframe>
+          </div>
+        `;
+      }
+      
+      // วิดีโอ
+      if (mimeType.startsWith('video/')) {
+        return `
+          <div class="file-preview-video">
+            <video controls style="width: 100%; max-height: 400px; border-radius: 8px;"
+                   onerror="this.parentElement.innerHTML='<div class=&quot;default-preview-icon&quot;><i class=&quot;fas fa-video&quot; style=&quot;font-size: 48px; color: #ef4444;&quot;></i></div><p style=&quot;text-align: center; margin-top: 16px; color: #ef4444;&quot;>ไม่สามารถเล่นวิดีโอได้</p>'">
+              <source src="${previewUrl}" type="${mimeType}">
+              เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
+            </video>
+          </div>
+        `;
+      }
+      
+      // เสียง
+      if (mimeType.startsWith('audio/')) {
+        return `
+          <div class="file-preview-audio">
+            <div class="audio-preview-icon">
+              <i class="fas fa-music" style="font-size: 48px; color: #6366f1;"></i>
+            </div>
+            <audio controls style="width: 100%; margin-top: 16px;"
+                   onerror="document.querySelector('.audio-preview-icon i').className='fas fa-volume-mute'; document.querySelector('.audio-preview-icon i').style.color='#ef4444';">
+              <source src="${previewUrl}" type="${mimeType}">
+              เบราว์เซอร์ของคุณไม่รองรับการเล่นเสียง
+            </audio>
+            <p style="text-align: center; margin-top: 8px; font-size: 14px; color: #6b7280;">
+              ${fileName}
+            </p>
+          </div>
+        `;
+      }
+      
+      // ไฟล์ Office (Word, Excel, PowerPoint)
+      if (mimeType.includes('word') || 
+          mimeType.includes('excel') || 
+          mimeType.includes('powerpoint') ||
+          mimeType.includes('sheet') ||
+          mimeType.includes('presentation')) {
+        return `
+          <div class="file-preview-office">
+            <div class="office-preview-icon">
+              <i class="fas fa-file-alt" style="font-size: 48px; color: #2563eb;"></i>
+            </div>
+            <p style="text-align: center; margin-top: 16px; color: #6b7280;">
+              ไฟล์ Office: ${fileName}<br>
+              คลิกดาวน์โหลดเพื่อดู
+            </p>
+          </div>
+        `;
+      }
+      
+      // ไฟล์บีบอัด
+      if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z')) {
+        return `
+          <div class="file-preview-archive">
+            <div class="archive-preview-icon">
+              <i class="fas fa-file-archive" style="font-size: 48px; color: #f59e0b;"></i>
+            </div>
+            <p style="text-align: center; margin-top: 16px; color: #6b7280;">
+              ไฟล์บีบอัด: ${fileName}<br>
+              คลิกดาวน์โหลดเพื่อดู
+            </p>
+          </div>
+        `;
+      }
+      
+      // ไฟล์อื่นๆ
+      return `
+        <div class="file-preview-default">
+          <div class="default-preview-icon">
+            <i class="fas fa-file" style="font-size: 48px; color: #6b7280;"></i>
+          </div>
+          <p style="text-align: center; margin-top: 16px; color: #6b7280;">
+            ไฟล์: ${fileName}<br>
+            ประเภท: ${mimeType}<br>
+            ไม่สามารถแสดงตัวอย่างไฟล์นี้ได้<br>
+            คลิกดาวน์โหลดเพื่อดูไฟล์
+          </p>
+        </div>
+      `;
     }
   }
 
