@@ -154,6 +154,21 @@ class Server {
     // Dashboard Routes (ต้องมาหลัง static files)
     this.app.use('/dashboard', dashboardRouter);
 
+    // Favicon route (avoid 404 noise if not provided)
+    this.app.get('/favicon.ico', (req: Request, res: Response) => {
+      try {
+        const favPath = path.join(__dirname, '../dashboard/favicon.ico');
+        res.sendFile(favPath, (err) => {
+          if (err) {
+            // If no favicon file exists, return 204 No Content to silence browser errors
+            res.status(204).end();
+          }
+        });
+      } catch {
+        res.status(204).end();
+      }
+    });
+
     // 404 handler
     this.app.use('*', (req: Request, res: Response) => {
       res.status(404).json({

@@ -9,7 +9,14 @@ document.addEventListener('DOMContentLoaded', function() {
   
   // ตรวจสอบว่าเป็นหน้า profile หรือ dashboard
   const isProfilePage = document.querySelector('.profile-container');
+<<<<<<< HEAD
   const isDashboardPage = document.querySelector('.main-layout') || document.querySelector('#dashboardView');
+=======
+  // Broaden detection to support current markup
+  const isDashboardPage = document.querySelector('.dashboard-container')
+    || document.querySelector('#dashboardView')
+    || document.querySelector('.main-layout');
+>>>>>>> revert-to-d1698c8
   
   if (isProfilePage) {
     console.log('📱 Profile page detected');
@@ -198,6 +205,7 @@ window.addEventListener('unhandledrejection', function(event) {
   console.error('❌ Unhandled promise rejection:', event.reason);
 });
 
+<<<<<<< HEAD
 // ==================== 
 // Performance Monitoring
 // ==================== 
@@ -212,6 +220,47 @@ window.addEventListener('load', function() {
     navigator.serviceWorker.register('/sw.js')
       .then(function(registration) {
         console.log('✅ ServiceWorker registration successful');
+=======
+/**
+ * Performance Monitoring
+ */
+if ('performance' in window) {
+  window.addEventListener('load', function() {
+    const nav = performance.getEntriesByType('navigation')[0];
+    let loadMs = 0;
+    if (nav && typeof nav.duration === 'number' && nav.duration > 0) {
+      loadMs = Math.round(nav.duration);
+    } else if (nav) {
+      const start = (nav as any).loadEventStart || 0;
+      const end = (nav as any).loadEventEnd || 0;
+      loadMs = Math.max(0, Math.round(end - start));
+    } else if (typeof performance.now === 'function') {
+      loadMs = Math.round(performance.now());
+    }
+    console.log('📊 Page load time:', loadMs, 'ms');
+  });
+}
+
+/**
+ * Service Worker Registration (ถ้ามี)
+ */
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', function() {
+    // Prefer dashboard-scoped service worker if available
+    const swUrl = '/dashboard/sw.js';
+    fetch(swUrl, { method: 'HEAD' })
+      .then((resp) => {
+        if (!resp || !resp.ok) {
+          console.log('ℹ️ ServiceWorker file not found, skipping registration');
+          return null;
+        }
+        return navigator.serviceWorker.register(swUrl, { scope: '/dashboard/' });
+      })
+      .then((registration) => {
+        if (registration) {
+          console.log('✅ ServiceWorker registered:', registration.scope);
+        }
+>>>>>>> revert-to-d1698c8
       })
       .catch(function(err) {
         console.log('ℹ️ ServiceWorker file not found, skipping registration');
