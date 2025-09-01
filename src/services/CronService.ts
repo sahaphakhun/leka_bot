@@ -8,6 +8,7 @@ import { NotificationService } from './NotificationService';
 import { KPIService } from './KPIService';
 import { FlexMessageTemplateService } from './FlexMessageTemplateService';
 import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
+import { FileBackupService } from './FileBackupService';
 import { AppDataSource } from '@/utils/database';
 import { RecurringTask } from '@/models';
 
@@ -15,6 +16,7 @@ export class CronService {
   private taskService: TaskService;
   private notificationService: NotificationService;
   private kpiService: KPIService;
+  private fileBackupService: FileBackupService;
   private jobs: Map<string, cron.ScheduledTask> = new Map();
   private isStarted = false;
 
@@ -22,6 +24,7 @@ export class CronService {
     this.taskService = new TaskService();
     this.notificationService = new NotificationService();
     this.kpiService = new KPIService();
+    this.fileBackupService = new FileBackupService();
   }
 
   public start(): void {
@@ -92,6 +95,14 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
+    // คัดลอกไฟล์แนบไปยัง Google Drive ทุกวันเวลา 02:00 น.
+    const fileBackupJob = cron.schedule('0 2 * * *', async () => {
+      await this.runFileBackups();
+    }, {
+      scheduled: false,
+      timezone: config.app.defaultTimezone
+    });
+
     // ตรวจงานประจำทุกนาที (คำนวณ nextRunAt)
     const recurringJob = cron.schedule('* * * * *', async () => {
       await this.processRecurringTasks();
@@ -116,6 +127,7 @@ export class CronService {
     this.jobs.set('dailySummary', dailySummaryJob);
     this.jobs.set('supervisorSummary', supervisorSummaryJob);
     this.jobs.set('kpiUpdate', kpiUpdateJob);
+    this.jobs.set('fileBackup', fileBackupJob);
     this.jobs.set('recurring', recurringJob);
     this.jobs.set('autoApprove', autoApproveJob);
 
@@ -716,6 +728,22 @@ export class CronService {
       await this.notificationService.sendDailyOverdueSummary();
     } catch (error) {
       console.error('❌ Error in daily overdue summary job:', error);
+    }
+  }
+
+  /**
+   * คัดลอกไฟล์แนบไปยัง Google Drive อัตโนมัติ
+   */
+  private async runFileBackups(): Promise<void> {
+    try {
+      console.log('📁 Starting automatic file backup to Google Drive...');
+      
+      // เรียกใช้การคัดลอกไฟล์แนบตามกำหนดเวลา
+      await this.fileBackupService.runScheduledBackups();
+      
+      console.log('✅ Automatic file backup completed');
+    } catch (error) {
+      console.error('❌ Error in automatic file backup job:', error);
     }
   }
 

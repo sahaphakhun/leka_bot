@@ -132,7 +132,7 @@ class Dashboard {
     // อนุญาตให้ปุ่มส่งงานทำงานได้ทุกกรณี (ไม่ต้องรอ userId)
     if (!this.currentUserId) {
       // ปิดเฉพาะปุ่มที่ต้องการ userId จริงๆ
-      const needUserButtons = ['addTaskBtn', 'reviewTaskBtn'];
+      const needUserButtons = ['addTaskBtn'];
       needUserButtons.forEach(id => {
         const el = document.getElementById(id);
         if (el) {
@@ -283,10 +283,7 @@ class Dashboard {
       this.populateSubmitTaskSelect();
       document.getElementById('submitTaskModal').classList.add('active');
     });
-    document.getElementById('reviewTaskBtn')?.addEventListener('click', () => {
-      this.populateReviewTaskSelect();
-      document.getElementById('reviewTaskModal').classList.add('active');
-    });
+
 
     // Submit modal handlers
     document.getElementById('submitTaskModalClose')?.addEventListener('click', () => {
@@ -319,27 +316,9 @@ class Dashboard {
     document.getElementById('cancelReviewTask')?.addEventListener('click', () => {
       this.closeModal('reviewTaskModal');
     });
-    document.getElementById('approveTaskBtn')?.addEventListener('click', () => {
-      this.handleApproveTask();
-    });
-    document.getElementById('rejectTaskBtn')?.addEventListener('click', () => {
-      this.handleRejectTask();
-    });
 
-    // Event listener สำหรับการเปลี่ยนแปลงค่าใน select reviewTaskId
-    document.getElementById('reviewTaskId')?.addEventListener('change', (e) => {
-      const taskId = e.target.value;
-      const approveBtn = document.getElementById('approveTaskBtn');
-      const rejectBtn = document.getElementById('rejectTaskBtn');
-      
-      if (taskId) {
-        approveBtn.disabled = false;
-        rejectBtn.disabled = false;
-      } else {
-        approveBtn.disabled = true;
-        rejectBtn.disabled = true;
-      }
-    });
+
+
 
     document.getElementById('taskModalClose').addEventListener('click', () => {
       this.closeModal('taskModal');
@@ -595,6 +574,75 @@ class Dashboard {
   hideLoading() {
     document.getElementById('loading').classList.add('hidden');
     this.isLoading = false;
+  }
+
+  // ==================== 
+  // Upload Overlay Helpers
+  // ==================== 
+
+  showUploadOverlay({ title = 'กำลังอัปโหลดไฟล์...', subtitle = 'โปรดรอสักครู่' } = {}) {
+    const overlay = document.getElementById('uploadOverlay');
+    const subtitleEl = document.getElementById('uploadSubtitle');
+    const percentEl = document.getElementById('uploadPercent');
+    const bar = document.getElementById('uploadProgressBar');
+    const detailEl = document.getElementById('uploadDetail');
+    if (!overlay) return;
+    subtitleEl.textContent = subtitle;
+    percentEl.textContent = '0%';
+    bar.style.width = '0%';
+    bar.classList.add('indeterminate');
+    detailEl.textContent = 'กำลังเตรียมไฟล์...';
+    overlay.classList.remove('hidden');
+  }
+
+  updateUploadOverlay({ loaded = 0, total = 0, lengthComputable = false, detail = '' } = {}) {
+    const percentEl = document.getElementById('uploadPercent');
+    const bar = document.getElementById('uploadProgressBar');
+    const detailEl = document.getElementById('uploadDetail');
+    if (!percentEl || !bar) return;
+    if (lengthComputable && total > 0) {
+      const pct = Math.max(0, Math.min(100, Math.round((loaded / total) * 100)));
+      percentEl.textContent = `${pct}%`;
+      bar.classList.remove('indeterminate');
+      bar.style.width = `${pct}%`;
+    } else {
+      // Unknown total; keep indeterminate animation
+      percentEl.textContent = '...';
+      bar.classList.add('indeterminate');
+      bar.style.width = '40%';
+    }
+    if (detail) detailEl.textContent = detail;
+  }
+
+  hideUploadOverlay() {
+    const overlay = document.getElementById('uploadOverlay');
+    if (overlay) overlay.classList.add('hidden');
+  }
+
+  // Low-level uploader with progress (XHR)
+  uploadWithProgress(url, formData, onProgress) {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', url, true);
+      xhr.responseType = 'json';
+      xhr.upload.onprogress = (e) => {
+        if (typeof onProgress === 'function') {
+          onProgress(e.loaded, e.total, e.lengthComputable);
+        }
+      };
+      xhr.onload = () => {
+        const status = xhr.status;
+        const resp = xhr.response || {};
+        if (status >= 200 && status < 300) {
+          resolve(resp);
+        } else {
+          const err = new Error(resp?.error || `HTTP ${status}`);
+          reject(err);
+        }
+      };
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(formData);
+    });
   }
 
   // (คงไว้ฟังก์ชัน showNoGroupMessage เวอร์ชันเดียวด้านล่าง เพื่อหลีกเลี่ยงโค้ดซ้ำ)
@@ -1037,11 +1085,16 @@ class Dashboard {
         for (let i = 0; i < files.length; i++) formData.append('attachments', files[i]);
 
         try {
-          const resp = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/upload`, {
-            method: 'POST',
-            body: formData
+          // แสดง overlay และคำนวณขนาดรวม (เพื่อแสดงรายละเอียด)
+          const fileArr = Array.from(files);
+          const totalSize = fileArr.reduce((s, f) => s + (f.size || 0), 0);
+          this.showUploadOverlay({ subtitle: `${fileArr.length} ไฟล์ • รวม ${this.formatFileSize(totalSize)}` });
+
+          const url = `${this.apiBase}/api/groups/${this.currentGroupId}/files/upload`;
+          const data = await this.uploadWithProgress(url, formData, (loaded, total, lengthComputable) => {
+            this.updateUploadOverlay({ loaded, total, lengthComputable, detail: `${this.formatFileSize(loaded)} / ${lengthComputable ? this.formatFileSize(total) : 'ไม่ทราบขนาด'}` });
           });
-          const data = await resp.json();
+
           if (data.success) {
             this.showToast('อัปโหลดไฟล์สำเร็จ', 'success');
             this.loadFiles();
@@ -1052,6 +1105,7 @@ class Dashboard {
           console.error('Upload error:', err);
           this.showToast('อัปโหลดไฟล์ไม่สำเร็จ', 'error');
         } finally {
+          this.hideUploadOverlay();
           document.body.removeChild(input);
         }
       });
@@ -1327,16 +1381,15 @@ class Dashboard {
     }
 
     try {
-      const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/files/upload`, {
-        method: 'POST',
-        body: formData
+      // แสดง Overlay และอัปโหลดแบบมี progress
+      const files = this.selectedInitialFiles || [];
+      const totalSize = files.reduce((s, f) => s + (f.size || 0), 0);
+      this.showUploadOverlay({ subtitle: `${files.length} ไฟล์ • รวม ${this.formatFileSize(totalSize)}` });
+
+      const url = `${this.apiBase}/api/groups/${this.currentGroupId}/files/upload`;
+      const result = await this.uploadWithProgress(url, formData, (loaded, total, lengthComputable) => {
+        this.updateUploadOverlay({ loaded, total, lengthComputable, detail: `${this.formatFileSize(loaded)} / ${lengthComputable ? this.formatFileSize(total) : 'ไม่ทราบขนาด'}` });
       });
-
-      if (!response.ok) {
-        throw new Error('Failed to upload files');
-      }
-
-      const result = await response.json();
       // รองรับทั้งรูปแบบ { success, data: File[] } และ { files: File[] }
       if (result && Array.isArray(result.data)) return result.data;
       if (result && Array.isArray(result.files)) return result.files;
@@ -1344,6 +1397,8 @@ class Dashboard {
     } catch (error) {
       console.error('❌ Failed to upload initial files:', error);
       throw error;
+    } finally {
+      this.hideUploadOverlay();
     }
   }
 
@@ -1585,10 +1640,7 @@ class Dashboard {
           this.openAddTaskModal();
         }
         
-        // ถ้ามาจากการกดปุ่ม "อนุมัติและเลือกวันใหม่" ให้เปิด modal แก้ไขงาน
-        if (this.initialAction === 'approve_extension') {
-          this.openEditTaskModal();
-        }
+
         
         // ถ้ามี taskId parameter ให้เปิด task modal โดยอัตโนมัติ
         const taskId = this.getTaskIdFromUrl();
@@ -1749,7 +1801,7 @@ class Dashboard {
           <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
             <div class="user-name">${name}</div>
-            <div class="user-score-text">${score.toFixed(1)} คะแนน</div>
+            <div class="user-score-text">${score.toFixed(1)} คะแนนเฉลี่ย</div>
           </div>
           <div class="user-stats">
             <div class="user-score">${tasks} งาน</div>
@@ -1952,12 +2004,6 @@ class Dashboard {
                 </button>
               ` : ''}
               ${task.status === 'in_progress' ? `
-                <button class="btn btn-sm btn-success" onclick="event.stopPropagation(); app.handleApproveTask('${task.id}')">
-                  <i class="fas fa-check"></i> อนุมัติ
-                </button>
-                <button class="btn btn-sm btn-warning" onclick="event.stopPropagation(); app.handleRejectTask('${task.id}')">
-                  <i class="fas fa-times"></i> ตีกลับ
-                </button>
                 <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
                   <i class="fas fa-upload"></i> ส่งงาน
                 </button>
@@ -2522,12 +2568,6 @@ class Dashboard {
                 </button>
               ` : ''}
               ${task.status === 'in_progress' ? `
-                <button class="btn btn-success" onclick="app.handleApproveTask('${task.id}')">
-                  <i class="fas fa-check"></i> อนุมัติ
-                </button>
-                <button class="btn btn-warning" onclick="app.handleRejectTask('${task.id}')">
-                  <i class="fas fa-times"></i> ตีกลับ
-                </button>
                 <button class="btn btn-info" onclick="app.openSubmitTaskModal('${task.id}')">
                   <i class="fas fa-upload"></i> ส่งงาน
                 </button>
@@ -2913,27 +2953,7 @@ class Dashboard {
         body: JSON.stringify(updateData)
       });
 
-      // ตรวจสอบว่าเป็นการ approve extension หรือไม่
-      const isExtensionApproval = this.initialAction === 'approve_extension';
-      
-      if (isExtensionApproval) {
-        // ส่งการแจ้งเตือนการอนุมัติเลื่อนเวลา
-        try {
-          await this.apiRequest(`/api/groups/${this.currentGroupId}/tasks/${taskId}/approve-extension`, {
-            method: 'POST',
-            body: JSON.stringify({
-              newDueDate: formData.get('dueDate'),
-              newDueTime: formData.get('dueTime') || '23:59'
-            })
-          });
-          this.showToast('อนุมัติการเลื่อนเวลาและส่งแจ้งเตือนแล้ว', 'success');
-        } catch (notificationError) {
-          console.warn('Failed to send extension approval notification:', notificationError);
-          this.showToast('อัปเดตงานสำเร็จ แต่ส่งการแจ้งเตือนไม่สำเร็จ', 'warning');
-        }
-      } else {
-        this.showToast('อัปเดตงานเรียบร้อยแล้ว', 'success');
-      }
+      this.showToast('อัปเดตงานเรียบร้อยแล้ว', 'success');
       
       this.closeModal('editTaskModal');
       this.refreshCurrentView();
@@ -2979,17 +2999,15 @@ class Dashboard {
 
        console.log('Submitting task:', { taskId, userId, filesCount: files?.length || 0 });
 
-       const response = await fetch(`${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`, {
-         method: 'POST',
-         body: formData
-       });
-       
-       if (!response.ok) {
-         const errorData = await response.json().catch(() => ({}));
-         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-       }
-       
-       const data = await response.json();
+      // แสดง Overlay และอัปโหลดแบบมี progress
+      const selectedFiles = files ? Array.from(files) : [];
+      const totalSize = selectedFiles.reduce((s, f) => s + (f.size || 0), 0);
+      this.showUploadOverlay({ subtitle: `${selectedFiles.length} ไฟล์ • รวม ${this.formatFileSize(totalSize)}` });
+
+      const url = `${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`;
+      const data = await this.uploadWithProgress(url, formData, (loaded, total, lengthComputable) => {
+        this.updateUploadOverlay({ loaded, total, lengthComputable, detail: `${this.formatFileSize(loaded)} / ${lengthComputable ? this.formatFileSize(total) : 'ไม่ทราบขนาด'}` });
+      });
        if (data.success) {
          this.showToast('ส่งงานสำเร็จ', 'success');
          this.closeModal('submitTaskModal');
@@ -3001,10 +3019,12 @@ class Dashboard {
        } else {
          this.showToast(data.error || 'ส่งงานไม่สำเร็จ', 'error');
        }
-     } catch (error) {
-       console.error('submitTask error:', error);
-       this.showToast(`ส่งงานไม่สำเร็จ: ${error.message}`, 'error');
-     }
+    } catch (error) {
+      console.error('submitTask error:', error);
+      this.showToast(`ส่งงานไม่สำเร็จ: ${error.message}`, 'error');
+    } finally {
+      this.hideUploadOverlay();
+    }
    }
 
      async populateSubmitTaskSelect(selectedTaskId = '') {
@@ -3076,89 +3096,20 @@ class Dashboard {
       
       if (tasks.length === 0) {
         sel.innerHTML = '<option value="">ไม่มีงานที่รอการตรวจสอบ</option>';
-        // ปิดปุ่มอนุมัติและตีกลับเมื่อไม่มีงาน
-        document.getElementById('approveTaskBtn').disabled = true;
-        document.getElementById('rejectTaskBtn').disabled = true;
       } else {
         sel.innerHTML = tasks.map(t => `<option value="${t.id}" ${selectedTaskId === t.id ? 'selected' : ''}>${t.title}</option>`).join('');
-        // เปิดปุ่มอนุมัติและตีกลับเมื่อมีงาน
-        document.getElementById('approveTaskBtn').disabled = false;
-        document.getElementById('rejectTaskBtn').disabled = false;
       }
     } catch (error) {
       console.error('populateReviewTaskSelect error:', error);
       const sel = document.getElementById('reviewTaskId');
       sel.innerHTML = '<option value="">เกิดข้อผิดพลาดในการโหลดข้อมูล</option>';
-      // ปิดปุ่มอนุมัติและตีกลับเมื่อเกิดข้อผิดพลาด
-      document.getElementById('approveTaskBtn').disabled = true;
-      document.getElementById('rejectTaskBtn').disabled = true;
+
     }
   }
 
-  async handleApproveTask() {
-    try {
-      const taskId = document.getElementById('reviewTaskId').value;
-      
-      // ตรวจสอบว่า taskId มีค่าหรือไม่
-      if (!taskId) {
-        this.showToast('กรุณาเลือกงานที่ต้องการอนุมัติ', 'error');
-        return;
-      }
-      
-      console.log('🔍 Approving task with ID:', taskId);
-      
-      const res = await this.apiRequest(`/tasks/${taskId}/complete`, {
-        method: 'POST',
-        body: JSON.stringify({ userId: this.currentUserId || 'unknown' })
-      });
-      if (res.success) {
-        this.showToast('อนุมัติงานและปิดงานสำเร็จ', 'success');
-        this.closeModal('reviewTaskModal');
-        this.refreshCurrentView();
-      }
-    } catch (error) {
-      console.error('approve error:', error);
-      this.showToast('อนุมัติงานไม่สำเร็จ', 'error');
-    }
-  }
 
-  async handleRejectTask() {
-    try {
-      const taskId = document.getElementById('reviewTaskId').value;
-      
-      // ตรวจสอบว่า taskId มีค่าหรือไม่
-      if (!taskId) {
-        this.showToast('กรุณาเลือกงานที่ต้องการตีกลับ', 'error');
-        return;
-      }
-      
-      const comment = document.getElementById('reviewComment').value;
-      const newDue = document.getElementById('reviewNewDue').value;
-      if (!newDue) { this.showToast('ระบุกำหนดส่งใหม่', 'error'); return; }
-      
-      console.log('🔍 Rejecting task with ID:', taskId);
-      
-      // ส่ง ISO string เพื่อลด edge case timezone และใช้ moment-timezone
-      const isoDue = this.formatDateForAPI(newDue);
-      const res = await this.apiRequest(`/tasks/${taskId}`, {
-        method: 'PUT',
-        body: JSON.stringify({
-          dueTime: isoDue,
-          reviewAction: 'revise',
-          reviewerUserId: this.currentUserId || 'unknown',
-          reviewerComment: comment || ''
-        })
-      });
-      if (res.success) {
-        this.showToast('ตีกลับงานสำเร็จ', 'success');
-        this.closeModal('reviewTaskModal');
-        this.refreshCurrentView();
-      }
-    } catch (error) {
-      console.error('reject error:', error);
-      this.showToast('ตีกลับงานไม่สำเร็จ', 'error');
-    }
-  }
+
+
 
   switchLeaderboardPeriod(period) {
     document.querySelectorAll('[data-period]').forEach(btn => {

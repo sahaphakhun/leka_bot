@@ -13,6 +13,7 @@ import { webhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
 import { dashboardRouter } from './controllers/dashboardController';
 import { projectRouter } from './controllers/projectController';
+import fileBackupRouter from './routes/fileBackupRoutes';
 import { LineService } from './services/LineService';
 import { CronService } from './services/CronService';
 import { logger } from './utils/logger';
@@ -48,18 +49,29 @@ class Server {
             "'unsafe-inline'", // Required for inline scripts in dashboard
             "https://cdnjs.cloudflare.com" // Allow moment.js from CDN
           ],
+          // หมายเหตุ: ไม่ตั้ง styleSrcElem แยก เพื่อให้ styleSrc ใช้เป็น fallback ได้
           styleSrc: [
-            "'self'", 
+            "'self'",
             "'unsafe-inline'",
-            "https://fonts.googleapis.com", // Allow Google Fonts
-            "https://cdnjs.cloudflare.com" // Allow Font Awesome
+            "https://fonts.googleapis.com", // Google Fonts stylesheet
+            "https://cdnjs.cloudflare.com", // 3rd-party styles (e.g., Font Awesome via cdnjs)
+            "https://use.fontawesome.com" // Font Awesome official CDN
           ],
           imgSrc: ["'self'", "data:", "https:"],
-          connectSrc: ["'self'", "https://res.cloudinary.com"],
+          // อนุญาตปลายทางสำหรับ fetch/XHR/Service Worker
+          connectSrc: [
+            "'self'",
+            "https://res.cloudinary.com",
+            "https://cdnjs.cloudflare.com", // For fetching CDN assets (e.g., SW prefetch)
+            "https://fonts.googleapis.com",
+            "https://fonts.gstatic.com",
+            "https://use.fontawesome.com"
+          ],
           fontSrc: [
             "'self'",
-            "https://fonts.gstatic.com", // Allow Google Fonts
-            "https://cdnjs.cloudflare.com" // Allow Font Awesome fonts
+            "https://fonts.gstatic.com", // Google Fonts files
+            "https://cdnjs.cloudflare.com", // Font Awesome fonts via cdnjs
+            "https://use.fontawesome.com" // Font Awesome fonts via official CDN
           ],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'", "blob:", "data:", "https://res.cloudinary.com"],
@@ -150,6 +162,9 @@ class Server {
 
     // Project Rules & Memory Routes
     this.app.use('/api/project', projectRouter);
+
+    // File Backup Routes
+    this.app.use('/api/backup', fileBackupRouter);
 
     // Dashboard Routes (ต้องมาหลัง static files)
     this.app.use('/dashboard', dashboardRouter);

@@ -7,8 +7,27 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      window.tailwind = window.tailwind || {};
+      window.tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              primary: '#2563eb',
+              success: '#10b981',
+              warning: '#f59e0b',
+              danger: '#ef4444'
+            },
+            fontFamily: {
+              sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
+            }
+          }
+        }
+      };
+    </script>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="/dashboard/styles.css">
+    <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -21,11 +40,8 @@
 
     <!-- Header -->
     <header class="header">
-        <div class="header-container">
+        <div class="header-container max-w-screen-2xl mx-auto px-4 md:px-6">
             <div class="header-left">
-                <button class="btn-icon mobile-only" id="menuToggle" aria-label="เปิดเมนู">
-                    <i class="fas fa-bars"></i>
-                </button>
                 <h1 class="logo">
                     <i class="fas fa-robot"></i>
                     เลขาบอท
@@ -49,14 +65,11 @@
 
     <!-- Main Layout -->
     <div class="main-layout">
-        <!-- Sidebar Overlay -->
-        <div class="sidebar-overlay" id="sidebarOverlay"></div>
-        
-        <!-- Sidebar -->
+        <!-- Sidebar (Desktop only) -->
         <aside class="sidebar">
             <nav class="sidebar-nav">
                 <a href="#dashboard" class="nav-item active" data-view="dashboard">
-                    <i class="fas fa-chart-line"></i>
+                    <i class="fas fa-home"></i>
                     <span>ภาพรวม</span>
                 </a>
                 <a href="#calendar" class="nav-item" data-view="calendar">
@@ -93,7 +106,7 @@
         <main class="main-content">
             <!-- Dashboard View -->
             <div id="dashboardView" class="view active">
-                <div class="view-header">
+                <div class="view-header flex flex-wrap gap-3">
                     <h2>ภาพรวมกลุ่ม</h2>
                     <div class="view-actions">
                         <button class="btn btn-outline" id="refreshBtn">
@@ -197,7 +210,7 @@
 
             <!-- Calendar View -->
             <div id="calendarView" class="view">
-                <div class="view-header">
+                <div class="view-header flex flex-wrap gap-3">
                     <h2>ปฏิทินงาน</h2>
                     <div class="view-actions">
                         <div class="btn-group">
@@ -208,9 +221,9 @@
 
                 <div class="calendar-container">
                     <div class="calendar-header">
-                        <button class="btn-icon" id="prevMonth"><i class="fas fa-chevron-left"></i></button>
+                        <button class="btn-icon" id="prevMonth" aria-label="เดือนก่อนหน้า"><i class="fas fa-chevron-left"></i></button>
                         <h3 id="currentMonth">มกราคม 2024</h3>
-                        <button class="btn-icon" id="nextMonth"><i class="fas fa-chevron-right"></i></button>
+                        <button class="btn-icon" id="nextMonth" aria-label="เดือนถัดไป"><i class="fas fa-chevron-right"></i></button>
                     </div>
                     <div class="calendar-grid" id="calendarGrid">
                         <!-- จะใส่ด้วย JavaScript -->
@@ -220,7 +233,7 @@
 
             <!-- Tasks View -->
             <div id="tasksView" class="view">
-                <div class="view-header">
+                <div class="view-header flex flex-wrap gap-3">
                     <h2>งานทั้งหมด</h2>
                     <div class="view-actions">
                         <div class="filters">
@@ -235,7 +248,7 @@
                             <!-- <select class="filter-select" id="assigneeFilter">
                                 <option value="">ผู้รับผิดชอบทั้งหมด</option>
                             </select> -->
-                            <input type="text" class="filter-input" id="searchTasks" placeholder="ค้นหางาน...">
+                            <input type="text" class="filter-input" id="searchTasks" placeholder="ค้นหางาน..." aria-label="ค้นหางาน">
                         </div>
                     </div>
                 </div>
@@ -252,7 +265,7 @@
 
             <!-- Files View -->
             <div id="filesView" class="view">
-                <div class="view-header">
+                <div class="view-header flex flex-wrap gap-3">
                     <h2>คลังไฟล์</h2>
                     <div class="view-actions">
                         <div class="filters" style="display: flex; gap: 8px; align-items: center;">
@@ -269,7 +282,7 @@
                                 <option value="archive">ไฟล์บีบอัด</option>
                                 <option value="other">อื่นๆ</option>
                             </select>
-                            <input type="text" class="filter-input" id="searchFiles" placeholder="ค้นหาไฟล์..." style="min-width: 200px;">
+                            <input type="text" class="filter-input" id="searchFiles" placeholder="ค้นหาไฟล์..." style="min-width: 200px;" aria-label="ค้นหาไฟล์">
                         </div>
                         <button class="btn btn-primary" id="uploadFileBtn">
                             <i class="fas fa-upload"></i>
@@ -287,7 +300,7 @@
 
             <!-- Leaderboard View -->
             <div id="leaderboardView" class="view">
-                <div class="view-header">
+                <div class="view-header flex flex-wrap gap-3">
                     <h2>อันดับผลงาน</h2>
                     <div class="view-actions">
                         <div class="btn-group">
@@ -309,7 +322,7 @@
 
             <!-- Reports View -->
             <div id="reportsView" class="view">
-                <div class="view-header">
+                <div class="view-header flex flex-wrap gap-3">
                     <h2>รายงานสำหรับผู้บริหาร</h2>
                     <div class="view-actions">
                         <div class="btn-group">
@@ -456,14 +469,9 @@
                         <label for="reviewComment">ความเห็น</label>
                         <textarea id="reviewComment" rows="3"></textarea>
                     </div>
-                    <div class="form-group">
-                        <label for="reviewNewDue">กำหนดส่งใหม่ (กรณีตีกลับ)</label>
-                        <input type="datetime-local" id="reviewNewDue">
-                    </div>
+
                     <div class="form-actions" style="display:flex; gap:8px;">
                         <button type="button" class="btn btn-outline" id="cancelReviewTask">ยกเลิก</button>
-                        <button type="button" class="btn btn-primary" id="approveTaskBtn" disabled>อนุมัติ</button>
-                        <button type="button" class="btn btn-outline" id="rejectTaskBtn" disabled>ตีกลับ</button>
                     </div>
                 </form>
             </div>
@@ -825,14 +833,34 @@
     </div>
 
     <!-- Toast Notifications -->
-    <div id="toastContainer" class="toast-container">
+    <div id="toastContainer" class="toast-container" role="status" aria-live="polite">
         <!-- จะใส่ด้วย JavaScript -->
     </div>
 
+    <!-- Upload Overlay -->
+    <div id="uploadOverlay" class="upload-overlay hidden" aria-live="polite" aria-label="กำลังอัปโหลดไฟล์">
+        <div class="upload-card">
+            <div class="upload-header">
+                <i class="fas fa-cloud-upload-alt"></i>
+                <div class="upload-titles">
+                    <div class="upload-title">กำลังอัปโหลดไฟล์...</div>
+                    <div class="upload-subtitle" id="uploadSubtitle">โปรดรอสักครู่</div>
+                </div>
+            </div>
+            <div class="progress">
+                <div id="uploadProgressBar" class="progress-bar indeterminate" style="width: 0%;"></div>
+            </div>
+            <div class="progress-meta">
+                <span id="uploadPercent">0%</span>
+                <span id="uploadDetail" class="muted">กำลังเตรียมไฟล์...</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Bottom Navigation (Mobile) -->
-    <nav class="bottom-nav">
+    <nav class="bottom-nav md:hidden">
         <a href="#dashboard" class="bottom-nav-item active" data-view="dashboard">
-            <i class="fas fa-chart-line"></i>
+            <i class="fas fa-home"></i>
             <span>ภาพรวม</span>
         </a>
         <a href="#calendar" class="bottom-nav-item" data-view="calendar">
@@ -847,11 +875,19 @@
             <i class="fas fa-folder"></i>
             <span>ไฟล์</span>
         </a>
+        <a href="#leaderboard" class="bottom-nav-item" data-view="leaderboard">
+            <i class="fas fa-trophy"></i>
+            <span>อันดับ</span>
+        </a>
+        <a href="#reports" class="bottom-nav-item" data-view="reports">
+            <i class="fas fa-chart-bar"></i>
+            <span>รายงาน</span>
+        </a>
     </nav>
 
     <!-- เพิ่ม moment-timezone สำหรับการจัดการเวลา (ใช้ CDN version) -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
-    <script src="/dashboard/script.js"></script>
+    <script src="./script.js"></script>
 </body>
 </html>

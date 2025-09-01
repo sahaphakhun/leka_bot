@@ -22,7 +22,8 @@ import { config } from '@/utils/config';
 import { autoMigration } from '@/utils/autoMigration';
 
 export const apiRouter = Router();
-const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 25 * 1024 * 1024 } });
+// ยกเลิกการจำกัดขนาดไฟล์ที่ multer เพื่อรองรับไฟล์ขนาดใหญ่
+const upload = multer({ storage: multer.memoryStorage() });
 
 class ApiController {
   private taskService: TaskService;
@@ -208,7 +209,15 @@ class ApiController {
         'image/png',
         'image/gif',
         'application/pdf',
-        'text/plain'
+        'text/plain',
+        // Office (OpenXML)
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',      // .xlsx
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+        // Office (legacy for compatibility)
+        'application/msword',                // .doc
+        'application/vnd.ms-excel',          // .xls
+        'application/vnd.ms-powerpoint'      // .ppt
       ];
       const MAX_ATTACHMENTS = 5;
 
@@ -883,20 +892,12 @@ class ApiController {
         'application/vnd.openxmlformats-officedocument.presentationml.presentation'
       ];
 
-      // ตรวจสอบว่าไฟล์มีขนาดเกิน limit หรือประเภทไม่ถูกต้อง
-      const maxFileSize = config.storage.maxFileSize || 10 * 1024 * 1024; // 10MB default
+      // ตรวจสอบประเภทไฟล์เท่านั้น (ไม่จำกัดขนาดไฟล์)
       for (const file of files) {
         if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
           res.status(400).json({
             success: false,
             error: `Invalid file type: ${file.mimetype}. Allowed types: ${ALLOWED_MIME_TYPES.join(', ')}`
-          });
-          return;
-        }
-        if (file.size > maxFileSize) {
-          res.status(400).json({
-            success: false,
-            error: `File ${file.originalname} is too large. Maximum size is ${Math.round(maxFileSize / 1024 / 1024)}MB`
           });
           return;
         }

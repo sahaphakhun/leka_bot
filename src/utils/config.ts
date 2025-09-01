@@ -37,6 +37,8 @@ export const config = {
     redirectUri: process.env.GOOGLE_REDIRECT_URI!,
     serviceAccountKey: process.env.GOOGLE_SERVICE_ACCOUNT_KEY,
     serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON, // สำหรับ Railway
+    driveSharedFolderId: process.env.GOOGLE_DRIVE_SHARED_FOLDER_ID, // โฟลเดอร์ใน Shared Drive
+    credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS, // พาธไฟล์ JSON ทางเลือก
   },
   
   // Email Configuration

@@ -72,7 +72,7 @@ export class FileService {
       // แปลง LINE User ID → internal UUID (ถ้ามี record อยู่)
       let internalUserId: string | null = null;
       // พยายามหาโดย lineUserId ก่อน
-      const userByLineId = await this.userRepository.findOne({ where: { lineUserId: data.uploadedBy } });
+      let userByLineId = await this.userRepository.findOne({ where: { lineUserId: data.uploadedBy } });
       if (userByLineId) {
         internalUserId = userByLineId.id;
       } else {
@@ -80,11 +80,16 @@ export class FileService {
         const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.uploadedBy);
         if (isUuid) {
           internalUserId = data.uploadedBy;
+        } else {
+          // สร้าง temporary user สำหรับการอัปโหลดจาก Dashboard/ไม่ทราบตัวตน
+          const tempUser = this.userRepository.create({
+            lineUserId: data.uploadedBy,
+            displayName: `ผู้ส่งงาน (${(data.uploadedBy || 'unknown').substring(0, 8)}...)`,
+            timezone: 'Asia/Bangkok'
+          });
+          userByLineId = await this.userRepository.save(tempUser);
+          internalUserId = userByLineId.id;
         }
-      }
-
-      if (!internalUserId) {
-        throw new Error(`User not found for uploadedBy: ${data.uploadedBy}`);
       }
 
       // อัปโหลดไป Cloudinary ถ้าตั้งค่าพร้อม ใช้ remote storage แทน local
@@ -96,23 +101,30 @@ export class FileService {
         const base64 = data.content.toString('base64');
         const ext = this.getFileExtension(data.mimeType, data.originalName);
         const folder = `${config.cloudinary.uploadFolder}/${data.groupId}`;
-        const publicId = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}${ext}`;
-        const resourceType = data.mimeType.startsWith('application/') ? 'raw' : 'auto';
+        // กำหนด public_id โดยไม่ใส่นามสกุล เพื่อให้ Cloudinary จัดการ format เอง
+        const publicIdBase = `${Date.now()}_${crypto.randomBytes(6).toString('hex')}`;
+        // ระบุ resource_type ให้ถูกต้อง: image | video | raw
+        let resourceType: 'image' | 'video' | 'raw' = 'raw';
+        if (data.mimeType.startsWith('image/')) resourceType = 'image';
+        else if (data.mimeType.startsWith('video/') || data.mimeType.startsWith('audio/')) resourceType = 'video';
+        else resourceType = 'raw';
+
         const uploadRes = await cloudinary.uploader.upload(`data:${data.mimeType};base64,${base64}` as any, {
           folder,
-          public_id: publicId,
+          public_id: publicIdBase,
           resource_type: resourceType
         } as any);
 
         fileRecord = this.fileRepository.create({
           groupId: internalGroupId,
           originalName: data.originalName || `file_${data.messageId}${ext}`,
-          fileName: publicId,
+          fileName: `${publicIdBase}${ext}`,
           mimeType: data.mimeType,
-          size: uploadRes.bytes || data.content.length,
-          path: uploadRes.secure_url, // เก็บเป็น URL
+          size: (uploadRes as any).bytes || data.content.length,
+          path: (uploadRes as any).secure_url, // เก็บเป็น URL
           storageProvider: 'cloudinary',
-          storageKey: publicId,
+          // เก็บ storageKey เป็น public_id เต็ม (รวม path โฟลเดอร์) เพื่อใช้อ้างอิงในอนาคต
+          storageKey: (uploadRes as any).public_id,
           uploadedBy: internalUserId,
           isPublic: false,
           tags: [],
@@ -662,7 +674,19 @@ export class FileService {
         return { content, mimeType: file.mimeType, originalName: file.originalName };
       } catch (err) {
         lastErr = err;
-        // ถ้าเป็น error ที่มี status code 4xx ไม่ต้อง retry
+        // ถ้าเป็น 401/403/404 จาก Cloudinary ให้ลองสร้าง private download URL แล้ว retry ทันที
+        if ([401,403,404].includes((err as any)?.statusCode) && file.path && file.path.includes('res.cloudinary.com')) {
+          try {
+            const fallbackUrl = this.getCloudinaryPrivateDownloadUrl(file);
+            if (fallbackUrl) {
+              const buf = await fetchWithHttp(fallbackUrl);
+              return { content: buf, mimeType: file.mimeType, originalName: file.originalName };
+            }
+          } catch (fbErr) {
+            lastErr = fbErr;
+          }
+        }
+        // ถ้าเป็น error ที่มี status code 4xx ไม่ต้อง retry (ยกเว้นที่ลอง fallback ไปแล้ว)
         if ((err as any)?.statusCode && (err as any).statusCode < 500) {
           break;
         }
@@ -789,6 +813,116 @@ export class FileService {
       logger.warn('⚠️ Failed to sign Cloudinary URL', err);
       return file.path;
     }
+  }
+
+  /**
+   * สกัดข้อมูล Cloudinary จาก path/record เพื่อใช้สร้างลิงก์ดาวน์โหลดแบบ private
+   */
+  private buildCloudinaryInfo(file: File): {
+    resourceType: 'image' | 'video' | 'raw';
+    deliveryType: string; // upload | authenticated | private | fetch
+    publicId: string; // ไม่รวมสกุลไฟล์
+    format?: string;  // สกุลไฟล์ เช่น pdf, jpg
+  } {
+    let resourceType: 'image' | 'video' | 'raw';
+    if (file.mimeType.startsWith('video/') || file.mimeType.startsWith('audio/')) {
+      resourceType = 'video';
+    } else if (file.mimeType.startsWith('application/') || file.mimeType.startsWith('text/')) {
+      resourceType = 'raw';
+    } else {
+      resourceType = 'image';
+    }
+
+    let deliveryType = 'upload';
+    let publicIdWithExt: string | undefined;
+
+    if (file.path && file.path.includes('res.cloudinary.com')) {
+      try {
+        const urlObj = new URL(file.path);
+        const parts = urlObj.pathname.split('/').filter(Boolean);
+        const startIdx = (parts[0] === (config.cloudinary.cloudName || '')) ? 1 : 0;
+        if (parts.length >= startIdx + 2) {
+          const rt = parts[startIdx];
+          const dt = parts[startIdx + 1];
+          if (rt === 'image' || rt === 'video' || rt === 'raw') {
+            resourceType = rt as any;
+          }
+          deliveryType = dt || deliveryType;
+        }
+        let versionIndex = -1;
+        for (let i = startIdx + 2; i < parts.length; i++) {
+          if (parts[i].startsWith('v')) { versionIndex = i; break; }
+        }
+        if (versionIndex !== -1) {
+          publicIdWithExt = parts.slice(versionIndex + 1).join('/');
+        } else {
+          publicIdWithExt = parts.slice(startIdx + 2).join('/');
+        }
+      } catch {}
+    }
+
+    if (!publicIdWithExt || publicIdWithExt.trim() === '') {
+      publicIdWithExt = file.storageKey || file.fileName;
+    }
+
+    let publicId = publicIdWithExt || '';
+    let format: string | undefined;
+    const lastDot = publicId.lastIndexOf('.');
+    if (lastDot > -1 && lastDot < publicId.length - 1) {
+      format = publicId.substring(lastDot + 1);
+      publicId = publicId.substring(0, lastDot);
+    }
+
+    return { resourceType, deliveryType, publicId, format };
+  }
+
+  /**
+   * สร้าง URL ดาวน์โหลดแบบ private ของ Cloudinary สำหรับกรณี 401
+   */
+  private getCloudinaryPrivateDownloadUrl(file: File): string | null {
+    try {
+      if (!config.cloudinary.cloudName || !config.cloudinary.apiSecret) return null;
+      const info = this.buildCloudinaryInfo(file);
+      const format = info.format || this.inferFormatFromMime(file.mimeType);
+      if (!format) return null;
+
+      const url = cloudinary.utils.private_download_url(
+        info.publicId,
+        format,
+        {
+          resource_type: info.resourceType as any,
+          type: info.deliveryType,
+          secure: true,
+        } as any
+      ) as unknown as string;
+
+      logger.info('🔁 Cloudinary private download URL generated (fallback)', {
+        publicId: info.publicId,
+        format,
+        resourceType: info.resourceType,
+        deliveryType: info.deliveryType
+      });
+      return url;
+    } catch (err) {
+      logger.warn('⚠️ Failed to build Cloudinary private download URL', err);
+      return null;
+    }
+  }
+
+  private inferFormatFromMime(mime: string): string | undefined {
+    const map: Record<string, string> = {
+      'image/jpeg': 'jpg',
+      'image/jpg': 'jpg',
+      'image/png': 'png',
+      'image/gif': 'gif',
+      'image/webp': 'webp',
+      'video/mp4': 'mp4',
+      'audio/mpeg': 'mp3',
+      'application/pdf': 'pdf',
+      'application/json': 'json',
+      'text/plain': 'txt',
+    };
+    return map[mime];
   }
 
   /**

@@ -11,6 +11,7 @@ import { NotificationService } from './NotificationService';
 import { FileService } from './FileService';
 import { LineService } from './LineService';
 import { UserService } from './UserService';
+import { FileBackupService } from './FileBackupService';
 
 export class TaskService {
   private taskRepository: Repository<Task>;
@@ -22,6 +23,7 @@ export class TaskService {
   private lineService: LineService;
   private fileRepository: Repository<File>;
   private userService: UserService;
+  private fileBackupService: FileBackupService;
 
   constructor() {
     this.taskRepository = AppDataSource.getRepository(Task);
@@ -33,6 +35,7 @@ export class TaskService {
     this.lineService = new LineService();
     this.fileRepository = AppDataSource.getRepository(File);
     this.userService = new UserService();
+    this.fileBackupService = new FileBackupService();
   }
 
   /** ดึงงานตาม ID พร้อม relations หลัก */
@@ -214,6 +217,18 @@ export class TaskService {
           }
           await queryRunner.commitTransaction();
           console.log(`✅ Linked ${data.fileIds.length} initial files to task: ${savedTask.title}`);
+
+          // คัดลอกไฟล์แนบตอนสร้างงานไปยัง Google Drive อัตโนมัติ
+          try {
+            console.log(`📁 Starting automatic backup for task creation: ${savedTask.id}`);
+            
+            await this.fileBackupService.backupTaskAttachments(savedTask.id, new Date());
+            
+            console.log(`✅ Automatic backup completed for task creation: ${savedTask.id}`);
+          } catch (err) {
+            console.error('❌ Failed to backup task creation files:', err);
+            // ไม่ throw error เพื่อไม่ให้กระทบกับการสร้างงาน
+          }
         } catch (error) {
           await queryRunner.rollbackTransaction();
           console.warn('⚠️ Failed to link files to task. Transaction rolled back:', error);
@@ -840,6 +855,24 @@ export class TaskService {
     } catch (err) {
       console.error('❌ Failed to send task submitted notification:', err);
       // ไม่ throw error เพราะไม่ต้องการให้การส่งงานล้มเหลว
+    }
+
+    // คัดลอกไฟล์แนบไปยัง Google Drive อัตโนมัติ
+    try {
+      if (fileIds.length > 0) {
+        console.log(`📁 Starting automatic backup for task submission: ${task.id}`);
+        
+        await this.fileBackupService.backupOnTaskSubmission(
+          task.id,
+          submitter.lineUserId || submitter.id,
+          fileIds
+        );
+        
+        console.log(`✅ Automatic backup completed for task submission: ${task.id}`);
+      }
+    } catch (err) {
+      console.error('❌ Failed to backup task submission files:', err);
+      // ไม่ throw error เพื่อไม่ให้กระทบกับการส่งงาน
     }
 
     return saved;

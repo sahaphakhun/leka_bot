@@ -532,9 +532,33 @@ export class KPIService {
       console.log(`📊 KPI Map size: ${kpiMap.size}`);
       
       // รวมข้อมูลสมาชิกกับ KPI data
+      // เดิม: แสดงเฉพาะผู้ที่มี membership ในกลุ่ม แม้มี KPI ก็จะไม่ถูกแสดงหากไม่มีสมาชิกภาพ
+      // ปรับ: รวมผู้ใช้ที่มี KPI ในช่วงเวลาด้วย แม้ไม่พบในตารางสมาชิก เพื่อไม่ให้คะแนน “หายไป”
+      const memberMap = new Map(allMembers.map(m => [m.id, m]));
+      const kpiUserIds = Array.from(kpiMap.keys());
+
+      // หา userIds ที่มี KPI แต่ไม่อยู่ในรายชื่อสมาชิก
+      const missingIds = kpiUserIds.filter(id => !memberMap.has(id));
+
+      let extraUsers: Array<{ id: string; displayName: string; lineUserId: string }> = [];
+      if (missingIds.length > 0) {
+        try {
+          extraUsers = await this.userRepository
+            .createQueryBuilder('user')
+            .select(['user.id', 'user.displayName', 'user.lineUserId'])
+            .where('user.id IN (:...ids)', { ids: missingIds })
+            .getMany();
+          console.log(`ℹ️ Added ${extraUsers.length} KPI-only users to leaderboard view`);
+        } catch (e) {
+          console.warn('⚠️ Failed to fetch KPI-only users:', e);
+        }
+      }
+
+      const displayUsers = [...allMembers, ...extraUsers];
+
       const leaderboard: Leaderboard[] = [];
-      
-      for (const member of allMembers) {
+
+      for (const member of displayUsers) {
         const kpiData = kpiMap.get(member.id) || {
           averagePoints: 0,
           totalPoints: 0,
@@ -557,21 +581,16 @@ export class KPIService {
           trend = 'same';
         }
         
-        // คำนวณคะแนนตามช่วงเวลา
-        let periodPoints = 0;
-        if (period === 'weekly' || period === 'monthly') {
-          // ใช้คะแนนรวมของช่วงเวลานั้น (ไม่ใช่ค่าเฉลี่ย)
-          periodPoints = kpiData.totalPoints;
-        } else {
-          // 'all' ใช้คะแนนรวมทั้งหมด
-          periodPoints = kpiData.totalPoints;
-        }
+        // คำนวณคะแนนตามช่วงเวลา: ใช้ “ค่าเฉลี่ย” = คะแนนรวม / จำนวนงาน
+        // เก็บคะแนนรวมไว้ที่ totalPoints เพื่อใช้งานในอนาคต
+        const tasksInPeriod = kpiData.tasksCompleted || 0;
+        const periodAverage = tasksInPeriod > 0 ? (kpiData.totalPoints / tasksInPeriod) : 0;
         
         leaderboard.push({
           userId: member.id,
           displayName: member.displayName || 'ไม่ทราบชื่อ',
-          weeklyPoints: period === 'weekly' ? periodPoints : 0,
-          monthlyPoints: period === 'monthly' ? periodPoints : 0,
+          weeklyPoints: period === 'weekly' ? periodAverage : 0,
+          monthlyPoints: period === 'monthly' ? periodAverage : 0,
           totalPoints: kpiData.totalPoints,
           tasksCompleted: kpiData.tasksCompleted,
           tasksEarly: kpiData.tasksEarly,

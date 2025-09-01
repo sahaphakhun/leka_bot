@@ -155,6 +155,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-6);
+  /* Prevent overflow in tight widths */
+  min-width: 0;
 }
 
 .logo {
@@ -185,6 +187,8 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-4);
+  /* Prevent overflow in tight widths */
+  min-width: 0;
 }
 
 .btn-icon {
@@ -263,6 +267,19 @@ body {
   font-size: var(--font-size-sm);
   font-weight: 500;
   color: var(--color-gray-900);
+  /* Prevent long names from pushing layout */
+  max-width: clamp(96px, 30vw, 220px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Truncate long group names in header badge */
+.group-label span {
+  max-width: clamp(96px, 30vw, 240px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .user-role {
@@ -347,9 +364,11 @@ body {
 
 .main-content {
   flex: 1;
-  margin-left: var(--sidebar-width);
+  margin-left: 0;
   padding: var(--spacing-6);
   min-height: calc(100vh - var(--header-height));
+  /* Avoid stray horizontal scroll when content wraps */
+  overflow-x: hidden;
 }
 
 /* ==================== */
@@ -360,6 +379,9 @@ body {
   display: none;
 }
 
+/* Hide bottom navigation by default (shown on mobile via media query) */
+.bottom-nav { display: none; }
+
 .view.active {
   display: block;
 }
@@ -369,6 +391,9 @@ body {
   align-items: center;
   justify-content: space-between;
   margin-bottom: var(--spacing-8);
+  /* Allow wrapping on small screens to avoid overflow */
+  flex-wrap: wrap;
+  gap: var(--spacing-3);
 }
 
 .view-header h2 {
@@ -381,6 +406,7 @@ body {
   display: flex;
   align-items: center;
   gap: var(--spacing-3);
+  flex-wrap: wrap;
 }
 
 /* ==================== */
@@ -535,6 +561,52 @@ body {
   animation: spin 1s linear infinite;
   margin-bottom: var(--spacing-4);
 }
+
+/* ==================== */
+/* Upload Overlay Styles */
+/* ==================== */
+
+.upload-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 24, 39, 0.6); /* gray-900/60 */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  backdrop-filter: blur(2px);
+}
+
+.upload-overlay.hidden { display: none; }
+
+.upload-card {
+  width: min(520px, 92vw);
+  background: var(--color-white);
+  border-radius: 16px;
+  padding: 20px 22px;
+  box-shadow: 0 20px 35px rgba(0,0,0,0.15);
+}
+
+.upload-header { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+.upload-header i { font-size: 1.5rem; color: var(--color-primary); }
+.upload-title { font-weight: 700; color: var(--color-gray-900); }
+.upload-subtitle { font-size: 0.9rem; color: var(--color-gray-500); margin-top: 2px; }
+
+.progress { width: 100%; height: 10px; background: var(--color-gray-200); border-radius: 999px; overflow: hidden; }
+.progress-bar { height: 100%; background: linear-gradient(90deg, var(--color-primary), var(--color-primary-light)); border-radius: 999px; transition: width 0.2s ease; }
+.progress-bar.indeterminate {
+  position: relative;
+  width: 40%;
+  animation: indeterminate 1.2s ease-in-out infinite;
+}
+@keyframes indeterminate {
+  0% { transform: translateX(-120%); }
+  50% { transform: translateX(15%); }
+  100% { transform: translateX(120%); }
+}
+
+.progress-meta { display: flex; justify-content: space-between; margin-top: 10px; font-size: 0.9rem; }
+.progress-meta .muted { color: var(--color-gray-500); }
 
 /* File Preview Thumbnails */
 .file-thumbnail {
@@ -1856,233 +1928,14 @@ body {
 
 @media (max-width: 768px) {
   .sidebar {
-    transform: translateX(-100%) translateZ(0);
-    transition: transform 0.3s ease, box-shadow 0.3s ease;
-    z-index: 1200;
-    will-change: transform;
-    backface-visibility: hidden;
+    display: none !important;
   }
   
-  .sidebar.open {
-    transform: translateX(0) translateZ(0);
-    box-shadow: var(--shadow-lg);
-  }
-  
-  /* ปรับปรุง accessibility สำหรับ sidebar */
-  .sidebar:focus-within {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
-  }
-  
-  /* เพิ่ม overlay เมื่อ sidebar เปิด */
   .sidebar-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    z-index: 1100;
-    opacity: 0;
-    visibility: hidden;
-    transition: opacity 0.3s ease, visibility 0.3s ease, backdrop-filter 0.3s ease;
-    backdrop-filter: blur(0px);
-    will-change: opacity, visibility, backdrop-filter;
+    display: none !important;
   }
   
-  .sidebar-overlay.active {
-    opacity: 1;
-    visibility: visible;
-    animation: fadeInOverlay 0.3s ease forwards;
-  }
-  
-  @keyframes fadeInOverlay {
-    from {
-      opacity: 0;
-      backdrop-filter: blur(0px);
-    }
-    to {
-      opacity: 1;
-      backdrop-filter: blur(2px);
-    }
-  }
-  
-  /* ปรับปรุง sidebar overlay transition */
-  .sidebar-overlay:not(.active) {
-    backdrop-filter: blur(0px);
-  }
-  
-  /* ปรับปรุง sidebar overlay performance */
-  .sidebar-overlay {
-    transform: translateZ(0);
-    backface-visibility: hidden;
-  }
-  
-  /* ปรับปรุง keyboard navigation */
-  .sidebar:focus-within .nav-item:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
-  }
-  
-  /* ซ่อน sidebar เมื่อไม่ใช้งานบน mobile */
-  .sidebar:not(.open) {
-    pointer-events: none;
-  }
-  
-  .sidebar:not(.open) .nav-item {
-    pointer-events: none;
-  }
-  
-  /* ปรับปรุง focus management */
-  .sidebar.open {
-    pointer-events: auto;
-  }
-  
-  .sidebar.open .nav-item {
-    pointer-events: auto;
-  }
-  
-  /* ปรับปรุง focus trap */
-  .sidebar.open:focus-within {
-    outline: none;
-  }
-  
-  .sidebar.open .nav-item:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: -2px;
-    background: var(--color-primary-light);
-    color: var(--color-white);
-  }
-  
-  /* ปรับปรุง button states ใน sidebar */
-  .sidebar.open .btn {
-    transition: all 0.2s ease;
-  }
-  
-  .sidebar.open .btn:focus {
-    outline: 2px solid var(--color-primary);
-    outline-offset: 2px;
-  }
-  
-  /* ปรับปรุง sidebar footer button animation */
-  .sidebar.open .sidebar-footer .btn {
-    animation: fadeIn 0.5s ease forwards;
-    animation-delay: 0.5s;
-    opacity: 0;
-  }
-  
-  /* ปรับปรุง sidebar animation performance */
-  .sidebar.open * {
-    will-change: auto;
-  }
-  
-  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
-  .sidebar:not(.open) .nav-item,
-  .sidebar:not(.open) .sidebar-footer {
-    opacity: 1;
-    animation: none;
-  }
-  
-  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
-  .sidebar:not(.open) .sidebar-footer .btn {
-    opacity: 1;
-    animation: none;
-  }
-  
-  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
-  .sidebar:not(.open) .nav-item {
-    opacity: 1;
-    animation: none;
-    transform: translateX(0);
-  }
-  
-  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
-  .sidebar:not(.open) .sidebar-footer {
-    opacity: 1;
-    animation: none;
-    transform: translateY(0);
-  }
-  
-  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
-  .sidebar:not(.open) .sidebar-footer .btn {
-    opacity: 1;
-    animation: none;
-    transform: scale(1);
-  }
-  
-  /* ปรับปรุง sidebar animation ที่ดีขึ้น */
-  .sidebar:not(.open) .nav-item {
-    opacity: 1;
-    animation: none;
-    transform: translateX(0);
-  }
-  
-  @keyframes fadeIn {
-    from {
-      opacity: 0;
-      transform: scale(0.95);
-    }
-    to {
-      opacity: 1;
-      transform: scale(1);
-    }
-  }
-  
-  /* ปรับปรุง focus trap */
-  .sidebar.open {
-    position: fixed;
-    z-index: 1200;
-  }
-  
-  .sidebar.open .nav-item:first-child {
-    margin-top: var(--spacing-2);
-  }
-  
-  .sidebar.open .nav-item:last-child {
-    margin-bottom: var(--spacing-2);
-  }
-  
-  /* ปรับปรุง sidebar content animation */
-  .sidebar.open .nav-item {
-    animation: slideInLeft 0.3s ease forwards;
-    opacity: 0;
-  }
-  
-  .sidebar.open .nav-item:nth-child(1) { animation-delay: 0.1s; }
-  .sidebar.open .nav-item:nth-child(2) { animation-delay: 0.15s; }
-  .sidebar.open .nav-item:nth-child(3) { animation-delay: 0.2s; }
-  .sidebar.open .nav-item:nth-child(4) { animation-delay: 0.25s; }
-  .sidebar.open .nav-item:nth-child(5) { animation-delay: 0.3s; }
-  .sidebar.open .nav-item:nth-child(6) { animation-delay: 0.35s; }
-  
-  @keyframes slideInLeft {
-    from {
-      opacity: 0;
-      transform: translateX(-20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateX(0);
-    }
-  }
-  
-  /* ปรับปรุง sidebar footer animation */
-  .sidebar.open .sidebar-footer {
-    animation: slideInUp 0.4s ease forwards;
-    animation-delay: 0.4s;
-    opacity: 0;
-  }
-  
-  @keyframes slideInUp {
-    from {
-      opacity: 0;
-      transform: translateY(20px);
-    }
-    to {
-      opacity: 1;
-      transform: translateY(0);
-    }
-  }
+
   
   .main-content {
     margin-left: 0;
@@ -2295,7 +2148,6 @@ body {
 /* ==================== */
 
 .mobile-only { display: none; }
-.bottom-nav { display: none; }
 
 @media (max-width: 768px) {
   .mobile-only { display: inline-flex; }
@@ -2341,14 +2193,16 @@ body {
     bottom: 0;
     left: 0;
     right: 0;
-    height: 56px;
+    height: 60px;
     background: var(--color-white);
     border-top: 1px solid var(--color-gray-200);
     display: flex;
     align-items: center;
     justify-content: space-around;
     z-index: 1500;
-    box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
+    box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.1);
+    backdrop-filter: blur(10px);
+    background: rgba(255, 255, 255, 0.95);
   }
 
   .bottom-nav-item {
@@ -2356,23 +2210,53 @@ body {
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 2px;
-    font-size: 11px;
+    gap: 3px;
+    font-size: 10px;
     color: var(--color-gray-600);
     text-decoration: none;
-    width: 25%;
+    width: 16.666%;
     height: 100%;
+    padding: 6px 2px;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    margin: 0 2px;
   }
 
-  .bottom-nav-item i { font-size: 16px; }
+  .bottom-nav-item:hover {
+    background: var(--color-gray-50);
+    color: var(--color-gray-800);
+    transform: translateY(-2px);
+  }
+
+  .bottom-nav-item i { 
+    font-size: 16px; 
+    margin-bottom: 2px;
+    transition: all 0.2s ease;
+  }
+
+  .bottom-nav-item span {
+    font-size: 12px;
+    line-height: 1.2;
+    text-align: center;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-weight: 500;
+  }
 
   .bottom-nav-item.active,
   .bottom-nav-item:focus {
     color: var(--color-primary);
+    background: rgba(37, 99, 235, 0.1);
   }
 
-  /* Add bottom space for content to avoid overlap */
-  .main-content { padding-bottom: calc(var(--spacing-6) + 56px); }
+  .bottom-nav-item.active i {
+    transform: scale(1.1);
+  }
+
+  /* Add bottom space for content to avoid overlap (respect safe area) */
+  .main-content { padding-bottom: calc(var(--spacing-6) + 60px + env(safe-area-inset-bottom)); }
 }
 
 /* ==================== */
@@ -2508,196 +2392,15 @@ body {
   box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
 }
 
-/* ==================== */
-/* Sidebar Animation Improvements */
-/* ==================== */
 
-/* ปรับปรุง sidebar animation ที่ดีขึ้น */
-.sidebar:not(.open) .nav-item {
-  opacity: 1;
-  animation: none;
-  transform: translateX(0);
-}
 
-.sidebar:not(.open) .sidebar-footer {
-  opacity: 1;
-  animation: none;
-  transform: translateY(0);
-}
 
-.sidebar:not(.open) .sidebar-footer .btn {
-  opacity: 1;
-  animation: none;
-  transform: scale(1);
-}
 
-/* ==================== */
-/* Sidebar Focus Management */
-/* ==================== */
 
-/* ปรับปรุง focus management สำหรับ sidebar */
-.sidebar:not(.open) {
-  pointer-events: none;
-}
 
-.sidebar:not(.open) * {
-  pointer-events: none;
-}
 
-.sidebar.open {
-  pointer-events: auto;
-}
 
-.sidebar.open * {
-  pointer-events: auto;
-}
 
-/* ==================== */
-/* Sidebar Accessibility */
-/* ==================== */
-
-/* ปรับปรุง accessibility สำหรับ sidebar */
-.sidebar:focus-within {
-  outline: none;
-}
-
-.sidebar .nav-item:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: -2px;
-}
-
-.sidebar .btn:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-}
-
-/* ==================== */
-/* Sidebar Performance */
-/* ==================== */
-
-/* ปรับปรุง performance สำหรับ sidebar */
-.sidebar {
-  contain: layout style paint;
-}
-
-.sidebar-overlay {
-  contain: layout style paint;
-}
-
-/* ปรับปรุง performance สำหรับ sidebar animation */
-.sidebar.open .nav-item,
-.sidebar.open .sidebar-footer,
-.sidebar.open .sidebar-footer .btn {
-  contain: layout style paint;
-}
-
-/* ==================== */
-/* Sidebar Mobile Enhancements */
-/* ==================== */
-
-  /* ปรับปรุง mobile experience สำหรับ sidebar */
-  @media (max-width: 768px) {
-    .sidebar {
-      width: 280px;
-      max-width: 90vw;
-      height: calc(100vh - var(--header-height));
-      overflow: hidden;
-    }
-    
-    .sidebar .sidebar-nav {
-      flex: 1;
-      overflow-y: auto;
-      padding-bottom: 0;
-      scrollbar-width: thin;
-      scrollbar-color: var(--color-gray-300) transparent;
-    }
-    
-    .sidebar .sidebar-nav::-webkit-scrollbar {
-      width: 4px;
-    }
-    
-    .sidebar .sidebar-nav::-webkit-scrollbar-track {
-      background: transparent;
-    }
-    
-    .sidebar .sidebar-nav::-webkit-scrollbar-thumb {
-      background: var(--color-gray-300);
-      border-radius: 2px;
-    }
-    
-    .sidebar .sidebar-nav::-webkit-scrollbar-thumb:hover {
-      background: var(--color-gray-400);
-    }
-    
-    .sidebar-overlay {
-      backdrop-filter: blur(3px);
-    }
-    
-    .sidebar.open {
-      box-shadow: var(--shadow-lg), 0 0 0 1px var(--color-gray-200);
-    }
-    
-    /* ปรับปรุง sidebar footer สำหรับ mobile */
-    .sidebar .sidebar-footer {
-      padding: var(--spacing-4) var(--spacing-6);
-      padding-bottom: calc(var(--spacing-4) + 70px); /* เพิ่ม padding ด้านล่างเพื่อไม่ให้ถูก bottom nav บัง */
-      margin-bottom: 0;
-      background: var(--color-white);
-      border-top: 1px solid var(--color-gray-200);
-      position: sticky;
-      bottom: 0;
-      z-index: 1201;
-      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-    }
-    
-    /* ปรับปรุง sidebar footer button สำหรับ mobile */
-    .sidebar .sidebar-footer .btn {
-      width: 100%;
-      margin: 0;
-      padding: var(--spacing-3) var(--spacing-4);
-      font-size: var(--font-size-sm);
-      font-weight: 600;
-      border-radius: var(--radius-md);
-      box-shadow: var(--shadow-sm);
-      transition: all 0.2s ease;
-      position: relative;
-      z-index: 1202;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      outline: 2px solid var(--color-primary);
-      outline-offset: 2px;
-      transform: translateY(-1px);
-      box-shadow: var(--shadow-md);
-    }
-    
-    /* ปรับปรุง mobile sidebar button states */
-    .sidebar .sidebar-footer .btn:active {
-      transform: translateY(0);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    /* ปรับปรุง mobile sidebar animation */
-    .sidebar .sidebar-footer {
-      animation: slideInUp 0.4s ease forwards;
-      animation-delay: 0.4s;
-    }
-    
-    @keyframes slideInUp {
-      from {
-        opacity: 0;
-        transform: translateY(20px);
-      }
-      to {
-        opacity: 1;
-        transform: translateY(0);
-      }
-    }
     
     /* ปรับปรุง mobile sidebar focus management */
     .sidebar:focus-within .sidebar-footer {
@@ -2807,834 +2510,81 @@ body {
     
     /* ปรับปรุง mobile sidebar button icon */
     .sidebar .sidebar-footer .btn i {
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-    }
-    
-    /* ปรับปรุง mobile sidebar button text */
-    .sidebar .sidebar-footer .btn span {
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.1));
-    }
-    
-    /* ปรับปรุง mobile sidebar complete mobile experience */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .sidebar .sidebar-footer .btn::before {
-      content: '';
-      position: absolute;
-      top: 0;
-      left: -100%;
-      width: 100%;
-      height: 100%;
-      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
-      transition: left 0.5s ease;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover::before {
-      left: 100%;
-    }
-    
-    /* ปรับปรุง mobile sidebar button loading state */
-    .sidebar .sidebar-footer .btn.loading {
-      pointer-events: none;
-      opacity: 0.8;
-    }
-    
-    .sidebar .sidebar-footer .btn.loading::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 16px;
-      height: 16px;
-      margin: -8px 0 0 -8px;
-      border: 2px solid transparent;
-      border-top: 2px solid currentColor;
-      border-radius: 50%;
-      animation: spin 1s linear infinite;
-    }
-    
-    /* ปรับปรุง mobile sidebar final mobile optimization */
-    .sidebar .sidebar-footer .btn {
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      user-select: none;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      -webkit-tap-highlight-color: rgba(37, 99, 235, 0.1);
-    }
-    
-    /* ปรับปรุง mobile sidebar button accessibility */
-    .sidebar .sidebar-footer .btn[aria-label] {
-      position: relative;
-    }
-    
-    .sidebar .sidebar-footer .btn[aria-label]::after {
-      content: attr(aria-label);
-      position: absolute;
-      bottom: 100%;
-      left: 50%;
-      transform: translateX(-50%);
-      background: var(--color-gray-800);
-      color: var(--color-white);
-      padding: var(--spacing-2) var(--spacing-3);
-      border-radius: var(--radius-sm);
-      font-size: var(--font-size-xs);
-      white-space: nowrap;
-      opacity: 0;
-      visibility: hidden;
-      transition: all 0.2s ease;
-      pointer-events: none;
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn[aria-label]:hover::after,
-    .sidebar .sidebar-footer .btn[aria-label]:focus::after {
-      opacity: 1;
-      visibility: visible;
-    }
-    
-    /* ปรับปรุง mobile sidebar complete mobile sidebar experience */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      z-index: 1202;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      z-index: 1203;
-    }
-    
-    /* ปรับปรุง mobile sidebar button states */
-    .sidebar .sidebar-footer .btn:disabled {
-      opacity: 0.6;
-      cursor: not-allowed;
-      pointer-events: none;
-    }
-    
-    .sidebar .sidebar-footer .btn:disabled:hover {
-      transform: none;
-      box-shadow: var(--shadow-sm);
-    }
-    
-    /* ปรับปรุง mobile sidebar button success state */
-    .sidebar .sidebar-footer .btn.success {
-      background: linear-gradient(135deg, var(--color-success), #34d399);
-    }
-    
-    .sidebar .sidebar-footer .btn.success:hover {
-      background: linear-gradient(135deg, #059669, var(--color-success));
-    }
-    
-    /* ปรับปรุง mobile sidebar button warning state */
-    .sidebar .sidebar-footer .btn.warning {
-      background: linear-gradient(135deg, var(--color-warning), #fbbf24);
-    }
-    
-    .sidebar .sidebar-footer .btn.warning:hover {
-      background: linear-gradient(135deg, #d97706, var(--color-warning));
-    }
-    
-    /* ปรับปรุง mobile sidebar button danger state */
-    .sidebar .sidebar-footer .btn.danger {
-      background: linear-gradient(135deg, var(--color-danger), #f87171);
-    }
-    
-    .sidebar .sidebar-footer .btn.danger:hover {
-      background: linear-gradient(135deg, #dc2626, var(--color-danger));
-    }
-    
-    /* ปรับปรุง mobile sidebar final mobile sidebar enhancement */
-    .sidebar .sidebar-footer .btn {
-      font-family: var(--font-family);
-      font-weight: 600;
-      text-transform: none;
-      letter-spacing: 0.025em;
-    }
-    
-    .sidebar .sidebar-footer .btn i {
-      font-size: var(--font-size-base);
-      margin-right: var(--spacing-2);
-      vertical-align: middle;
-    }
-    
-    .sidebar .sidebar-footer .btn span {
-      vertical-align: middle;
-      font-size: var(--font-size-sm);
-    }
-    
-    /* ปรับปรุง mobile sidebar button responsive text */
-    @media (max-width: 360px) {
-      .sidebar .sidebar-footer .btn span {
-        display: none;
-      }
-      
-          .sidebar .sidebar-footer .btn i {
-      margin-right: 0;
-      font-size: var(--font-size-lg);
-    }
-    
-    /* ปรับปรุง mobile sidebar complete mobile sidebar final touch */
-    .sidebar .sidebar-footer .btn {
-      border-radius: var(--radius-lg);
-      box-shadow: var(--shadow-md);
-      transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      transform: translateY(-2px) scale(1.02);
-      box-shadow: var(--shadow-lg);
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      transform: translateY(0) scale(0.98);
-      box-shadow: var(--shadow-sm);
-    }
-    
-    /* ปรับปรุง mobile sidebar button focus ring */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), var(--shadow-md);
-    }
-    
-    /* ปรับปรุง mobile sidebar button pressed state */
-    .sidebar .sidebar-footer .btn:active:not(:disabled) {
-      transform: translateY(1px) scale(0.98);
-    }
-    
-    /* ปรับปรุง mobile sidebar button ripple effect */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      overflow: hidden;
-    }
-    
-    .sidebar .sidebar-footer .btn::after {
-      content: '';
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      width: 0;
-      height: 0;
-      border-radius: 50%;
-      background: rgba(255, 255, 255, 0.3);
-      transform: translate(-50%, -50%);
-      transition: width 0.6s, height 0.6s;
-    }
-    
-    .sidebar .sidebar-footer .btn:active::after {
-      width: 300px;
-      height: 300px;
-    }
-    
-    /* ปรับปรุง mobile sidebar complete mobile sidebar final enhancement */
-    .sidebar .sidebar-footer .btn {
-      will-change: transform, box-shadow;
-      backface-visibility: hidden;
-      perspective: 1000px;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      will-change: transform, box-shadow;
-    }
-    
-    /* ปรับปรุง mobile sidebar button accessibility enhancement */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-    }
-    
-    /* ปรับปรุง mobile sidebar button high contrast mode */
-    @media (prefers-contrast: high) {
-      .sidebar .sidebar-footer .btn {
-        border: 2px solid var(--color-gray-900);
-      }
-      
-      .sidebar .sidebar-footer .btn:focus-visible {
-        border-color: var(--color-primary);
-        box-shadow: 0 0 0 3px var(--color-primary);
-      }
-    }
-    
-    /* ปรับปรุง mobile sidebar button reduced motion */
-    @media (prefers-reduced-motion: reduce) {
-      .sidebar .sidebar-footer .btn {
-        transition: none;
-        animation: none;
-      }
-      
-          .sidebar .sidebar-footer .btn::before,
-    .sidebar .sidebar-footer .btn::after {
-      transition: none;
-    }
-    
-    /* ปรับปรุง mobile sidebar complete mobile sidebar final mobile optimization */
-    .sidebar .sidebar-footer .btn {
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      appearance: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      vertical-align: middle;
-      white-space: nowrap;
-      word-wrap: normal;
-      user-select: none;
-      -webkit-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      touch-action: manipulation;
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-      -webkit-user-drag: none;
-      -khtml-user-drag: none;
-      -moz-user-drag: none;
-      -o-user-drag: none;
-      user-drag: none;
-    }
-    
-    /* ปรับปรุง mobile sidebar button iOS specific */
-    @supports (-webkit-touch-callout: none) {
-      .sidebar .sidebar-footer .btn {
-        -webkit-tap-highlight-color: rgba(37, 99, 235, 0.1);
-      }
-    }
-    
-    /* ปรับปรุง mobile sidebar button Android specific */
-    @supports (-webkit-tap-highlight-color: transparent) {
-      .sidebar .sidebar-footer .btn {
-        -webkit-tap-highlight-color: rgba(37, 99, 235, 0.1);
-      }
-    }
-    
-    /* ปรับปรุง mobile sidebar button Windows specific */
-    @supports (-ms-ime-align: auto) {
-      .sidebar .sidebar-footer .btn {
-        -ms-touch-action: manipulation;
-      }
-    }
-    
-    /* ปรับปรุง mobile sidebar complete mobile sidebar final mobile enhancement */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      z-index: 1202;
-      overflow: visible;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      z-index: 1203;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final states */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-      z-index: 1204;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::before {
-      z-index: 1205;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::after {
-      z-index: 1206;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final accessibility */
-    .sidebar .sidebar-footer .btn[aria-label]:focus-visible::after {
-      z-index: 1207;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final performance */
-    .sidebar .sidebar-footer .btn {
-      contain: layout style paint;
-      will-change: transform, box-shadow;
-      backface-visibility: hidden;
-      perspective: 1000px;
-      transform-style: preserve-3d;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      will-change: transform, box-shadow;
-    }
-    
-    /* ปรับปรุง mobile sidebar complete mobile sidebar final mobile optimization */
-    .sidebar .sidebar-footer .btn {
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-      font-feature-settings: "kern" 1;
-      font-kerning: normal;
-    }
-    
-    .sidebar .sidebar-footer .btn i {
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-    }
-    
-    .sidebar .sidebar-footer .btn span {
-      -webkit-font-smoothing: antialiased;
-      -moz-osx-font-smoothing: grayscale;
-      text-rendering: optimizeLegibility;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile experience */
-    .sidebar .sidebar-footer .btn {
-      -webkit-touch-callout: none;
-      -webkit-user-select: none;
-      -khtml-user-select: none;
-      -moz-user-select: none;
-      -ms-user-select: none;
-      user-select: none;
-      -webkit-tap-highlight-color: transparent;
-      -webkit-touch-callout: none;
-      -webkit-user-drag: none;
-      -khtml-user-drag: none;
-      -moz-user-drag: none;
-      -o-user-drag: none;
-      user-drag: none;
-      -webkit-appearance: none;
-      -moz-appearance: none;
-      appearance: none;
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      vertical-align: middle;
-      white-space: nowrap;
-      word-wrap: normal;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile accessibility */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-      z-index: 1204;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::before {
-      z-index: 1205;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::after {
-      z-index: 1206;
-    }
-    
-    .sidebar .sidebar-footer .btn[aria-label]:focus-visible::after {
-      z-index: 1207;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile performance */
-    .sidebar .sidebar-footer .btn {
-      contain: layout style paint;
-      will-change: transform, box-shadow;
-      backface-visibility: hidden;
-      perspective: 1000px;
-      transform-style: preserve-3d;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      will-change: transform, box-shadow;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile enhancement */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      z-index: 1202;
-      overflow: visible;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      z-index: 1203;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile states */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-      z-index: 1204;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::before {
-      z-index: 1205;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::after {
-      z-index: 1206;
-    }
-    
-    .sidebar .sidebar-footer .btn[aria-label]:focus-visible::after {
-      z-index: 1207;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile performance */
-    .sidebar .sidebar-footer .btn {
-      contain: layout style paint;
-      will-change: transform, box-shadow;
-      backface-visibility: hidden;
-      perspective: 1000px;
-      transform-style: preserve-3d;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      will-change: transform, box-shadow;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile enhancement */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      z-index: 1202;
-      overflow: visible;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      z-index: 1203;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile states */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 255, 255, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-      z-index: 1204;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::before {
-      z-index: 1205;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::after {
-      z-index: 1206;
-    }
-    
-    .sidebar .sidebar-footer .btn[aria-label]:focus-visible::after {
-      z-index: 1207;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile performance */
-    .sidebar .sidebar-footer .btn {
-      contain: layout style paint;
-      will-change: transform, box-shadow;
-      backface-visibility: hidden;
-      perspective: 1000px;
-      transform-style: preserve-3d;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      will-change: transform, box-shadow;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile enhancement */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      z-index: 1202;
-      overflow: visible;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      z-index: 1203;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile states */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-      z-index: 1204;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::before {
-      z-index: 1205;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::after {
-      z-index: 1206;
-    }
-    
-    .sidebar .sidebar-footer .btn[aria-label]:focus-visible::after {
-      z-index: 1207;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile performance */
-    .sidebar .sidebar-footer .btn {
-      contain: layout style paint;
-      will-change: transform, box-shadow;
-      backface-visibility: hidden;
-      perspective: 1000px;
-      transform-style: preserve-3d;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      will-change: transform, box-shadow;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile enhancement */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      z-index: 1202;
-      overflow: visible;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      z-index: 1203;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile states */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-      z-index: 1204;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::before {
-      z-index: 1205;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::after {
-      z-index: 1206;
-    }
-    
-    .sidebar .sidebar-footer .btn[aria-label]:focus-visible::after {
-      z-index: 1207;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile performance */
-    .sidebar .sidebar-footer .btn {
-      contain: layout style paint;
-      will-change: transform, box-shadow;
-      backface-visibility: hidden;
-      perspective: 1000px;
-      transform-style: preserve-3d;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      will-change: transform, box-shadow;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      will-change: transform, box-shadow;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile enhancement */
-    .sidebar .sidebar-footer .btn {
-      position: relative;
-      z-index: 1202;
-      overflow: visible;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:hover {
-      z-index: 1203;
-    }
-    
-    .sidebar .sidebar-footer .btn:active {
-      z-index: 1203;
-    }
-    
-    /* ปรับปรุง mobile sidebar button final mobile states */
-    .sidebar .sidebar-footer .btn:focus-visible {
-      outline: none;
-      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.3), 0 4px 12px rgba(37, 99, 235, 0.2);
-      z-index: 1204;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::before {
-      z-index: 1205;
-    }
-    
-    .sidebar .sidebar-footer .btn:focus-visible::after {
-    }
-    }
-    }
-    }
-  }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 /* ==================== */
-/* Sidebar Animation Final */
+/* Form Styles */
 /* ==================== */
-
-/* ปรับปรุง final animation สำหรับ sidebar */
-.sidebar.open .nav-item {
-  animation-fill-mode: both;
-}
-
-.sidebar.open .sidebar-footer {
-  animation-fill-mode: both;
-}
-
-.sidebar.open .sidebar-footer .btn {
-  animation-fill-mode: both;
-}
-
-/* ==================== */
-/* Sidebar Complete */
-/* ==================== */
-
-/* ปรับปรุง complete sidebar experience */
-.sidebar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-gray-300) transparent;
-}
-
-.sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  background: var(--color-gray-300);
-  border-radius: 3px;
-}
-
-.sidebar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gray-400);
-}
-
-/* ==================== */
-/* Sidebar Final Touch */
-/* ==================== */
-
-/* ปรับปรุง final touch สำหรับ sidebar */
-.sidebar.open {
-  transform: translateX(0) translateZ(0);
-  box-shadow: var(--shadow-lg);
-  animation: slideInSidebar 0.3s ease forwards;
-}
-
-@keyframes slideInSidebar {
-  from {
-    transform: translateX(-100%) translateZ(0);
-    box-shadow: none;
-  }
-  to {
-    transform: translateX(0) translateZ(0);
-    box-shadow: var(--shadow-lg);
-  }
-}
-
-/* ==================== */
-/* Sidebar Complete */
-/* ==================== */
-
-/* ปรับปรุง complete sidebar experience */
-.sidebar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-gray-300) transparent;
-}
-
-.sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  background: var(--color-gray-300);
-  border-radius: 3px;
-}
-
-.sidebar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gray-400);
-}
 
 .form-group.success label {
   color: var(--color-success);
@@ -3731,164 +2681,35 @@ body {
   .checkbox-list { grid-template-columns: 1fr; }
 }
 
-/* ==================== */
-/* Sidebar Final Enhancements */
-/* ==================== */
 
-/* ปรับปรุง final sidebar experience */
-.sidebar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-gray-300) transparent;
-}
-
-.sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  background: var(--color-gray-300);
-  border-radius: 3px;
-}
-
-.sidebar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gray-400);
-}
-
-/* ==================== */
-/* Sidebar Complete */
-/* ==================== */
-
-/* ปรับปรุง complete sidebar experience */
-.sidebar.open {
-  transform: translateX(0) translateZ(0);
-  box-shadow: var(--shadow-lg);
-  animation: slideInSidebar 0.3s ease forwards;
-}
-
-@keyframes slideInSidebar {
-  from {
-    transform: translateX(-100%) translateZ(0);
-    box-shadow: none;
+/* Desktop and larger: show sidebar */
+@media (min-width: 769px) {
+  .sidebar {
+    display: flex !important;
   }
-  to {
-    transform: translateX(0) translateZ(0);
-    box-shadow: var(--shadow-lg);
+  
+  .main-content {
+    margin-left: var(--sidebar-width);
   }
 }
 
-/* ==================== */
-/* Sidebar Final Touch */
-/* ==================== */
-
-/* ปรับปรุง final touch สำหรับ sidebar */
-.sidebar:not(.open) {
-  transform: translateX(-100%) translateZ(0);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-.sidebar.open {
-  transform: translateX(0) translateZ(0);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-/* ==================== */
-/* Sidebar Complete */
-/* ==================== */
-
-/* ปรับปรุง complete sidebar experience */
-.sidebar {
-  contain: layout style paint;
-}
-
-.sidebar-overlay {
-  contain: layout style paint;
-}
-
-/* ==================== */
-/* Sidebar End */
-/* ==================== */
-
-/* ==================== */
-/* Sidebar Final */
-/* ==================== */
-
-/* ปรับปรุง final sidebar experience */
-.sidebar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--color-gray-300) transparent;
-}
-
-.sidebar::-webkit-scrollbar {
-  width: 6px;
-}
-
-.sidebar::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar::-webkit-scrollbar-thumb {
-  background: var(--color-gray-300);
-  border-radius: 3px;
-}
-
-.sidebar::-webkit-scrollbar-thumb:hover {
-  background: var(--color-gray-400);
-}
-
-/* ==================== */
-/* Sidebar Complete */
-/* ==================== */
-
-/* ปรับปรุง complete sidebar experience */
-.sidebar.open {
-  transform: translateX(0) translateZ(0);
-  box-shadow: var(--shadow-lg);
-  animation: slideInSidebar 0.3s ease forwards;
-}
-
-@keyframes slideInSidebar {
-  from {
-    transform: translateX(-100%) translateZ(0);
-    box-shadow: none;
+/* Mobile: hide sidebar */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none !important;
   }
-  to {
-    transform: translateX(0) translateZ(0);
-    box-shadow: var(--shadow-lg);
+  
+  .main-content {
+    margin-left: 0 !important;
+    padding-left: max(16px, env(safe-area-inset-left));
+    padding-right: max(16px, env(safe-area-inset-right));
   }
 }
 
-/* ==================== */
-/* Sidebar Final Touch */
-/* ==================== */
+/* (Removed duplicate global Bottom Navigation styles. Bottom nav is scoped to mobile below.) */
 
-/* ปรับปรุง final touch สำหรับ sidebar */
-.sidebar:not(.open) {
-  transform: translateX(-100%) translateZ(0);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+/* Ensure task text wraps and doesn't overflow cards */
+.task-item h4, .task-item p {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
-
-.sidebar.open {
-  transform: translateX(0) translateZ(0);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
-}
-
-/* ==================== */
-/* Sidebar Complete */
-/* ==================== */
-
-/* ปรับปรุง complete sidebar experience */
-.sidebar {
-  contain: layout style paint;
-}
-
-.sidebar-overlay {
-  contain: layout style paint;
-}
-
-/* ==================== */
-/* Sidebar End */
-/* ==================== */
