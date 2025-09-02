@@ -180,3 +180,40 @@
   /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
   padding: 0 !important;
 }
+
+/* ==================== */
+/* Sidebar Fix CSS - แก้ไขปัญหา sidebar บังหน้าจอ */
+/* ==================== */
+
+/* แก้ไขปัญหา sidebar บังหน้าจอในหน้าจอขนาดใหญ่ - ใช้ !important เพื่อ override CSS อื่น */
+@media (min-width: 769px) {
+  .sidebar {
+    display: none !important;
+  }
+  
+  .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+}
+
+/* แก้ไขปัญหา sidebar บังหน้าจอในหน้าจอขนาดใหญ่มาก - ใช้ !important เพื่อ override CSS อื่น */
+@media (min-width: 1024px) {
+  .main-layout .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
+  }
+}
+
+/* แก้ไขปัญหา sidebar บังหน้าจอในหน้าจอขนาดเล็ก - ใช้ !important เพื่อ override CSS อื่น */
+@media (max-width: 768px) {
+  .sidebar {
+    display: none !important;
+  }
+  
+  .main-content {
+    margin-left: 0 !important;
+    padding-left: max(16px, env(safe-area-inset-left)) !important;
+    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  }
+}

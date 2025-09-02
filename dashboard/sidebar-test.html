@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบ Sidebar และ Modal</title>
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="stylesheet" href="./modal-fix.css">
+    <style>
+        body {
+            padding: 20px;
+            font-family: Arial, sans-serif;
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #ccc;
+            border-radius: 8px;
+        }
+        .test-button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        .test-button:hover {
+            background: #0056b3;
+        }
+        .sidebar-info {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 5px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>ทดสอบ Sidebar และ Modal</h1>
+    
+    <div class="test-section">
+        <h2>ข้อมูล Sidebar</h2>
+        <div class="sidebar-info">
+            <p><strong>หน้าจอขนาด:</strong> <span id="screenSize">กำลังตรวจสอบ...</span></p>
+            <p><strong>Sidebar แสดงผล:</strong> <span id="sidebarStatus">กำลังตรวจสอบ...</span></p>
+            <p><strong>Main Content Margin:</strong> <span id="mainContentMargin">กำลังตรวจสอบ...</span></p>
+        </div>
+    </div>
+
+    <div class="test-section">
+        <h2>ทดสอบ Modal</h2>
+        <button class="test-button" onclick="openModal('testModal')">เปิด Modal ทดสอบ</button>
+        <button class="test-button" onclick="closeModal('testModal')">ปิด Modal</button>
+    </div>
+
+    <!-- Test Modal -->
+    <div id="testModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Modal ทดสอบ</h3>
+                <button class="modal-close" onclick="closeModal('testModal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <p>นี่คือ Modal ทดสอบ</p>
+                <p>ลองคลิกนอก modal หรือกด ESC เพื่อปิด</p>
+                <p>Modal ควรจะแสดงทับหน้าจอตามปกติ ไม่ใช่ล่างสุดของหน้าจอ</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ฟังก์ชันทดสอบ Modal
+        function openModal(modalId) {
+            console.log(`🔓 เปิด modal: ${modalId}`);
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.add('active');
+                updateModalStatus();
+            }
+        }
+
+        function closeModal(modalId) {
+            console.log(`🔒 ปิด modal: ${modalId}`);
+            const modal = document.getElementById(modalId);
+            if (modal) {
+                modal.classList.remove('active');
+                updateModalStatus();
+            }
+        }
+
+        function updateModalStatus() {
+            const activeModals = document.querySelectorAll('.modal.active');
+            console.log(`Modal ที่เปิดอยู่: ${activeModals.length} ตัว`);
+        }
+
+        // ฟังก์ชันตรวจสอบ Sidebar
+        function checkSidebarStatus() {
+            const sidebar = document.querySelector('.sidebar');
+            const mainContent = document.querySelector('.main-content');
+            const screenWidth = window.innerWidth;
+            
+            document.getElementById('screenSize').textContent = `${screenWidth}px`;
+            
+            if (sidebar) {
+                const sidebarDisplay = window.getComputedStyle(sidebar).display;
+                document.getElementById('sidebarStatus').textContent = sidebarDisplay;
+            } else {
+                document.getElementById('sidebarStatus').textContent = 'ไม่พบ sidebar';
+            }
+            
+            if (mainContent) {
+                const mainContentMargin = window.getComputedStyle(mainContent).marginLeft;
+                document.getElementById('mainContentMargin').textContent = mainContentMargin;
+            } else {
+                document.getElementById('mainContentMargin').textContent = 'ไม่พบ main-content';
+            }
+        }
+
+        // เพิ่ม event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            // ตรวจสอบสถานะ sidebar เมื่อโหลดหน้า
+            checkSidebarStatus();
+            
+            // ตรวจสอบสถานะ sidebar เมื่อปรับขนาดหน้าจอ
+            window.addEventListener('resize', checkSidebarStatus);
+            
+            // ปิด modal เมื่อคลิกนอก content
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        closeModal(modal.id);
+                    }
+                });
+            });
+
+            // ปิด modal เมื่อกด ESC
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') {
+                    document.querySelectorAll('.modal.active').forEach(modal => {
+                        closeModal(modal.id);
+                    });
+                }
+            });
+        });
+    </script>
+</body>
+</html>
