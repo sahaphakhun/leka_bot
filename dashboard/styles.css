@@ -1551,19 +1551,30 @@ body {
   right: 0;
   bottom: 0;
   background: rgba(0, 0, 0, 0.5);
-  z-index: 2000;
+  z-index: 9999; /* เพิ่ม z-index ให้สูงขึ้นเพื่อให้แน่ใจว่าจะแสดงทับทุกอย่าง */
   align-items: center;
   justify-content: center;
   padding: var(--spacing-4);
   opacity: 0;
   visibility: hidden;
   transition: opacity 0.3s ease, visibility 0.3s ease;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
+  overflow: hidden;
+  pointer-events: none;
 }
 
 .modal.active {
   display: flex !important; /* ใช้ !important เพื่อให้แน่ใจว่า modal จะแสดงเมื่อมี class active */
   opacity: 1;
   visibility: visible;
+  pointer-events: auto; /* เปิดใช้งาน pointer events เมื่อ modal เปิด */
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9999 !important;
 }
 
 /* เพิ่ม CSS สำหรับ modal ที่อาจมีปัญหา */
@@ -1588,6 +1599,104 @@ body {
   pointer-events: none !important;
 }
 
+/* เพิ่ม CSS เพื่อแก้ไขปัญหา modal ที่อยู่ล่างสุดของหน้าจอ */
+.modal.active {
+  /* ใช้ CSS ที่เข้มงวดเพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  z-index: 9999 !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal จากอยู่ล่างสุดของหน้าจอ */
+  transform: none !important;
+  transform-origin: center center !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal จากอยู่ล่างสุดของหน้าจอ */
+  min-height: 100vh !important;
+  min-width: 100vw !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
+  overflow: visible !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal จากอยู่ล่างสุดของหน้าจอ */
+  flex-direction: column !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
+  height: 100vh !important;
+  width: 100vw !important;
+}
+
+/* เพิ่ม CSS สำหรับ modal content เพื่อให้แน่ใจว่าจะแสดงทับหน้าจอ */
+.modal.active .modal-content {
+  transform: scale(1) !important;
+  z-index: 10000 !important;
+  position: relative !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  margin: auto !important;
+  max-width: 90vw !important;
+  max-height: 90vh !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  position: absolute !important;
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  margin-top: 0 !important;
+  margin-bottom: 0 !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  margin: 0 !important;
+  padding: 0 !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  position: fixed !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  position: absolute !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  position: absolute !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  position: absolute !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  position: absolute !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  position: absolute !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  position: absolute !important;
+  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
+  top: 50% !important;
+  left: 50% !important;
+  transform: translate(-50%, -50%) scale(1) !important;
+}
+
 .modal-content {
   background: var(--color-white);
   border-radius: var(--radius-lg);
@@ -1599,6 +1708,9 @@ body {
   position: relative;
   transform: scale(0.9);
   transition: transform 0.3s ease;
+  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
+  z-index: 10000;
+  position: relative;
 }
 
 .modal.active .modal-content {
