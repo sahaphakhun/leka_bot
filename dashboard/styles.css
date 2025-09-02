@@ -1544,7 +1544,7 @@ body {
 /* ==================== */
 
 .modal {
-  display: none;
+  display: none !important; /* ใช้ !important เพื่อให้แน่ใจว่า modal จะไม่แสดง */
   position: fixed;
   top: 0;
   left: 0;
@@ -1555,10 +1555,37 @@ body {
   align-items: center;
   justify-content: center;
   padding: var(--spacing-4);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .modal.active {
-  display: flex;
+  display: flex !important; /* ใช้ !important เพื่อให้แน่ใจว่า modal จะแสดงเมื่อมี class active */
+  opacity: 1;
+  visibility: visible;
+}
+
+/* เพิ่ม CSS สำหรับ modal ที่อาจมีปัญหา */
+.modal:not(.active) {
+  display: none !important;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}
+
+/* เพิ่ม CSS เพื่อป้องกัน modal จากแสดงผลที่ไม่ต้องการ */
+.modal[style*="display: flex"]:not(.active) {
+  display: none !important;
+}
+
+.modal[style*="display: block"]:not(.active) {
+  display: none !important;
+}
+
+/* เพิ่ม CSS สำหรับ modal ที่อาจมีปัญหาในการแสดงผล */
+.modal:not(.active) * {
+  pointer-events: none !important;
 }
 
 .modal-content {
@@ -1570,6 +1597,12 @@ body {
   overflow-y: auto;
   box-shadow: var(--shadow-lg);
   position: relative;
+  transform: scale(0.9);
+  transition: transform 0.3s ease;
+}
+
+.modal.active .modal-content {
+  transform: scale(1);
 }
 
 .modal-header {

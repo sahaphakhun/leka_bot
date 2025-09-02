@@ -119,6 +119,9 @@ class Dashboard {
   // ==================== 
 
   init() {
+    // ปิด modal ทั้งหมดเมื่อเริ่มต้นเพื่อป้องกันการแสดงผลที่ไม่ต้องการ
+    this.closeAllModals();
+    
     this.bindEvents();
     this.loadInitialData();
     this.hideLoading();
@@ -152,6 +155,37 @@ class Dashboard {
       
       const hint = document.getElementById('actionHint');
       if (hint) hint.style.display = 'block';
+    }
+  }
+
+  // เพิ่มฟังก์ชันใหม่สำหรับปิด modal ทั้งหมด
+  closeAllModals() {
+    console.log('🔒 ปิด modal ทั้งหมดเมื่อเริ่มต้น');
+    const allModals = document.querySelectorAll('.modal');
+    allModals.forEach(modal => {
+      modal.classList.remove('active');
+      // เพิ่มการตรวจสอบเพิ่มเติม
+      modal.style.display = 'none';
+      modal.style.opacity = '0';
+      modal.style.visibility = 'hidden';
+      modal.style.pointerEvents = 'none';
+    });
+  }
+
+  // เพิ่มฟังก์ชันใหม่สำหรับเปิด modal ที่ปลอดภัย
+  openModal(modalId) {
+    // ปิด modal อื่นๆ ก่อน
+    this.closeAllModals();
+    
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.add('active');
+      // เพิ่มการจัดการ CSS เพิ่มเติมเพื่อให้แน่ใจว่า modal จะแสดง
+      modal.style.display = 'flex';
+      modal.style.opacity = '1';
+      modal.style.visibility = 'visible';
+      modal.style.pointerEvents = 'auto';
+      console.log(`🔓 เปิด modal: ${modalId}`);
     }
   }
 
@@ -274,10 +308,7 @@ class Dashboard {
         }
 
         // Close any active modal on ESC
-        const activeModals = document.querySelectorAll('.modal.active');
-        activeModals.forEach((modal) => {
-          modal.classList.remove('active');
-        });
+        this.closeAllModals();
       }
     });
 
@@ -287,7 +318,7 @@ class Dashboard {
     });
     document.getElementById('submitTaskBtn')?.addEventListener('click', () => {
       this.populateSubmitTaskSelect();
-      document.getElementById('submitTaskModal').classList.add('active');
+      this.openModal('submitTaskModal');
     });
 
 
@@ -318,6 +349,15 @@ class Dashboard {
       if (e.target.id === 'fileViewerModal') {
         this.closeModal('fileViewerModal');
       }
+    });
+
+    // เพิ่มการจัดการ modal ทั้งหมดเมื่อคลิกนอก modal
+    document.querySelectorAll('.modal').forEach(modal => {
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+          this.closeModal(modal.id);
+        }
+      });
     });
     document.getElementById('cancelReviewTask')?.addEventListener('click', () => {
       this.closeModal('reviewTaskModal');
@@ -1471,7 +1511,7 @@ class Dashboard {
       this.closeModal('addTaskModal');
       // เปิด success modal เพื่อให้ผู้ใช้กดกลับไป LINE ได้
       document.getElementById('successMessage').textContent = 'บอทจะแจ้งในกลุ่ม LINE เพื่อยืนยันการสร้างงาน';
-      document.getElementById('successModal').classList.add('active');
+      this.openModal('successModal');
       this.refreshCurrentView();
       // อัปเดต cache
       try {
@@ -2331,7 +2371,7 @@ class Dashboard {
   // ==================== 
 
   openAddTaskModal() {
-    document.getElementById('addTaskModal').classList.add('active');
+    this.openModal('addTaskModal');
     this.loadGroupMembers(); // Load members for assignee selection
 
     // ตั้งค่า UI Recurrence
@@ -2583,7 +2623,7 @@ class Dashboard {
         </div>
       `;
       
-      modal.classList.add('active');
+      this.openModal(modal.id);
       
     } catch (error) {
       console.error('Error opening task modal:', error);
@@ -2593,12 +2633,12 @@ class Dashboard {
 
   openSubmitModal(taskId) {
     this.populateSubmitTaskSelect(taskId);
-    document.getElementById('submitTaskModal').classList.add('active');
+    this.openModal('submitTaskModal');
   }
 
   openEditTaskModal() {
     // เปิด modal แก้ไขงาน
-    document.getElementById('editTaskModal').classList.add('active');
+    this.openModal('editTaskModal');
     
     // โหลดสมาชิกกลุ่มสำหรับการเลือกผู้รับผิดชอบ
     this.loadGroupMembersForEdit();
@@ -2696,7 +2736,16 @@ class Dashboard {
   }
 
   closeModal(modalId) {
-    document.getElementById(modalId).classList.remove('active');
+    const modal = document.getElementById(modalId);
+    if (modal) {
+      modal.classList.remove('active');
+      // เพิ่มการจัดการ CSS เพิ่มเติมเพื่อให้แน่ใจว่า modal จะถูกปิด
+      modal.style.display = 'none';
+      modal.style.opacity = '0';
+      modal.style.visibility = 'hidden';
+      modal.style.pointerEvents = 'none';
+      console.log(`🔒 ปิด modal: ${modalId}`);
+    }
   }
 
   // ==================== 
@@ -2852,7 +2901,7 @@ class Dashboard {
           this.showToast('สร้างงานประจำสำเร็จ', 'success');
           this.closeModal('addTaskModal');
           document.getElementById('successMessage').textContent = 'ตั้งค่างานประจำสำเร็จ บอทจะสร้างงานตามรอบเวลาในกลุ่ม LINE';
-          document.getElementById('successModal').classList.add('active');
+          this.openModal('successModal');
         } catch (err) {
           console.error('Failed to create recurring:', err);
           this.showToast('สร้างงานประจำไม่สำเร็จ', 'error');
@@ -3319,7 +3368,7 @@ class Dashboard {
       const content = document.getElementById('fileViewerContent');
       const title = document.getElementById('fileViewerTitle');
       
-      modal.classList.add('active');
+      this.openModal('fileViewerModal');
       loading.style.display = 'flex';
       content.innerHTML = '';
       
@@ -3739,7 +3788,7 @@ class Dashboard {
 
   openSubmitTaskModal(taskId = '') {
     this.populateSubmitTaskSelect(taskId);
-    document.getElementById('submitTaskModal').classList.add('active');
+    this.openModal('submitTaskModal');
   }
 
   getFileIcon(mimeType) {
