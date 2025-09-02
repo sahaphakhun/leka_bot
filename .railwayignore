@@ -1,0 +1,38 @@
+# Exclude unnecessary files from Railway build context
+node_modules/
+.dist/
+dist/
+.tmp/
+.temp/
+.cache/
+coverage/
+.logs/
+*.log
+
+# VCS
+.git/
+.gitignore
+
+# Local env and secrets
+.env
+.env.*
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Uploads and generated assets
+uploads/
+
+# Editor/IDE
+.vscode/
+.idea/
+
+# Tests and local scripts not needed in production
+**/*.test.*
+**/__tests__/
+
+# Misc
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*

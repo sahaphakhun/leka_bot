@@ -217,7 +217,9 @@ class ApiController {
         // Office (legacy for compatibility)
         'application/msword',                // .doc
         'application/vnd.ms-excel',          // .xls
-        'application/vnd.ms-powerpoint'      // .ppt
+        'application/vnd.ms-powerpoint',      // .ppt
+        // Generic/unknown (allow to support custom extensions like .dvg)
+        'application/octet-stream'
       ];
       const MAX_ATTACHMENTS = 5;
 
@@ -889,7 +891,9 @@ class ApiController {
         'text/plain',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
         'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation'
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        // Generic/unknown (allow to support custom extensions like .dvg)
+        'application/octet-stream'
       ];
 
       // ตรวจสอบประเภทไฟล์เท่านั้น (ไม่จำกัดขนาดไฟล์)

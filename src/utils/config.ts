@@ -52,7 +52,7 @@ export const config = {
   // File Storage
   storage: {
     uploadPath: process.env.UPLOAD_PATH || './uploads',
-    maxFileSize: parseInt(process.env.MAX_FILE_SIZE || '10485760'), // 10MB
+    // Removed maxFileSize limit to allow unrestricted attachment sizes at app level
   },
   
   // Cloudinary (optional)

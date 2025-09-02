@@ -272,6 +272,12 @@ class Dashboard {
           overlay.classList.remove('active');
           menuToggle.classList.remove('active');
         }
+
+        // Close any active modal on ESC
+        const activeModals = document.querySelectorAll('.modal.active');
+        activeModals.forEach((modal) => {
+          modal.classList.remove('active');
+        });
       }
     });
 

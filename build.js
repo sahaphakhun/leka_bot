@@ -8,6 +8,15 @@ const path = require('path');
 console.log('🔨 Building TypeScript project...');
 
 try {
+  // Build Tailwind CSS first
+  try {
+    console.log('🎨 Building Tailwind CSS...');
+    execSync('npx tailwindcss -i ./dashboard/input.css -o ./dashboard/tailwind.css --minify', { stdio: 'inherit' });
+    console.log('✅ Tailwind CSS build completed');
+  } catch (cssErr) {
+    console.warn('⚠️ Failed to build Tailwind CSS:', cssErr && cssErr.message ? cssErr.message : cssErr);
+  }
+
   // Run TypeScript compiler
   console.log('📦 Compiling TypeScript...');
   execSync('npx tsc', { stdio: 'inherit' });

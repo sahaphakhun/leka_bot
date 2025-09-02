@@ -90,7 +90,7 @@ class Server {
       if (req.path.startsWith('/webhook')) {
         return next();
       }
-      return express.json({ limit: '10mb' })(req, res, () => {
+      return express.json({ limit: '200mb' })(req, res, () => {
         return express.urlencoded({ extended: true })(req, res, next);
       });
     });

@@ -7,27 +7,8 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <script>
-      window.tailwind = window.tailwind || {};
-      window.tailwind.config = {
-        theme: {
-          extend: {
-            colors: {
-              primary: '#2563eb',
-              success: '#10b981',
-              warning: '#f59e0b',
-              danger: '#ef4444'
-            },
-            fontFamily: {
-              sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif']
-            }
-          }
-        }
-      };
-    </script>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="./tailwind.css">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="./styles.css">
 </head>
 <body>
     <!-- Loading Screen -->
@@ -46,13 +27,13 @@
                     <i class="fas fa-robot"></i>
                     เลขาบอท
                 </h1>
-                <div class="group-label" style="display:flex; align-items:center; gap:8px; padding: 4px 12px; background:#f3f4f6; border-radius:8px;">
+                <div class="group-label">
                     <i class="fas fa-users"></i>
                     <span id="currentGroupName">กลุ่มทดสอบ</span>
                 </div>
             </div>
             <div class="header-right">
-                <div class="user-panel" style="display:flex; align-items:center; gap:8px; padding:4px 8px;">
+                <div class="user-panel">
                     <div class="user-avatar" id="userAvatar">👤</div>
                     <div class="user-info">
                         <span class="user-name" id="userName">ผู้ใช้ไม่ทราบชื่อ</span>
@@ -125,8 +106,8 @@
                 </div>
 
                 <!-- Stats Period Selector -->
-                <div class="stats-period-selector" style="margin-bottom: 20px;">
-                    <div class="btn-group" style="display: flex; gap: 8px; justify-content: center;">
+                <div class="stats-period-selector mb-5">
+                    <div class="btn-group flex gap-2 justify-center">
                         <button class="btn btn-sm btn-outline active" data-stats-period="this_week">
                             <i class="fas fa-calendar-week"></i>
                             สัปดาห์นี้
@@ -268,12 +249,12 @@
                 <div class="view-header flex flex-wrap gap-3">
                     <h2>คลังไฟล์</h2>
                     <div class="view-actions">
-                        <div class="filters" style="display: flex; gap: 8px; align-items: center;">
-                            <select class="filter-select" id="taskFilter" style="min-width: 150px;">
+                        <div class="filters flex gap-2 items-center">
+                            <select class="filter-select min-w-[150px]" id="taskFilter">
                                 <option value="">งานทั้งหมด</option>
                                 <option value="no-task">ไฟล์อิสระ</option>
                             </select>
-                            <select class="filter-select" id="fileTypeFilter" style="min-width: 120px;">
+                            <select class="filter-select min-w-[120px]" id="fileTypeFilter">
                                 <option value="">ประเภททั้งหมด</option>
                                 <option value="image">รูปภาพ</option>
                                 <option value="document">เอกสาร</option>
@@ -282,7 +263,7 @@
                                 <option value="archive">ไฟล์บีบอัด</option>
                                 <option value="other">อื่นๆ</option>
                             </select>
-                            <input type="text" class="filter-input" id="searchFiles" placeholder="ค้นหาไฟล์..." style="min-width: 200px;" aria-label="ค้นหาไฟล์">
+                            <input type="text" class="filter-input min-w-[200px]" id="searchFiles" placeholder="ค้นหาไฟล์..." aria-label="ค้นหาไฟล์">
                         </div>
                         <button class="btn btn-primary" id="uploadFileBtn">
                             <i class="fas fa-upload"></i>
@@ -307,7 +288,7 @@
                             <button class="btn btn-outline active" data-period="weekly">รายสัปดาห์</button>
                             <button class="btn btn-outline" data-period="monthly">รายเดือน</button>
                         </div>
-                        <button class="btn btn-secondary" id="debugLeaderboardBtn" style="margin-left: 10px;">
+                        <button class="btn btn-secondary ml-[10px]" id="debugLeaderboardBtn">
                             <i class="fas fa-bug"></i> Debug
                         </button>
                     </div>
@@ -340,7 +321,7 @@
                         <div class="btn-group">
                             <button class="btn btn-outline" id="runReportBtn"><i class="fas fa-play"></i> แสดงรายงาน</button>
                             <button class="btn btn-outline" id="exportExcelBtn"><i class="fas fa-file-excel"></i> ส่งออก Excel</button>
-                         <button class="btn btn-outline" id="exportPdfBtn" style="display:none;"><i class="fas fa-file-pdf"></i> ส่งออก PDF</button>
+                         <button class="btn btn-outline hidden" id="exportPdfBtn"><i class="fas fa-file-pdf"></i> ส่งออก PDF</button>
                         </div>
                     </div>
                 </div>
@@ -372,17 +353,17 @@
                     <!-- Users Table -->
                     <div class="dashboard-section">
                         <div class="section-header"><h3>สรุปแยกตามบุคคล</h3></div>
-                        <div style="overflow: auto;">
-                            <table style="width:100%; border-collapse: collapse;">
+                        <div class="overflow-auto">
+                            <table class="w-full border-collapse">
                                 <thead>
-                                    <tr style="text-align:left; border-bottom: 1px solid #eee;">
-                                        <th style="padding:8px;">ผู้ใช้</th>
-                                        <th style="padding:8px;">เสร็จ</th>
-                                        <th style="padding:8px;">เร็ว</th>
-                                        <th style="padding:8px;">ตรงเวลา</th>
-                                        <th style="padding:8px;">ล่าช้า</th>
-                                        <th style="padding:8px;">ค้างนาน</th>
-                                        <th style="padding:8px;">เกินเวลา</th>
+                                    <tr class="text-left border-b border-gray-200">
+                                        <th class="p-2 md:p-3">ผู้ใช้</th>
+                                        <th class="p-2 md:p-3">เสร็จ</th>
+                                        <th class="p-2 md:p-3">เร็ว</th>
+                                        <th class="p-2 md:p-3">ตรงเวลา</th>
+                                        <th class="p-2 md:p-3">ล่าช้า</th>
+                                        <th class="p-2 md:p-3">ค้างนาน</th>
+                                        <th class="p-2 md:p-3">เกินเวลา</th>
                                     </tr>
                                 </thead>
                                 <tbody id="repUsersTable"></tbody>
@@ -393,8 +374,8 @@
                     <!-- Manager Recipients -->
                     <div class="dashboard-section">
                         <div class="section-header"><h3>ผู้รับรายงานสรุปอัตโนมัติ (ผู้จัดการ)</h3></div>
-                        <div id="reportRecipientsList" style="display:grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap:8px;"></div>
-                        <div style="margin-top:12px;">
+                        <div id="reportRecipientsList" class="grid [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))] gap-2"></div>
+                        <div class="mt-3">
                             <button class="btn btn-primary" id="saveRecipientsBtn"><i class="fas fa-save"></i> บันทึกผู้รับรายงาน</button>
                         </div>
                     </div>
@@ -470,7 +451,7 @@
                         <textarea id="reviewComment" rows="3"></textarea>
                     </div>
 
-                    <div class="form-actions" style="display:flex; gap:8px;">
+                    <div class="form-actions flex gap-2">
                         <button type="button" class="btn btn-outline" id="cancelReviewTask">ยกเลิก</button>
                     </div>
                 </form>
@@ -634,11 +615,11 @@
                             </div>
                             <div class="form-hint">เลือกได้หลายคน</div>
                             <!-- แสดงข้อมูล source ของข้อมูลสมาชิก -->
-                            <div id="membersSourceInfo" class="info-text" style="display: none; margin-top: 8px; font-size: 12px; color: #6b7280;">
+                            <div id="membersSourceInfo" class="info-text hidden mt-2 text-xs text-gray-500">
                                 <!-- จะใส่ด้วย JavaScript -->
                             </div>
                             <!-- แสดงข้อมูลสมาชิกใหม่ -->
-                            <div id="newMemberInfo" class="info-text" style="display: none; margin-top: 8px; font-size: 12px;">
+                            <div id="newMemberInfo" class="info-text hidden mt-2 text-xs">
                                 <!-- จะใส่ด้วย JavaScript -->
                             </div>
                         </div>
@@ -677,7 +658,7 @@
             </div>
             <div class="modal-body">
                 <p id="successMessage">บอทจะแจ้งเตือนในกลุ่ม LINE เพื่อยืนยันการสร้างงาน</p>
-                <div class="form-actions" style="justify-content: flex-end;">
+                <div class="form-actions justify-end">
                     <button type="button" class="btn btn-outline" id="stayHereBtn">อยู่ในหน้านี้</button>
                     <a class="btn btn-primary" id="goToLineBtn" href="line://nv/chat">กลับไปที่ LINE</a>
                 </div>
@@ -857,8 +838,8 @@
         </div>
     </div>
 
-    <!-- Bottom Navigation (Mobile) -->
-    <nav class="bottom-nav md:hidden">
+    <!-- Bottom Navigation (Global) -->
+    <nav class="bottom-nav">
         <a href="#dashboard" class="bottom-nav-item active" data-view="dashboard">
             <i class="fas fa-home"></i>
             <span>ภาพรวม</span>

@@ -10,6 +10,7 @@
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
+  --color-red-50: #fef2f2;
   --color-info: #06b6d4;
   
   /* Neutrals */
@@ -195,32 +196,22 @@ body {
   position: relative;
   width: 40px;
   height: 40px;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-lg);
+  padding: 0;
+  border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  transition: background-color 0.2s ease;
+  background: var(--color-white);
+  border: 1px solid var(--color-gray-300);
   color: var(--color-gray-600);
+  transition: all 0.2s ease;
 }
 
-.btn-icon:hover {
-  background: var(--color-gray-100);
-  color: var(--color-gray-900);
-}
+.header .btn-icon:hover {}
 
-.btn-icon:focus {
-  outline: 2px solid var(--color-primary);
-  outline-offset: 2px;
-  background: var(--color-gray-100);
-}
+.header .btn-icon:focus {}
 
-.btn-icon:active {
-  transform: scale(0.95);
-}
+.header .btn-icon:active {}
 
 .notification-badge {
   position: absolute;
@@ -379,8 +370,8 @@ body {
   display: none;
 }
 
-/* Hide bottom navigation by default (shown on mobile via media query) */
-.bottom-nav { display: none; }
+/* Show bottom navigation on all sizes (moved from mobile-only) */
+.bottom-nav { display: flex; }
 
 .view.active {
   display: block;
@@ -2188,7 +2179,6 @@ body {
   }
 
   .bottom-nav {
-    display: flex;
     position: fixed;
     bottom: 0;
     left: 0;
@@ -2196,7 +2186,6 @@ body {
     height: 60px;
     background: var(--color-white);
     border-top: 1px solid var(--color-gray-200);
-    display: flex;
     align-items: center;
     justify-content: space-around;
     z-index: 1500;
@@ -2257,6 +2246,11 @@ body {
 
   /* Add bottom space for content to avoid overlap (respect safe area) */
   .main-content { padding-bottom: calc(var(--spacing-6) + 60px + env(safe-area-inset-bottom)); }
+}
+
+/* Desktop: keep bottom nav and add bottom padding as well */
+@media (min-width: 769px) {
+  .main-content { padding-bottom: calc(var(--spacing-6) + 60px); }
 }
 
 /* ==================== */
@@ -2682,14 +2676,17 @@ body {
 }
 
 
-/* Desktop and larger: show sidebar */
+/* Desktop and larger: hide sidebar, use full width */
 @media (min-width: 769px) {
-  .sidebar {
-    display: flex !important;
-  }
-  
-  .main-content {
-    margin-left: var(--sidebar-width);
+  .sidebar { display: none !important; }
+  .main-content { margin-left: 0; width: 100%; }
+}
+
+/* Ensure desktop and large laptop widths do not reserve space for sidebar */
+@media (min-width: 1024px) {
+  .main-layout .main-content {
+    margin-left: 0 !important;
+    width: 100% !important;
   }
 }
 
