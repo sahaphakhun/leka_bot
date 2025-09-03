@@ -1,219 +1,370 @@
-/* ==================== */
-/* Modal Fix CSS */
-/* ==================== */
+/* Modal Fix CSS - เลขาบอท */
 
-/* แก้ไขปัญหา modal ที่อยู่ล่างสุดของหน้าจอ */
-.modal {
-  display: none !important;
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  background: rgba(0, 0, 0, 0.5) !important;
-  z-index: 9999 !important;
-  align-items: center !important;
-  justify-content: center !important;
-  padding: 1rem !important;
+/* Modal Overlay */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
   opacity: 0;
   visibility: hidden;
-  transition: opacity 0.3s ease, visibility 0.3s ease;
+  transition: all 0.3s ease;
+}
+
+.modal-overlay.show {
+  opacity: 1;
+  visibility: visible;
+}
+
+/* Modal Container */
+.modal {
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  max-width: 90vw;
+  max-height: 90vh;
   overflow: hidden;
-  pointer-events: none;
-  min-height: 100vh !important;
-  min-width: 100vw !important;
-  height: 100vh !important;
-  width: 100vw !important;
-}
-
-.modal.active {
-  display: flex !important;
-  opacity: 1 !important;
-  visibility: visible !important;
-  pointer-events: auto !important;
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 9999 !important;
-  transform: none !important;
-  transform-origin: center center !important;
-  align-items: center !important;
-  justify-content: center !important;
-  overflow: visible !important;
-  flex-direction: column !important;
-}
-
-/* ป้องกัน modal จากแสดงผลที่ไม่ต้องการ */
-.modal:not(.active) {
-  display: none !important;
-  opacity: 0 !important;
-  visibility: hidden !important;
-  pointer-events: none !important;
-}
-
-.modal:not(.active) * {
-  pointer-events: none !important;
-}
-
-/* แก้ไขปัญหา modal content ที่อยู่ล่างสุดของหน้าจอ */
-.modal-content {
-  background: #ffffff !important;
-  border-radius: 0.5rem !important;
-  max-width: 600px !important;
-  width: 100% !important;
-  max-height: 90vh !important;
-  overflow-y: auto !important;
-  box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1) !important;
-  position: relative !important;
   transform: scale(0.9);
   transition: transform 0.3s ease;
-  z-index: 10000 !important;
+  z-index: 1001;
+  position: relative;
 }
 
-.modal.active .modal-content {
-  transform: scale(1) !important;
-  z-index: 10000 !important;
-  position: absolute !important;
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) scale(1) !important;
-  margin: 0 !important;
-  padding: 0 !important;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-  max-width: 90vw !important;
-  max-height: 90vh !important;
+.modal-overlay.show .modal {
+  transform: scale(1);
 }
 
-/* แก้ไขปัญหา modal header และ body */
+/* Modal Sizes */
+.modal-sm {
+  width: 400px;
+}
+
+.modal-md {
+  width: 600px;
+}
+
+.modal-lg {
+  width: 800px;
+}
+
+.modal-xl {
+  width: 1000px;
+}
+
+/* Modal Header */
 .modal-header {
-  display: flex !important;
-  align-items: center !important;
-  justify-content: space-between !important;
-  padding: 1.5rem !important;
-  border-bottom: 1px solid #e5e7eb !important;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e2e8f0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #f8fafc;
 }
 
-.modal-header h3 {
-  font-size: 1.25rem !important;
-  font-weight: 600 !important;
-  color: #111827 !important;
-  margin: 0 !important;
+.modal-title {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0;
 }
 
 .modal-close {
-  background: none !important;
-  border: none !important;
-  font-size: 1.25rem !important;
-  color: #6b7280 !important;
-  cursor: pointer !important;
-  padding: 0.5rem !important;
-  border-radius: 0.375rem !important;
-  transition: all 0.2s ease !important;
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  color: #64748b;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: all 0.2s ease;
 }
 
 .modal-close:hover {
-  background: #f3f4f6 !important;
-  color: #374151 !important;
+  background: #e2e8f0;
+  color: #1e293b;
 }
 
+/* Modal Body */
 .modal-body {
-  padding: 1.5rem !important;
+  padding: 1.5rem;
+  overflow-y: auto;
+  max-height: calc(90vh - 140px);
 }
 
-/* แก้ไขปัญหา modal ที่อาจมี CSS ขัดแย้ง */
-.modal[style*="display: flex"]:not(.active) {
-  display: none !important;
+/* Modal Footer */
+.modal-footer {
+  padding: 1rem 1.5rem;
+  border-top: 1px solid #e2e8f0;
+  background: #f8fafc;
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.75rem;
 }
 
-.modal[style*="display: block"]:not(.active) {
-  display: none !important;
+/* Form Elements in Modal */
+.modal .form-group {
+  margin-bottom: 1.5rem;
 }
 
-/* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
-.modal.active {
-  /* ใช้ CSS ที่เข้มงวดเพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
-  position: fixed !important;
-  top: 0 !important;
-  left: 0 !important;
-  right: 0 !important;
-  bottom: 0 !important;
-  z-index: 9999 !important;
-  /* เพิ่ม CSS เพื่อป้องกัน modal จากอยู่ล่างสุดของหน้าจอ */
-  transform: none !important;
-  transform-origin: center center !important;
-  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
-  display: flex !important;
-  align-items: center !important;
-  justify-content: center !important;
-  /* เพิ่ม CSS เพื่อป้องกัน modal จากอยู่ล่างสุดของหน้าจอ */
-  min-height: 100vh !important;
-  min-width: 100vw !important;
-  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
-  overflow: visible !important;
-  /* เพิ่ม CSS เพื่อป้องกัน modal จากอยู่ล่างสุดของหน้าจอ */
-  flex-direction: column !important;
-  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal จะแสดงทับหน้าจอ */
-  height: 100vh !important;
-  width: 100vw !important;
+.modal .form-label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500;
+  color: #374151;
 }
 
-/* เพิ่ม CSS สำหรับ modal content เพื่อให้แน่ใจว่าจะแสดงทับหน้าจอ */
-.modal.active .modal-content {
-  transform: scale(1) !important;
-  z-index: 10000 !important;
-  position: absolute !important;
-  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
-  margin: 0 !important;
-  max-width: 90vw !important;
-  max-height: 90vh !important;
-  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
-  top: 50% !important;
-  left: 50% !important;
-  transform: translate(-50%, -50%) scale(1) !important;
-  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3) !important;
-  /* เพิ่ม CSS เพื่อป้องกัน modal content จากอยู่ล่างสุดของหน้าจอ */
-  margin-top: 0 !important;
-  margin-bottom: 0 !important;
-  /* เพิ่ม CSS เพื่อให้แน่ใจว่า modal content จะแสดงทับหน้าจอ */
-  padding: 0 !important;
+.modal .form-input,
+.modal .form-select,
+.modal .form-textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 2px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 1rem;
+  transition: border-color 0.3s ease;
 }
 
-/* ==================== */
-/* Sidebar Fix CSS - แก้ไขปัญหา sidebar บังหน้าจอ */
-/* ==================== */
+.modal .form-input:focus,
+.modal .form-select:focus,
+.modal .form-textarea:focus {
+  outline: none;
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
 
-/* แก้ไขปัญหา sidebar บังหน้าจอในหน้าจอขนาดใหญ่ - ใช้ !important เพื่อ override CSS อื่น */
-@media (min-width: 769px) {
-  .sidebar {
-    display: none !important;
+.modal .form-textarea {
+  min-height: 100px;
+  resize: vertical;
+}
+
+/* Modal Buttons */
+.modal .btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border-radius: 8px;
+  font-weight: 500;
+  text-decoration: none;
+  border: none;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  font-size: 0.9rem;
+}
+
+.modal .btn-primary {
+  background: #3b82f6;
+  color: white;
+}
+
+.modal .btn-primary:hover {
+  background: #2563eb;
+  transform: translateY(-1px);
+}
+
+.modal .btn-secondary {
+  background: #64748b;
+  color: white;
+}
+
+.modal .btn-secondary:hover {
+  background: #475569;
+}
+
+.modal .btn-success {
+  background: #10b981;
+  color: white;
+}
+
+.modal .btn-success:hover {
+  background: #059669;
+}
+
+.modal .btn-danger {
+  background: #ef4444;
+  color: white;
+}
+
+.modal .btn-danger:hover {
+  background: #dc2626;
+}
+
+.modal .btn-outline {
+  background: transparent;
+  border: 2px solid #3b82f6;
+  color: #3b82f6;
+}
+
+.modal .btn-outline:hover {
+  background: #3b82f6;
+  color: white;
+}
+
+/* Modal Animation Variants */
+.modal.fade-in {
+  animation: fadeIn 0.3s ease;
+}
+
+.modal.slide-up {
+  animation: slideUp 0.3s ease;
+}
+
+.modal.slide-down {
+  animation: slideDown 0.3s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
   }
-  
-  .main-content {
-    margin-left: 0 !important;
-    width: 100% !important;
+  to {
+    opacity: 1;
   }
 }
 
-/* แก้ไขปัญหา sidebar บังหน้าจอในหน้าจอขนาดใหญ่มาก - ใช้ !important เพื่อ override CSS อื่น */
-@media (min-width: 1024px) {
-  .main-layout .main-content {
-    margin-left: 0 !important;
-    width: 100% !important;
+@keyframes slideUp {
+  from {
+    transform: translateY(50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
   }
 }
 
-/* แก้ไขปัญหา sidebar บังหน้าจอในหน้าจอขนาดเล็ก - ใช้ !important เพื่อ override CSS อื่น */
+@keyframes slideDown {
+  from {
+    transform: translateY(-50px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Responsive Modal */
 @media (max-width: 768px) {
-  .sidebar {
-    display: none !important;
+  .modal {
+    margin: 1rem;
+    max-width: calc(100vw - 2rem);
+    max-height: calc(100vh - 2rem);
   }
   
-  .main-content {
-    margin-left: 0 !important;
-    padding-left: max(16px, env(safe-area-inset-left)) !important;
-    padding-right: max(16px, env(safe-area-inset-right)) !important;
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem;
   }
+  
+  .modal-footer {
+    flex-direction: column;
+  }
+  
+  .modal-footer .btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+
+/* Modal Backdrop */
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 999;
+}
+
+/* Modal Focus Management */
+.modal:focus {
+  outline: none;
+}
+
+.modal .form-input:focus,
+.modal .form-select:focus,
+.modal .form-textarea:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Modal Close Button Focus */
+.modal-close:focus {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Modal Loading State */
+.modal.loading .modal-body {
+  opacity: 0.6;
+  pointer-events: none;
+}
+
+.modal.loading::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 40px;
+  height: 40px;
+  margin: -20px 0 0 -20px;
+  border: 4px solid #f3f3f3;
+  border-top: 4px solid #3b82f6;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  z-index: 1002;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+/* Modal Success State */
+.modal.success .modal-header {
+  background: #d1fae5;
+  border-bottom-color: #10b981;
+}
+
+.modal.success .modal-title {
+  color: #065f46;
+}
+
+/* Modal Error State */
+.modal.error .modal-header {
+  background: #fee2e2;
+  border-bottom-color: #ef4444;
+}
+
+.modal.error .modal-title {
+  color: #991b1b;
+}
+
+/* Modal Warning State */
+.modal.warning .modal-header {
+  background: #fef3c7;
+  border-bottom-color: #f59e0b;
+}
+
+.modal.warning .modal-title {
+  color: #92400e;
+}
+
+/* Modal Info State */
+.modal.info .modal-header {
+  background: #dbeafe;
+  border-bottom-color: #3b82f6;
+}
+
+.modal.info .modal-title {
+  color: #1e40af;
 }

@@ -3,10 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>เลขาบอท - Dashboard</title>
+    <title>Dashboard - เลขาบอท</title>
     <link rel="stylesheet" href="./tailwind.css">
     <link rel="stylesheet" href="./styles.css">
-    <link rel="stylesheet" href="./modal-fix.css">
+    <link rel="stylesheet" href="./z-index-fix.css">
     <style>
         /* Simple icon styles to replace Font Awesome */
         .fas { font-family: Arial, sans-serif; font-weight: bold; }
@@ -14,6 +14,10 @@
         .fa-user:before { content: "👤"; }
         .fa-arrow-left:before { content: "←"; }
         .fa-check:before { content: "✓"; }
+        .fa-cloud-upload-alt:before { content: "☁️"; }
+        .fa-paperclip:before { content: "📎"; }
+        .fa-edit:before { content: "✏️"; }
+        .fa-plus:before { content: "➕"; }
         .fa-times:before { content: "✗"; }
         .fa-upload:before { content: "📤"; }
         .fa-calendar:before { content: "📅"; }
@@ -36,6 +40,308 @@
         .fa-tasks:before { content: "📋"; }
         .fa-user-plus:before { content: "👤+"; }
         .fa-sign-out-alt:before { content: "🚪"; }
+        .fa-check-circle:before { content: "✅"; }
+        .fa-exclamation-circle:before { content: "❌"; }
+        .fa-sync:before { content: "🔄"; }
+        .fa-trophy:before { content: "🏆"; }
+        .fa-chevron-left:before { content: "◀"; }
+        .fa-chevron-right:before { content: "▶"; }
+        .fa-bug:before { content: "🐛"; }
+        .fa-play:before { content: "▶️"; }
+        .fa-file-excel:before { content: "📊"; }
+        .fa-save:before { content: "💾"; }
+        .fa-cloud-upload-alt:before { content: "☁️"; }
+        .fa-calendar-alt:before { content: "📅"; }
+        .fa-calendar-week:before { content: "📅"; }
+        
+        /* Dashboard specific styles */
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        .content-section:first-child { display: block; }
+        
+        .sidebar-nav-item, .bottom-nav-item {
+            display: flex;
+            align-items: center;
+            padding: 12px 16px;
+            color: #6b7280;
+            text-decoration: none;
+            border-radius: 8px;
+            margin-bottom: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .sidebar-nav-item:hover, .bottom-nav-item:hover {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        
+        .sidebar-nav-item.active, .bottom-nav-item.active {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 8px 16px;
+            border-radius: 6px;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-outline {
+            background-color: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        
+        .btn-outline:hover {
+            background-color: #f9fafb;
+            border-color: #9ca3af;
+        }
+        
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+        }
+        
+        .btn-success:hover {
+            background-color: #059669;
+        }
+        
+        .btn-sm {
+            padding: 6px 12px;
+            font-size: 0.875rem;
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal.hidden {
+            display: none;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 500px;
+            max-height: 90vh;
+            overflow-y: auto;
+            z-index: 1001;
+            position: relative;
+        }
+        
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #d1d5db;
+            border-radius: 6px;
+            font-size: 0.875rem;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(255, 255, 255, 0.9);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 9999;
+        }
+        
+        .loading-spinner {
+            text-align: center;
+        }
+        
+        .spinner {
+            width: 40px;
+            height: 40px;
+            border: 4px solid #f3f4f6;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 16px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background-color: white;
+            border-top: 1px solid #e5e7eb;
+            padding: 8px;
+            display: flex;
+            justify-content: space-around;
+            z-index: 100;
+        }
+        
+        .bottom-nav-item {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            font-size: 0.75rem;
+        }
+        
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        
+        .leaderboard-item:last-child {
+            border-bottom: none;
+        }
+        
+        .rank {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            margin-right: 16px;
+        }
+        
+        .rank.gold { background-color: #fbbf24; color: white; }
+        .rank.silver { background-color: #9ca3af; color: white; }
+        .rank.bronze { background-color: #d97706; color: white; }
+        
+        .user-info {
+            flex: 1;
+        }
+        
+        .user-name {
+            font-weight: 600;
+            color: #1f2937;
+            margin-bottom: 4px;
+        }
+        
+        .user-score-text {
+            font-size: 0.875rem;
+            color: #6b7280;
+        }
+        
+        .user-stats {
+            text-align: right;
+        }
+        
+        .user-score {
+            font-size: 1.25rem;
+            font-weight: bold;
+            color: #3b82f6;
+        }
+        
+        .user-substats {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 2px;
+        }
+        
+        .leaderboard-item.mini {
+            padding: 12px;
+        }
+        
+        .leaderboard-item.mini .rank {
+            width: 32px;
+            height: 32px;
+            font-size: 0.875rem;
+        }
+        
+        .leaderboard-item.mini .user-name {
+            font-size: 0.875rem;
+        }
+        
+        .leaderboard-item.mini .user-score-text {
+            font-size: 0.75rem;
+        }
+        
+        .leaderboard-item.mini .user-score {
+            font-size: 1rem;
+        }
     </style>
 </head>
 <body>
@@ -48,24 +354,28 @@
     </div>
 
     <!-- Header -->
-    <header class="header">
-        <div class="header-container max-w-screen-2xl mx-auto px-4 md:px-6">
-            <div class="header-left">
-                <h1 class="logo">
-                    <i class="fas fa-robot"></i>
-                    เลขาบอท
-                </h1>
-                <div class="group-label">
-                    <i class="fas fa-users"></i>
-                    <span id="currentGroupName">กลุ่มทดสอบ</span>
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <h1 class="text-xl font-bold text-gray-900">
+                        <i class="fas fa-robot mr-2"></i>
+                        เลขาบอท
+                    </h1>
+                    <div class="ml-4 text-sm text-gray-600">
+                        <i class="fas fa-users mr-1"></i>
+                        <span id="currentGroupName">กลุ่มทดสอบ</span>
+                    </div>
                 </div>
-            </div>
-            <div class="header-right">
-                <div class="user-panel">
-                    <div class="user-avatar" id="userAvatar">👤</div>
-                    <div class="user-info">
-                        <span class="user-name" id="userName">ผู้ใช้ไม่ทราบชื่อ</span>
-                        <span class="user-role">สมาชิก</span>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-sm font-medium text-gray-700" id="userAvatar">
+                            👤
+                        </div>
+                        <div class="text-sm">
+                            <div class="font-medium text-gray-900" id="userName">ผู้ใช้ทดสอบ</div>
+                            <div class="text-gray-500">สมาชิก</div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -73,801 +383,356 @@
     </header>
 
     <!-- Main Layout -->
-    <div class="main-layout">
-        <!-- Sidebar (Desktop only) -->
-        <aside class="sidebar">
-            <nav class="sidebar-nav">
-                <a href="#dashboard" class="nav-item active" data-view="dashboard">
-                    <i class="fas fa-home"></i>
-                    <span>ภาพรวม</span>
-                </a>
-                <a href="#calendar" class="nav-item" data-view="calendar">
-                    <i class="fas fa-calendar-alt"></i>
-                    <span>ปฏิทิน</span>
-                </a>
-                <a href="#tasks" class="nav-item" data-view="tasks">
-                    <i class="fas fa-tasks"></i>
-                    <span>งานทั้งหมด</span>
-                </a>
-                <a href="#files" class="nav-item" data-view="files">
-                    <i class="fas fa-folder"></i>
-                    <span>คลังไฟล์</span>
-                </a>
-                <a href="#leaderboard" class="nav-item" data-view="leaderboard">
-                    <i class="fas fa-trophy"></i>
-                    <span>อันดับ</span>
-                </a>
-                <a href="#reports" class="nav-item" data-view="reports">
-                    <i class="fas fa-chart-bar"></i>
-                    <span>รายงาน</span>
-                </a>
+    <div class="flex h-screen bg-gray-50">
+        <!-- Sidebar -->
+        <aside class="w-64 bg-white shadow-sm hidden md:block">
+            <nav class="mt-8">
+                <div class="px-4 space-y-2">
+                    <a href="#dashboard" class="sidebar-nav-item active" data-view="dashboard">
+                        <i class="fas fa-home mr-3"></i>
+                        <span>ภาพรวม</span>
+                    </a>
+                    <a href="#calendar" class="sidebar-nav-item" data-view="calendar">
+                        <i class="fas fa-calendar-alt mr-3"></i>
+                        <span>ปฏิทิน</span>
+                    </a>
+                    <a href="#tasks" class="sidebar-nav-item" data-view="tasks">
+                        <i class="fas fa-tasks mr-3"></i>
+                        <span>งานทั้งหมด</span>
+                    </a>
+                    <a href="#files" class="sidebar-nav-item" data-view="files">
+                        <i class="fas fa-folder mr-3"></i>
+                        <span>คลังไฟล์</span>
+                    </a>
+                    <a href="#leaderboard" class="sidebar-nav-item" data-view="leaderboard">
+                        <i class="fas fa-trophy mr-3"></i>
+                        <span>อันดับ</span>
+                    </a>
+                    <a href="#reports" class="sidebar-nav-item" data-view="reports">
+                        <i class="fas fa-chart-bar mr-3"></i>
+                        <span>รายงาน</span>
+                    </a>
+                </div>
             </nav>
             
-            <div class="sidebar-footer">
-                <button class="btn btn-primary btn-full" id="addTaskBtn">
-                    <i class="fas fa-plus"></i>
+            <div class="absolute bottom-0 left-0 right-0 p-4">
+                <button class="w-full btn btn-primary" id="addTaskBtn">
+                    <i class="fas fa-plus mr-2"></i>
                     เพิ่มงานใหม่
                 </button>
             </div>
         </aside>
 
         <!-- Main Content -->
-        <main class="main-content">
-            <!-- Dashboard View -->
-            <div id="dashboardView" class="view active">
-                <div class="view-header flex flex-wrap gap-3">
-                    <h2>ภาพรวมกลุ่ม</h2>
-                    <div class="view-actions">
+        <main class="flex-1 overflow-auto">
+            <!-- Dashboard Section -->
+            <div id="dashboardSection" class="content-section active p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">ภาพรวมกลุ่ม</h2>
+                    <div class="flex flex-wrap gap-3">
                         <button class="btn btn-outline" id="refreshBtn">
-                            <i class="fas fa-sync"></i>
+                            <i class="fas fa-sync mr-2"></i>
                             รีเฟรช
                         </button>
-                        <button class="btn btn-primary" id="openSubmitFromDashboardBtn" title="ส่งงานอย่างรวดเร็ว">
-                            <i class="fas fa-upload"></i>
+                        <button class="btn btn-primary" id="openSubmitFromDashboardBtn">
+                            <i class="fas fa-upload mr-2"></i>
                             ส่งงาน
                         </button>
-                         <button class="btn btn-outline" id="exportBtn">
-                            <i class="fas fa-download"></i>
+                        <button class="btn btn-outline" id="exportBtn">
+                            <i class="fas fa-download mr-2"></i>
                             ส่งออก
                         </button>
                     </div>
                 </div>
 
                 <!-- Stats Period Selector -->
-                <div class="stats-period-selector mb-5">
-                    <div class="btn-group flex gap-2 justify-center">
+                <div class="mb-6">
+                    <div class="flex gap-2 justify-center">
                         <button class="btn btn-sm btn-outline active" data-stats-period="this_week">
-                            <i class="fas fa-calendar-week"></i>
+                            <i class="fas fa-calendar-week mr-1"></i>
                             สัปดาห์นี้
                         </button>
                         <button class="btn btn-sm btn-outline" data-stats-period="last_week">
-                            <i class="fas fa-calendar-week"></i>
+                            <i class="fas fa-calendar-week mr-1"></i>
                             สัปดาห์ก่อน
                         </button>
                         <button class="btn btn-sm btn-outline" data-stats-period="all">
-                            <i class="fas fa-calendar-alt"></i>
+                            <i class="fas fa-calendar-alt mr-1"></i>
                             ทั้งหมด
                         </button>
                     </div>
                 </div>
 
                 <!-- Stats Cards -->
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon bg-blue">
-                            <i class="fas fa-tasks"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="totalTasks">0</div>
-                            <div class="stat-label">งานทั้งหมด</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon bg-orange">
-                            <i class="fas fa-clock"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="pendingTasks">0</div>
-                            <div class="stat-label">รอดำเนินการ</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon bg-green">
-                            <i class="fas fa-check-circle"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="completedTasks">0</div>
-                            <div class="stat-label">เสร็จแล้ว</div>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon bg-red">
-                            <i class="fas fa-exclamation-triangle"></i>
-                        </div>
-                        <div class="stat-content">
-                            <div class="stat-number" id="overdueTasks">0</div>
-                            <div class="stat-label">เกินกำหนด</div>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Quick Calendar & Task Overview -->
-                <div class="dashboard-grid">
-                    <div class="dashboard-section">
-                        <div class="section-header">
-                            <h3>งานใกล้ครบกำหนด</h3>
-                            <a href="#tasks" class="section-link">ดูทั้งหมด <i class="fas fa-arrow-right"></i></a>
-                        </div>
-                        <div class="upcoming-tasks" id="upcomingTasks">
-                            <!-- จะใส่ด้วย JavaScript -->
-                        </div>
-                    </div>
-
-                    <div class="dashboard-section">
-                        <div class="section-header">
-                            <h3>อันดับประจำสัปดาห์</h3>
-                            <div class="section-actions">
-                                <a href="#leaderboard" class="section-link">ดูทั้งหมด <i class="fas fa-arrow-right"></i></a>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                                <i class="fas fa-tasks text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-2xl font-bold text-gray-900" id="totalTasks">0</div>
+                                <div class="text-sm text-gray-600">งานทั้งหมด</div>
                             </div>
                         </div>
-                        <div class="mini-leaderboard" id="miniLeaderboard">
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-orange-100 text-orange-600">
+                                <i class="fas fa-clock text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-2xl font-bold text-gray-900" id="pendingTasks">0</div>
+                                <div class="text-sm text-gray-600">รอดำเนินการ</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-green-100 text-green-600">
+                                <i class="fas fa-check-circle text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-2xl font-bold text-gray-900" id="completedTasks">0</div>
+                                <div class="text-sm text-gray-600">เสร็จแล้ว</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <div class="flex items-center">
+                            <div class="p-3 rounded-full bg-red-100 text-red-600">
+                                <i class="fas fa-exclamation-triangle text-xl"></i>
+                            </div>
+                            <div class="ml-4">
+                                <div class="text-2xl font-bold text-gray-900" id="overdueTasks">0</div>
+                                <div class="text-sm text-gray-600">เกินกำหนด</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Upcoming Tasks -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">งานใกล้ครบกำหนด</h3>
+                    <div id="upcomingTasks">
+                        <!-- จะใส่ด้วย JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Mini Leaderboard -->
+                <div class="mb-8">
+                    <h3 class="text-lg font-semibold text-gray-900 mb-4">อันดับยอดเยี่ยม</h3>
+                    <div id="miniLeaderboard">
+                        <!-- จะใส่ด้วย JavaScript -->
+                    </div>
+                </div>
+
+                <!-- Tasks and Groups Grid -->
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">งานล่าสุด</h3>
+                        <div id="recentTasks">
+                            <!-- จะใส่ด้วย JavaScript -->
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-6">
+                        <h3 class="text-lg font-semibold text-gray-900 mb-4">กลุ่มที่เข้าร่วม</h3>
+                        <div id="groupsContainer">
                             <!-- จะใส่ด้วย JavaScript -->
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Calendar View -->
-            <div id="calendarView" class="view">
-                <div class="view-header flex flex-wrap gap-3">
-                    <h2>ปฏิทินงาน</h2>
-                    <div class="view-actions">
-                        <div class="btn-group">
-                            <button class="btn btn-outline active" data-view-mode="month">เดือน</button>
+            <!-- Calendar Section -->
+            <div id="calendarSection" class="content-section p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">ปฏิทินงาน</h2>
+                    <div class="flex items-center justify-between">
+                        <button class="btn btn-outline" id="prevMonth">
+                            <i class="fas fa-chevron-left mr-2"></i>
+                            เดือนก่อนหน้า
+                        </button>
+                        <h3 id="currentMonth" class="text-xl font-semibold">มกราคม 2024</h3>
+                        <button class="btn btn-outline" id="nextMonth">
+                            เดือนถัดไป
+                            <i class="fas fa-chevron-right ml-2"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <p class="text-gray-600 text-center">ปฏิทินจะแสดงที่นี่</p>
+                </div>
+            </div>
+
+            <!-- Tasks Section -->
+            <div id="tasksSection" class="content-section p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">งานทั้งหมด</h2>
+                    
+                    <!-- ตัวกรองงาน -->
+                    <div class="bg-white rounded-lg shadow p-4 mb-4">
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                            <!-- สถานะ -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">สถานะ</label>
+                                <select class="form-group w-full" id="statusFilter">
+                                    <option value="">ทั้งหมด</option>
+                                    <option value="pending">รอดำเนินการ</option>
+                                    <option value="in_progress">กำลังดำเนินการ</option>
+                                    <option value="completed">เสร็จแล้ว</option>
+                                    <option value="overdue">เกินกำหนด</option>
+                                </select>
+                            </div>
+                            
+                            <!-- ความสำคัญ -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ความสำคัญ</label>
+                                <select class="form-group w-full" id="priorityFilter">
+                                    <option value="">ทั้งหมด</option>
+                                    <option value="low">ต่ำ</option>
+                                    <option value="medium">ปานกลาง</option>
+                                    <option value="high">สูง</option>
+                                </select>
+                            </div>
+                            
+                            <!-- ผู้รับผิดชอบ -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">ผู้รับผิดชอบ</label>
+                                <select class="form-group w-full" id="assigneeFilter">
+                                    <option value="">ทั้งหมด</option>
+                                    <!-- จะเติมด้วย JavaScript -->
+                                </select>
+                            </div>
+                            
+                            <!-- วันที่กำหนดส่ง -->
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-2">กำหนดส่ง</label>
+                                <select class="form-group w-full" id="dueDateFilter">
+                                    <option value="">ทั้งหมด</option>
+                                    <option value="today">วันนี้</option>
+                                    <option value="tomorrow">พรุ่งนี้</option>
+                                    <option value="week">สัปดาห์นี้</option>
+                                    <option value="overdue">เกินกำหนด</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <!-- ค้นหาและรีเซ็ต -->
+                        <div class="flex flex-wrap gap-3 mt-4">
+                            <input type="text" class="form-group flex-1" id="searchTasks" placeholder="ค้นหางาน...">
+                            <button class="btn btn-outline" id="resetFiltersBtn">
+                                <i class="fas fa-sync mr-2"></i>
+                                รีเซ็ต
+                            </button>
+                            <button class="btn btn-primary" id="submitSelectedTasksBtn" style="display: none;">
+                                <i class="fas fa-upload mr-2"></i>
+                                ส่งงานที่เลือก
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- สถิติงาน -->
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+                        <div class="bg-blue-50 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-blue-600" id="filteredTasksCount">0</div>
+                            <div class="text-sm text-gray-600">งานที่แสดง</div>
+                        </div>
+                        <div class="bg-yellow-50 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-yellow-600" id="pendingTasksCount">0</div>
+                            <div class="text-sm text-gray-600">รอดำเนินการ</div>
+                        </div>
+                        <div class="bg-green-50 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-green-600" id="completedTasksCount">0</div>
+                            <div class="text-sm text-gray-600">เสร็จแล้ว</div>
+                        </div>
+                        <div class="bg-red-50 rounded-lg p-4 text-center">
+                            <div class="text-2xl font-bold text-red-600" id="overdueTasksCount">0</div>
+                            <div class="text-sm text-gray-600">เกินกำหนด</div>
                         </div>
                     </div>
                 </div>
-
-                <div class="calendar-container">
-                    <div class="calendar-header">
-                        <button class="btn-icon" id="prevMonth" aria-label="เดือนก่อนหน้า"><i class="fas fa-chevron-left"></i></button>
-                        <h3 id="currentMonth">มกราคม 2024</h3>
-                        <button class="btn-icon" id="nextMonth" aria-label="เดือนถัดไป"><i class="fas fa-chevron-right"></i></button>
-                    </div>
-                    <div class="calendar-grid" id="calendarGrid">
-                        <!-- จะใส่ด้วย JavaScript -->
+                
+                <!-- รายการงาน -->
+                <div id="tasksContainer" class="space-y-4">
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-spinner text-4xl mb-4"></i>
+                        <p>กำลังโหลดงาน...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Tasks View -->
-            <div id="tasksView" class="view">
-                <div class="view-header flex flex-wrap gap-3">
-                    <h2>งานทั้งหมด</h2>
-                    <div class="view-actions">
-                        <div class="filters">
-                            <select class="filter-select" id="statusFilter">
-                                <option value="">สถานะทั้งหมด</option>
-                                <option value="pending">รอดำเนินการ</option>
-                                <option value="in_progress">กำลังดำเนินการ</option>
-                                <option value="completed">เสร็จแล้ว</option>
-                                <option value="overdue">เกินกำหนด</option>
-                            </select>
-                            <!-- ไม่แสดง assignee filter เพื่อให้แสดงงานทั้งหมดในกลุ่ม -->
-                            <!-- <select class="filter-select" id="assigneeFilter">
-                                <option value="">ผู้รับผิดชอบทั้งหมด</option>
-                            </select> -->
-                            <input type="text" class="filter-input" id="searchTasks" placeholder="ค้นหางาน..." aria-label="ค้นหางาน">
-                        </div>
-                    </div>
-                </div>
-
-                <div class="tasks-container">
-                    <div class="tasks-list" id="tasksList">
-                        <!-- จะใส่ด้วย JavaScript -->
-                    </div>
-                    <div class="pagination" id="tasksPagination">
-                        <!-- จะใส่ด้วย JavaScript -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Files View -->
-            <div id="filesView" class="view">
-                <div class="view-header flex flex-wrap gap-3">
-                    <h2>คลังไฟล์</h2>
-                    <div class="view-actions">
-                        <div class="filters flex gap-2 items-center">
-                            <select class="filter-select min-w-[150px]" id="taskFilter">
-                                <option value="">งานทั้งหมด</option>
-                                <option value="no-task">ไฟล์อิสระ</option>
-                            </select>
-                            <select class="filter-select min-w-[120px]" id="fileTypeFilter">
-                                <option value="">ประเภททั้งหมด</option>
-                                <option value="image">รูปภาพ</option>
-                                <option value="document">เอกสาร</option>
-                                <option value="video">วิดีโอ</option>
-                                <option value="audio">เสียง</option>
-                                <option value="archive">ไฟล์บีบอัด</option>
-                                <option value="other">อื่นๆ</option>
-                            </select>
-                            <input type="text" class="filter-input min-w-[200px]" id="searchFiles" placeholder="ค้นหาไฟล์..." aria-label="ค้นหาไฟล์">
-                        </div>
+            <!-- Files Section -->
+            <div id="filesSection" class="content-section p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">คลังไฟล์</h2>
+                    <div class="flex flex-wrap gap-3">
                         <button class="btn btn-primary" id="uploadFileBtn">
-                            <i class="fas fa-upload"></i>
+                            <i class="fas fa-upload mr-2"></i>
                             อัปโหลด
                         </button>
-                    </div>
-                </div>
-
-                <div class="files-container">
-                    <div class="files-grid" id="filesGrid">
-                        <!-- จะใส่ด้วย JavaScript -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Leaderboard View -->
-            <div id="leaderboardView" class="view">
-                <div class="view-header flex flex-wrap gap-3">
-                    <h2>อันดับผลงาน</h2>
-                    <div class="view-actions">
-                        <div class="btn-group">
-                            <button class="btn btn-outline active" data-period="weekly">รายสัปดาห์</button>
-                            <button class="btn btn-outline" data-period="monthly">รายเดือน</button>
-                        </div>
-                        <button class="btn btn-secondary ml-[10px]" id="debugLeaderboardBtn">
-                            <i class="fas fa-bug"></i> Debug
+                        <input type="text" class="form-group" id="searchFiles" placeholder="ค้นหาไฟล์...">
+                        <button class="btn btn-outline" id="refreshFilesBtn">
+                            <i class="fas fa-sync mr-2"></i>
+                            รีเฟรช
                         </button>
                     </div>
                 </div>
-
-                <div class="leaderboard-container">
-                    <div class="leaderboard-list" id="leaderboardList">
-                        <!-- จะใส่ด้วย JavaScript -->
+                <div id="filesContainer" class="space-y-4">
+                    <div class="text-center py-8 text-gray-500">
+                        <i class="fas fa-folder text-4xl mb-4"></i>
+                        <p>กำลังโหลดไฟล์...</p>
                     </div>
                 </div>
             </div>
 
-            <!-- Reports View -->
-            <div id="reportsView" class="view">
-                <div class="view-header flex flex-wrap gap-3">
-                    <h2>รายงานสำหรับผู้บริหาร</h2>
-                    <div class="view-actions">
-                        <div class="btn-group">
-                            <select id="reportPeriodSelect" class="filter-select">
-                                <option value="weekly" selected>รายสัปดาห์</option>
-                                <option value="monthly">รายเดือน</option>
-                                <option value="custom">กำหนดช่วงเอง</option>
-                            </select>
-                            <input type="date" id="reportStartDate" style="display:none;">
-                            <input type="date" id="reportEndDate" style="display:none;">
-                            <select id="reportUserSelect" class="filter-select">
-                                <option value="">ทุกคนในกลุ่ม</option>
-                            </select>
-                        </div>
-                        <div class="btn-group">
-                            <button class="btn btn-outline" id="runReportBtn"><i class="fas fa-play"></i> แสดงรายงาน</button>
-                            <button class="btn btn-outline" id="exportExcelBtn"><i class="fas fa-file-excel"></i> ส่งออก Excel</button>
-                         <button class="btn btn-outline hidden" id="exportPdfBtn"><i class="fas fa-file-pdf"></i> ส่งออก PDF</button>
-                        </div>
+            <!-- Leaderboard Section -->
+            <div id="leaderboardSection" class="content-section p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">อันดับผลงาน</h2>
+                    <div class="flex flex-wrap gap-3">
+                        <button class="btn btn-outline active" data-period="weekly">รายสัปดาห์</button>
+                        <button class="btn btn-outline" data-period="monthly">รายเดือน</button>
+                        <button class="btn btn-secondary" id="debugLeaderboardBtn">
+                            <i class="fas fa-bug mr-2"></i>
+                            Debug
+                        </button>
                     </div>
                 </div>
+                <div id="leaderboardList" class="bg-white rounded-lg shadow p-6">
+                    <p class="text-gray-600 text-center">อันดับจะแสดงที่นี่</p>
+                </div>
+            </div>
 
-                <div class="reports-container">
-                    <!-- Summary Cards -->
-                    <div class="stats-grid">
-                        <div class="stat-card"><div class="stat-icon bg-green"><i class="fas fa-check"></i></div><div class="stat-content"><div class="stat-number" id="repCompleted">0</div><div class="stat-label">เสร็จแล้ว</div></div></div>
-                        <div class="stat-card"><div class="stat-icon bg-blue"><i class="fas fa-bolt"></i></div><div class="stat-content"><div class="stat-number" id="repEarly">0</div><div class="stat-label">เร็วกว่ากำหนด</div></div></div>
-                        <div class="stat-card"><div class="stat-icon bg-blue"><i class="fas fa-clock"></i></div><div class="stat-content"><div class="stat-number" id="repOntime">0</div><div class="stat-label">ตรงเวลา</div></div></div>
-                        <div class="stat-card"><div class="stat-icon bg-orange"><i class="fas fa-hourglass-half"></i></div><div class="stat-content"><div class="stat-number" id="repLate">0</div><div class="stat-label">ล่าช้า</div></div></div>
-                        <div class="stat-card"><div class="stat-icon bg-red"><i class="fas fa-fire"></i></div><div class="stat-content"><div class="stat-number" id="repOvertime">0</div><div class="stat-label">ค้างนาน</div></div></div>
-                        <div class="stat-card"><div class="stat-icon bg-gray"><i class="fas fa-exclamation-triangle"></i></div><div class="stat-content"><div class="stat-number" id="repOverdue">0</div><div class="stat-label">เกินเวลา</div></div></div>
-                        <div class="stat-card"><div class="stat-icon bg-purple"><i class="fas fa-percentage"></i></div><div class="stat-content"><div class="stat-number" id="repCompletionRate">0%</div><div class="stat-label">อัตราสำเร็จ</div></div></div>
+            <!-- Reports Section -->
+            <div id="reportsSection" class="content-section p-6">
+                <div class="mb-6">
+                    <h2 class="text-2xl font-bold text-gray-900 mb-4">รายงานสำหรับผู้บริหาร</h2>
+                    <div class="flex flex-wrap gap-3">
+                        <select id="reportPeriodSelect" class="form-group">
+                            <option value="weekly" selected>รายสัปดาห์</option>
+                            <option value="monthly">รายเดือน</option>
+                            <option value="custom">กำหนดช่วงเอง</option>
+                        </select>
+                        <button class="btn btn-outline" id="runReportBtn">
+                            <i class="fas fa-play mr-2"></i>
+                            แสดงรายงาน
+                        </button>
+                        <button class="btn btn-outline" id="exportExcelBtn">
+                            <i class="fas fa-file-excel mr-2"></i>
+                            ส่งออก Excel
+                        </button>
                     </div>
-
-                    <!-- Charts -->
-                    <div class="dashboard-grid">
-                        <div class="dashboard-section">
-                            <div class="section-header"><h3>สัดส่วนสถานะงาน</h3></div>
-                            <canvas id="repDistChart" height="220"></canvas>
-                        </div>
-                        <div class="dashboard-section">
-                            <div class="section-header"><h3>ผลงานรายบุคคล</h3></div>
-                            <canvas id="repUserBarChart" height="220"></canvas>
-                        </div>
-                    </div>
-
-                    <!-- Users Table -->
-                    <div class="dashboard-section">
-                        <div class="section-header"><h3>สรุปแยกตามบุคคล</h3></div>
-                        <div class="overflow-auto">
-                            <table class="w-full border-collapse">
-                                <thead>
-                                    <tr class="text-left border-b border-gray-200">
-                                        <th class="p-2 md:p-3">ผู้ใช้</th>
-                                        <th class="p-2 md:p-3">เสร็จ</th>
-                                        <th class="p-2 md:p-3">เร็ว</th>
-                                        <th class="p-2 md:p-3">ตรงเวลา</th>
-                                        <th class="p-2 md:p-3">ล่าช้า</th>
-                                        <th class="p-2 md:p-3">ค้างนาน</th>
-                                        <th class="p-2 md:p-3">เกินเวลา</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="repUsersTable"></tbody>
-                            </table>
-                        </div>
-                    </div>
-
-                    <!-- Manager Recipients -->
-                    <div class="dashboard-section">
-                        <div class="section-header"><h3>ผู้รับรายงานสรุปอัตโนมัติ (ผู้จัดการ)</h3></div>
-                        <div id="reportRecipientsList" class="grid [grid-template-columns:repeat(auto-fill,minmax(220px,1fr))] gap-2"></div>
-                        <div class="mt-3">
-                            <button class="btn btn-primary" id="saveRecipientsBtn"><i class="fas fa-save"></i> บันทึกผู้รับรายงาน</button>
-                        </div>
-                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-6">
+                    <p class="text-gray-600 text-center">รายงานจะแสดงที่นี่</p>
                 </div>
             </div>
         </main>
     </div>
 
-    <!-- Task Detail Modal -->
-    <div id="taskModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3 id="taskModalTitle">รายละเอียดงาน</h3>
-                <button class="modal-close" id="taskModalClose">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body" id="taskModalBody">
-                <!-- จะใส่ด้วย JavaScript -->
-            </div>
-        </div>
-    </div>
-
-    <!-- Submit Task Modal -->
-    <div id="submitTaskModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>ส่งงาน</h3>
-                <button class="modal-close" id="submitTaskModalClose">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="submitTaskForm">
-                    <div class="form-group">
-                        <label for="submitTaskId">เลือกงาน</label>
-                        <select id="submitTaskId"></select>
-                    </div>
-                    <div class="form-group">
-                        <label for="submitComment">หมายเหตุ</label>
-                        <textarea id="submitComment" rows="3"></textarea>
-                    </div>
-                    <div class="form-group">
-                        <label for="submitFiles">ไฟล์แนบ</label>
-                        <input type="file" id="submitFiles" multiple>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" id="cancelSubmitTask">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary">ส่งงาน</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Review Task Modal -->
-    <div id="reviewTaskModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>ตรวจงาน</h3>
-                <button class="modal-close" id="reviewTaskModalClose">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="reviewTaskForm">
-                    <div class="form-group">
-                        <label for="reviewTaskId">เลือกงาน</label>
-                        <select id="reviewTaskId"></select>
-                    </div>
-                    <div class="form-group">
-                        <label for="reviewComment">ความเห็น</label>
-                        <textarea id="reviewComment" rows="3"></textarea>
-                    </div>
-
-                    <div class="form-actions flex gap-2">
-                        <button type="button" class="btn btn-outline" id="cancelReviewTask">ยกเลิก</button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Add Task Modal -->
-    <div id="addTaskModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">
-                    <i class="fas fa-plus-circle"></i>
-                    <h3>เพิ่มงานใหม่</h3>
-                </div>
-                <button class="modal-close" id="addTaskModalClose">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="addTaskForm">
-                    <!-- ข้อมูลพื้นฐาน -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-info-circle"></i>
-                            <h4>ข้อมูลพื้นฐาน</h4>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskTitle">
-                                <i class="fas fa-tag"></i>
-                                ชื่องาน *
-                            </label>
-                            <input type="text" id="taskTitle" name="title" required placeholder="กรอกชื่องาน">
-                        </div>
-                        <div class="form-group">
-                            <label for="taskDescription">
-                                <i class="fas fa-align-left"></i>
-                                รายละเอียด
-                            </label>
-                            <textarea id="taskDescription" name="description" rows="3" placeholder="อธิบายรายละเอียดงาน (ไม่บังคับ)" class="optional-field"></textarea>
-                            <small class="field-hint">ไม่บังคับ - สามารถเว้นว่างได้</small>
-                        </div>
-                    </div>
-
-                    <!-- การตั้งค่า -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-cog"></i>
-                            <h4>การตั้งค่า</h4>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="taskPriority">
-                                    <i class="fas fa-flag"></i>
-                                    ระดับความสำคัญ
-                                </label>
-                                <select id="taskPriority" name="priority">
-                                    <option value="low">ต่ำ</option>
-                                    <option value="medium" selected>ปานกลาง</option>
-                                    <option value="high">สูง</option>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label for="reviewerSelect">
-                                    <i class="fas fa-user-check"></i>
-                                    ผู้ตรวจ (ผู้สั่งงาน)
-                                </label>
-                                <select id="reviewerSelect"></select>
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="checkbox-label">
-                                <input type="checkbox" id="requireAttachment">
-                                <span class="checkmark"></span>
-                                <i class="fas fa-paperclip"></i>
-                                ต้องแนบไฟล์เมื่อส่งงาน
-                            </label>
-                        </div>
-                    </div>
-
-                    <!-- ไฟล์แนบเริ่มต้น -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-paperclip"></i>
-                            <h4>ไฟล์แนบเริ่มต้น</h4>
-                        </div>
-                        <div class="form-group">
-                            <label for="initialFiles">
-                                <i class="fas fa-upload"></i>
-                                แนบไฟล์เริ่มต้น (เอกสารข้อกำหนด, แบบฟอร์ม, ฯลฯ)
-                            </label>
-                            <input type="file" id="initialFiles" multiple accept="*/*">
-                            <div class="form-hint">สามารถเลือกได้หลายไฟล์ ขนาดไฟล์ไม่เกิน 10MB ต่อไฟล์</div>
-                            <div id="initialFilesPreview" class="files-preview" style="display: none;">
-                                <!-- จะแสดงรายการไฟล์ที่เลือกด้วย JavaScript -->
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- กำหนดเวลา -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-clock"></i>
-                            <h4>กำหนดเวลา</h4>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskDueDate">
-                                <i class="fas fa-calendar-alt"></i>
-                                วันที่ครบกำหนด *
-                            </label>
-                            <input type="datetime-local" id="taskDueDate" name="dueDate" required>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="recurrenceType">
-                                    <i class="fas fa-redo"></i>
-                                    ชนิดงาน
-                                </label>
-                                <select id="recurrenceType">
-                                    <option value="none">งานปกติ (ครั้งเดียว)</option>
-                                    <option value="weekly">งานประจำรายสัปดาห์</option>
-                                    <option value="monthly">งานประจำรายเดือน</option>
-                                    <option value="quarterly">งานประจำรายไตรมาส</option>
-                                </select>
-                            </div>
-                            <div class="form-group" id="recurrenceConfig" style="display:none;">
-                                <label id="recurrenceConfigLabel">
-                                    <i class="fas fa-calendar-week"></i>
-                                    ตั้งค่าการทำซ้ำ
-                                </label>
-                                <div class="recurrence-inputs">
-                                    <select id="weekDaySelect" style="display:none;">
-                                        <option value="1">จันทร์</option>
-                                        <option value="2">อังคาร</option>
-                                        <option value="3">พุธ</option>
-                                        <option value="4">พฤหัสบดี</option>
-                                        <option value="5">ศุกร์</option>
-                                        <option value="6">เสาร์</option>
-                                        <option value="0">อาทิตย์</option>
-                                    </select>
-                                    <input type="number" id="dayOfMonthInput" min="1" max="31" placeholder="วันที่ของเดือน" style="display:none;" />
-                                    <input type="time" id="timeOfDayInput" value="09:00" />
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- ผู้รับผิดชอบและแท็ก -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-users"></i>
-                            <h4>ผู้รับผิดชอบและแท็ก</h4>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskAssignees">
-                                <i class="fas fa-user-friends"></i>
-                                ผู้รับผิดชอบ <span id="assigneeCount" class="text-muted"></span>
-                            </label>
-                            <div id="taskAssignees" class="checkbox-list" role="group" aria-label="ผู้รับผิดชอบ">
-                                <!-- จะใส่ด้วย JavaScript -->
-                            </div>
-                            <div class="form-hint">เลือกได้หลายคน</div>
-                            <!-- แสดงข้อมูล source ของข้อมูลสมาชิก -->
-                            <div id="membersSourceInfo" class="info-text hidden mt-2 text-xs text-gray-500">
-                                <!-- จะใส่ด้วย JavaScript -->
-                            </div>
-                            <!-- แสดงข้อมูลสมาชิกใหม่ -->
-                            <div id="newMemberInfo" class="info-text hidden mt-2 text-xs">
-                                <!-- จะใส่ด้วย JavaScript -->
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label for="taskTags">
-                                <i class="fas fa-tags"></i>
-                                แท็ก
-                            </label>
-                            <input type="text" id="taskTags" name="tags" placeholder="การเงิน, ประชุม, ด่วน (คั่นด้วยจุลภาค)">
-                        </div>
-                    </div>
-
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" id="cancelAddTask">
-                            <i class="fas fa-times"></i>
-                            ยกเลิก
-                        </button>
-                        <button type="submit" class="btn btn-primary" id="addTaskSubmitBtn">
-                            <i class="fas fa-plus"></i>
-                            เพิ่มงาน
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- Success Modal -->
-    <div id="successModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h3>เพิ่มงานสำเร็จ</h3>
-                <button class="modal-close" id="successModalClose">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p id="successMessage">บอทจะแจ้งเตือนในกลุ่ม LINE เพื่อยืนยันการสร้างงาน</p>
-                <div class="form-actions justify-end">
-                    <button type="button" class="btn btn-outline" id="stayHereBtn">อยู่ในหน้านี้</button>
-                    <a class="btn btn-primary" id="goToLineBtn" href="line://nv/chat">กลับไปที่ LINE</a>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Edit Task Modal -->
-    <div id="editTaskModal" class="modal">
-        <div class="modal-content">
-            <div class="modal-header">
-                <div class="modal-title">
-                    <i class="fas fa-edit"></i>
-                    <h3>แก้ไขงาน</h3>
-                </div>
-                <button class="modal-close" id="editTaskModalClose">
-                    <i class="fas fa-times"></i>
-                </button>
-            </div>
-            <div class="modal-body">
-                <form id="editTaskForm">
-                    <!-- ข้อมูลพื้นฐาน -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-info-circle"></i>
-                            <h4>ข้อมูลพื้นฐาน</h4>
-                        </div>
-                        <div class="form-group">
-                            <label for="editTaskTitle">
-                                <i class="fas fa-tag"></i>
-                                ชื่องาน *
-                            </label>
-                            <input type="text" id="editTaskTitle" name="title" required placeholder="กรอกชื่องาน">
-                        </div>
-                        <div class="form-group">
-                            <label for="editTaskDescription">
-                                <i class="fas fa-align-left"></i>
-                                รายละเอียด
-                            </label>
-                            <textarea id="editTaskDescription" name="description" rows="3" placeholder="อธิบายรายละเอียดงาน (ไม่บังคับ)" class="optional-field"></textarea>
-                            <small class="field-hint">ไม่บังคับ - สามารถเว้นว่างได้</small>
-                        </div>
-                    </div>
-
-                    <!-- การตั้งค่า -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-cog"></i>
-                            <h4>การตั้งค่า</h4>
-                        </div>
-                        <div class="form-group">
-                            <label for="editTaskPriority">
-                                <i class="fas fa-flag"></i>
-                                ระดับความสำคัญ
-                            </label>
-                            <select id="editTaskPriority" name="priority">
-                                <option value="low">ต่ำ</option>
-                                <option value="medium" selected>ปานกลาง</option>
-                                <option value="high">สูง</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <!-- กำหนดเวลา -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-clock"></i>
-                            <h4>กำหนดเวลา</h4>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label for="editTaskDueDate">
-                                    <i class="fas fa-calendar-alt"></i>
-                                    วันที่ครบกำหนด *
-                                </label>
-                                <input type="date" id="editTaskDueDate" name="dueDate" required>
-                            </div>
-                            <div class="form-group">
-                                <label for="editTaskDueTime">
-                                    <i class="fas fa-clock"></i>
-                                    เวลา
-                                </label>
-                                <input type="time" id="editTaskDueTime" name="dueTime" value="23:59">
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <!-- ผู้รับผิดชอบและแท็ก -->
-                    <div class="form-section">
-                        <div class="section-header">
-                            <i class="fas fa-users"></i>
-                            <h4>ผู้รับผิดชอบและแท็ก</h4>
-                        </div>
-                        <div class="form-group">
-                            <label for="editTaskAssignees">
-                                <i class="fas fa-user-friends"></i>
-                                ผู้รับผิดชอบ <span id="editAssigneeCount" class="text-muted"></span>
-                            </label>
-                            <div id="editTaskAssignees" class="checkbox-list" role="group" aria-label="ผู้รับผิดชอบ">
-                                <!-- จะโหลดด้วย JavaScript -->
-                            </div>
-                            <div class="form-hint">เลือกได้หลายคน</div>
-                        </div>
-                        <div class="form-group">
-                            <label for="editTaskTags">
-                                <i class="fas fa-tags"></i>
-                                แท็ก
-                            </label>
-                            <input type="text" id="editTaskTags" name="tags" placeholder="การเงิน, ประชุม, ด่วน (คั่นด้วยจุลภาค)">
-                        </div>
-                    </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" id="editTaskCancelBtn">
-                            <i class="fas fa-times"></i>
-                            ยกเลิก
-                        </button>
-                        <button type="submit" class="btn btn-primary" id="editTaskSubmitBtn">
-                            <i class="fas fa-save"></i>
-                            บันทึกการแก้ไข
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- File Viewer Modal -->
-    <div id="fileViewerModal" class="modal">
-        <div class="modal-content file-viewer-content">
-            <div class="modal-header">
-                <h3 id="fileViewerTitle">ดูไฟล์</h3>
-                <div class="file-viewer-actions">
-                    <button class="btn btn-outline btn-sm" id="downloadFileBtn">
-                        <i class="fas fa-download"></i>
-                        ดาวน์โหลด
-                    </button>
-                    <button class="modal-close" id="fileViewerClose">
-                        <i class="fas fa-times"></i>
-                    </button>
-                </div>
-            </div>
-            <div class="modal-body file-viewer-body">
-                <div id="fileViewerContent">
-                    <!-- จะใส่เนื้อหาไฟล์ด้วย JavaScript -->
-                </div>
-                <div id="fileViewerLoading" class="file-viewer-loading" style="display: none;">
-                    <div class="spinner"></div>
-                    <p>กำลังโหลดไฟล์...</p>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- Toast Notifications -->
-    <div id="toastContainer" class="toast-container" role="status" aria-live="polite">
-        <!-- จะใส่ด้วย JavaScript -->
-    </div>
-
-    <!-- Upload Overlay -->
-    <div id="uploadOverlay" class="upload-overlay hidden" aria-live="polite" aria-label="กำลังอัปโหลดไฟล์">
-        <div class="upload-card">
-            <div class="upload-header">
-                <i class="fas fa-cloud-upload-alt"></i>
-                <div class="upload-titles">
-                    <div class="upload-title">กำลังอัปโหลดไฟล์...</div>
-                    <div class="upload-subtitle" id="uploadSubtitle">โปรดรอสักครู่</div>
-                </div>
-            </div>
-            <div class="progress">
-                <div id="uploadProgressBar" class="progress-bar indeterminate" style="width: 0%;"></div>
-            </div>
-            <div class="progress-meta">
-                <span id="uploadPercent">0%</span>
-                <span id="uploadDetail" class="muted">กำลังเตรียมไฟล์...</span>
-            </div>
-        </div>
-    </div>
-
-    <!-- Bottom Navigation (Global) -->
-    <nav class="bottom-nav">
+    <!-- Bottom Navigation (Mobile) -->
+    <nav class="bottom-nav md:hidden">
         <a href="#dashboard" class="bottom-nav-item active" data-view="dashboard">
             <i class="fas fa-home"></i>
             <span>ภาพรวม</span>
@@ -894,7 +759,183 @@
         </a>
     </nav>
 
+    <!-- Add Task Modal -->
+    <div id="addTaskModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>เพิ่มงานใหม่</h3>
+                <button class="modal-close" id="addTaskModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="addTaskForm">
+                    <div class="form-group">
+                        <label for="taskTitle">ชื่องาน *</label>
+                        <input type="text" id="taskTitle" name="taskTitle" required placeholder="กรอกชื่องาน...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taskDescription">รายละเอียด *</label>
+                        <textarea id="taskDescription" name="taskDescription" rows="4" required placeholder="อธิบายรายละเอียดงาน..."></textarea>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label for="dueDate">วันที่ครบกำหนด *</label>
+                            <input type="date" id="dueDate" name="dueDate" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="dueTime">เวลาครบกำหนด</label>
+                            <input type="time" id="dueTime" name="dueTime" value="23:59">
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label for="priority">ความสำคัญ *</label>
+                            <select id="priority" name="priority" required>
+                                <option value="">เลือกความสำคัญ</option>
+                                <option value="low">ต่ำ</option>
+                                <option value="medium" selected>ปานกลาง</option>
+                                <option value="high">สูง</option>
+                                <option value="urgent">ด่วน</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="category">หมวดหมู่</label>
+                            <select id="category" name="category">
+                                <option value="general">ทั่วไป</option>
+                                <option value="meeting">การประชุม</option>
+                                <option value="report">รายงาน</option>
+                                <option value="project">โครงการ</option>
+                                <option value="maintenance">บำรุงรักษา</option>
+                                <option value="other">อื่นๆ</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ผู้รับผิดชอบ *</label>
+                        <div class="assigned-to-container">
+                            <div class="checkbox-group">
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="assignedTo" value="self" id="assignedTo_self">
+                                    <span class="checkmark"></span>
+                                    <span class="label-text">ตนเอง</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="assignedTo" value="member1" id="assignedTo_member1">
+                                    <span class="checkmark"></span>
+                                    <span class="label-text">สมาชิก 1</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="assignedTo" value="member2" id="assignedTo_member2">
+                                    <span class="checkmark"></span>
+                                    <span class="label-text">สมาชิก 2</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="assignedTo" value="member3" id="assignedTo_member3">
+                                    <span class="checkmark"></span>
+                                    <span class="label-text">สมาชิก 3</span>
+                                </label>
+                                <label class="checkbox-item">
+                                    <input type="checkbox" name="assignedTo" value="team" id="assignedTo_team">
+                                    <span class="checkmark"></span>
+                                    <span class="label-text">ทีมทั้งหมด</span>
+                                </label>
+                            </div>
+                            <div class="assigned-to-actions">
+                                <button type="button" class="btn btn-sm btn-outline" id="selectAllAssigned">เลือกทั้งหมด</button>
+                                <button type="button" class="btn btn-sm btn-outline" id="clearAllAssigned">ล้างทั้งหมด</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taskTags">แท็ก (คั่นด้วยจุลภาค)</label>
+                        <input type="text" id="taskTags" name="taskTags" placeholder="เช่น: สำคัญ, ด่วน, รายงาน">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="taskNotes">หมายเหตุเพิ่มเติม</label>
+                        <textarea id="taskNotes" name="taskNotes" rows="2" placeholder="หมายเหตุหรือข้อมูลเพิ่มเติม..."></textarea>
+                    </div>
+                    
+                    <!-- File Upload Section -->
+                    <div class="form-group">
+                        <label>ไฟล์แนบ</label>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="file-upload-content">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-gray-600 mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                                <p class="text-sm text-gray-500">รองรับไฟล์ทุกประเภท ไม่จำกัดขนาด</p>
+                            </div>
+                            <input type="file" id="taskFiles" name="taskFiles" multiple style="display: none;">
+                        </div>
+                        <div id="fileList" class="file-list hidden">
+                            <!-- ไฟล์ที่เลือกจะแสดงที่นี่ -->
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 mt-6">
+                        <button type="button" class="btn btn-outline flex-1" id="cancelAddTask">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary flex-1">
+                            <i class="fas fa-plus mr-2"></i>
+                            เพิ่มงาน
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Edit Task Modal -->
+    <div id="editTaskModal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>แก้ไขงาน</h3>
+                <button class="modal-close" id="editTaskModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="editTaskForm">
+                    <input type="hidden" name="taskId">
+                    <div class="form-group">
+                        <label for="editTaskTitle">ชื่องาน *</label>
+                        <input type="text" id="editTaskTitle" name="taskTitle" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="taskDescription">รายละเอียด</label>
+                        <textarea id="editTaskDescription" name="taskDescription" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label for="editDueDate">วันที่ครบกำหนด *</label>
+                        <input type="date" id="editDueDate" name="dueDate" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="editPriority">ความสำคัญ</label>
+                        <select id="editPriority" name="priority">
+                            <option value="low">ต่ำ</option>
+                            <option value="medium" selected>ปานกลาง</option>
+                            <option value="high">สูง</option>
+                        </select>
+                    </div>
+                    <div class="flex gap-2 mt-6">
+                        <button type="button" class="btn btn-outline" id="editTaskCancelBtn">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary">บันทึก</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Overlay -->
+    <div id="modalOverlay" class="modal-overlay hidden"></div>
+
     <!-- ใช้ vanilla JavaScript แทน moment.js -->
     <script src="./script-vanilla.js"></script>
 </body>
 </html>
+

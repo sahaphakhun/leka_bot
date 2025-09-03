@@ -207,6 +207,17 @@ class ApiController {
       const { userId, comment, links } = (req.body || {});
       const files = ((req as any).files as any[]) || [];
 
+      // ถ้าไม่มี groupId ให้ดึงจาก task
+      let finalGroupId = groupId;
+      if (!finalGroupId) {
+        const task = await this.taskService.getTaskById(taskId);
+        if (!task) {
+          res.status(404).json({ success: false, error: 'Task not found' });
+          return;
+        }
+        finalGroupId = task.groupId;
+      }
+
       const ALLOWED_MIME_TYPES = [
         'image/jpeg',
         'image/png',
@@ -250,7 +261,7 @@ class ApiController {
       const savedFileIds: string[] = await Promise.all(
         files.map(async f => {
           const saved = await this.fileService.saveFile({
-            groupId,
+            groupId: finalGroupId,
             uploadedBy: finalUserId,
             messageId: f.originalname,
             content: f.buffer,
@@ -498,148 +509,9 @@ class ApiController {
     }
   }
 
-  /**
-   * GET /api/files/:groupId - ดึงรายการไฟล์
-   */
-  public async getFiles(req: Request, res: Response): Promise<void> {
-    try {
-      const { groupId } = req.params;
-      const { 
-        tags, 
-        mimeType, 
-        search, 
-        uploadedBy,
-        page = 1, 
-        limit = 20 
-      } = req.query;
 
-      const options = {
-        tags: tags ? (tags as string).split(',') : undefined,
-        mimeType: mimeType as string,
-        search: search as string,
-        uploadedBy: uploadedBy as string,
-        limit: parseInt(limit as string),
-        offset: (parseInt(page as string) - 1) * parseInt(limit as string)
-      };
 
-      const { files, total } = await this.fileService.getGroupFiles(groupId, options);
 
-      const response: PaginatedResponse<any> = {
-        success: true,
-        data: files,
-        pagination: {
-          page: parseInt(page as string),
-          limit: parseInt(limit as string),
-          total,
-          totalPages: Math.ceil(total / parseInt(limit as string))
-        }
-      };
-
-      res.json(response);
-
-    } catch (error) {
-      logger.error('❌ Error getting files:', error);
-      res.status(500).json({ 
-        success: false, 
-        error: 'Failed to get files' 
-      });
-    }
-  }
-
-  /**
-   * GET /api/files/:fileId/download - ดาวน์โหลดไฟล์
-   * GET /api/groups/:groupId/files/:fileId/download - ดาวน์โหลดไฟล์ (พร้อมตรวจสอบ group)
-   */
-  public async downloadFile(req: Request, res: Response): Promise<void> {
-    let fileUrl: string | undefined;
-    try {
-      const { fileId, groupId } = req.params;
-
-      // ถ้ามี groupId ให้ตรวจสอบว่าไฟล์เป็นของกลุ่มนั้นจริง
-      if (groupId) {
-        // ตรวจสอบว่าไฟล์อยู่ในกลุ่มที่ระบุหรือไม่ผ่าน FileService
-        const isAuthorized = await this.fileService.isFileInGroup(fileId, groupId);
-        if (!isAuthorized) {
-          res.status(403).json({ 
-            success: false, 
-            error: 'Access denied to file' 
-          });
-          return;
-        }
-      }
-
-      const file = await this.fileService.getFileInfo(fileId);
-      if (!file) {
-        res.status(404).json({
-          success: false,
-          error: 'File not found'
-        });
-        return;
-      }
-      fileUrl = this.fileService.resolveFileUrl(file);
-
-      // Debug: log ข้อมูลไฟล์
-      logger.info(`🔍 Download file: ${fileId}, path: ${fileUrl}, mimeType: ${file.mimeType}`);
-
-      // ดึงเนื้อไฟล์จาก service (รองรับทั้ง local และ remote)
-      const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
-
-      // ตรวจสอบและสร้างชื่อไฟล์ที่เหมาะสม
-      let downloadName = originalName && originalName.trim() !== '' ? originalName : `file_${fileId}`;
-
-      // เพิ่มนามสกุลให้ถูกต้อง
-      const ext = (this.fileService as any).getFileExtension
-        ? (this.fileService as any).getFileExtension(mimeType, downloadName)
-        : '';
-      if (ext && !downloadName.toLowerCase().endsWith(ext.toLowerCase())) {
-        downloadName += ext;
-      }
-
-      // Debug: log ข้อมูลชื่อไฟล์
-      logger.info(`📁 File download info:`, {
-        fileId,
-        originalName,
-        mimeType,
-        finalDownloadName: downloadName
-      });
-
-      // ลบอักขระที่ไม่ปลอดภัยออกจากชื่อไฟล์
-      downloadName = downloadName.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_');
-
-      // สร้างชื่อไฟล์ที่ปลอดภัยสำหรับ HTTP header
-      const safeName = sanitize(downloadName);
-
-      // สร้าง Content-Disposition header ที่รองรับ UTF-8
-      const encodedName = encodeURIComponent(safeName);
-      const contentDisposition = `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`;
-
-      res.set({
-        'Content-Type': mimeType,
-        'Content-Disposition': contentDisposition,
-        'Content-Length': content.length.toString()
-      });
-
-      res.send(content);
-
-    } catch (error) {
-      const statusCode = (error as any)?.statusCode;
-      const url = (error as any)?.url || fileUrl;
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      logger.error('❌ Error downloading file', { fileId: req.params.fileId, url, statusCode, message: errorMessage });
-
-      if (statusCode) {
-        if (statusCode >= 500) {
-          res.status(502).json({ success: false, error: errorMessage, url });
-        } else {
-          res.status(statusCode).json({ success: false, error: errorMessage, url });
-        }
-      } else if (errorMessage.includes('File not found')) {
-        res.status(404).json({ success: false, error: 'File not found', url });
-      } else {
-        res.status(500).json({ success: false, error: 'Internal server error', url });
-      }
-    }
-  }
 
   /**
    * Fallback method สำหรับดาวน์โหลดไฟล์เมื่อ streaming ไม่สำเร็จ
@@ -863,6 +735,181 @@ class ApiController {
           error: 'Internal server error' 
         });
       }
+    }
+  }
+
+  /**
+   * POST /api/files/upload - อัปโหลดไฟล์ทั่วไป (สำหรับ Dashboard)
+   * รองรับไฟล์รูปภาพ (JPEG, PNG, GIF), PDF, ข้อความธรรมดา และไฟล์เอกสาร Microsoft Office
+   * form-data fields: files (array of files)
+   */
+  public async uploadGeneralFiles(req: Request, res: Response): Promise<void> {
+    try {
+      const files = (req as any).files as any[];
+
+      if (!files || files.length === 0) {
+        res.status(400).json({ success: false, error: 'No files provided' });
+        return;
+      }
+
+      const ALLOWED_MIME_TYPES = [
+        'image/jpeg',
+        'image/png',
+        'image/gif',
+        'application/pdf',
+        'text/plain',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        'application/msword',
+        'application/vnd.ms-excel',
+        'application/vnd.ms-powerpoint',
+        'application/octet-stream'
+      ];
+
+      // ตรวจสอบประเภทไฟล์
+      for (const file of files) {
+        if (!ALLOWED_MIME_TYPES.includes(file.mimetype)) {
+          res.status(400).json({ 
+            success: false, 
+            error: `File type not allowed: ${file.originalname} (${file.mimetype})` 
+          });
+          return;
+        }
+      }
+
+      // อัปโหลดไฟล์ไปยัง FileService
+      const uploadedFiles: any[] = [];
+      for (const file of files) {
+        try {
+          const result = await this.fileService.saveFile({
+            groupId: 'default', // ใช้ default group สำหรับไฟล์ทั่วไป
+            uploadedBy: 'dashboard_user', // ใช้ default user สำหรับ dashboard
+            messageId: `dashboard_${Date.now()}`,
+            content: file.buffer,
+            originalName: file.originalname,
+            mimeType: file.mimetype,
+            attachmentType: 'initial'
+          });
+          
+          uploadedFiles.push({
+            id: result.id,
+            name: file.originalname,
+            url: result.path,
+            size: file.size,
+            type: file.mimetype,
+            createdAt: result.uploadedAt.toISOString()
+          });
+        } catch (error) {
+          logger.error('Error uploading file:', error);
+          res.status(500).json({ 
+            success: false, 
+            error: `Failed to upload file: ${file.originalname}` 
+          });
+          return;
+        }
+      }
+
+      res.json({ 
+        success: true, 
+        data: uploadedFiles,
+        message: `Successfully uploaded ${uploadedFiles.length} file(s)` 
+      });
+
+    } catch (error) {
+      logger.error('❌ uploadGeneralFiles error:', error);
+      res.status(500).json({ success: false, error: 'Failed to upload files' });
+    }
+  }
+
+  /**
+   * GET /api/files - ดึงรายการไฟล์ทั้งหมด
+   */
+  public async getFiles(req: Request, res: Response): Promise<void> {
+    try {
+      const { page = 1, limit = 20, search } = req.query;
+      
+      const options = {
+        limit: parseInt(limit as string),
+        offset: (parseInt(page as string) - 1) * parseInt(limit as string),
+        search: search as string
+      };
+
+      // ใช้ getGroupFiles แทน getFiles
+      const { files, total } = await this.fileService.getGroupFiles('default', {
+        limit: options.limit,
+        offset: options.offset,
+        search: options.search
+      });
+
+      const response: PaginatedResponse<any> = {
+        success: true,
+        data: files,
+        pagination: {
+          page: parseInt(page as string),
+          limit: parseInt(limit as string),
+          total,
+          totalPages: Math.ceil(total / parseInt(limit as string))
+        }
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error getting files:', error);
+      res.status(500).json({ success: false, error: 'Failed to get files' });
+    }
+  }
+
+  /**
+   * GET /api/files/:fileId/download - ดาวน์โหลดไฟล์
+   */
+  public async downloadFile(req: Request, res: Response): Promise<void> {
+    try {
+      const { fileId } = req.params;
+      
+      const file = await this.fileService.getFileInfo(fileId);
+      if (!file) {
+        res.status(404).json({ success: false, error: 'File not found' });
+        return;
+      }
+
+      // ดาวน์โหลดไฟล์
+      const fileContent = await this.fileService.getFileContent(fileId);
+      
+      res.setHeader('Content-Type', file.mimeType);
+      res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
+      res.setHeader('Content-Length', fileContent.content.length);
+      
+      res.send(fileContent.content);
+
+    } catch (error) {
+      logger.error('❌ Error downloading file:', error);
+      res.status(500).json({ success: false, error: 'Failed to download file' });
+    }
+  }
+
+  /**
+   * DELETE /api/files/:fileId - ลบไฟล์
+   */
+  public async deleteFile(req: Request, res: Response): Promise<void> {
+    try {
+      const { fileId } = req.params;
+      
+      const file = await this.fileService.getFileInfo(fileId);
+      if (!file) {
+        res.status(404).json({ success: false, error: 'File not found' });
+        return;
+      }
+
+      // ลบไฟล์จาก Cloudinary และฐานข้อมูล
+      await this.fileService.deleteFile(fileId);
+      
+      res.json({ success: true, message: 'File deleted successfully' });
+
+    } catch (error) {
+      logger.error('❌ Error deleting file:', error);
+      res.status(500).json({ success: false, error: 'Failed to delete file' });
     }
   }
 
@@ -2313,11 +2360,28 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
     apiController.submitTask.bind(apiController)
   );
 
+  // Task submission (direct task ID - for backward compatibility)
+  apiRouter.post('/tasks/:taskId/submit', 
+    upload.array('files', 10), 
+    apiController.submitTask.bind(apiController)
+  );
+
   // Direct file upload to group vault
   apiRouter.post('/groups/:groupId/files/upload',
     upload.array('attachments', 10),
     apiController.uploadFiles.bind(apiController)
   );
+
+  // General file upload (for dashboard)
+  apiRouter.post('/files/upload',
+    upload.array('files', 10),
+    apiController.uploadGeneralFiles.bind(apiController)
+  );
+
+  // File management endpoints
+  apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));
+  apiRouter.delete('/files/:fileId', apiController.deleteFile.bind(apiController));
+  apiRouter.get('/files', apiController.getFiles.bind(apiController));
 
   // Manual migration endpoint (for Railway deployment)
   apiRouter.post('/admin/migrate', apiController.runMigration.bind(apiController));

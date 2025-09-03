@@ -492,6 +492,21 @@
         document.addEventListener('DOMContentLoaded', () => {
             new SubmitTasksPage();
         });
+
+        // Register clean service worker to replace any old one
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('./sw.js')
+                .then(function(registration) {
+                    console.log('Clean service worker registered successfully:', registration.scope);
+                    // Force update if there's an old service worker
+                    if (registration.waiting) {
+                        registration.waiting.postMessage({command: 'skipWaiting'});
+                    }
+                })
+                .catch(function(error) {
+                    console.log('Service worker registration failed:', error);
+                });
+        }
     </script>
 </body>
 </html>

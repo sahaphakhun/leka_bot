@@ -1,0 +1,280 @@
+/* Z-Index Fix CSS - เลขาบอท */
+/* จัดระเบียบ z-index ให้เป็นระบบ */
+
+/* Loading Overlay - สูงสุด */
+.loading-overlay {
+  z-index: 9999 !important;
+}
+
+/* Modal Loading Spinner - สูงกว่า modal content */
+.modal.loading::after {
+  z-index: 1002 !important;
+}
+
+/* Modal Content - สูงกว่า modal overlay */
+.modal-content {
+  z-index: 1001 !important;
+  position: relative !important;
+}
+
+/* Modal Overlay - พื้นหลังของ modal */
+.modal {
+  z-index: 1000 !important;
+}
+
+.modal-overlay {
+  position: fixed !important;
+  top: 0 !important;
+  left: 0 !important;
+  width: 100% !important;
+  height: 100% !important;
+  background-color: rgba(0, 0, 0, 0.5) !important;
+  z-index: 1000 !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
+.modal-overlay.hidden {
+  display: none !important;
+}
+
+/* Modal Backdrop - พื้นหลังรอง */
+.modal-backdrop {
+  z-index: 999 !important;
+}
+
+/* Bottom Navigation - ต่ำสุด */
+.bottom-nav {
+  z-index: 100 !important;
+}
+
+/* Dropdown Menus - สูงกว่า navigation แต่ต่ำกว่า modal */
+.dropdown-menu {
+  z-index: 500 !important;
+}
+
+/* Tooltips - สูงกว่า dropdown */
+.tooltip {
+  z-index: 600 !important;
+}
+
+/* Toast Notifications - สูงกว่า modal */
+.toast {
+  z-index: 10000 !important;
+}
+
+/* Alert Messages - สูงกว่า modal */
+.alert {
+  z-index: 10001 !important;
+}
+
+/* Debug Panel - สูงสุดสำหรับ debugging */
+.debug-panel {
+  z-index: 99999 !important;
+}
+
+/* Checkbox Styling for Assigned To */
+.assigned-to-container {
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 1rem;
+  background-color: #f9fafb;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.checkbox-item {
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 6px;
+  transition: background-color 0.2s ease;
+}
+
+.checkbox-item:hover {
+  background-color: #f3f4f6;
+}
+
+.checkbox-item input[type="checkbox"] {
+  display: none;
+}
+
+.checkmark {
+  width: 20px;
+  height: 20px;
+  border: 2px solid #d1d5db;
+  border-radius: 4px;
+  margin-right: 0.75rem;
+  position: relative;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.checkbox-item input[type="checkbox"]:checked + .checkmark {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+.checkbox-item input[type="checkbox"]:checked + .checkmark::after {
+  content: '✓';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.label-text {
+  font-size: 0.875rem;
+  color: #374151;
+  user-select: none;
+}
+
+.assigned-to-actions {
+  display: flex;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  border-top: 1px solid #e5e7eb;
+  padding-top: 0.75rem;
+}
+
+.assigned-to-actions .btn {
+  font-size: 0.75rem;
+  padding: 0.375rem 0.75rem;
+}
+
+/* Task Details Modal */
+.max-w-4xl {
+  max-width: 56rem !important;
+}
+
+.space-y-6 > * + * {
+  margin-top: 1.5rem !important;
+}
+
+.space-y-4 > * + * {
+  margin-top: 1rem !important;
+}
+
+.space-y-2 > * + * {
+  margin-top: 0.5rem !important;
+}
+
+.grid-cols-1 {
+  grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+}
+
+@media (min-width: 768px) {
+  .md\:grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  }
+}
+
+.whitespace-pre-wrap {
+  white-space: pre-wrap !important;
+}
+
+/* File Download Button */
+.btn-xs {
+  padding: 0.25rem 0.5rem !important;
+  font-size: 0.75rem !important;
+}
+
+/* Task checkbox styles */
+input[name="taskCheckbox"] {
+  cursor: pointer;
+}
+
+input[name="taskCheckbox"]:checked {
+  background-color: #3b82f6;
+  border-color: #3b82f6;
+}
+
+/* Task filter styles */
+.task-filter-section {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 1.5rem;
+  margin-bottom: 1.5rem;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.task-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.task-stats-card {
+  background: white;
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  transition: transform 0.2s ease;
+}
+
+.task-stats-card:hover {
+  transform: translateY(-2px);
+}
+
+/* Submit button animation */
+#submitSelectedTasksBtn {
+  transition: all 0.3s ease;
+}
+
+#submitSelectedTasksBtn:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.4);
+}
+
+/* Task card selection */
+.task-card-selected {
+  border-color: #3b82f6 !important;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .modal-content {
+    z-index: 1001 !important;
+  }
+  
+  .bottom-nav {
+    z-index: 100 !important;
+  }
+  
+  .checkbox-group {
+    gap: 0.5rem;
+  }
+  
+  .assigned-to-actions {
+    flex-direction: column;
+  }
+  
+  .assigned-to-actions .btn {
+    width: 100%;
+  }
+  
+  .max-w-4xl {
+    max-width: 95vw !important;
+  }
+
+  .task-filter-section .grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .task-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
