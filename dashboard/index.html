@@ -4,13 +4,39 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>เลขาบอท - Dashboard</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./tailwind.css">
     <link rel="stylesheet" href="./styles.css">
     <link rel="stylesheet" href="./modal-fix.css">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        /* Simple icon styles to replace Font Awesome */
+        .fas { font-family: Arial, sans-serif; font-weight: bold; }
+        .fa-robot:before { content: "🤖"; }
+        .fa-user:before { content: "👤"; }
+        .fa-arrow-left:before { content: "←"; }
+        .fa-check:before { content: "✓"; }
+        .fa-times:before { content: "✗"; }
+        .fa-upload:before { content: "📤"; }
+        .fa-calendar:before { content: "📅"; }
+        .fa-clock:before { content: "🕐"; }
+        .fa-exclamation-triangle:before { content: "⚠️"; }
+        .fa-info-circle:before { content: "ℹ️"; }
+        .fa-spinner:before { content: "⏳"; }
+        .fa-plus:before { content: "+"; }
+        .fa-edit:before { content: "✏️"; }
+        .fa-trash:before { content: "🗑️"; }
+        .fa-eye:before { content: "👁️"; }
+        .fa-download:before { content: "⬇️"; }
+        .fa-file:before { content: "📄"; }
+        .fa-folder:before { content: "📁"; }
+        .fa-users:before { content: "👥"; }
+        .fa-cog:before { content: "⚙️"; }
+        .fa-bell:before { content: "🔔"; }
+        .fa-chart-bar:before { content: "📊"; }
+        .fa-home:before { content: "🏠"; }
+        .fa-tasks:before { content: "📋"; }
+        .fa-user-plus:before { content: "👤+"; }
+        .fa-sign-out-alt:before { content: "🚪"; }
+    </style>
 </head>
 <body>
     <!-- Loading Screen -->
@@ -868,9 +894,7 @@
         </a>
     </nav>
 
-    <!-- เพิ่ม moment-timezone สำหรับการจัดการเวลา (ใช้ CDN version) -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.4/moment.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment-timezone/0.5.43/moment-timezone-with-data.min.js"></script>
-    <script src="./script.js"></script>
+    <!-- ใช้ vanilla JavaScript แทน moment.js -->
+    <script src="./script-vanilla.js"></script>
 </body>
 </html>

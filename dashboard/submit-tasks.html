@@ -1,0 +1,497 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ส่งงาน - เลขาบอท</title>
+    <link rel="stylesheet" href="tailwind.css">
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Simple icon styles to replace Font Awesome */
+        .fas { font-family: Arial, sans-serif; font-weight: bold; }
+        .fa-robot:before { content: "🤖"; }
+        .fa-user:before { content: "👤"; }
+        .fa-arrow-left:before { content: "←"; }
+        .fa-check:before { content: "✓"; }
+        .fa-times:before { content: "✗"; }
+        .fa-upload:before { content: "📤"; }
+        .fa-calendar:before { content: "📅"; }
+        .fa-clock:before { content: "🕐"; }
+        .fa-exclamation-triangle:before { content: "⚠️"; }
+        .fa-info-circle:before { content: "ℹ️"; }
+        .fa-spinner:before { content: "⏳"; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <header class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center py-4">
+                <div class="flex items-center">
+                    <i class="fas fa-robot text-2xl text-blue-600 mr-3"></i>
+                    <h1 class="text-xl font-semibold text-gray-900">ส่งงาน</h1>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <button id="backBtn" class="btn btn-outline">
+                        <i class="fas fa-arrow-left mr-2"></i>
+                        กลับ
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <!-- User Info -->
+        <div class="bg-white rounded-lg shadow-sm border p-6 mb-6">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center">
+                    <div class="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                        <i class="fas fa-user text-blue-600 text-xl"></i>
+                    </div>
+                    <div class="ml-4">
+                        <h2 class="text-lg font-semibold text-gray-900" id="userName">กำลังโหลด...</h2>
+                        <p class="text-sm text-gray-600" id="userEmail">กำลังโหลด...</p>
+                    </div>
+                </div>
+                <div class="text-right">
+                    <div class="text-sm text-gray-600">งานที่ต้องส่ง</div>
+                    <div class="text-2xl font-bold text-blue-600" id="taskCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Task List -->
+        <div class="bg-white rounded-lg shadow-sm border">
+            <div class="px-6 py-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-900">รายการงานที่ต้องส่ง</h3>
+                <p class="text-sm text-gray-600 mt-1">เลือกงานที่ต้องการส่งและอัปโหลดไฟล์</p>
+            </div>
+            
+            <div id="taskList" class="divide-y divide-gray-200">
+                <!-- Tasks will be loaded here -->
+                <div class="p-6 text-center text-gray-500">
+                    <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                    <p>กำลังโหลดรายการงาน...</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="mt-6 text-center">
+            <button id="submitAllBtn" class="btn btn-primary btn-lg" disabled>
+                <i class="fas fa-upload mr-2"></i>
+                ส่งงานทั้งหมดที่เลือก
+            </button>
+        </div>
+    </main>
+
+    <!-- Submit Modal -->
+    <div id="submitModal" class="modal">
+        <div class="modal-content max-w-2xl">
+            <div class="modal-header">
+                <h3>ยืนยันการส่งงาน</h3>
+                <button class="modal-close" id="closeSubmitModal">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div id="submitSummary" class="mb-6">
+                    <!-- Summary will be populated here -->
+                </div>
+                
+                <form id="submitForm">
+                    <div class="form-group">
+                        <label for="submitComment">หมายเหตุ (ไม่บังคับ)</label>
+                        <textarea id="submitComment" rows="3" placeholder="กรอกหมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="submitFiles">ไฟล์แนบเพิ่มเติม (ไม่บังคับ)</label>
+                        <input type="file" id="submitFiles" multiple>
+                        <small class="text-gray-600">สามารถเลือกไฟล์เพิ่มเติมได้ (สูงสุด 5 ไฟล์)</small>
+                    </div>
+                    
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-outline" id="cancelSubmit">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="fas fa-upload mr-2"></i>
+                            ส่งงาน
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="fixed top-4 right-4 z-50"></div>
+
+    <script>
+        class SubmitTasksPage {
+            constructor() {
+                this.userId = new URLSearchParams(window.location.search).get('userId');
+                this.selectedTaskId = new URLSearchParams(window.location.search).get('taskId');
+                this.selectedTasks = new Set();
+                this.tasks = [];
+                this.user = null;
+                
+                this.init();
+            }
+
+            async init() {
+                if (!this.userId) {
+                    this.showToast('ไม่พบข้อมูลผู้ใช้', 'error');
+                    return;
+                }
+
+                await this.loadUserInfo();
+                await this.loadTasks();
+                this.setupEventListeners();
+            }
+
+            async loadUserInfo() {
+                try {
+                    const response = await fetch(`/api/users/${this.userId}`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.user = data.data;
+                        document.getElementById('userName').textContent = this.user.displayName || 'ไม่ระบุชื่อ';
+                        document.getElementById('userEmail').textContent = this.user.email || 'ไม่ระบุอีเมล';
+                    }
+                } catch (error) {
+                    console.error('Error loading user info:', error);
+                }
+            }
+
+            async loadTasks() {
+                try {
+                    const response = await fetch(`/api/users/${this.userId}/tasks?status=pending,in_progress,overdue`);
+                    const data = await response.json();
+                    
+                    if (data.success) {
+                        this.tasks = data.data;
+                        this.renderTasks();
+                        this.updateTaskCount();
+                        
+                        // ถ้ามี taskId ที่ระบุมา ให้เลือกงานนั้น
+                        if (this.selectedTaskId) {
+                            this.selectedTasks.add(this.selectedTaskId);
+                            this.updateSubmitButton();
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading tasks:', error);
+                    this.showToast('ไม่สามารถโหลดรายการงานได้', 'error');
+                }
+            }
+
+            renderTasks() {
+                const taskList = document.getElementById('taskList');
+                
+                if (this.tasks.length === 0) {
+                    taskList.innerHTML = `
+                        <div class="p-8 text-center text-gray-500">
+                            <i class="fas fa-check-circle text-4xl mb-4 text-green-500"></i>
+                            <p class="text-lg font-medium">ไม่มีงานที่ต้องส่ง</p>
+                            <p class="text-sm">งานทั้งหมดเสร็จสิ้นแล้ว</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                taskList.innerHTML = this.tasks.map(task => this.renderTaskCard(task)).join('');
+            }
+
+            renderTaskCard(task) {
+                const isSelected = this.selectedTasks.has(task.id);
+                const isOverdue = task.status === 'overdue';
+                const statusText = this.getStatusText(task.status);
+                const statusColor = this.getStatusColor(task.status);
+                const dueDate = new Date(task.dueTime).toLocaleString('th-TH', {
+                    day: '2-digit',
+                    month: '2-digit', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const groupName = task.group?.name || 'ไม่ระบุกลุ่ม';
+
+                return `
+                    <div class="p-6 hover:bg-gray-50 transition-colors">
+                        <div class="flex items-start justify-between">
+                            <div class="flex-1">
+                                <div class="flex items-center mb-2">
+                                    <input type="checkbox" 
+                                           id="task-${task.id}" 
+                                           class="task-checkbox mr-3" 
+                                           data-task-id="${task.id}"
+                                           ${isSelected ? 'checked' : ''}>
+                                    <h4 class="text-lg font-medium text-gray-900">${task.title}</h4>
+                                    ${isOverdue ? '<span class="ml-2 text-red-500 text-sm">⚠️ เกินกำหนด</span>' : ''}
+                                </div>
+                                
+                                <div class="ml-6">
+                                    <div class="flex items-center text-sm text-gray-600 mb-2">
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}">
+                                            ${statusText}
+                                        </span>
+                                        <span class="mx-2">•</span>
+                                        <span>กำหนดส่ง: ${dueDate}</span>
+                                        <span class="mx-2">•</span>
+                                        <span class="text-blue-600 font-medium">${groupName}</span>
+                                    </div>
+                                    
+                                    ${task.description ? `
+                                        <p class="text-sm text-gray-600 mb-2">${task.description}</p>
+                                    ` : ''}
+                                    
+                                    ${task.priority ? `
+                                        <div class="flex items-center text-sm text-gray-600 mb-2">
+                                            <span class="mr-2">🎯 ความสำคัญ:</span>
+                                            <span class="font-medium ${this.getPriorityColor(task.priority)}">${this.getPriorityText(task.priority)}</span>
+                                        </div>
+                                    ` : ''}
+                                    
+                                    ${task.assignedUsers && task.assignedUsers.length > 0 ? `
+                                        <div class="flex items-center text-sm text-gray-600">
+                                            <span class="mr-2">👥 ผู้รับผิดชอบ:</span>
+                                            <span class="font-medium">${task.assignedUsers.map(u => u.displayName).join(', ')}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }
+
+            getStatusText(status) {
+                const statusMap = {
+                    'pending': 'รอดำเนินการ',
+                    'in_progress': 'กำลังดำเนินการ',
+                    'overdue': 'เกินกำหนด',
+                    'completed': 'เสร็จสิ้น',
+                    'cancelled': 'ยกเลิก'
+                };
+                return statusMap[status] || status;
+            }
+
+            getStatusColor(status) {
+                const colorMap = {
+                    'pending': 'bg-blue-100 text-blue-800',
+                    'in_progress': 'bg-yellow-100 text-yellow-800',
+                    'overdue': 'bg-red-100 text-red-800',
+                    'completed': 'bg-green-100 text-green-800',
+                    'cancelled': 'bg-gray-100 text-gray-800'
+                };
+                return colorMap[status] || 'bg-gray-100 text-gray-800';
+            }
+
+            getPriorityText(priority) {
+                const priorityMap = {
+                    'low': 'ต่ำ',
+                    'medium': 'ปานกลาง',
+                    'high': 'สูง'
+                };
+                return priorityMap[priority] || priority;
+            }
+
+            getPriorityColor(priority) {
+                const colorMap = {
+                    'low': 'text-green-600',
+                    'medium': 'text-yellow-600',
+                    'high': 'text-red-600'
+                };
+                return colorMap[priority] || 'text-gray-600';
+            }
+
+            updateTaskCount() {
+                document.getElementById('taskCount').textContent = this.tasks.length;
+            }
+
+            updateSubmitButton() {
+                const submitBtn = document.getElementById('submitAllBtn');
+                const count = this.selectedTasks.size;
+                
+                if (count === 0) {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-upload mr-2"></i>เลือกงานก่อนส่ง';
+                } else {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = `<i class="fas fa-upload mr-2"></i>ส่งงาน ${count} รายการ`;
+                }
+            }
+
+            setupEventListeners() {
+                // Back button
+                document.getElementById('backBtn').addEventListener('click', () => {
+                    window.history.back();
+                });
+
+                // Task checkboxes
+                document.addEventListener('change', (e) => {
+                    if (e.target.classList.contains('task-checkbox')) {
+                        const taskId = e.target.dataset.taskId;
+                        
+                        if (e.target.checked) {
+                            this.selectedTasks.add(taskId);
+                        } else {
+                            this.selectedTasks.delete(taskId);
+                        }
+                        
+                        this.updateSubmitButton();
+                    }
+                });
+
+                // Submit button
+                document.getElementById('submitAllBtn').addEventListener('click', () => {
+                    this.showSubmitModal();
+                });
+
+                // Modal events
+                document.getElementById('closeSubmitModal').addEventListener('click', () => {
+                    this.closeSubmitModal();
+                });
+
+                document.getElementById('cancelSubmit').addEventListener('click', () => {
+                    this.closeSubmitModal();
+                });
+
+                document.getElementById('submitForm').addEventListener('submit', (e) => {
+                    e.preventDefault();
+                    this.submitTasks();
+                });
+            }
+
+            showSubmitModal() {
+                const selectedTasks = this.tasks.filter(task => this.selectedTasks.has(task.id));
+                const summary = document.getElementById('submitSummary');
+                
+                summary.innerHTML = `
+                    <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                        <h4 class="font-medium text-blue-900 mb-2">สรุปงานที่จะส่ง</h4>
+                        <div class="space-y-2">
+                            ${selectedTasks.map(task => `
+                                <div class="flex items-center text-sm">
+                                    <i class="fas fa-check text-green-500 mr-2"></i>
+                                    <span class="font-medium">${task.title}</span>
+                                    <span class="text-gray-600 ml-2">(${task.group?.name || 'ไม่ระบุกลุ่ม'})</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+                
+                document.getElementById('submitModal').classList.add('show');
+            }
+
+            closeSubmitModal() {
+                document.getElementById('submitModal').classList.remove('show');
+            }
+
+            async submitTasks() {
+                const submitBtn = document.querySelector('#submitForm button[type="submit"]');
+                const originalText = submitBtn.innerHTML;
+                
+                try {
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่งงาน...';
+                    
+                    const selectedTasks = Array.from(this.selectedTasks);
+                    const comment = document.getElementById('submitComment').value;
+                    const files = document.getElementById('submitFiles').files;
+                    
+                    // ส่งงานทีละงาน
+                    const results = [];
+                    for (const taskId of selectedTasks) {
+                        const formData = new FormData();
+                        formData.append('userId', this.userId);
+                        formData.append('comment', comment);
+                        
+                        // เพิ่มไฟล์
+                        for (let i = 0; i < files.length; i++) {
+                            formData.append('files', files[i]);
+                        }
+                        
+                        const response = await fetch(`/api/groups/${this.getTaskGroupId(taskId)}/tasks/${taskId}/submit`, {
+                            method: 'POST',
+                            body: formData
+                        });
+                        
+                        const result = await response.json();
+                        results.push({ taskId, success: result.success, message: result.message });
+                    }
+                    
+                    // แสดงผลลัพธ์
+                    const successCount = results.filter(r => r.success).length;
+                    const failCount = results.length - successCount;
+                    
+                    if (failCount === 0) {
+                        this.showToast(`ส่งงานสำเร็จ ${successCount} รายการ`, 'success');
+                        this.closeSubmitModal();
+                        this.selectedTasks.clear();
+                        this.updateSubmitButton();
+                        await this.loadTasks(); // โหลดข้อมูลใหม่
+                    } else {
+                        this.showToast(`ส่งงานสำเร็จ ${successCount} รายการ, ล้มเหลว ${failCount} รายการ`, 'warning');
+                    }
+                    
+                } catch (error) {
+                    console.error('Error submitting tasks:', error);
+                    this.showToast('เกิดข้อผิดพลาดในการส่งงาน', 'error');
+                } finally {
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
+                }
+            }
+
+            getTaskGroupId(taskId) {
+                const task = this.tasks.find(t => t.id === taskId);
+                return task?.groupId || task?.group?.id;
+            }
+
+            showToast(message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast toast-${type}`;
+                toast.innerHTML = `
+                    <div class="toast-content">
+                        <i class="fas fa-${this.getToastIcon(type)} mr-2"></i>
+                        ${message}
+                    </div>
+                `;
+                
+                document.getElementById('toastContainer').appendChild(toast);
+                
+                setTimeout(() => {
+                    toast.classList.add('show');
+                }, 100);
+                
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        toast.remove();
+                    }, 300);
+                }, 3000);
+            }
+
+            getToastIcon(type) {
+                const iconMap = {
+                    'success': 'check-circle',
+                    'error': 'exclamation-circle',
+                    'warning': 'exclamation-triangle',
+                    'info': 'info-circle'
+                };
+                return iconMap[type] || 'info-circle';
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener('DOMContentLoaded', () => {
+            new SubmitTasksPage();
+        });
+    </script>
+</body>
+</html>

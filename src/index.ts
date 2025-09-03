@@ -46,32 +46,21 @@ class Server {
           scriptSrcAttr: ["'unsafe-inline'"],
           scriptSrc: [
             "'self'",
-            "'unsafe-inline'", // Required for inline scripts in dashboard
-            "https://cdnjs.cloudflare.com" // Allow moment.js from CDN
+            "'unsafe-inline'" // Required for inline scripts in dashboard
           ],
           // หมายเหตุ: ไม่ตั้ง styleSrcElem แยก เพื่อให้ styleSrc ใช้เป็น fallback ได้
           styleSrc: [
             "'self'",
-            "'unsafe-inline'",
-            "https://fonts.googleapis.com", // Google Fonts stylesheet
-            "https://cdnjs.cloudflare.com", // 3rd-party styles (e.g., Font Awesome via cdnjs)
-            "https://use.fontawesome.com" // Font Awesome official CDN
+            "'unsafe-inline'"
           ],
           imgSrc: ["'self'", "data:", "https:"],
           // อนุญาตปลายทางสำหรับ fetch/XHR/Service Worker
           connectSrc: [
             "'self'",
-            "https://res.cloudinary.com",
-            "https://cdnjs.cloudflare.com", // For fetching CDN assets (e.g., SW prefetch)
-            "https://fonts.googleapis.com",
-            "https://fonts.gstatic.com",
-            "https://use.fontawesome.com"
+            "https://res.cloudinary.com"
           ],
           fontSrc: [
-            "'self'",
-            "https://fonts.gstatic.com", // Google Fonts files
-            "https://cdnjs.cloudflare.com", // Font Awesome fonts via cdnjs
-            "https://use.fontawesome.com" // Font Awesome fonts via official CDN
+            "'self'"
           ],
           objectSrc: ["'none'"],
           mediaSrc: ["'self'", "blob:", "data:", "https://res.cloudinary.com"],

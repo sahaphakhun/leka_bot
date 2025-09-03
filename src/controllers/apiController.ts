@@ -10,6 +10,7 @@ import { KPIService } from '@/services/KPIService';
 import { RecurringTaskService } from '@/services/RecurringTaskService';
 import { LineService } from '@/services/LineService';
 import { NotificationCardService } from '@/services/NotificationCardService';
+
 import multer from 'multer';
 import { logger } from '@/utils/logger';
 import { serviceContainer } from '@/utils/serviceContainer';
@@ -34,6 +35,7 @@ class ApiController {
   private lineService: LineService;
   private notificationCardService: NotificationCardService;
 
+
   constructor() {
     this.taskService = serviceContainer.get<TaskService>('TaskService');
     this.userService = serviceContainer.get<UserService>('UserService');
@@ -42,6 +44,7 @@ class ApiController {
     this.recurringService = serviceContainer.get<RecurringTaskService>('RecurringTaskService');
     this.lineService = serviceContainer.get<LineService>('LineService');
     this.notificationCardService = serviceContainer.get<NotificationCardService>('NotificationCardService');
+
   }
 
   // Task Endpoints
@@ -2157,6 +2160,65 @@ class ApiController {
     }
   }
 
+  /**
+   * GET /api/users/:userId - ดึงข้อมูลผู้ใช้
+   */
+  public async getUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      
+      // ดึงข้อมูลผู้ใช้จาก Line User ID
+      const user = await this.userService.findByLineUserId(userId);
+      
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
+      }
+      
+      res.json({ success: true, data: user });
+    } catch (error) {
+      logger.error('❌ getUser error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get user' });
+    }
+  }
+
+  /**
+   * GET /api/users/:userId/tasks - ดึงงานของผู้ใช้
+   */
+  public async getUserTasks(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const { status } = req.query;
+      
+      // ดึงข้อมูลผู้ใช้จาก Line User ID
+      const user = await this.userService.findByLineUserId(userId);
+      
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
+      }
+      
+      // แยก status เป็น array
+      const statusArray = status ? (status as string).split(',') : ['pending', 'in_progress', 'overdue'];
+      
+      // ดึงงานของผู้ใช้
+      const tasks = await this.taskService.getUserTasks(user.id, statusArray);
+      
+      // เพิ่มข้อมูลกลุ่มให้กับแต่ละงาน - ใช้ relations ที่มีอยู่แล้วจาก getUserTasks
+      const tasksWithGroups = tasks.map(task => ({
+        ...task,
+        group: task.group ? {
+          id: task.group.id,
+          name: task.group.name
+        } : null
+      }));
+      
+      res.json({ success: true, data: tasksWithGroups });
+    } catch (error) {
+      logger.error('❌ getUserTasks error:', error);
+      res.status(500).json({ success: false, error: 'Failed to get user tasks' });
+    }
+  }
 
 }
 
@@ -2266,6 +2328,10 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
 
   // Group name update endpoint
   apiRouter.post('/groups/update-names', apiController.updateAllGroupNames.bind(apiController));
+
+  // User routes
+  apiRouter.get('/users/:userId', apiController.getUser.bind(apiController));
+  apiRouter.get('/users/:userId/tasks', apiController.getUserTasks.bind(apiController));
 
   // Notification Card routes
   apiRouter.post('/notifications/cards', apiController.createNotificationCard.bind(apiController));

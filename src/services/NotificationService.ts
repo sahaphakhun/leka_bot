@@ -149,6 +149,17 @@ export class NotificationService {
         }
       }
 
+      // ส่งการ์ดส่วนตัวไปยังผู้สร้างงานด้วย
+      if (creator && creator.lineUserId) {
+        try {
+          const creatorFlexMessage = this.createCreatorTaskCreatedFlexMessage(task, group, creator, dueDate);
+          await this.lineService.pushMessage(creator.lineUserId, creatorFlexMessage);
+          console.log(`✅ Sent creator task created notification to: ${creator.displayName}`);
+        } catch (err) {
+          console.warn('⚠️ Failed to send creator task created notification:', creator.lineUserId, err);
+        }
+      }
+
       // ส่งอีเมลให้ผู้ที่มีอีเมล
       const reviewerId = this.getTaskReviewer(task);
       let reviewer = (task as any).reviewerUser;
@@ -533,7 +544,7 @@ export class NotificationService {
         `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`,
         'primary'
       ),
-      FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config.baseUrl}/dashboard/submit-tasks?userId=${assignee?.lineUserId || ''}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -577,7 +588,7 @@ export class NotificationService {
         `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`,
         'primary'
       ),
-      FlexMessageDesignSystem.createButton('ทำเครื่องหมายเสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config.baseUrl}/dashboard/submit-tasks?userId=${assignee?.lineUserId || ''}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -628,7 +639,12 @@ export class NotificationService {
         `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`,
         'primary'
       ),
-      FlexMessageDesignSystem.createButton('เสร็จ', 'postback', `action=complete_task&taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton(
+        'ส่งงาน',
+        'uri',
+        `${config.baseUrl}/dashboard/submit-tasks?userId=${assignee?.lineUserId || ''}`,
+        'secondary'
+      )
     ];
 
     // เพิ่มปุ่มขอเลื่อนเฉพาะเมื่อยังไม่เกิน 1 วัน
@@ -640,6 +656,43 @@ export class NotificationService {
 
     return FlexMessageDesignSystem.createStandardTaskCard(
       `📋 งานใหม่: ${task.title}`,
+      '📋',
+      FlexMessageDesignSystem.colors.primary,
+      content,
+      buttons,
+      'compact'
+    );
+  }
+
+  /**
+   * สร้าง Flex Message สำหรับงานใหม่ส่วนบุคคล (ผู้สร้างงาน)
+   */
+  private createCreatorTaskCreatedFlexMessage(task: any, group: any, creator: any, dueDate: string): FlexMessage {
+    const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
+    const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
+    const priorityColor = this.getPriorityColor(task.priority);
+    const priorityText = this.getPriorityText(task.priority);
+
+    const content = [
+      FlexMessageDesignSystem.createText(`📅 กำหนดส่ง: ${dueDate}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`👥 ผู้รับผิดชอบ: ${assigneeNames}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      FlexMessageDesignSystem.createText(`👤 ผู้สร้าง: ${creator?.displayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      ...(priorityText ? [FlexMessageDesignSystem.createText(`🎯 ${priorityText}`, 'sm', priorityColor, 'bold')] : []),
+      ...(task.description ? [FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : []),
+      ...(tagsText ? [FlexMessageDesignSystem.createText(tagsText, 'sm', FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
+    ];
+
+    const buttons = [
+      FlexMessageDesignSystem.createButton(
+        'แก้ไขงาน',
+        'uri',
+        `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=edit&userId=${creator.lineUserId}`,
+        'primary'
+      )
+    ];
+
+    return FlexMessageDesignSystem.createStandardTaskCard(
+      `📋 งานที่สร้าง: ${task.title}`,
       '📋',
       FlexMessageDesignSystem.colors.primary,
       content,
@@ -1127,8 +1180,6 @@ export class NotificationService {
     const subtitle = `🗓️ วันที่ ${date} | 📊 งานค้าง ${tasks.length} งาน`;
 
     return FlexMessageTemplateService.createPersonalReportCard(assignee, tasks, timezone, group);
-
-
   }
 
   /**

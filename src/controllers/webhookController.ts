@@ -190,16 +190,19 @@ class WebhookController {
               const inProgressTasks = allTasks.filter(task => task.status === 'in_progress');
               const overdueTasks = allTasks.filter(task => task.status === 'overdue');
               
-              // แสดงการ์ดใหญ่แสดงงานทั้งหมด พร้อมคำแนะนำการส่งงาน
+              // แสดงการ์ดใหญ่แสดงงานทั้งหมด พร้อมคำแนะนำการส่งงานแบบใหม่
               const allTasksCard = FlexMessageTemplateService.createAllPersonalTasksCard(allTasks, files, user, overdueTasks);
               const guideText =
                 '💡 **วิธีการส่งงาน (มาตรฐานใหม่):**\n\n' +
-                `📝 เลือกงานที่ต้องการส่งโดยพิมพ์เลข 1-${allTasks.length} ในแชท\n\n` +
                 '✨ **ขั้นตอนการส่งงาน:**\n' +
-                '1. พิมพ์เลขเพื่อเลือกงาน\n' +
-                '2. ตรวจสอบข้อมูลในการ์ดยืนยัน\n' +
-                '3. เลือกวิธีการส่ง: "พร้อมไฟล์" หรือ "ไม่มีไฟล์"\n\n' +
-                '📎 **หมายเหตุ:** ถ้าต้องการแนบไฟล์ ส่งไฟล์ในแชทก่อนเลือกงาน\n\n' +
+                '1. กดปุ่ม "เปิดหน้าเว็บส่งงาน"\n' +
+                '2. เลือกงานที่ต้องการส่งในหน้าเว็บ\n' +
+                '3. อัปโหลดไฟล์และกรอกหมายเหตุ\n' +
+                '4. กดปุ่มส่งงานในหน้าเว็บ\n\n' +
+                '📎 **ข้อดีของการใช้หน้าเว็บ:**\n' +
+                '• แสดงงานทั้งหมดพร้อมชื่อกลุ่ม\n' +
+                '• อัปโหลดไฟล์ได้หลายไฟล์พร้อมกัน\n' +
+                '• กรอกหมายเหตุได้ยาวและละเอียด\n\n' +
                 '⚠️ **งานที่เกินกำหนดจะแสดงด้วยสีแดงและเครื่องหมาย ⚠️**';
 
               await this.lineService.replyMessage(replyToken!, [allTasksCard, guideText]);
@@ -212,37 +215,7 @@ class WebhookController {
         }
         return;
       } else if (trimmedText === 'งาน') {
-        await this.handlePersonalTaskRequest(event);
-        return;
-      } else if (/^\d+$/.test(trimmedText)) {
-        // ตรวจสอบว่าเป็นตัวเลขหรือไม่
-        try {
-          const user = await this.userService.findByLineUserId(userId);
-          if (user) {
-            // ดึงงานทั้งหมดรวมงานที่เกินกำหนด
-            const allTasks = await this.taskService.getUserTasks(user.id, ['pending', 'in_progress', 'overdue']);
-            const taskIndex = parseInt(trimmedText) - 1;
-            
-            if (taskIndex >= 0 && taskIndex < allTasks.length) {
-              const selectedTask = allTasks[taskIndex];
-              const personalGroupId = user.id;
-              const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-              const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
-              
-              // แสดงการ์ดยืนยันการส่งงานแบบมาตรฐาน
-              const confirmationCard = FlexMessageTemplateService.createTaskSubmissionConfirmationCard(selectedTask, files, user);
-              await this.lineService.replyMessage(replyToken!, confirmationCard);
-            } else {
-              await this.lineService.replyMessage(replyToken!, 
-                `❌ เลขที่ระบุไม่ถูกต้อง\n\n` +
-                `📝 กรุณาพิมพ์เลข 1-${allTasks.length} เท่านั้น\n\n` +
-                `💡 พิมพ์ "ส่งงาน" เพื่อดูรายการงานใหม่`
-              );
-            }
-          }
-        } catch (err: any) {
-          await this.safeReplyError(replyToken!, `❌ ไม่สามารถดึงข้อมูลงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
-        }
+                await this.handlePersonalTaskRequest(event);
         return;
       }
 
@@ -815,47 +788,7 @@ class WebhookController {
           break;
         }
 
-        case 'confirm_task_submission': {
-          const taskId = params.get('taskId');
-          const hasFiles = params.get('hasFiles') === 'true';
-          try {
-            const user = await this.userService.findByLineUserId(userId);
-            if (user && taskId) {
-              const task = await this.taskService.getTaskById(taskId);
-              if (task) {
-                if (hasFiles) {
-                  // ถ้ามีไฟล์ ให้แนบไฟล์ก่อน
-                  const personalGroupId = user.id;
-                  const since = new Date(Date.now() - 24 * 60 * 60 * 1000);
-                  const { files } = await this.fileService.getGroupFiles(personalGroupId, { startDate: since });
-                  
-                  if (files.length > 0) {
-                    const fileIds = files.map((f: any) => f.id);
-                    const submittedTask = await this.taskService.recordSubmission(taskId, userId, fileIds, 'ส่งงานพร้อมไฟล์จากแชทส่วนตัว');
-                    
-                    // แสดงการ์ดยืนยันการส่งงานสำเร็จ
-                    const successCard = FlexMessageTemplateService.createSubmissionSuccessCard(submittedTask, fileIds.length, user);
-                    await this.lineService.replyMessage(replyToken, successCard);
-                  } else {
-                    await this.safeReplyError(replyToken, '❌ ไม่พบไฟล์ที่ส่งมา กรุณาส่งไฟล์ก่อนค่ะ');
-                  }
-                } else {
-                  // ถ้าไม่มีไฟล์ ส่งงานเลย
-                  const submittedTask = await this.taskService.recordSubmission(taskId, userId, [], 'ส่งงานโดยไม่มีไฟล์แนบ');
-                  
-                  // แสดงการ์ดยืนยันการส่งงานสำเร็จ
-                  const successCard = FlexMessageTemplateService.createSubmissionSuccessCard(submittedTask, 0, user);
-                  await this.lineService.replyMessage(replyToken, successCard);
-                }
-              } else {
-                await this.safeReplyError(replyToken, '❌ ไม่พบงานที่ระบุ');
-              }
-            }
-          } catch (err: any) {
-            await this.safeReplyError(replyToken, `❌ ส่งงานไม่สำเร็จ: ${err.message || 'เกิดข้อผิดพลาด'}`);
-          }
-          break;
-        }
+
 
         case 'show_all_personal_tasks': {
           try {

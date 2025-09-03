@@ -41,6 +41,20 @@ class DashboardController {
   }
 
   /**
+   * GET /dashboard/submit-tasks - หน้าส่งงานแบบมาตรฐาน
+   */
+  public async submitTasksPage(req: Request, res: Response): Promise<void> {
+    try {
+      // ส่งไฟล์ static HTML
+      const submitTasksPath = path.join(__dirname, '../../dashboard/submit-tasks.html');
+      res.sendFile(submitTasksPath);
+    } catch (error) {
+      logger.error('Error serving submit tasks page:', error);
+      res.status(500).send('Submit tasks page not available');
+    }
+  }
+
+  /**
    * GET /dashboard/profile - หน้าโปรไฟล์แบบเว็บ
    */
   public async profileWeb(req: Request, res: Response): Promise<void> {
@@ -458,14 +472,8 @@ class DashboardController {
     .success { background-color: #e7f7ed; color: #0f5132; padding: 10px; border-radius: 6px; display: none; margin-bottom: 12px; }
     .error { background-color: #fdecea; color: #842029; padding: 10px; border-radius: 6px; display: none; margin-bottom: 12px; }
   </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <style> body { font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; } </style>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
-  <script src="/dashboard/script.js" defer></script>
+  <style> body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Ubuntu, Cantarell, Noto Sans, Helvetica, Arial, 'Apple Color Emoji', 'Segoe UI Emoji'; } </style>
+  <script src="/dashboard/script-vanilla.js" defer></script>
 </head>
 <body>
   <div class="container" id="app"
@@ -578,6 +586,7 @@ const dashboardController = new DashboardController();
 dashboardRouter.get('/', dashboardController.mainDashboard.bind(dashboardController));
 dashboardRouter.get('/group/:groupId', dashboardController.getGroupDashboard.bind(dashboardController));
 dashboardRouter.get('/task/:taskId', dashboardController.getTaskDetail.bind(dashboardController));
+dashboardRouter.get('/submit-tasks', dashboardController.submitTasksPage.bind(dashboardController));
 // Web profile endpoints
 dashboardRouter.get('/profile', dashboardController.profileWeb.bind(dashboardController));
 dashboardRouter.post('/profile', dashboardController.saveUserProfileWeb.bind(dashboardController));
