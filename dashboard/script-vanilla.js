@@ -61,6 +61,30 @@ class DashboardApp {
     // ปุ่มส่งงานที่เลือก
     document.getElementById('submitSelectedTasksBtn')?.addEventListener('click', () => this.submitSelectedTasks());
     
+    // Submit Task Modal Events
+    document.getElementById('submitTaskModalClose')?.addEventListener('click', () => this.closeModal('submitTaskModal'));
+    document.getElementById('submitTaskForm')?.addEventListener('submit', (e) => this.handleSubmitTaskForm(e));
+    
+    // Task Detail Modal Events
+    document.getElementById('taskDetailModalClose')?.addEventListener('click', () => this.closeModal('taskDetailModal'));
+    document.getElementById('editTaskBtn')?.addEventListener('click', () => {
+      const taskId = document.getElementById('taskDetailId')?.textContent?.replace('#', '');
+      if (taskId) {
+        this.closeModal('taskDetailModal');
+        this.openEditTaskModal(taskId);
+      }
+    });
+    document.getElementById('deleteTaskBtn')?.addEventListener('click', () => {
+      const taskId = document.getElementById('taskDetailId')?.textContent?.replace('#', '');
+      if (taskId) {
+        this.closeModal('taskDetailModal');
+        this.deleteTask(taskId);
+      }
+    });
+    
+    // File Upload for Submit Modal
+    this.setupSubmitFileUpload();
+    
     // ปุ่มเลือกช่วงเวลาสถิติ
     document.querySelectorAll('[data-stats-period]').forEach(btn => {
       btn.addEventListener('click', (e) => this.changeStatsPeriod(e.target.dataset.statsPeriod));
@@ -466,28 +490,240 @@ class DashboardApp {
   }
 
   renderTasks() {
-    const tasksContainer = document.getElementById('tasksContainer');
-    if (!tasksContainer) return;
+    const tableBody = document.getElementById('tasksTableBody');
+    if (!tableBody) return;
 
     // กรองงานตามเงื่อนไข
     const filteredTasks = this.getFilteredTasks();
 
     if (filteredTasks.length === 0) {
-      tasksContainer.innerHTML = `
-        <div class="text-center py-12">
-          <i class="fas fa-tasks text-6xl text-gray-300 mb-4"></i>
-          <h3 class="text-lg font-medium text-gray-900 mb-2">ไม่มีงาน</h3>
-          <p class="text-gray-600">ไม่พบงานที่ตรงกับเงื่อนไขการค้นหา</p>
-        </div>
+      tableBody.innerHTML = `
+        <tr>
+          <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+            <i class="fas fa-tasks text-4xl mb-4 text-gray-300"></i>
+            <p class="text-lg font-medium">ไม่มีงาน</p>
+            <p>ไม่พบงานที่ตรงกับเงื่อนไขการค้นหา</p>
+          </td>
+        </tr>
       `;
       return;
     }
 
-    const taskCards = filteredTasks.map(task => this.renderTaskCard(task)).join('');
-    tasksContainer.innerHTML = taskCards;
+    const taskRows = filteredTasks.map(task => this.renderTaskRow(task)).join('');
+    tableBody.innerHTML = taskRows;
     
     // อัปเดตสถิติ
     this.updateTaskStats(filteredTasks);
+  }
+
+  renderTaskRow(task) {
+    const statusInfo = this.getStatusInfo(task.status);
+    const priorityInfo = this.getPriorityInfo(task.priority);
+    const assignees = this.getTaskAssignees(task);
+    const dueInfo = this.getDueInfo(task.dueTime);
+    const canSubmit = this.canSubmitTask(task);
+
+    return `
+      <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.dashboardApp.openTaskDetail('${task.id}')">
+        <td class="px-6 py-4">
+          <div class="flex items-start">
+            <div class="flex-1">
+              <div class="text-sm font-medium text-gray-900">${this.escapeHtml(task.title)}</div>
+              <div class="text-sm text-gray-500 mt-1 line-clamp-2">${this.escapeHtml(task.description || 'ไม่มีรายละเอียด')}</div>
+              ${task.tags && task.tags.length > 0 ? `
+                <div class="flex flex-wrap gap-1 mt-2">
+                  ${task.tags.slice(0, 3).map(tag => 
+                    `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">${this.escapeHtml(tag)}</span>`
+                  ).join('')}
+                  ${task.tags.length > 3 ? `<span class="text-xs text-gray-500">+${task.tags.length - 3} เพิ่มเติม</span>` : ''}
+                </div>
+              ` : ''}
+            </div>
+          </div>
+        </td>
+        <td class="px-6 py-4">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
+            <i class="${statusInfo.icon} mr-1"></i>
+            ${statusInfo.text}
+          </span>
+        </td>
+        <td class="px-6 py-4">
+          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityInfo.class}">
+            <i class="${priorityInfo.icon} mr-1"></i>
+            ${priorityInfo.text}
+          </span>
+        </td>
+        <td class="px-6 py-4">
+          <div class="text-sm text-gray-900">${assignees}</div>
+        </td>
+        <td class="px-6 py-4">
+          <div class="text-sm text-gray-900">${dueInfo.date}</div>
+          <div class="text-xs ${dueInfo.class}">${dueInfo.remaining}</div>
+        </td>
+        <td class="px-6 py-4" onclick="event.stopPropagation()">
+          <div class="flex items-center gap-2">
+            ${canSubmit ? `
+              <button 
+                class="btn btn-sm btn-primary" 
+                onclick="window.dashboardApp.openSubmitTaskModal('${task.id}')"
+                title="ส่งงาน"
+              >
+                <i class="fas fa-upload"></i>
+                ส่ง
+              </button>
+            ` : ''}
+            <button 
+              class="btn btn-sm btn-outline" 
+              onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+              title="แก้ไขงาน"
+            >
+              <i class="fas fa-edit"></i>
+            </button>
+            <button 
+              class="btn btn-sm" 
+              style="background-color: #dc2626; color: white;" 
+              onclick="window.dashboardApp.deleteTask('${task.id}')"
+              title="ลบงาน"
+            >
+              <i class="fas fa-trash"></i>
+            </button>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  // Helper functions for rendering
+  getStatusInfo(status) {
+    const statusMap = {
+      'pending': { 
+        text: 'รอดำเนินการ', 
+        class: 'bg-yellow-100 text-yellow-800', 
+        icon: 'fas fa-clock' 
+      },
+      'in_progress': { 
+        text: 'กำลังดำเนินการ', 
+        class: 'bg-blue-100 text-blue-800', 
+        icon: 'fas fa-play' 
+      },
+      'completed': { 
+        text: 'เสร็จแล้ว', 
+        class: 'bg-green-100 text-green-800', 
+        icon: 'fas fa-check' 
+      },
+      'overdue': { 
+        text: 'เกินกำหนด', 
+        class: 'bg-red-100 text-red-800', 
+        icon: 'fas fa-exclamation-triangle' 
+      },
+      'submitted': { 
+        text: 'ส่งแล้ว', 
+        class: 'bg-purple-100 text-purple-800', 
+        icon: 'fas fa-upload' 
+      }
+    };
+    return statusMap[status] || statusMap['pending'];
+  }
+
+  getPriorityInfo(priority) {
+    const priorityMap = {
+      'low': { 
+        text: 'ต่ำ', 
+        class: 'bg-gray-100 text-gray-800', 
+        icon: 'fas fa-chevron-down' 
+      },
+      'medium': { 
+        text: 'ปานกลาง', 
+        class: 'bg-yellow-100 text-yellow-800', 
+        icon: 'fas fa-minus' 
+      },
+      'high': { 
+        text: 'สูง', 
+        class: 'bg-orange-100 text-orange-800', 
+        icon: 'fas fa-chevron-up' 
+      },
+      'urgent': { 
+        text: 'ด่วน', 
+        class: 'bg-red-100 text-red-800', 
+        icon: 'fas fa-exclamation' 
+      }
+    };
+    return priorityMap[priority] || priorityMap['medium'];
+  }
+
+  getTaskAssignees(task) {
+    if (!task.assignedUsers || task.assignedUsers.length === 0) {
+      return 'ไม่มีผู้รับผิดชอบ';
+    }
+    
+    const names = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ระบุชื่อ');
+    if (names.length > 2) {
+      return `${names.slice(0, 2).join(', ')} และอีก ${names.length - 2} คน`;
+    }
+    return names.join(', ');
+  }
+
+  getDueInfo(dueTime) {
+    if (!dueTime) {
+      return { 
+        date: 'ไม่กำหนด', 
+        remaining: '',
+        class: 'text-gray-500' 
+      };
+    }
+
+    const due = new Date(dueTime);
+    const now = new Date();
+    const diff = due - now;
+    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+
+    const dateStr = due.toLocaleDateString('th-TH', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    const timeStr = due.toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    let remaining = '';
+    let className = 'text-gray-500';
+
+    if (diff < 0) {
+      remaining = `เกิน ${Math.abs(days)} วัน`;
+      className = 'text-red-600';
+    } else if (days === 0) {
+      remaining = 'วันนี้';
+      className = 'text-orange-600';
+    } else if (days === 1) {
+      remaining = 'พรุ่งนี้';
+      className = 'text-yellow-600';
+    } else if (days <= 3) {
+      remaining = `อีก ${days} วัน`;
+      className = 'text-yellow-600';
+    } else {
+      remaining = `อีก ${days} วัน`;
+      className = 'text-gray-500';
+    }
+
+    return {
+      date: `${dateStr} ${timeStr}`,
+      remaining,
+      class: className
+    };
+  }
+
+  canSubmitTask(task) {
+    return task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
+  }
+
+  escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   // ฟังก์ชันกรองงาน
@@ -1326,13 +1562,206 @@ class DashboardApp {
   openSubmitTaskModal(taskId) {
     const task = this.tasks.find(t => t.id === taskId);
     if (!task) {
-      this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
+      this.showToast('ไม่พบงานที่ระบุ', 'error');
       return;
     }
+
+    // Populate modal with task info
+    document.getElementById('submitTaskId').value = taskId;
+    document.getElementById('submitTaskTitle').textContent = task.title;
     
-    // เปิด modal ส่งงาน
-    this.currentTaskId = taskId;
-    this.openSubmitModal(task);
+    const dueInfo = this.getDueInfo(task.dueTime);
+    document.getElementById('submitTaskDue').textContent = `กำหนดส่ง: ${dueInfo.date}`;
+
+    // Reset form
+    document.getElementById('submitComment').value = '';
+    document.getElementById('submitTaskFiles').value = '';
+    document.getElementById('submitFileList').innerHTML = '';
+    document.getElementById('submitFileList').classList.add('hidden');
+
+    this.openModal('submitTaskModal');
+  }
+
+  // Task Detail Modal Functions
+  async openTaskDetail(taskId) {
+    try {
+      const task = this.tasks.find(t => t.id === taskId);
+      if (!task) {
+        this.showToast('ไม่พบงานที่ระบุ', 'error');
+        return;
+      }
+
+      // โหลดข้อมูลเพิ่มเติมจาก API
+      let detailedTask = task;
+      try {
+        const response = await fetch(`/api/task/${taskId}`);
+        if (response.ok) {
+          const result = await response.json();
+          if (result.success) {
+            detailedTask = result.data;
+          }
+        }
+      } catch (error) {
+        console.warn('Could not load detailed task info, using cached data:', error);
+      }
+
+      this.populateTaskDetailModal(detailedTask);
+      this.openModal('taskDetailModal');
+    } catch (error) {
+      console.error('Error opening task detail:', error);
+      this.showToast('เกิดข้อผิดพลาดในการโหลดรายละเอียดงาน', 'error');
+    }
+  }
+
+  populateTaskDetailModal(task) {
+    // Header Information
+    document.getElementById('taskDetailTitle').textContent = `รายละเอียดงาน: ${task.title}`;
+    document.getElementById('taskDetailName').textContent = task.title;
+    document.getElementById('taskDetailId').textContent = `#${task.id}`;
+    
+    // Dates
+    const createdDate = task.createdAt ? new Date(task.createdAt).toLocaleDateString('th-TH') : '-';
+    const updatedDate = task.updatedAt ? new Date(task.updatedAt).toLocaleDateString('th-TH') : '-';
+    document.getElementById('taskDetailCreated').textContent = `สร้างเมื่อ: ${createdDate}`;
+    document.getElementById('taskDetailUpdated').textContent = `แก้ไขล่าสุด: ${updatedDate}`;
+
+    // Status and Priority
+    const statusInfo = this.getStatusInfo(task.status);
+    const priorityInfo = this.getPriorityInfo(task.priority);
+    
+    const statusEl = document.getElementById('taskDetailStatus');
+    statusEl.textContent = statusInfo.text;
+    statusEl.className = `px-3 py-1 rounded-full text-sm font-medium ${statusInfo.class}`;
+    
+    const priorityEl = document.getElementById('taskDetailPriority');
+    priorityEl.textContent = priorityInfo.text;
+    priorityEl.className = `px-3 py-1 rounded-full text-sm font-medium ${priorityInfo.class}`;
+
+    // Category
+    const categoryEl = document.getElementById('taskDetailCategory');
+    categoryEl.textContent = task.category || 'ทั่วไป';
+
+    // Description
+    const descEl = document.getElementById('taskDetailDescription');
+    descEl.textContent = task.description || 'ไม่มีรายละเอียด';
+
+    // Assignees
+    const assigneesEl = document.getElementById('taskDetailAssignees');
+    if (task.assignedUsers && task.assignedUsers.length > 0) {
+      assigneesEl.innerHTML = task.assignedUsers.map(user => `
+        <div class="flex items-center p-2 bg-gray-100 rounded-lg">
+          <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-3">
+            ${(user.displayName || user.name || 'U')[0].toUpperCase()}
+          </div>
+          <div>
+            <div class="font-medium">${user.displayName || user.name || 'ไม่ระบุชื่อ'}</div>
+            <div class="text-sm text-gray-600">${user.email || ''}</div>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      assigneesEl.innerHTML = '<div class="text-gray-500">ไม่มีผู้รับผิดชอบ</div>';
+    }
+
+    // Tags
+    const tagsEl = document.getElementById('taskDetailTags');
+    if (task.tags && task.tags.length > 0) {
+      tagsEl.innerHTML = task.tags.map(tag => 
+        `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">${this.escapeHtml(tag)}</span>`
+      ).join('');
+    } else {
+      tagsEl.innerHTML = '<span class="text-gray-500">ไม่มีแท็ก</span>';
+    }
+
+    // Due Date
+    const dueInfo = this.getDueInfo(task.dueTime);
+    document.getElementById('taskDetailDueDate').textContent = dueInfo.date;
+    document.getElementById('taskDetailDueTime').textContent = dueInfo.remaining;
+    document.getElementById('taskDetailTimeRemaining').className = `text-sm mt-1 ${dueInfo.class}`;
+    document.getElementById('taskDetailTimeRemaining').textContent = dueInfo.remaining;
+
+    // Progress
+    const progress = task.progress || 0;
+    document.getElementById('taskDetailProgress').textContent = `${progress}%`;
+    document.getElementById('taskDetailProgressBar').style.width = `${progress}%`;
+
+    // Submission info
+    document.getElementById('taskDetailSubmissions').textContent = task.submissionCount || 0;
+    const lastSubmission = task.lastSubmissionAt ? 
+      new Date(task.lastSubmissionAt).toLocaleDateString('th-TH') : 'ไม่มี';
+    document.getElementById('taskDetailLastSubmission').textContent = lastSubmission;
+
+    // Files
+    this.loadTaskFiles(task.id);
+
+    // Notes
+    const notesEl = document.getElementById('taskDetailNotes');
+    notesEl.textContent = task.notes || 'ไม่มีหมายเหตุเพิ่มเติม';
+
+    // Action buttons
+    this.updateTaskDetailButtons(task);
+  }
+
+  async loadTaskFiles(taskId) {
+    try {
+      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${taskId}/files`);
+      if (response.ok) {
+        const result = await response.json();
+        const filesEl = document.getElementById('taskDetailFiles');
+        
+        if (result.success && result.data && result.data.length > 0) {
+          filesEl.innerHTML = result.data.map(file => `
+            <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+              <div class="flex items-center">
+                <i class="fas fa-file text-gray-400 mr-3"></i>
+                <div>
+                  <div class="font-medium">${this.escapeHtml(file.originalName || file.filename)}</div>
+                  <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)}</div>
+                </div>
+              </div>
+              <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}')">
+                <i class="fas fa-download"></i>
+              </button>
+            </div>
+          `).join('');
+        } else {
+          filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
+        }
+      }
+    } catch (error) {
+      console.error('Error loading task files:', error);
+      document.getElementById('taskDetailFiles').innerHTML = '<div class="text-gray-500 text-center py-4">ไม่สามารถโหลดไฟล์ได้</div>';
+    }
+  }
+
+  updateTaskDetailButtons(task) {
+    const submitBtn = document.getElementById('taskDetailSubmitBtn');
+    const completeBtn = document.getElementById('taskDetailCompleteBtn');
+    const reopenBtn = document.getElementById('taskDetailReopenBtn');
+
+    // Hide all buttons first
+    [submitBtn, completeBtn, reopenBtn].forEach(btn => {
+      if (btn) btn.style.display = 'none';
+    });
+
+    // Show appropriate buttons based on status
+    if (this.canSubmitTask(task) && submitBtn) {
+      submitBtn.style.display = 'inline-flex';
+      submitBtn.onclick = () => {
+        this.closeModal('taskDetailModal');
+        this.openSubmitTaskModal(task.id);
+      };
+    }
+
+    if (task.status === 'submitted' && completeBtn) {
+      completeBtn.style.display = 'inline-flex';
+      completeBtn.onclick = () => this.completeTask(task.id);
+    }
+
+    if (task.status === 'completed' && reopenBtn) {
+      reopenBtn.style.display = 'inline-flex';
+      reopenBtn.onclick = () => this.reopenTask(task.id);
+    }
   }
 
   openSubmitModal(task) {
@@ -1555,6 +1984,232 @@ class DashboardApp {
       console.error('Error submitting task:', error);
       this.showToast(`เกิดข้อผิดพลาดในการส่งงาน: ${error.message}`, 'error');
     }
+  }
+
+  // Submit Task Form Handling
+  async handleSubmitTaskForm(e) {
+    e.preventDefault();
+    
+    const formData = new FormData(e.target);
+    const taskId = formData.get('taskId');
+    const comment = formData.get('comment');
+    const files = formData.getAll('files');
+    
+    if (!taskId) {
+      this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
+      return;
+    }
+    
+    try {
+      this.showToast('กำลังส่งงาน...', 'info');
+      
+      const submitFormData = new FormData();
+      if (comment) submitFormData.append('comment', comment);
+      
+      // เพิ่มไฟล์แนบ
+      files.forEach(file => {
+        if (file.size > 0) {
+          submitFormData.append('files', file);
+        }
+      });
+      
+      const response = await fetch(`/api/tasks/${taskId}/submit`, {
+        method: 'POST',
+        body: submitFormData
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        // อัปเดตสถานะงาน
+        const taskIndex = this.tasks.findIndex(t => t.id === taskId);
+        if (taskIndex !== -1) {
+          this.tasks[taskIndex].status = 'submitted';
+          this.tasks[taskIndex].submittedAt = new Date().toISOString();
+        }
+        
+        this.showToast('ส่งงานเรียบร้อย', 'success');
+        this.closeModal('submitTaskModal');
+        this.renderTasks();
+        this.renderRecentTasks();
+        this.updateUpcomingTasks();
+      } else {
+        throw new Error(result.error || 'Failed to submit task');
+      }
+      
+    } catch (error) {
+      console.error('Error submitting task:', error);
+      this.showToast(`เกิดข้อผิดพลาดในการส่งงาน: ${error.message}`, 'error');
+    }
+  }
+
+  // File Upload Setup
+  setupSubmitFileUpload() {
+    const fileInput = document.getElementById('submitTaskFiles');
+    const uploadArea = document.getElementById('submitFileUploadArea');
+    const fileList = document.getElementById('submitFileList');
+    
+    if (!fileInput || !uploadArea) return;
+    
+    // Click to upload
+    uploadArea.addEventListener('click', () => fileInput.click());
+    
+    // Drag and drop
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('bg-blue-50', 'border-blue-300');
+    });
+    
+    uploadArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('bg-blue-50', 'border-blue-300');
+    });
+    
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('bg-blue-50', 'border-blue-300');
+      
+      const files = Array.from(e.dataTransfer.files);
+      this.displaySelectedFiles(files, fileInput);
+    });
+    
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      this.displaySelectedFiles(files, fileInput);
+    });
+  }
+
+  displaySelectedFiles(files, fileInput) {
+    const fileList = document.getElementById('submitFileList');
+    if (!fileList) return;
+    
+    if (files.length === 0) {
+      fileList.classList.add('hidden');
+      return;
+    }
+    
+    const filesHTML = files.map((file, index) => `
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+        <div class="flex items-center">
+          <i class="fas fa-file text-gray-400 mr-3"></i>
+          <div>
+            <div class="font-medium text-sm">${this.escapeHtml(file.name)}</div>
+            <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
+          </div>
+        </div>
+        <button type="button" class="text-red-500 hover:text-red-700" onclick="window.dashboardApp.removeSelectedFile(${index})">
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+    `).join('');
+    
+    fileList.innerHTML = `
+      <div class="space-y-2">
+        <h5 class="font-medium text-gray-900">ไฟล์ที่เลือก (${files.length}):</h5>
+        ${filesHTML}
+      </div>
+    `;
+    fileList.classList.remove('hidden');
+    
+    // Update file input
+    const dataTransfer = new DataTransfer();
+    files.forEach(file => dataTransfer.items.add(file));
+    fileInput.files = dataTransfer.files;
+  }
+
+  removeSelectedFile(index) {
+    const fileInput = document.getElementById('submitTaskFiles');
+    if (!fileInput) return;
+    
+    const files = Array.from(fileInput.files);
+    files.splice(index, 1);
+    this.displaySelectedFiles(files, fileInput);
+  }
+
+  // Task Action Functions
+  async completeTask(taskId) {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          const taskIndex = this.tasks.findIndex(t => t.id === taskId);
+          if (taskIndex !== -1) {
+            this.tasks[taskIndex].status = 'completed';
+          }
+          this.showToast('ทำเสร็จงานเรียบร้อย', 'success');
+          this.renderTasks();
+          this.closeModal('taskDetailModal');
+        }
+      }
+    } catch (error) {
+      console.error('Error completing task:', error);
+      this.showToast('เกิดข้อผิดพลาดในการทำเสร็จงาน', 'error');
+    }
+  }
+
+  async reopenTask(taskId) {
+    try {
+      const response = await fetch(`/api/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'in_progress' })
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success) {
+          const taskIndex = this.tasks.findIndex(t => t.id === taskId);
+          if (taskIndex !== -1) {
+            this.tasks[taskIndex].status = 'in_progress';
+          }
+          this.showToast('เปิดงานใหม่เรียบร้อย', 'success');
+          this.renderTasks();
+          this.closeModal('taskDetailModal');
+        }
+      }
+    } catch (error) {
+      console.error('Error reopening task:', error);
+      this.showToast('เกิดข้อผิดพลาดในการเปิดงานใหม่', 'error');
+    }
+  }
+
+  async downloadFile(fileId) {
+    try {
+      const response = await fetch(`/api/files/${fileId}/download`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'download';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      console.error('Error downloading file:', error);
+      this.showToast('เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์', 'error');
+    }
+  }
+
+  // Helper function for file size formatting
+  formatFileSize(bytes) {
+    if (bytes === 0) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   }
 
   uploadFile() {

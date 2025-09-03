@@ -654,10 +654,40 @@
                 </div>
                 
                 <!-- รายการงาน -->
-                <div id="tasksContainer" class="space-y-4">
-                    <div class="text-center py-8 text-gray-500">
-                        <i class="fas fa-spinner text-4xl mb-4"></i>
-                        <p>กำลังโหลดงาน...</p>
+                <div class="bg-white rounded-lg shadow overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="min-w-full divide-y divide-gray-200">
+                            <thead class="bg-gray-50">
+                                <tr>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        งาน
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        สถานะ
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ความสำคัญ
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        ผู้รับผิดชอบ
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        กำหนดส่ง
+                                    </th>
+                                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                        การดำเนินการ
+                                    </th>
+                                </tr>
+                            </thead>
+                            <tbody id="tasksTableBody" class="bg-white divide-y divide-gray-200">
+                                <tr>
+                                    <td colspan="6" class="px-6 py-8 text-center text-gray-500">
+                                        <i class="fas fa-spinner fa-spin text-2xl mb-2"></i>
+                                        <p>กำลังโหลดงาน...</p>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
                     </div>
                 </div>
             </div>
@@ -758,6 +788,200 @@
             <span>รายงาน</span>
         </a>
     </nav>
+
+    <!-- Task Detail Modal -->
+    <div id="taskDetailModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 800px;">
+            <div class="modal-header">
+                <h3 id="taskDetailTitle">รายละเอียดงาน</h3>
+                <button class="modal-close" id="taskDetailModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <!-- Task Header -->
+                <div class="mb-6">
+                    <div class="flex items-start justify-between mb-4">
+                        <div class="flex-1">
+                            <h2 id="taskDetailName" class="text-2xl font-bold text-gray-900 mb-2">ชื่องาน</h2>
+                            <div class="flex items-center gap-4 text-sm text-gray-600">
+                                <span id="taskDetailId" class="font-mono bg-gray-100 px-2 py-1 rounded">#ID</span>
+                                <span id="taskDetailCreated">สร้างเมื่อ: -</span>
+                                <span id="taskDetailUpdated">แก้ไขล่าสุด: -</span>
+                            </div>
+                        </div>
+                        <div class="flex gap-2">
+                            <button id="editTaskBtn" class="btn btn-outline btn-sm">
+                                <i class="fas fa-edit mr-1"></i>
+                                แก้ไข
+                            </button>
+                            <button id="deleteTaskBtn" class="btn btn-sm" style="background-color: #dc2626; color: white;">
+                                <i class="fas fa-trash mr-1"></i>
+                                ลบ
+                            </button>
+                        </div>
+                    </div>
+                    
+                    <!-- Status and Priority Badges -->
+                    <div class="flex flex-wrap gap-2 mb-4">
+                        <span id="taskDetailStatus" class="px-3 py-1 rounded-full text-sm font-medium">สถานะ</span>
+                        <span id="taskDetailPriority" class="px-3 py-1 rounded-full text-sm font-medium">ความสำคัญ</span>
+                        <span id="taskDetailCategory" class="px-3 py-1 rounded-full text-sm font-medium bg-gray-100 text-gray-700">หมวดหมู่</span>
+                    </div>
+                </div>
+
+                <!-- Task Details Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                    <!-- Left Column -->
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">รายละเอียด</h4>
+                            <div id="taskDetailDescription" class="text-gray-900 bg-gray-50 p-3 rounded-lg min-h-[60px]">ไม่มีรายละเอียด</div>
+                        </div>
+                        
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">ผู้รับผิดชอบ</h4>
+                            <div id="taskDetailAssignees" class="space-y-2">
+                                <div class="text-gray-500">ไม่มีผู้รับผิดชอบ</div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">แท็ก</h4>
+                            <div id="taskDetailTags" class="flex flex-wrap gap-1">
+                                <span class="text-gray-500">ไม่มีแท็ก</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Right Column -->
+                    <div class="space-y-4">
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">กำหนดเวลา</h4>
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <div class="text-gray-900 font-medium" id="taskDetailDueDate">ไม่กำหนด</div>
+                                <div class="text-sm text-gray-600" id="taskDetailDueTime"></div>
+                                <div class="text-sm mt-1" id="taskDetailTimeRemaining"></div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">ความคืบหน้า</h4>
+                            <div class="bg-gray-50 p-3 rounded-lg">
+                                <div class="text-2xl font-bold text-blue-600" id="taskDetailProgress">0%</div>
+                                <div class="w-full bg-gray-200 rounded-full h-2 mt-2">
+                                    <div id="taskDetailProgressBar" class="bg-blue-600 h-2 rounded-full transition-all" style="width: 0%"></div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div>
+                            <h4 class="text-sm font-medium text-gray-500 mb-2">สถิติการส่ง</h4>
+                            <div class="bg-gray-50 p-3 rounded-lg text-sm">
+                                <div class="flex justify-between mb-1">
+                                    <span>ครั้งที่ส่ง:</span>
+                                    <span id="taskDetailSubmissions" class="font-medium">0</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span>ส่งล่าสุด:</span>
+                                    <span id="taskDetailLastSubmission" class="font-medium">ไม่มี</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Files Section -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium text-gray-900 mb-3">ไฟล์แนบ</h4>
+                    <div id="taskDetailFiles" class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>
+                    </div>
+                </div>
+
+                <!-- Comments/Notes Section -->
+                <div class="mb-6">
+                    <h4 class="text-lg font-medium text-gray-900 mb-3">หมายเหตุและความคิดเห็น</h4>
+                    <div id="taskDetailNotes" class="bg-gray-50 rounded-lg p-4">
+                        <div class="text-gray-500">ไม่มีหมายเหตุเพิ่มเติม</div>
+                    </div>
+                </div>
+
+                <!-- Action Buttons -->
+                <div class="flex flex-wrap gap-3 pt-4 border-t">
+                    <button id="taskDetailSubmitBtn" class="btn btn-primary" style="display: none;">
+                        <i class="fas fa-upload mr-2"></i>
+                        ส่งงาน
+                    </button>
+                    <button id="taskDetailCompleteBtn" class="btn btn-success" style="display: none;">
+                        <i class="fas fa-check mr-2"></i>
+                        ทำเสร็จแล้ว
+                    </button>
+                    <button id="taskDetailReopenBtn" class="btn btn-outline" style="display: none;">
+                        <i class="fas fa-redo mr-2"></i>
+                        เปิดใหม่
+                    </button>
+                    <button class="btn btn-outline" onclick="window.dashboardApp.closeModal('taskDetailModal')">
+                        <i class="fas fa-times mr-2"></i>
+                        ปิด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Submit Task Modal -->
+    <div id="submitTaskModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 600px;">
+            <div class="modal-header">
+                <h3>ส่งงาน</h3>
+                <button class="modal-close" id="submitTaskModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body">
+                <form id="submitTaskForm">
+                    <input type="hidden" id="submitTaskId" name="taskId">
+                    
+                    <div class="mb-4">
+                        <h4 class="font-medium text-gray-900 mb-2">งานที่จะส่ง:</h4>
+                        <div id="submitTaskInfo" class="bg-gray-50 p-3 rounded-lg">
+                            <div class="font-medium" id="submitTaskTitle">ชื่องาน</div>
+                            <div class="text-sm text-gray-600" id="submitTaskDue">กำหนดส่ง</div>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="submitComment">หมายเหตุ (ไม่บังคับ)</label>
+                        <textarea id="submitComment" name="comment" rows="3" placeholder="อธิบายผลงานหรือหมายเหตุเพิ่มเติม..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ไฟล์แนบ</label>
+                        <div class="file-upload-area" id="submitFileUploadArea">
+                            <div class="file-upload-content">
+                                <i class="fas fa-cloud-upload-alt text-3xl text-gray-400 mb-2"></i>
+                                <p class="text-gray-600 mb-1">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                                <p class="text-sm text-gray-500">รองรับไฟล์ทุกประเภท สูงสุด 10 ไฟล์</p>
+                            </div>
+                            <input type="file" id="submitTaskFiles" name="files" multiple style="display: none;">
+                        </div>
+                        <div id="submitFileList" class="file-list hidden mt-3">
+                            <!-- ไฟล์ที่เลือกจะแสดงที่นี่ -->
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 mt-6">
+                        <button type="button" class="btn btn-outline flex-1" onclick="window.dashboardApp.closeModal('submitTaskModal')">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary flex-1">
+                            <i class="fas fa-upload mr-2"></i>
+                            ส่งงาน
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
 
     <!-- Add Task Modal -->
     <div id="addTaskModal" class="modal hidden">
