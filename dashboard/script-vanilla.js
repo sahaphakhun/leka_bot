@@ -15,7 +15,43 @@ class DashboardApp {
     this.currentAction = null;
     this.isLoading = false;
     
+    // Initialize with some default mock tasks for statistics
+    this.initializeMockData();
+    
     this.init();
+  }
+
+  initializeMockData() {
+    // Default mock tasks to ensure statistics display properly
+    this.tasks = [
+      {
+        id: 'task1',
+        title: 'งานทดสอบ 1',
+        description: 'รายละเอียดงานทดสอบ',
+        status: 'pending',
+        priority: 'medium',
+        dueTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+      },
+      {
+        id: 'task2', 
+        title: 'งานทดสอบ 2',
+        description: 'รายละเอียดงานทดสอบ 2',
+        status: 'completed',
+        priority: 'high',
+        dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+        group: { id: 'group2', name: 'กลุ่มทดสอบ 2' }
+      },
+      {
+        id: 'task3', 
+        title: 'งานทดสอบ 3',
+        description: 'รายละเอียดงานทดสอบ 3',
+        status: 'overdue',
+        priority: 'low',
+        dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+      }
+    ];
   }
 
   init() {
@@ -1181,9 +1217,13 @@ class DashboardApp {
   loadViewData(viewName) {
     switch (viewName) {
       case 'dashboard':
-        this.loadStats();
-        this.updateUpcomingTasks();
-        this.renderRecentTasks();
+        // Load tasks first so statistics can be calculated properly
+        this.loadTasks().then(() => {
+          this.loadStats();
+          this.updateUpcomingTasks();
+          this.renderRecentTasks();
+          this.loadLeaderboard(); // Add mini leaderboard for dashboard
+        });
         break;
       case 'calendar':
         this.loadCalendarEvents();
@@ -1192,7 +1232,8 @@ class DashboardApp {
         this.loadTasks();
         break;
       case 'files':
-        this.loadFiles();
+        // Call the actual file loading function (defined later in the file)
+        this.loadFilesData();
         break;
       case 'leaderboard':
         this.loadLeaderboard();
@@ -1206,11 +1247,6 @@ class DashboardApp {
   async loadCalendarEvents() {
     // Mock calendar events
     this.showToast('โหลดปฏิทินเรียบร้อย', 'success');
-  }
-
-  async loadFiles() {
-    // Mock files data
-    this.showToast('โหลดไฟล์เรียบร้อย', 'success');
   }
 
   async loadReports() {
@@ -1318,7 +1354,7 @@ class DashboardApp {
       await this.loadTasks();
       await this.loadStats();
       await this.loadLeaderboard();
-      await this.loadFiles();
+      await this.loadFilesData(); // Use the correct function name
       this.renderRecentTasks();
       this.updateUpcomingTasks();
       this.showToast('รีเฟรชข้อมูลเรียบร้อย', 'success');
@@ -2250,7 +2286,7 @@ class DashboardApp {
     }
   }
 
-  async loadFiles() {
+  async loadFilesData() {
     try {
       if (!this.currentGroupId) {
         // Fallback to mock data
@@ -2283,6 +2319,11 @@ class DashboardApp {
       this.renderFiles();
       this.populateTaskFilter();
     }
+  }
+
+  // Keep loadFiles as an alias for backward compatibility
+  async loadFiles() {
+    return this.loadFilesData();
   }
 
   filterFiles(searchTerm) {
