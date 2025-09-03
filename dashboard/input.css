@@ -115,10 +115,11 @@
 /* Content sections */
 .content-section {
   @apply space-y-6;
+  display: none;
 }
 
-.content-section.hidden {
-  display: none;
+.content-section.active {
+  display: block;
 }
 
 /* Sidebar navigation */
