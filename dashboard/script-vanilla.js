@@ -563,10 +563,17 @@ class DashboardApp {
       overdue: filteredTasks.filter(t => t.status === 'overdue').length
     };
 
-    document.getElementById('filteredTasksCount')?.textContent = stats.filtered;
-    document.getElementById('pendingTasksCount')?.textContent = stats.pending;
-    document.getElementById('completedTasksCount')?.textContent = stats.completed;
-    document.getElementById('overdueTasksCount')?.textContent = stats.overdue;
+    const filteredTasksElement = document.getElementById('filteredTasksCount');
+    if (filteredTasksElement) filteredTasksElement.textContent = stats.filtered;
+    
+    const pendingTasksElement = document.getElementById('pendingTasksCount');
+    if (pendingTasksElement) pendingTasksElement.textContent = stats.pending;
+    
+    const completedTasksElement = document.getElementById('completedTasksCount');
+    if (completedTasksElement) completedTasksElement.textContent = stats.completed;
+    
+    const overdueTasksElement = document.getElementById('overdueTasksCount');
+    if (overdueTasksElement) overdueTasksElement.textContent = stats.overdue;
   }
 
   // โหลดรายชื่อผู้รับผิดชอบสำหรับตัวกรอง
