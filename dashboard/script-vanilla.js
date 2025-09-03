@@ -178,6 +178,9 @@ class DashboardApp {
       // ตรวจสอบ action parameter และเปิด modal ที่เหมาะสม
       if (this.currentAction === 'new-task') {
         this.openAddTaskModal();
+      } else if (this.currentAction === 'edit' && this.currentTaskId) {
+        // เปิด modal แก้ไขงาน
+        this.openEditTaskModal(this.currentTaskId);
       }
       
       // อัปเดตข้อมูลเริ่มต้น
@@ -1975,6 +1978,62 @@ class DashboardApp {
         }
       }
     }
+  }
+
+  openEditTaskModal(taskId) {
+    if (!taskId) {
+      this.showToast('ไม่พบงานที่ต้องการแก้ไข', 'error');
+      return;
+    }
+
+    const task = this.tasks.find(t => t.id === taskId);
+    if (!task) {
+      this.showToast('ไม่พบงานที่ระบุ', 'error');
+      return;
+    }
+
+    // เติมข้อมูลในฟอร์มแก้ไข
+    this.populateEditTaskForm(task);
+
+    // เปิด modal
+    this.openModal('editTaskModal');
+  }
+
+  populateEditTaskForm(task) {
+    const form = document.getElementById('editTaskForm');
+    if (!form) return;
+
+    // เติมข้อมูลในฟอร์ม
+    const taskIdInput = form.querySelector('[name="taskId"]');
+    const titleInput = form.querySelector('[name="taskTitle"]');
+    const descriptionInput = form.querySelector('[name="taskDescription"]');
+    const dueDateInput = form.querySelector('[name="dueDate"]');
+    const prioritySelect = form.querySelector('[name="priority"]');
+
+    if (taskIdInput) taskIdInput.value = task.id;
+    if (titleInput) titleInput.value = task.title || '';
+    if (descriptionInput) descriptionInput.value = task.description || '';
+    if (dueDateInput && task.dueTime) {
+      // แปลง ISO date เป็นรูปแบบ YYYY-MM-DD สำหรับ input type="date"
+      dueDateInput.value = task.dueTime.split('T')[0];
+    }
+    if (prioritySelect) prioritySelect.value = task.priority || 'medium';
+  }
+
+  openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    const overlay = document.getElementById('modalOverlay');
+    
+    if (!modal || !overlay) {
+      console.error(`Modal ${modalId} or overlay not found`);
+      return;
+    }
+
+    // แสดง modal ใน overlay
+    overlay.innerHTML = '';
+    overlay.appendChild(modal);
+    modal.classList.remove('hidden');
+    overlay.classList.remove('hidden');
   }
 
   deleteTask(taskId) {
