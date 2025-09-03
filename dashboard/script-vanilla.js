@@ -197,7 +197,7 @@ class DashboardApp {
       await this.loadAssigneeFilter(); // โหลดตัวกรองผู้รับผิดชอบ
       
       // แสดงข้อมูลตาม view ปัจจุบัน
-      this.showView(this.currentView);
+      this.switchView(this.currentView);
       
       // ตรวจสอบ action parameter และเปิด modal ที่เหมาะสม
       if (this.currentAction === 'new-task') {
@@ -1141,18 +1141,11 @@ class DashboardApp {
   handleNavigation(e, link) {
     e.preventDefault();
     
-    // Remove active class from all links
-    document.querySelectorAll('.sidebar-nav-item, .bottom-nav-item').forEach(l => l.classList.remove('active'));
-    
-    // Add active class to clicked link
-    link.classList.add('active');
-    
     // Update current view
     const view = link.getAttribute('data-view') || 'dashboard';
-    this.currentView = view;
     
-    // Show appropriate content
-    this.showView(view);
+    // Use switchView for consistent navigation
+    this.switchView(view);
     
     // Update URL hash
     window.location.hash = `#${view}`;
@@ -1171,22 +1164,6 @@ class DashboardApp {
 
     this.currentView = viewName;
     this.loadViewData(viewName);
-  }
-
-  showView(view) {
-    // Hide all content sections
-    document.querySelectorAll('.content-section').forEach(section => {
-      section.classList.add('hidden');
-    });
-    
-    // Show selected section
-    const targetSection = document.getElementById(`${view}Section`);
-    if (targetSection) {
-      targetSection.classList.remove('hidden');
-    }
-    
-    // Update page title
-    document.title = `Dashboard - ${view.charAt(0).toUpperCase() + view.slice(1)}`;
   }
 
   loadViewData(viewName) {

@@ -434,6 +434,41 @@ export class TaskService {
       }
 
       Object.assign(task, updates);
+      
+      // จัดการผู้รับผิดชอบถ้ามีการอัปเดต
+      const assigneeUpdates = updates as any;
+      if (assigneeUpdates.assigneeIds && Array.isArray(assigneeUpdates.assigneeIds)) {
+        // ตรวจสอบว่า assigneeIds เป็น database user IDs หรือ LINE user IDs
+        let assignees: User[];
+        
+        const isLineUserIds = assigneeUpdates.assigneeIds.some((id: string) => id.startsWith('U'));
+        
+        if (isLineUserIds) {
+          // ค้นหาจาก LINE user IDs
+          assignees = await this.userRepository.find({
+            where: {
+              lineUserId: In(assigneeUpdates.assigneeIds)
+            }
+          });
+        } else {
+          // ค้นหาจาก database user IDs
+          assignees = await this.userRepository.find({
+            where: {
+              id: In(assigneeUpdates.assigneeIds)
+            }
+          });
+        }
+        
+        if (assignees.length !== assigneeUpdates.assigneeIds.length) {
+          const foundIds = isLineUserIds 
+            ? assignees.map(u => u.lineUserId)
+            : assignees.map(u => u.id);
+          const missingIds = assigneeUpdates.assigneeIds.filter((id: string) => !foundIds.includes(id));
+          console.warn(`⚠️ Some assignees not found during update: ${missingIds.join(', ')}`);
+        }
+
+        task.assignedUsers = assignees;
+      }
       // รองรับตีกลับจากผู้ตรวจผ่าน API โดยใช้ฟิลด์ชั่วคราวใน updates
       const anyUpdates: any = updates as any;
       if (anyUpdates && anyUpdates.reviewAction === 'revise') {

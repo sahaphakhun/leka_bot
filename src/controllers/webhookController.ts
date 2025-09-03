@@ -647,9 +647,27 @@ class WebhookController {
           break;
         }
 
-        case 'edit':
-          // TODO: ส่งลิงก์ไปยังหน้าเว็บสำหรับแก้ไข
+        case 'edit': {
+          const taskId = params.get('taskId');
+          const editGroupId = params.get('groupId') || groupId;
+          
+          if (taskId && editGroupId) {
+            try {
+              // สร้าง URL ไปยังหน้าแก้ไขงาน
+              const editUrl = `${config.baseUrl}/dashboard?groupId=${editGroupId}&taskId=${taskId}&action=edit&userId=${userId}`;
+              
+              // ส่งข้อความพร้อมลิงก์แก้ไขงาน
+              const message = `🔗 แก้ไขงาน\n\nคลิกลิงก์ด้านล่างเพื่อแก้ไขงาน:\n${editUrl}`;
+              
+              await this.lineService.replyMessage(replyToken, message);
+            } catch (err: any) {
+              await this.safeReplyError(replyToken, `❌ ไม่สามารถสร้างลิงก์แก้ไขงานได้: ${err.message || 'เกิดข้อผิดพลาด'}`);
+            }
+          } else {
+            await this.safeReplyError(replyToken, '❌ ข้อมูลไม่ครบถ้วน');
+          }
           break;
+        }
 
         case 'show_personal_tasks': {
           try {
