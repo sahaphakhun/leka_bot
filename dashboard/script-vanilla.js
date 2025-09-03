@@ -1170,8 +1170,7 @@ class DashboardApp {
     switch (viewName) {
       case 'dashboard':
         this.loadStats();
-        this.loadUpcomingTasks();
-        this.loadMiniLeaderboard();
+        this.updateUpcomingTasks();
         this.renderRecentTasks();
         break;
       case 'calendar':
