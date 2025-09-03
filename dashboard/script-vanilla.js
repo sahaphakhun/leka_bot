@@ -1267,6 +1267,15 @@ class DashboardApp {
     const taskId = formData.get('taskId');
     
     try {
+      // ดึงรายการผู้รับผิดชอบที่เลือก
+      const selectedAssignees = Array.from(document.querySelectorAll('input[name="editAssignedTo"]:checked'))
+        .map(checkbox => checkbox.value);
+        
+      if (selectedAssignees.length === 0) {
+        this.showToast('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน', 'error');
+        return;
+      }
+      
       // สร้าง dueTime จาก dueDate
       const dueDateTime = new Date(`${formData.get('dueDate')}T23:59`);
       
@@ -1274,7 +1283,8 @@ class DashboardApp {
         title: formData.get('taskTitle'),
         description: formData.get('taskDescription'),
         dueTime: dueDateTime.toISOString(),
-        priority: formData.get('priority')
+        priority: formData.get('priority'),
+        assigneeIds: selectedAssignees
       };
       
       const response = await fetch(`/api/tasks/${taskId}`, {
@@ -2018,6 +2028,82 @@ class DashboardApp {
       dueDateInput.value = task.dueTime.split('T')[0];
     }
     if (prioritySelect) prioritySelect.value = task.priority || 'medium';
+
+    // โหลดผู้รับผิดชอบและเลือกผู้ที่ถูกมอบหมาย
+    this.loadAssigneesForEdit(task);
+  }
+
+  async loadAssigneesForEdit(task) {
+    try {
+      if (!this.currentGroupId) return;
+
+      const response = await fetch(`/api/groups/${this.currentGroupId}/members`);
+      if (response.ok) {
+        const result = await response.json();
+        if (result.success && result.data) {
+          this.populateEditAssigneesList(result.data, task.assignedUsers || task.assignees || []);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading assignees for edit:', error);
+    }
+  }
+
+  populateEditAssigneesList(members, currentAssignees) {
+    const assigneesList = document.getElementById('editAssigneesList');
+    if (!assigneesList) return;
+
+    // เคลียร์รายการเดิม
+    assigneesList.innerHTML = '';
+
+    // สร้าง checkbox สำหรับแต่ละสมาชิก
+    members.forEach(member => {
+      const isAssigned = currentAssignees.some(assignee => 
+        assignee.id === member.id || assignee.lineUserId === member.lineUserId || assignee.userId === member.userId
+      );
+
+      const checkboxHTML = `
+        <label class="checkbox-item">
+          <input type="checkbox" name="editAssignedTo" value="${member.id || member.userId || member.lineUserId}" ${isAssigned ? 'checked' : ''}>
+          <span class="checkmark"></span>
+          <span class="label-text">${member.displayName || member.name || member.userId}</span>
+        </label>
+      `;
+      assigneesList.insertAdjacentHTML('beforeend', checkboxHTML);
+    });
+
+    // เพิ่ม event listeners สำหรับปุ่ม select all และ clear all
+    this.setupEditAssigneeButtons();
+  }
+
+  setupEditAssigneeButtons() {
+    const selectAllBtn = document.getElementById('editSelectAllAssigned');
+    const clearAllBtn = document.getElementById('editClearAllAssigned');
+    const assigneesList = document.getElementById('editAssigneesList');
+
+    if (selectAllBtn) {
+      selectAllBtn.addEventListener('click', () => {
+        const checkboxes = assigneesList.querySelectorAll('input[name="editAssignedTo"]');
+        checkboxes.forEach(cb => cb.checked = true);
+      });
+    }
+
+    if (clearAllBtn) {
+      clearAllBtn.addEventListener('click', () => {
+        const checkboxes = assigneesList.querySelectorAll('input[name="editAssignedTo"]');
+        checkboxes.forEach(cb => cb.checked = false);
+      });
+    }
+  }
+
+  selectAllAssigned() {
+    const checkboxes = document.querySelectorAll('input[name="assignedTo"]');
+    checkboxes.forEach(cb => cb.checked = true);
+  }
+
+  clearAllAssigned() {
+    const checkboxes = document.querySelectorAll('input[name="assignedTo"]');
+    checkboxes.forEach(cb => cb.checked = false);
   }
 
   openModal(modalId) {

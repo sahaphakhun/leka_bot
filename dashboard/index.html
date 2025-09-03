@@ -922,6 +922,18 @@
                             <option value="high">สูง</option>
                         </select>
                     </div>
+                    <div class="form-group">
+                        <label>ผู้รับผิดชอบ *</label>
+                        <div class="assigned-to-container">
+                            <div class="checkbox-group" id="editAssigneesList">
+                                <!-- รายการผู้รับผิดชอบจะถูกเติมด้วย JavaScript -->
+                            </div>
+                            <div class="assigned-to-actions">
+                                <button type="button" class="btn btn-sm btn-outline" id="editSelectAllAssigned">เลือกทั้งหมด</button>
+                                <button type="button" class="btn btn-sm btn-outline" id="editClearAllAssigned">ล้างทั้งหมด</button>
+                            </div>
+                        </div>
+                    </div>
                     <div class="flex gap-2 mt-6">
                         <button type="button" class="btn btn-outline" id="editTaskCancelBtn">ยกเลิก</button>
                         <button type="submit" class="btn btn-primary">บันทึก</button>
