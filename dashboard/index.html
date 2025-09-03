@@ -695,18 +695,49 @@
             <div id="filesSection" class="content-section p-6">
                 <div class="mb-6">
                     <h2 class="text-2xl font-bold text-gray-900 mb-4">คลังไฟล์</h2>
-                    <div class="flex flex-wrap gap-3">
+                    <div class="flex flex-wrap gap-3 mb-4">
                         <button class="btn btn-primary" id="uploadFileBtn">
                             <i class="fas fa-upload mr-2"></i>
                             อัปโหลด
                         </button>
                         <input type="text" class="form-group" id="searchFiles" placeholder="ค้นหาไฟล์...">
+                        <select class="form-group" id="taskFilterSelect">
+                            <option value="">ทุกงาน</option>
+                            <option value="no-task">ไฟล์ทั่วไป</option>
+                            <!-- จะเติมด้วย JavaScript -->
+                        </select>
+                        <select class="form-group" id="fileTypeFilter">
+                            <option value="">ทุกประเภท</option>
+                            <option value="image">รูปภาพ</option>
+                            <option value="document">เอกสาร</option>
+                            <option value="video">วิดีโอ</option>
+                            <option value="audio">เสียง</option>
+                            <option value="other">อื่นๆ</option>
+                        </select>
                         <button class="btn btn-outline" id="refreshFilesBtn">
                             <i class="fas fa-sync mr-2"></i>
                             รีเฟรช
                         </button>
                     </div>
+                    
+                    <!-- View Toggle -->
+                    <div class="flex gap-2 mb-4">
+                        <button class="btn btn-sm btn-outline active" id="folderViewBtn" data-view="folder">
+                            <i class="fas fa-folder mr-1"></i>
+                            แยกตามงาน
+                        </button>
+                        <button class="btn btn-sm btn-outline" id="listViewBtn" data-view="list">
+                            <i class="fas fa-list mr-1"></i>
+                            รายการ
+                        </button>
+                        <button class="btn btn-sm btn-outline" id="gridViewBtn" data-view="grid">
+                            <i class="fas fa-th mr-1"></i>
+                            ตาราง
+                        </button>
+                    </div>
                 </div>
+                
+                <!-- Files Container -->
                 <div id="filesContainer" class="space-y-4">
                     <div class="text-center py-8 text-gray-500">
                         <i class="fas fa-folder text-4xl mb-4"></i>

@@ -448,6 +448,120 @@ body {
 .text-gray-600 { color: #4b5563; }
 .text-gray-900 { color: #111827; }
 .bg-white { background-color: white; }
+
+/* File Management Styles */
+.file-preview-img {
+  transition: transform 0.2s ease;
+}
+
+.file-preview-img:hover {
+  transform: scale(1.05);
+}
+
+.file-card {
+  transition: all 0.2s ease;
+}
+
+.file-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.task-folder {
+  border-left: 4px solid #3b82f6;
+}
+
+.task-folder.completed {
+  border-left-color: #10b981;
+}
+
+.task-folder.overdue {
+  border-left-color: #ef4444;
+}
+
+.file-grid-item {
+  aspect-ratio: 1;
+  min-height: 200px;
+}
+
+.file-preview-container {
+  position: relative;
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.file-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.file-preview-container:hover .file-overlay {
+  opacity: 1;
+}
+
+.view-toggle-btn {
+  padding: 8px 16px;
+  border: 1px solid #d1d5db;
+  background: white;
+  color: #6b7280;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+  cursor: pointer;
+}
+
+.view-toggle-btn:hover {
+  background: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.view-toggle-btn.active {
+  background: #3b82f6;
+  color: white;
+  border-color: #3b82f6;
+}
+
+.file-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 500;
+  background: #dbeafe;
+  color: #1e40af;
+  margin: 2px;
+}
+
+.folder-header {
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid #e2e8f0;
+}
+
+/* Responsive file grid */
+@media (max-width: 640px) {
+  .file-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  
+  .file-card {
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 480px) {
+  .file-grid {
+    grid-template-columns: 1fr;
+  }
+}
 .rounded-lg { border-radius: 8px; }
 .shadow { box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06); }
 .p-6 { padding: 1.5rem; }

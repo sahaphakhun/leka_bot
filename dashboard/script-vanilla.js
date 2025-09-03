@@ -6,7 +6,10 @@ class DashboardApp {
     this.currentUser = null;
     this.tasks = [];
     this.groups = [];
+    this.files = [];
+    this.organizedFiles = null;
     this.currentView = 'dashboard';
+    this.currentFileViewMode = 'folder';
     this.currentGroupId = null;
     this.currentTaskId = null;
     this.currentAction = null;
@@ -103,6 +106,15 @@ class DashboardApp {
     document.getElementById('uploadFileBtn')?.addEventListener('click', () => this.uploadFile());
     document.getElementById('searchFiles')?.addEventListener('input', (e) => this.filterFiles(e.target.value));
     document.getElementById('refreshFilesBtn')?.addEventListener('click', () => this.loadFiles());
+    
+    // File view toggles
+    document.getElementById('folderViewBtn')?.addEventListener('click', () => this.switchFileView('folder'));
+    document.getElementById('listViewBtn')?.addEventListener('click', () => this.switchFileView('list'));
+    document.getElementById('gridViewBtn')?.addEventListener('click', () => this.switchFileView('grid'));
+    
+    // File filters
+    document.getElementById('taskFilterSelect')?.addEventListener('change', () => this.renderFiles());
+    document.getElementById('fileTypeFilter')?.addEventListener('change', () => this.renderFiles());
     
     // ปุ่ม Tasks
     document.getElementById('searchTasks')?.addEventListener('input', (e) => this.filterTasks(e.target.value));
@@ -2240,7 +2252,14 @@ class DashboardApp {
 
   async loadFiles() {
     try {
-      const response = await fetch('/api/files?limit=100');
+      if (!this.currentGroupId) {
+        // Fallback to mock data
+        this.files = this.getMockFiles();
+        this.renderFiles();
+        return;
+      }
+
+      const response = await fetch(`/api/groups/${this.currentGroupId}/files?limit=100`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -2248,7 +2267,9 @@ class DashboardApp {
       const result = await response.json();
       if (result.success) {
         this.files = result.data || [];
+        this.organizedFiles = this.organizeFilesByTask(this.files);
         this.renderFiles();
+        this.populateTaskFilter();
       } else {
         throw new Error(result.error || 'Failed to load files');
       }
@@ -2256,6 +2277,11 @@ class DashboardApp {
     } catch (error) {
       console.error('Error loading files:', error);
       this.showToast('เกิดข้อผิดพลาดในการโหลดไฟล์', 'error');
+      // Fallback to mock data
+      this.files = this.getMockFiles();
+      this.organizedFiles = this.organizeFilesByTask(this.files);
+      this.renderFiles();
+      this.populateTaskFilter();
     }
   }
 
@@ -2320,50 +2346,281 @@ class DashboardApp {
     const filesContainer = document.getElementById('filesContainer');
     if (!filesContainer) return;
 
-    if (!this.files || this.files.length === 0) {
+    // Get current filters
+    const searchTerm = document.getElementById('searchFiles')?.value.toLowerCase() || '';
+    const taskFilter = document.getElementById('taskFilterSelect')?.value || '';
+    const typeFilter = document.getElementById('fileTypeFilter')?.value || '';
+    const viewMode = this.currentFileViewMode || 'folder';
+
+    // Filter files
+    const filteredFiles = this.filterFilesByControls(searchTerm, taskFilter, typeFilter);
+
+    if (filteredFiles.length === 0) {
       filesContainer.innerHTML = `
         <div class="text-center py-8 text-gray-500">
           <i class="fas fa-folder text-4xl mb-4"></i>
-          <p>ยังไม่มีไฟล์</p>
-          <button class="btn btn-primary mt-4" onclick="dashboardApp.uploadFile()">
-            <i class="fas fa-upload mr-2"></i>
-            อัปโหลดไฟล์แรก
-          </button>
+          <p>${searchTerm || taskFilter || typeFilter ? 'ไม่พบไฟล์ที่ตรงกับเงื่อนไข' : 'ยังไม่มีไฟล์'}</p>
+          ${!searchTerm && !taskFilter && !typeFilter ? `
+            <button class="btn btn-primary mt-4" onclick="dashboardApp.uploadFile()">
+              <i class="fas fa-upload mr-2"></i>
+              อัปโหลดไฟล์แรก
+            </button>
+          ` : ''}
         </div>
       `;
       return;
     }
 
-    const filesHTML = this.files.map(file => `
-      <div class="file-item bg-white rounded-lg shadow-sm border p-4 mb-4">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center">
-            <div class="file-icon mr-4">
-              ${this.getFileIcon(file.type || file.name)}
-            </div>
-            <div>
-              <h4 class="font-medium text-gray-900">${file.name}</h4>
-              <p class="text-sm text-gray-600">
-                ${this.formatFileSize(file.size)} • 
-                ${this.formatDate(file.createdAt)}
-              </p>
+    let html = '';
+    if (viewMode === 'folder') {
+      html = this.renderFolderView(filteredFiles);
+    } else if (viewMode === 'grid') {
+      html = this.renderGridView(filteredFiles);
+    } else {
+      html = this.renderListView(filteredFiles);
+    }
+
+    filesContainer.innerHTML = html;
+  }
+
+  // Organize files by task
+  organizeFilesByTask(files) {
+    const organized = {
+      unassigned: [],
+      tasks: {}
+    };
+
+    files.forEach(file => {
+      if (!file.linkedTasks || file.linkedTasks.length === 0) {
+        organized.unassigned.push(file);
+      } else {
+        file.linkedTasks.forEach(taskId => {
+          if (!organized.tasks[taskId]) {
+            const task = this.tasks.find(t => t.id === taskId);
+            organized.tasks[taskId] = {
+              task: task || { id: taskId, title: 'งานที่ไม่พบ', status: 'unknown' },
+              files: []
+            };
+          }
+          organized.tasks[taskId].files.push(file);
+        });
+      }
+    });
+
+    return organized;
+  }
+
+  // Filter files by controls
+  filterFilesByControls(searchTerm, taskFilter, typeFilter) {
+    let filtered = [...this.files];
+
+    // Search filter
+    if (searchTerm) {
+      filtered = filtered.filter(file => 
+        (file.originalName || file.name || '').toLowerCase().includes(searchTerm) ||
+        (file.tags && file.tags.some(tag => tag.toLowerCase().includes(searchTerm)))
+      );
+    }
+
+    // Task filter
+    if (taskFilter) {
+      if (taskFilter === 'no-task') {
+        filtered = filtered.filter(file => !file.linkedTasks || file.linkedTasks.length === 0);
+      } else {
+        filtered = filtered.filter(file => file.linkedTasks && file.linkedTasks.includes(taskFilter));
+      }
+    }
+
+    // Type filter
+    if (typeFilter) {
+      filtered = filtered.filter(file => this.getFileCategory(file) === typeFilter);
+    }
+
+    return filtered;
+  }
+
+  // Render folder view (organized by tasks)
+  renderFolderView(files) {
+    const organized = this.organizeFilesByTask(files);
+    let html = '';
+
+    // Render task folders
+    Object.values(organized.tasks).forEach(taskGroup => {
+      const { task, files: taskFiles } = taskGroup;
+      const statusBadge = this.getTaskStatusBadge(task.status);
+      
+      html += `
+        <div class="bg-white rounded-lg shadow-sm border mb-6">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 rounded-t-lg">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center">
+                <i class="fas fa-folder text-blue-500 mr-3"></i>
+                <div>
+                  <h3 class="font-medium text-gray-900">${this.escapeHtml(task.title)}</h3>
+                  <p class="text-sm text-gray-500">${taskFiles.length} ไฟล์</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                ${statusBadge}
+                <button class="btn btn-sm btn-outline" onclick="dashboardApp.viewTaskFromFile('${task.id}')">
+                  <i class="fas fa-eye mr-1"></i>
+                  ดูงาน
+                </button>
+              </div>
             </div>
           </div>
-          <div class="flex items-center space-x-2">
-            <button class="btn btn-sm btn-outline" onclick="dashboardApp.downloadFile('${file.id}')">
-              <i class="fas fa-download mr-1"></i>
-              ดาวน์โหลด
-            </button>
-            <button class="btn btn-sm btn-outline" onclick="dashboardApp.deleteFile('${file.id}')">
-              <i class="fas fa-trash mr-1"></i>
-              ลบ
-            </button>
+          <div class="p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              ${taskFiles.map(file => this.renderFileCard(file)).join('')}
+            </div>
           </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    });
 
-    filesContainer.innerHTML = filesHTML;
+    // Render unassigned files
+    if (organized.unassigned.length > 0) {
+      html += `
+        <div class="bg-white rounded-lg shadow-sm border mb-6">
+          <div class="bg-gray-50 px-4 py-3 border-b border-gray-200 rounded-t-lg">
+            <div class="flex items-center">
+              <i class="fas fa-folder-open text-gray-400 mr-3"></i>
+              <div>
+                <h3 class="font-medium text-gray-900">ไฟล์ทั่วไป</h3>
+                <p class="text-sm text-gray-500">${organized.unassigned.length} ไฟล์</p>
+              </div>
+            </div>
+          </div>
+          <div class="p-4">
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              ${organized.unassigned.map(file => this.renderFileCard(file)).join('')}
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
+    return html;
+  }
+
+  // Render grid view
+  renderGridView(files) {
+    return `
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+        ${files.map(file => this.renderFileCard(file)).join('')}
+      </div>
+    `;
+  }
+
+  // Render list view
+  renderListView(files) {
+    return `
+      <div class="space-y-2">
+        ${files.map(file => this.renderFileRow(file)).join('')}
+      </div>
+    `;
+  }
+
+  // Render individual file card with image preview
+  renderFileCard(file) {
+    const fileCategory = this.getFileCategory(file);
+    const isImage = fileCategory === 'image';
+    const fileName = file.originalName || file.name || 'Unnamed file';
+    const fileSize = this.formatFileSize(file.size || 0);
+    const uploadDate = this.formatDate(file.uploadedAt || file.createdAt);
+    
+    return `
+      <div class="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer" 
+           onclick="dashboardApp.previewFile('${file.id}')">
+        <div class="aspect-square mb-3 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+          ${isImage ? `
+            <img src="${this.getFilePreviewUrl(file)}" 
+                 alt="${this.escapeHtml(fileName)}"
+                 class="w-full h-full object-cover"
+                 onerror="this.parentElement.innerHTML='${this.getFileIcon(fileName)}';">
+          ` : `
+            <div class="text-4xl text-gray-400">
+              ${this.getFileIcon(fileName)}
+            </div>
+          `}
+        </div>
+        <div class="space-y-1">
+          <h4 class="font-medium text-gray-900 text-sm truncate" title="${this.escapeHtml(fileName)}">
+            ${this.escapeHtml(fileName)}
+          </h4>
+          <p class="text-xs text-gray-500">${fileSize}</p>
+          <p class="text-xs text-gray-500">${uploadDate}</p>
+          ${file.tags && file.tags.length > 0 ? `
+            <div class="flex flex-wrap gap-1 mt-2">
+              ${file.tags.slice(0, 2).map(tag => 
+                `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">${this.escapeHtml(tag)}</span>`
+              ).join('')}
+              ${file.tags.length > 2 ? `<span class="text-xs text-gray-500">+${file.tags.length - 2}</span>` : ''}
+            </div>
+          ` : ''}
+        </div>
+        <div class="flex gap-1 mt-3" onclick="event.stopPropagation()">
+          <button class="btn btn-sm btn-outline flex-1" onclick="dashboardApp.downloadFile('${file.id}')" title="ดาวน์โหลด">
+            <i class="fas fa-download"></i>
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="dashboardApp.deleteFile('${file.id}')" title="ลบ">
+            <i class="fas fa-trash text-red-500"></i>
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Render file row for list view
+  renderFileRow(file) {
+    const fileCategory = this.getFileCategory(file);
+    const isImage = fileCategory === 'image';
+    const fileName = file.originalName || file.name || 'Unnamed file';
+    const fileSize = this.formatFileSize(file.size || 0);
+    const uploadDate = this.formatDate(file.uploadedAt || file.createdAt);
+    
+    return `
+      <div class="bg-white border border-gray-200 rounded-lg p-4 flex items-center gap-4 hover:shadow-sm transition-shadow">
+        <div class="w-12 h-12 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0">
+          ${isImage ? `
+            <img src="${this.getFilePreviewUrl(file)}" 
+                 alt="${this.escapeHtml(fileName)}"
+                 class="w-full h-full object-cover"
+                 onerror="this.parentElement.innerHTML='${this.getFileIcon(fileName)}';">
+          ` : `
+            <div class="text-xl text-gray-400">
+              ${this.getFileIcon(fileName)}
+            </div>
+          `}
+        </div>
+        <div class="flex-1 min-w-0">
+          <h4 class="font-medium text-gray-900 truncate">${this.escapeHtml(fileName)}</h4>
+          <p class="text-sm text-gray-500">${fileSize} • ${uploadDate}</p>
+          ${file.tags && file.tags.length > 0 ? `
+            <div class="flex flex-wrap gap-1 mt-1">
+              ${file.tags.slice(0, 3).map(tag => 
+                `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">${this.escapeHtml(tag)}</span>`
+              ).join('')}
+              ${file.tags.length > 3 ? `<span class="text-xs text-gray-500">+${file.tags.length - 3}</span>` : ''}
+            </div>
+          ` : ''}
+        </div>
+        <div class="flex gap-2 flex-shrink-0">
+          <button class="btn btn-sm btn-outline" onclick="dashboardApp.previewFile('${file.id}')">
+            <i class="fas fa-eye mr-1"></i>
+            ดู
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="dashboardApp.downloadFile('${file.id}')">
+            <i class="fas fa-download mr-1"></i>
+            ดาวน์โหลด
+          </button>
+          <button class="btn btn-sm btn-outline" onclick="dashboardApp.deleteFile('${file.id}')">
+            <i class="fas fa-trash mr-1 text-red-500"></i>
+            ลบ
+          </button>
+        </div>
+      </div>
+    `;
   }
 
   getFileIcon(fileName) {
@@ -2463,6 +2720,184 @@ class DashboardApp {
       console.error('Error deleting file:', error);
       this.showToast(`เกิดข้อผิดพลาดในการลบไฟล์: ${error.message}`, 'error');
     }
+  }
+
+  // Get file category based on mime type or extension
+  getFileCategory(file) {
+    const mimeType = file.mimeType || file.type || '';
+    const fileName = file.originalName || file.name || '';
+    const extension = fileName.split('.').pop()?.toLowerCase() || '';
+
+    // Image files
+    if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(extension)) {
+      return 'image';
+    }
+    
+    // Video files
+    if (mimeType.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension)) {
+      return 'video';
+    }
+    
+    // Audio files
+    if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'].includes(extension)) {
+      return 'audio';
+    }
+    
+    // Document files
+    if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp'].includes(extension) ||
+        mimeType.includes('document') || mimeType.includes('text') || mimeType.includes('pdf')) {
+      return 'document';
+    }
+    
+    return 'other';
+  }
+
+  // Get file preview URL for images
+  getFilePreviewUrl(file) {
+    // In a real implementation, this would return the actual file URL
+    // For now, return a placeholder or construct URL based on file path
+    if (file.path) {
+      return file.path;
+    }
+    
+    // Fallback to a placeholder image service
+    const fileName = file.originalName || file.name || 'file';
+    const cleanName = encodeURIComponent(fileName.split('.')[0]);
+    return `https://via.placeholder.com/200x200/e5e7eb/6b7280?text=${cleanName}`;
+  }
+
+  // Get task status badge
+  getTaskStatusBadge(status) {
+    const statusInfo = this.getStatusInfo(status);
+    return `<span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
+      <i class="${statusInfo.icon} mr-1"></i>
+      ${statusInfo.text}
+    </span>`;
+  }
+
+  // Populate task filter dropdown
+  populateTaskFilter() {
+    const taskFilter = document.getElementById('taskFilterSelect');
+    if (!taskFilter || !this.tasks) return;
+
+    // Keep existing options
+    const existingOptions = taskFilter.innerHTML;
+    
+    // Add task options
+    const taskOptions = this.tasks.map(task => 
+      `<option value="${task.id}">${this.escapeHtml(task.title)}</option>`
+    ).join('');
+
+    taskFilter.innerHTML = existingOptions + taskOptions;
+  }
+
+  // Setup file view event listeners
+  setupFileViewListeners() {
+    // View mode buttons
+    document.querySelectorAll('[data-view]').forEach(btn => {
+      btn.addEventListener('click', (e) => {
+        const viewMode = e.target.dataset.view;
+        this.switchFileView(viewMode);
+      });
+    });
+
+    // Filter listeners
+    document.getElementById('searchFiles')?.addEventListener('input', () => this.renderFiles());
+    document.getElementById('taskFilterSelect')?.addEventListener('change', () => this.renderFiles());
+    document.getElementById('fileTypeFilter')?.addEventListener('change', () => this.renderFiles());
+  }
+
+  // Switch file view mode
+  switchFileView(viewMode) {
+    this.currentFileViewMode = viewMode;
+    
+    // Update button states
+    document.querySelectorAll('[data-view]').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.view === viewMode);
+    });
+
+    // Re-render files
+    this.renderFiles();
+  }
+
+  // Mock files data for development
+  getMockFiles() {
+    return [
+      {
+        id: 'file1',
+        originalName: 'project-mockup.jpg',
+        name: 'project-mockup.jpg',
+        mimeType: 'image/jpeg',
+        size: 2048576,
+        path: 'https://via.placeholder.com/400x300/3b82f6/ffffff?text=Project+Mockup',
+        linkedTasks: ['task1'],
+        tags: ['design', 'mockup'],
+        uploadedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'file2',
+        originalName: 'requirements.pdf',
+        name: 'requirements.pdf',
+        mimeType: 'application/pdf',
+        size: 1024000,
+        linkedTasks: ['task1'],
+        tags: ['documentation'],
+        uploadedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'file3',
+        originalName: 'screenshot.png',
+        name: 'screenshot.png',
+        mimeType: 'image/png',
+        size: 512000,
+        path: 'https://via.placeholder.com/600x400/10b981/ffffff?text=Screenshot',
+        linkedTasks: ['task2'],
+        tags: ['screenshot', 'testing'],
+        uploadedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'file4',
+        originalName: 'notes.txt',
+        name: 'notes.txt',
+        mimeType: 'text/plain',
+        size: 8192,
+        linkedTasks: [],
+        tags: ['notes'],
+        uploadedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+      },
+      {
+        id: 'file5',
+        originalName: 'presentation.pptx',
+        name: 'presentation.pptx',
+        mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        size: 5242880,
+        linkedTasks: ['task1'],
+        tags: ['presentation', 'meeting'],
+        uploadedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
+      }
+    ];
+  }
+
+  // File action functions
+  previewFile(fileId) {
+    const file = this.files.find(f => f.id === fileId);
+    if (!file) return;
+
+    this.showToast(`กำลังเปิดไฟล์: ${file.originalName || file.name}`, 'info');
+    // In a real implementation, this would open a file preview modal
+  }
+
+  uploadFile() {
+    this.showToast('กำลังเปิดหน้าต่างอัปโหลดไฟล์...', 'info');
+    // In a real implementation, this would open file upload modal
+  }
+
+  viewTaskFromFile(taskId) {
+    // Switch to tasks view and open task detail
+    this.switchView('tasks');
+    setTimeout(() => {
+      this.openTaskDetail(taskId);
+    }, 300);
   }
 
   filterTasks(searchTerm) {
