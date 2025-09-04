@@ -243,7 +243,7 @@ class DashboardApp {
       console.log('Loading user info and data...');
       this.updateUserInfo();
       await this.loadTasks();
-      await this.loadGroups();
+      // await this.loadGroups(); // Removed - groups section no longer displayed
       await this.loadStats();
       await this.loadLeaderboard();
       await this.loadFiles();
@@ -348,19 +348,19 @@ class DashboardApp {
     }
   }
 
-  async loadGroups() {
-    try {
-      // Mock groups data
-      this.groups = [
-        { id: 'group1', name: 'กลุ่มทดสอบ', description: 'กลุ่มสำหรับทดสอบระบบ' },
-        { id: 'group2', name: 'กลุ่มทดสอบ 2', description: 'กลุ่มทดสอบที่สอง' }
-      ];
-      
-      this.renderGroups();
-    } catch (error) {
-      console.error('Error loading groups:', error);
-    }
-  }
+  // async loadGroups() {
+  //   try {
+  //     // Mock groups data
+  //     this.groups = [
+  //       { id: 'group1', name: 'กลุ่มทดสอบ', description: 'กลุ่มสำหรับทดสอบระบบ' },
+  //       { id: 'group2', name: 'กลุ่มทดสอบ 2', description: 'กลุ่มทดสอบที่สอง' }
+  //     ];
+  //     
+  //     this.renderGroups();
+  //   } catch (error) {
+  //     console.error('Error loading groups:', error);
+  //   }
+  // }
 
   async loadStats(period = 'this_week') {
     try {
@@ -581,33 +581,31 @@ class DashboardApp {
   }
 
   renderTasks() {
-    const tableBody = document.getElementById('tasksTableBody');
-    if (!tableBody) return;
+    const tasksContainer = document.getElementById('tasksContainer');
+    if (!tasksContainer) return;
 
     // กรองงานตามเงื่อนไข
     const filteredTasks = this.getFilteredTasks();
 
     if (filteredTasks.length === 0) {
-      tableBody.innerHTML = `
-        <tr>
-          <td colspan="6" class="px-6 py-8 text-center text-gray-500">
-            <i class="fas fa-tasks text-4xl mb-4 text-gray-300"></i>
-            <p class="text-lg font-medium">ไม่มีงาน</p>
-            <p>ไม่พบงานที่ตรงกับเงื่อนไขการค้นหา</p>
-          </td>
-        </tr>
+      tasksContainer.innerHTML = `
+        <div class="px-6 py-8 text-center text-gray-500">
+          <i class="fas fa-tasks text-4xl mb-4 text-gray-300"></i>
+          <p class="text-lg font-medium">ไม่มีงาน</p>
+          <p>ไม่พบงานที่ตรงกับเงื่อนไขการค้นหา</p>
+        </div>
       `;
       return;
     }
 
-    const taskRows = filteredTasks.map(task => this.renderTaskRow(task)).join('');
-    tableBody.innerHTML = taskRows;
+    const taskCards = filteredTasks.map(task => this.renderTaskCard(task)).join('');
+    tasksContainer.innerHTML = taskCards;
     
     // อัปเดตสถิติ
     this.updateTaskStats(filteredTasks);
   }
 
-  renderTaskRow(task) {
+  renderTaskCard(task) {
     const statusInfo = this.getStatusInfo(task.status);
     const priorityInfo = this.getPriorityInfo(task.priority);
     const assignees = this.getTaskAssignees(task);
@@ -615,72 +613,146 @@ class DashboardApp {
     const canSubmit = this.canSubmitTask(task);
 
     return `
-      <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.dashboardApp.openTaskDetail('${task.id}')">
-        <td class="px-6 py-4">
-          <div class="flex items-start">
-            <div class="flex-1">
-              <div class="text-sm font-medium text-gray-900">${this.escapeHtml(task.title)}</div>
-              <div class="text-sm text-gray-500 mt-1 line-clamp-2">${this.escapeHtml(task.description || 'ไม่มีรายละเอียด')}</div>
-              ${task.tags && task.tags.length > 0 ? `
-                <div class="flex flex-wrap gap-1 mt-2">
-                  ${task.tags.slice(0, 3).map(tag => 
-                    `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">${this.escapeHtml(tag)}</span>`
-                  ).join('')}
-                  ${task.tags.length > 3 ? `<span class="text-xs text-gray-500">+${task.tags.length - 3} เพิ่มเติม</span>` : ''}
-                </div>
+      <!-- Task Card -->
+      <div class="task-card hover:bg-gray-50 cursor-pointer" onclick="window.dashboardApp.openTaskDetail('${task.id}')">
+        <!-- Desktop Grid Layout (hidden on mobile) -->
+        <div class="hidden md:grid grid-cols-6 gap-4 px-6 py-4 items-center">
+          <div class="col-span-1">
+            <div class="text-sm font-medium text-gray-900">${this.escapeHtml(task.title)}</div>
+            <div class="text-xs text-gray-500 mt-1 line-clamp-2">${this.escapeHtml(task.description || 'ไม่มีรายละเอียด')}</div>
+            ${task.tags && task.tags.length > 0 ? `
+              <div class="flex flex-wrap gap-1 mt-2">
+                ${task.tags.slice(0, 2).map(tag => 
+                  `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">${this.escapeHtml(tag)}</span>`
+                ).join('')}
+                ${task.tags.length > 2 ? `<span class="text-xs text-gray-500">+${task.tags.length - 2}</span>` : ''}
+              </div>
+            ` : ''}
+          </div>
+          <div class="col-span-1">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
+              <i class="${statusInfo.icon} mr-1"></i>
+              ${statusInfo.text}
+            </span>
+          </div>
+          <div class="col-span-1">
+            <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityInfo.class}">
+              <i class="${priorityInfo.icon} mr-1"></i>
+              ${priorityInfo.text}
+            </span>
+          </div>
+          <div class="col-span-1">
+            <div class="text-sm text-gray-900">${assignees}</div>
+          </div>
+          <div class="col-span-1">
+            <div class="text-sm text-gray-900">${dueInfo.date}</div>
+            <div class="text-xs ${dueInfo.class}">${dueInfo.remaining}</div>
+          </div>
+          <div class="col-span-1" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-2">
+              ${canSubmit ? `
+                <button 
+                  class="btn btn-sm btn-primary" 
+                  onclick="window.dashboardApp.openSubmitTaskModal('${task.id}')"
+                  title="ส่งงาน"
+                >
+                  <i class="fas fa-upload"></i>
+                  ส่ง
+                </button>
               ` : ''}
+              <button 
+                class="btn btn-sm btn-outline" 
+                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                title="แก้ไขงาน"
+              >
+                <i class="fas fa-edit"></i>
+              </button>
+              <button 
+                class="btn btn-sm" 
+                style="background-color: #dc2626; color: white;" 
+                onclick="window.dashboardApp.deleteTask('${task.id}')"
+                title="ลบงาน"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </div>
-        </td>
-        <td class="px-6 py-4">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusInfo.class}">
-            <i class="${statusInfo.icon} mr-1"></i>
-            ${statusInfo.text}
-          </span>
-        </td>
-        <td class="px-6 py-4">
-          <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${priorityInfo.class}">
-            <i class="${priorityInfo.icon} mr-1"></i>
-            ${priorityInfo.text}
-          </span>
-        </td>
-        <td class="px-6 py-4">
-          <div class="text-sm text-gray-900">${assignees}</div>
-        </td>
-        <td class="px-6 py-4">
-          <div class="text-sm text-gray-900">${dueInfo.date}</div>
-          <div class="text-xs ${dueInfo.class}">${dueInfo.remaining}</div>
-        </td>
-        <td class="px-6 py-4" onclick="event.stopPropagation()">
-          <div class="flex items-center gap-2">
-            ${canSubmit ? `
-              <button 
-                class="btn btn-sm btn-primary" 
-                onclick="window.dashboardApp.openSubmitTaskModal('${task.id}')"
-                title="ส่งงาน"
-              >
-                <i class="fas fa-upload"></i>
-                ส่ง
-              </button>
+        </div>
+        
+        <!-- Mobile Multi-Row Layout (visible only on mobile) -->
+        <div class="md:hidden px-4 py-4 space-y-2">
+          <!-- Row 1: Task Name -->
+          <div class="mb-2">
+            <div class="font-medium text-gray-900 text-base leading-tight">${this.escapeHtml(task.title)}</div>
+            ${task.description ? `<div class="text-sm text-gray-600 mt-1 line-clamp-2">${this.escapeHtml(task.description)}</div>` : ''}
+            ${task.tags && task.tags.length > 0 ? `
+              <div class="flex flex-wrap gap-1 mt-2">
+                ${task.tags.slice(0, 3).map(tag => 
+                  `<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">${this.escapeHtml(tag)}</span>`
+                ).join('')}
+                ${task.tags.length > 3 ? `<span class="text-xs text-gray-500">+${task.tags.length - 3}</span>` : ''}
+              </div>
             ` : ''}
-            <button 
-              class="btn btn-sm btn-outline" 
-              onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
-              title="แก้ไขงาน"
-            >
-              <i class="fas fa-edit"></i>
-            </button>
-            <button 
-              class="btn btn-sm" 
-              style="background-color: #dc2626; color: white;" 
-              onclick="window.dashboardApp.deleteTask('${task.id}')"
-              title="ลบงาน"
-            >
-              <i class="fas fa-trash"></i>
-            </button>
           </div>
-        </td>
-      </tr>
+          
+          <!-- Row 2: Status and Priority (small) -->
+          <div class="flex items-center gap-3">
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.class}">
+              <i class="${statusInfo.icon} mr-1 text-xs"></i>
+              ${statusInfo.text}
+            </span>
+            <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priorityInfo.class}">
+              <i class="${priorityInfo.icon} mr-1 text-xs"></i>
+              ${priorityInfo.text}
+            </span>
+          </div>
+          
+          <!-- Row 3: Assignee (small) -->
+          <div class="text-sm text-gray-700">
+            <i class="fas fa-user mr-2 text-xs text-gray-400"></i>${assignees}
+          </div>
+          
+          <!-- Row 4: Due Date (small) -->
+          <div class="text-sm">
+            <i class="fas fa-calendar mr-2 text-xs text-gray-400"></i>
+            <span class="text-gray-700">${dueInfo.date}</span>
+            ${dueInfo.remaining ? `<span class="ml-2 text-xs ${dueInfo.class}">${dueInfo.remaining}</span>` : ''}
+          </div>
+          
+          <!-- Row 5: Action Buttons (small) -->
+          <div class="pt-2" onclick="event.stopPropagation()">
+            <div class="flex items-center gap-2">
+              ${canSubmit ? `
+                <button 
+                  class="btn btn-xs btn-primary" 
+                  onclick="window.dashboardApp.openSubmitTaskModal('${task.id}')"
+                  title="ส่งงาน"
+                >
+                  <i class="fas fa-upload mr-1"></i>
+                  ส่งงาน
+                </button>
+              ` : ''}
+              <button 
+                class="btn btn-xs btn-outline" 
+                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                title="แก้ไข"
+              >
+                <i class="fas fa-edit mr-1"></i>
+                แก้ไข
+              </button>
+              <button 
+                class="btn btn-xs text-white" 
+                style="background-color: #dc2626;" 
+                onclick="window.dashboardApp.deleteTask('${task.id}')"
+                title="ลบ"
+              >
+                <i class="fas fa-trash mr-1"></i>
+                ลบ
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
     `;
   }
 
@@ -1032,24 +1104,24 @@ class DashboardApp {
     container.innerHTML = tasksHTML;
   }
 
-  renderGroups() {
-    const groupsContainer = document.getElementById('groupsContainer');
-    if (!groupsContainer) return;
+  // renderGroups() {
+  //   const groupsContainer = document.getElementById('groupsContainer');
+  //   if (!groupsContainer) return;
 
-    if (this.groups.length === 0) {
-      groupsContainer.innerHTML = `
-        <div class="text-center py-12">
-          <i class="fas fa-users text-6xl text-gray-300 mb-4"></i>
-          <h3 class="text-lg font-medium text-gray-900 mb-2">ไม่มีกลุ่ม</h3>
-          <p class="text-gray-600">คุณยังไม่ได้เข้าร่วมกลุ่มใด</p>
-        </div>
-      `;
-      return;
-    }
+  //   if (this.groups.length === 0) {
+  //     groupsContainer.innerHTML = `
+  //       <div class="text-center py-12">
+  //         <i class="fas fa-users text-6xl text-gray-300 mb-4"></i>
+  //         <h3 class="text-lg font-medium text-gray-900 mb-2">ไม่มีกลุ่ม</h3>
+  //         <p class="text-gray-600">คุณยังไม่ได้เข้าร่วมกลุ่มใด</p>
+  //       </div>
+  //     `;
+  //     return;
+  //   }
 
-    const groupCards = this.groups.map(group => this.renderGroupCard(group)).join('');
-    groupsContainer.innerHTML = groupCards;
-  }
+  //   const groupCards = this.groups.map(group => this.renderGroupCard(group)).join('');
+  //   groupsContainer.innerHTML = groupCards;
+  // }
 
   renderTaskCard(task) {
     const isOverdue = task.status === 'overdue';
@@ -1149,27 +1221,27 @@ class DashboardApp {
     `;
   }
 
-  renderGroupCard(group) {
-    return `
-      <div class="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
-        <div class="p-6">
-          <div class="flex items-start justify-between mb-4">
-            <div class="flex-1">
-              <h3 class="text-lg font-semibold text-gray-900 mb-2">${group.name}</h3>
-              <p class="text-gray-600 text-sm mb-3">${group.description || 'ไม่มีรายละเอียด'}</p>
-            </div>
-          </div>
-          
-          <div class="flex items-center justify-between">
-            <button class="btn btn-primary btn-sm" onclick="dashboardApp.viewGroup('${group.id}')">
-              <i class="fas fa-eye mr-1"></i>
-              ดูรายละเอียด
-            </button>
-          </div>
-        </div>
-      </div>
-    `;
-  }
+  // renderGroupCard(group) {
+  //   return `
+  //     <div class="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
+  //       <div class="p-6">
+  //         <div class="flex items-start justify-between mb-4">
+  //           <div class="flex-1">
+  //             <h3 class="text-lg font-semibold text-gray-900 mb-2">${group.name}</h3>
+  //             <p class="text-gray-600 text-sm mb-3">${group.description || 'ไม่มีรายละเอียด'}</p>
+  //           </div>
+  //         </div>
+  //         
+  //         <div class="flex items-center justify-between">
+  //           <button class="btn btn-primary btn-sm" onclick="dashboardApp.viewGroup('${group.id}')">
+  //             <i class="fas fa-eye mr-1"></i>
+  //             ดูรายละเอียด
+  //           </button>
+  //         </div>
+  //       </div>
+  //     </div>
+  //   `;
+  // }
 
   getStatusText(status) {
     const statusMap = {
@@ -1221,13 +1293,13 @@ class DashboardApp {
     this.showToast(`ดูรายละเอียดงาน: ${task.title}`, 'info');
   }
 
-  viewGroup(groupId) {
-    const group = this.groups.find(g => g.id === groupId);
-    if (!group) return;
+  // viewGroup(groupId) {
+  //   const group = this.groups.find(g => g.id === groupId);
+  //   if (!group) return;
 
-    // Show group details modal or navigate to group view
-    this.showToast(`ดูรายละเอียดกลุ่ม: ${group.name}`, 'info');
-  }
+  //   // Show group details modal or navigate to group view
+  //   this.showToast(`ดูรายละเอียดกลุ่ม: ${group.name}`, 'info');
+  // }
 
   handleNavigation(e, link) {
     e.preventDefault();
