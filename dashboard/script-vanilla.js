@@ -2340,6 +2340,7 @@ class DashboardApp {
         return;
       }
 
+      // First, try to get group-level files
       const response = await fetch(`/api/groups/${this.currentGroupId}/files?limit=100`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -2348,11 +2349,17 @@ class DashboardApp {
       const result = await response.json();
       if (result.success) {
         this.files = result.data || [];
-        console.log('API files loaded:', this.files);
+        console.log('API group files loaded:', this.files);
         
-        // ถ้า API ส่งไฟล์ว่างกลับมา ให้ใช้ mock data แทน
+        // If no group-level files found, check task-level files
         if (this.files.length === 0) {
-          console.log('API returned empty files, using mock data instead');
+          console.log('No group files found, checking task files...');
+          await this.loadTaskFiles();
+        }
+        
+        // If still no files, use mock data
+        if (this.files.length === 0) {
+          console.log('No files found in group or tasks, using mock data instead');
           this.files = this.getMockFiles();
           console.log('Using mock files:', this.files);
         }
@@ -2367,10 +2374,20 @@ class DashboardApp {
     } catch (error) {
       console.error('Error loading files:', error);
       this.showToast('เกิดข้อผิดพลาดในการโหลดไฟล์', 'error');
-      // Fallback to mock data
-      console.log('Error fallback, using mock files');
-      this.files = this.getMockFiles();
-      console.log('Fallback files loaded:', this.files);
+      // Fallback to checking task files, then mock data
+      console.log('Error fallback, checking task files...');
+      try {
+        await this.loadTaskFiles();
+        if (this.files.length === 0) {
+          console.log('No task files found, using mock files');
+          this.files = this.getMockFiles();
+          console.log('Fallback files loaded:', this.files);
+        }
+      } catch (taskError) {
+        console.log('Task files also failed, using mock files');
+        this.files = this.getMockFiles();
+        console.log('Final fallback files loaded:', this.files);
+      }
       this.organizedFiles = this.organizeFilesByTask(this.files);
       this.renderFiles();
       this.populateTaskFilter();
@@ -2380,6 +2397,53 @@ class DashboardApp {
   // Keep loadFiles as an alias for backward compatibility
   async loadFiles() {
     return this.loadFilesData();
+  }
+
+  // Load files from all tasks in the group
+  async loadTaskFiles() {
+    try {
+      if (!this.tasks || this.tasks.length === 0) {
+        console.log('No tasks available to check for files');
+        return;
+      }
+
+      console.log('Checking files from', this.tasks.length, 'tasks in group');
+      const allTaskFiles = [];
+      
+      // Check each task for files
+      for (const task of this.tasks) {
+        try {
+          const response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${task.id}/files`);
+          if (response.ok) {
+            const result = await response.json();
+            if (result.success && result.data && result.data.length > 0) {
+              console.log(`Found ${result.data.length} files in task: ${task.title}`);
+              // Add task info to each file for better organization
+              const taskFiles = result.data.map(file => ({
+                ...file,
+                linkedTasks: file.linkedTasks || [task.id],
+                taskTitle: task.title
+              }));
+              allTaskFiles.push(...taskFiles);
+            }
+          }
+        } catch (taskError) {
+          console.log('Error checking files for task:', task.id, taskError.message);
+          // Continue with other tasks even if one fails
+        }
+      }
+      
+      if (allTaskFiles.length > 0) {
+        this.files = allTaskFiles;
+        console.log('Total task files found:', allTaskFiles.length);
+      } else {
+        console.log('No files found in any tasks');
+      }
+      
+    } catch (error) {
+      console.error('Error loading task files:', error);
+      throw error;
+    }
   }
 
   filterFiles(searchTerm) {
@@ -2940,7 +3004,7 @@ class DashboardApp {
         name: 'project-mockup.jpg',
         mimeType: 'image/jpeg',
         size: 2048576,
-        path: 'https://via.placeholder.com/400x300/3b82f6/ffffff?text=Project+Mockup',
+        path: 'data:image/svg+xml;base64,' + btoa('<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#3b82f6"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Project Mockup</text></svg>'),
         linkedTasks: ['task1'],
         tags: ['design', 'mockup'],
         uploadedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
@@ -2961,7 +3025,7 @@ class DashboardApp {
         name: 'screenshot.png',
         mimeType: 'image/png',
         size: 512000,
-        path: 'https://via.placeholder.com/600x400/10b981/ffffff?text=Screenshot',
+        path: 'data:image/svg+xml;base64,' + btoa('<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#10b981"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Screenshot</text></svg>'),
         linkedTasks: ['task2'],
         tags: ['screenshot', 'testing'],
         uploadedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
