@@ -1780,46 +1780,77 @@ class DashboardApp {
       if (isToday) dayClass += ' today bg-yellow-50 border-yellow-300';
       if (isPast) dayClass += ' past';
       
+      // Mobile-optimized calendar day
+      const isMobile = window.innerWidth <= 768;
+      const totalTasks = dayTasks.length;
+      
       html += `
-        <div class="${dayClass}" data-year="${year}" data-month="${month + 1}" data-day="${day}">
-          <div class="flex justify-between items-start mb-1">
+        <div class="${dayClass}" data-year="${year}" data-month="${month + 1}" data-day="${day}" data-task-count="${totalTasks}">
+          <div class="calendar-day-number flex justify-between items-start mb-1">
             <span class="text-sm font-medium ${isToday ? 'text-yellow-800' : 'text-gray-900'}">${day}</span>
             ${isToday ? '<i class="fas fa-circle text-yellow-500 text-xs"></i>' : ''}
           </div>
           
-          <div class="space-y-1">
-            ${pendingTasks.length > 0 ? `
-              <div class="flex items-center text-xs">
-                <div class="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
-                <span class="text-blue-700">${pendingTasks.length}</span>
-              </div>
-            ` : ''}
-            
-            ${overdueTasks.length > 0 ? `
-              <div class="flex items-center text-xs">
-                <div class="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
-                <span class="text-red-700">${overdueTasks.length}</span>
-              </div>
-            ` : ''}
-            
-            ${completedTasks.length > 0 ? `
-              <div class="flex items-center text-xs">
-                <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
-                <span class="text-green-700">${completedTasks.length}</span>
-              </div>
-            ` : ''}
-          </div>
-          
-          ${dayTasks.length > 0 ? `
-            <div class="mt-1">
-              ${dayTasks.slice(0, 2).map(task => `
-                <div class="text-xs truncate ${this.getTaskDisplayClass(task)}" title="${this.escapeHtml(task.title)}">
-                  ${this.escapeHtml(task.title.substring(0, 15))}${task.title.length > 15 ? '...' : ''}
+          ${isMobile ? `
+            <!-- Mobile view: show task count indicators only -->
+            <div class="calendar-events mobile-indicators space-y-0.5">
+              ${pendingTasks.length > 0 ? `
+                <div class="flex items-center text-xs">
+                  <div class="w-1.5 h-1.5 bg-blue-500 rounded-full mr-1"></div>
+                  <span class="text-blue-700 text-xs">${pendingTasks.length}</span>
                 </div>
-              `).join('')}
-              ${dayTasks.length > 2 ? `<div class="text-xs text-gray-500">+${dayTasks.length - 2} อีก</div>` : ''}
+              ` : ''}
+              
+              ${overdueTasks.length > 0 ? `
+                <div class="flex items-center text-xs">
+                  <div class="w-1.5 h-1.5 bg-red-500 rounded-full mr-1"></div>
+                  <span class="text-red-700 text-xs">${overdueTasks.length}</span>
+                </div>
+              ` : ''}
+              
+              ${completedTasks.length > 0 ? `
+                <div class="flex items-center text-xs">
+                  <div class="w-1.5 h-1.5 bg-green-500 rounded-full mr-1"></div>
+                  <span class="text-green-700 text-xs">${completedTasks.length}</span>
+                </div>
+              ` : ''}
             </div>
-          ` : ''}
+          ` : `
+            <!-- Desktop view: show task details -->
+            <div class="calendar-events space-y-1">
+              ${pendingTasks.length > 0 ? `
+                <div class="flex items-center text-xs">
+                  <div class="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                  <span class="text-blue-700">${pendingTasks.length}</span>
+                </div>
+              ` : ''}
+              
+              ${overdueTasks.length > 0 ? `
+                <div class="flex items-center text-xs">
+                  <div class="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+                  <span class="text-red-700">${overdueTasks.length}</span>
+                </div>
+              ` : ''}
+              
+              ${completedTasks.length > 0 ? `
+                <div class="flex items-center text-xs">
+                  <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                  <span class="text-green-700">${completedTasks.length}</span>
+                </div>
+              ` : ''}
+            </div>
+            
+            ${dayTasks.length > 0 ? `
+              <div class="mt-1">
+                ${dayTasks.slice(0, 2).map(task => `
+                  <div class="calendar-event text-xs truncate ${this.getTaskDisplayClass(task)}" title="${this.escapeHtml(task.title)}">
+                    ${this.escapeHtml(task.title.substring(0, 15))}${task.title.length > 15 ? '...' : ''}
+                  </div>
+                `).join('')}
+                ${dayTasks.length > 2 ? `<div class="text-xs text-gray-500">+${dayTasks.length - 2} อีก</div>` : ''}
+              </div>
+            ` : ''}
+          `}
         </div>
       `;
     }
@@ -1837,6 +1868,26 @@ class DashboardApp {
     }
     
     return html;
+  }
+  
+  getTaskDisplayClass(task) {
+    const isOverdue = new Date(task.dueTime) < new Date() && 
+                     (task.status === 'pending' || task.status === 'in_progress');
+    
+    if (isOverdue) {
+      return 'text-red-600 font-medium';
+    }
+    
+    switch (task.status) {
+      case 'completed':
+      case 'submitted':
+        return 'text-green-600';
+      case 'in_progress':
+        return 'text-blue-600';
+      case 'pending':
+      default:
+        return 'text-gray-700';
+    }
   }
   
   getTaskPriorityClass(task) {
@@ -1860,6 +1911,19 @@ class DashboardApp {
         const day = parseInt(e.currentTarget.dataset.day);
         this.showDayTasks(year, month, day);
       });
+    });
+    
+    // Handle responsive calendar updates on window resize
+    let resizeTimeout;
+    window.addEventListener('resize', () => {
+      clearTimeout(resizeTimeout);
+      resizeTimeout = setTimeout(() => {
+        // Re-render calendar on significant screen size changes
+        const currentView = document.querySelector('#calendar');
+        if (currentView && currentView.style.display !== 'none') {
+          this.generateCalendar();
+        }
+      }, 250);
     });
   }
 
