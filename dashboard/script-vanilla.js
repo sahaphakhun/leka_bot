@@ -230,6 +230,7 @@ class DashboardApp {
     this.currentGroupId = urlParams.get('groupId') || 'default';
     this.currentTaskId = urlParams.get('taskId');
     this.currentAction = urlParams.get('action');
+    this.currentUserId = urlParams.get('userId'); // เพิ่มการตรวจสอบ userId
     
     // ตรวจสอบ URL hash
     const hash = window.location.hash.substring(1);
@@ -253,6 +254,14 @@ class DashboardApp {
       };
       
       console.log('Loading user info and data...');
+      
+      // ตรวจสอบและจัดการแสดง banner โหมดดูอย่างเดียว
+      if (!this.currentUserId) {
+        this.showReadOnlyBanner();
+      } else {
+        this.hideReadOnlyBanner();
+      }
+      
       this.updateUserInfo();
       await this.loadTasks();
       // await this.loadGroups(); // Removed - groups section no longer displayed
@@ -271,6 +280,11 @@ class DashboardApp {
       } else if (this.currentAction === 'edit' && this.currentTaskId) {
         // เปิด modal แก้ไขงาน
         this.openEditTaskModal(this.currentTaskId);
+      } else if (this.currentAction === 'view' && this.currentTaskId) {
+        // เปิด modal รายละเอียดงานอัตโนมัติ
+        setTimeout(() => {
+          this.openTaskDetail(this.currentTaskId);
+        }, 1000); // รอให้โหลดข้อมูลงานเสร็จก่อน
       }
       
       // อัปเดตข้อมูลเริ่มต้น
@@ -5205,6 +5219,32 @@ class DashboardApp {
       'other': 'อื่นๆ'
     };
     return categories[category] || category;
+  }
+
+  // ====================
+  // Read-Only Mode Banner
+  // ====================
+
+  /**
+   * แสดง banner แจ้งเตือนโหมดดูอย่างเดียว
+   */
+  showReadOnlyBanner() {
+    const banner = document.getElementById('readOnlyBanner');
+    if (banner) {
+      banner.classList.remove('hidden');
+      console.log('🔒 แสดง banner โหมดดูอย่างเดียว');
+    }
+  }
+
+  /**
+   * ซ่อน banner โหมดดูอย่างเดียว
+   */
+  hideReadOnlyBanner() {
+    const banner = document.getElementById('readOnlyBanner');
+    if (banner) {
+      banner.classList.add('hidden');
+      console.log('🔓 ซ่อน banner โหมดดูอย่างเดียว');
+    }
   }
 }
 

@@ -138,6 +138,9 @@ class Dashboard {
 
     // อนุญาตให้ปุ่มส่งงานทำงานได้ทุกกรณี (ไม่ต้องรอ userId)
     if (!this.currentUserId) {
+      // แสดง banner แจ้งเตือนโหมดดูอย่างเดียว
+      this.showReadOnlyBanner();
+      
       // ปิดเฉพาะปุ่มที่ต้องการ userId จริงๆ
       const needUserButtons = ['addTaskBtn'];
       needUserButtons.forEach(id => {
@@ -159,6 +162,9 @@ class Dashboard {
       
       const hint = document.getElementById('actionHint');
       if (hint) hint.style.display = 'block';
+    } else {
+      // ซ่อน banner เมื่อมี userId
+      this.hideReadOnlyBanner();
     }
   }
 
@@ -4446,6 +4452,32 @@ class Dashboard {
   // syncLeaderboard function removed - no longer needed
 
   // debugKPIData function removed - no longer needed
+
+  // ====================
+  // Read-Only Mode Banner
+  // ====================
+
+  /**
+   * แสดง banner แจ้งเตือนโหมดดูอย่างเดียว
+   */
+  showReadOnlyBanner() {
+    const banner = document.getElementById('readOnlyBanner');
+    if (banner) {
+      banner.classList.remove('hidden');
+      console.log('🔒 แสดง banner โหมดดูอย่างเดียว');
+    }
+  }
+
+  /**
+   * ซ่อน banner โหมดดูอย่างเดียว
+   */
+  hideReadOnlyBanner() {
+    const banner = document.getElementById('readOnlyBanner');
+    if (banner) {
+      banner.classList.add('hidden');
+      console.log('🔓 ซ่อน banner โหมดดูอย่างเดียว');
+    }
+  }
 
 }
 
