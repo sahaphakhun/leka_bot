@@ -2645,7 +2645,7 @@ class DashboardApp {
             </div>
           </div>
           <div class="p-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-3 gap-3">
               ${taskFiles.map(file => this.renderFileCard(file)).join('')}
             </div>
           </div>
@@ -2667,7 +2667,7 @@ class DashboardApp {
             </div>
           </div>
           <div class="p-4">
-            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div class="grid grid-cols-3 gap-3">
               ${organized.unassigned.map(file => this.renderFileCard(file)).join('')}
             </div>
           </div>
@@ -2681,7 +2681,7 @@ class DashboardApp {
   // Render grid view
   renderGridView(files) {
     return `
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      <div class="grid grid-cols-3 gap-3">
         ${files.map(file => this.renderFileCard(file)).join('')}
       </div>
     `;
@@ -2705,41 +2705,40 @@ class DashboardApp {
     const uploadDate = this.formatDate(file.uploadedAt || file.createdAt);
     
     return `
-      <div class="bg-white border border-gray-200 rounded-lg p-3 hover:shadow-md transition-shadow cursor-pointer" 
+      <div class="bg-white border border-gray-200 rounded-lg p-2 hover:shadow-md transition-shadow cursor-pointer" 
            onclick="dashboardApp.previewFile('${file.id}')">
-        <div class="aspect-square mb-3 bg-gray-100 rounded-lg overflow-hidden flex items-center justify-center">
+        <div class="w-full h-16 mb-2 bg-gray-100 rounded-md overflow-hidden flex items-center justify-center">
           ${isImage ? `
             <img src="${this.getFilePreviewUrl(file)}" 
                  alt="${this.escapeHtml(fileName)}"
                  class="w-full h-full object-cover"
                  onerror="this.parentElement.innerHTML='${this.getFileIcon(fileName)}';">
           ` : `
-            <div class="text-4xl text-gray-400">
+            <div class="text-2xl text-gray-400">
               ${this.getFileIcon(fileName)}
             </div>
           `}
         </div>
         <div class="space-y-1">
-          <h4 class="font-medium text-gray-900 text-sm truncate" title="${this.escapeHtml(fileName)}">
+          <h4 class="font-medium text-gray-900 text-xs truncate" title="${this.escapeHtml(fileName)}">
             ${this.escapeHtml(fileName)}
           </h4>
           <p class="text-xs text-gray-500">${fileSize}</p>
-          <p class="text-xs text-gray-500">${uploadDate}</p>
           ${file.tags && file.tags.length > 0 ? `
-            <div class="flex flex-wrap gap-1 mt-2">
-              ${file.tags.slice(0, 2).map(tag => 
-                `<span class="inline-flex items-center px-2 py-1 rounded-full text-xs bg-blue-100 text-blue-800">${this.escapeHtml(tag)}</span>`
+            <div class="flex flex-wrap gap-1">
+              ${file.tags.slice(0, 1).map(tag => 
+                `<span class="inline-flex items-center px-1 py-0.5 rounded text-xs bg-blue-100 text-blue-800">${this.escapeHtml(tag)}</span>`
               ).join('')}
-              ${file.tags.length > 2 ? `<span class="text-xs text-gray-500">+${file.tags.length - 2}</span>` : ''}
+              ${file.tags.length > 1 ? `<span class="text-xs text-gray-500">+${file.tags.length - 1}</span>` : ''}
             </div>
           ` : ''}
         </div>
-        <div class="flex gap-1 mt-3" onclick="event.stopPropagation()">
-          <button class="btn btn-sm btn-outline flex-1" onclick="dashboardApp.downloadFile('${file.id}')" title="ดาวน์โหลด">
+        <div class="flex gap-1 mt-2" onclick="event.stopPropagation()">
+          <button class="btn btn-xs bg-blue-500 text-white hover:bg-blue-600 flex-1 px-1 py-1 rounded text-xs" onclick="dashboardApp.downloadFile('${file.id}')" title="ดาวน์โหลด">
             <i class="fas fa-download"></i>
           </button>
-          <button class="btn btn-sm btn-outline" onclick="dashboardApp.deleteFile('${file.id}')" title="ลบ">
-            <i class="fas fa-trash text-red-500"></i>
+          <button class="btn btn-xs bg-red-500 text-white hover:bg-red-600 px-1 py-1 rounded text-xs" onclick="dashboardApp.deleteFile('${file.id}')" title="ลบ">
+            <i class="fas fa-trash"></i>
           </button>
         </div>
       </div>
