@@ -31,20 +31,7 @@ class DashboardApp {
         status: 'pending',
         priority: 'medium',
         dueTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group1', name: 'กลุ่มทดสอบ' },
-        createdBy: 'user123',
-        createdByUser: {
-          id: 'user123',
-          lineUserId: 'Uc92411a226e4d4c9866adef05068bdf1',
-          displayName: 'ผู้ใช้ทดสอบ'
-        },
-        assignedUsers: [
-          {
-            id: 'user123',
-            lineUserId: 'Uc92411a226e4d4c9866adef05068bdf1',
-            displayName: 'ผู้ใช้ทดสอบ'
-          }
-        ]
+        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
       },
       {
         id: 'task2', 
@@ -53,20 +40,7 @@ class DashboardApp {
         status: 'completed',
         priority: 'high',
         dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group2', name: 'กลุ่มทดสอบ 2' },
-        createdBy: 'user456',
-        createdByUser: {
-          id: 'user456',
-          lineUserId: 'Uc92411a226e4d4c9866adef05068bdf2',
-          displayName: 'ผู้ใช้คนอื่น'
-        },
-        assignedUsers: [
-          {
-            id: 'user123',
-            lineUserId: 'Uc92411a226e4d4c9866adef05068bdf1',
-            displayName: 'ผู้ใช้ทดสอบ'
-          }
-        ]
+        group: { id: 'group2', name: 'กลุ่มทดสอบ 2' }
       },
       {
         id: 'task3', 
@@ -75,20 +49,7 @@ class DashboardApp {
         status: 'overdue',
         priority: 'low',
         dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group1', name: 'กลุ่มทดสอบ' },
-        createdBy: 'user789',
-        createdByUser: {
-          id: 'user789',
-          lineUserId: 'Uc92411a226e4d4c9866adef05068bdf3',
-          displayName: 'ผู้ใช้คนที่สาม'
-        },
-        assignedUsers: [
-          {
-            id: 'user456',
-            lineUserId: 'Uc92411a226e4d4c9866adef05068bdf2',
-            displayName: 'ผู้ใช้คนอื่น'
-          }
-        ]
+        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
       }
     ];
   }
@@ -725,25 +686,21 @@ class DashboardApp {
                   ส่ง
                 </button>
               ` : ''}
-              ${this.canEditTask(task) ? `
-                <button 
-                  class="btn btn-sm btn-outline" 
-                  onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
-                  title="แก้ไขงาน"
-                >
-                  <i class="fas fa-edit"></i>
-                </button>
-              ` : ''}
-              ${this.canDeleteTask(task) ? `
-                <button 
-                  class="btn btn-sm" 
-                  style="background-color: #dc2626; color: white;" 
-                  onclick="window.dashboardApp.deleteTask('${task.id}')"
-                  title="ลบงาน"
-                >
-                  <i class="fas fa-trash"></i>
-                </button>
-              ` : ''}
+              <button 
+                class="btn btn-sm btn-outline" 
+                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                title="แก้ไขงาน"
+              >
+                <i class="fas fa-edit"></i>
+              </button>
+              <button 
+                class="btn btn-sm" 
+                style="background-color: #dc2626; color: white;" 
+                onclick="window.dashboardApp.deleteTask('${task.id}')"
+                title="ลบงาน"
+              >
+                <i class="fas fa-trash"></i>
+              </button>
             </div>
           </div>
         </div>
@@ -801,27 +758,23 @@ class DashboardApp {
                   ส่งงาน
                 </button>
               ` : ''}
-              ${this.canEditTask(task) ? `
-                <button 
-                  class="btn btn-xs btn-outline" 
-                  onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
-                  title="แก้ไข"
-                >
-                  <i class="fas fa-edit mr-1"></i>
-                  แก้ไข
-                </button>
-              ` : ''}
-              ${this.canDeleteTask(task) ? `
-                <button 
-                  class="btn btn-xs text-white" 
-                  style="background-color: #dc2626;" 
-                  onclick="window.dashboardApp.deleteTask('${task.id}')"
-                  title="ลบ"
-                >
-                  <i class="fas fa-trash mr-1"></i>
-                  ลบ
-                </button>
-              ` : ''}
+              <button 
+                class="btn btn-xs btn-outline" 
+                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                title="แก้ไข"
+              >
+                <i class="fas fa-edit mr-1"></i>
+                แก้ไข
+              </button>
+              <button 
+                class="btn btn-xs text-white" 
+                style="background-color: #dc2626;" 
+                onclick="window.dashboardApp.deleteTask('${task.id}')"
+                title="ลบ"
+              >
+                <i class="fas fa-trash mr-1"></i>
+                ลบ
+              </button>
             </div>
           </div>
         </div>
@@ -997,68 +950,8 @@ class DashboardApp {
     }
   }
 
-  // ====================
-  // Permission Checking
-  // ====================
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถส่งงานได้หรือไม่
-   */
   canSubmitTask(task) {
-    // ตรวจสอบสถานะงานก่อน
-    const validStatus = task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
-    if (!validStatus) return false;
-    
-    // ตรวจสอบว่าผู้ใช้เป็นผู้รับผิดชอบงานหรือไม่
-    if (!this.currentUserId) return false;
-    
-    // ตรวจสอบว่าผู้ใช้เป็นหนึ่งในผู้รับผิดชอบงาน
-    const isAssignee = task.assignedUsers && task.assignedUsers.some(user => 
-      user.id === this.currentUserId || 
-      user.lineUserId === this.currentUserId
-    );
-    
-    console.log('canSubmitTask - validStatus:', validStatus, 'currentUserId:', this.currentUserId, 'isAssignee:', isAssignee);
-    return isAssignee;
-  }
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถแก้ไขงานได้หรือไม่
-   */
-  canEditTask(task) {
-    // ตรวจสอบว่าผู้ใช้เป็นผู้สร้างงานหรือไม่
-    if (!this.currentUserId) return false;
-    
-    const result = task.createdBy === this.currentUserId || 
-           task.createdByUser?.id === this.currentUserId || 
-           task.createdByUser?.lineUserId === this.currentUserId;
-           
-    console.log('canEditTask - currentUserId:', this.currentUserId, 'task.createdBy:', task.createdBy, 'task.createdByUser:', task.createdByUser, 'result:', result);
-    return result;
-  }
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถลบงานได้หรือไม่
-   */
-  canDeleteTask(task) {
-    // ใช้กฎเดียวกับการแก้ไขงาน
-    const result = this.canEditTask(task);
-    console.log('canDeleteTask - result:', result);
-    return result;
-  }
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถตรวจงานได้หรือไม่
-   */
-  canReviewTask(task) {
-    // ตรวจสอบว่าผู้ใช้เป็นผู้ตรวจงานหรือผู้สร้างงาน
-    if (!this.currentUserId) return false;
-    
-    const reviewerUserId = task.workflow?.review?.reviewerUserId;
-    const isReviewer = reviewerUserId === this.currentUserId;
-    const isCreator = this.canEditTask(task);
-    
-    return isReviewer || isCreator;
+    return task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
   }
 
   escapeHtml(text) {
@@ -2620,11 +2513,6 @@ class DashboardApp {
 
       this.populateTaskDetailModal(detailedTask);
       this.openModal('taskDetailModal');
-      
-      // Delay updating buttons to ensure DOM is fully loaded
-      setTimeout(() => {
-        this.updateTaskDetailButtons(detailedTask);
-      }, 100);
     } catch (error) {
       console.error('Error opening task detail:', error);
       this.showToast('เกิดข้อผิดพลาดในการโหลดรายละเอียดงาน', 'error');
@@ -2771,48 +2659,58 @@ class DashboardApp {
     const notesEl = document.getElementById('taskDetailNotes');
     let notesHTML = '';
     
-    // Task notes
+    // Add task notes if they exist
     if (task.notes) {
       notesHTML += `
         <div class="mb-4">
-          <h5 class="font-medium text-gray-900 mb-2">หมายเหตุของงาน</h5>
-          <div class="bg-gray-50 p-3 rounded-lg">
-            <p class="text-gray-700 whitespace-pre-wrap">${this.escapeHtml(task.notes)}</p>
+          <h5 class="font-medium text-gray-900 mb-2">หมายเหตุงาน:</h5>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p class="text-gray-700">${this.escapeHtml(task.notes)}</p>
           </div>
         </div>
       `;
     }
-
-    // Submission comments
+    
+    // Add submission comments if they exist
     if (task.workflow && task.workflow.submissions && Array.isArray(task.workflow.submissions)) {
-      task.workflow.submissions.forEach((submission, index) => {
-        if (submission.comment) {
-          const submitter = submission.submittedByUser ? 
-            (submission.submittedByUser.displayName || submission.submittedByUser.name || 'ไม่ระบุชื่อ') : 
-            'ไม่ระบุผู้ส่ง';
-            
-          const submitDate = submission.submittedAt ? 
-            new Date(submission.submittedAt).toLocaleString('th-TH') : 
-            'ไม่ระบุวันที่';
-            
-          const isLate = submission.isLate ? ' (ส่งเกินกำหนด)' : '';
+      const submissionsWithComments = task.workflow.submissions.filter(submission => submission.comment && submission.comment.trim());
+      
+      if (submissionsWithComments.length > 0) {
+        notesHTML += `
+          <div class="mb-4">
+            <h5 class="font-medium text-gray-900 mb-2">หมายเหตุจากผู้ส่งงาน:</h5>
+            <div class="space-y-3">
+        `;
+        
+        submissionsWithComments.forEach((submission, index) => {
+          const submissionDate = submission.submittedAt ? new Date(submission.submittedAt).toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : 'ไม่ระบุวันที่';
+          
+          const lateIndicator = submission.lateSubmission ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">ส่งช้า</span>' : '';
           
           notesHTML += `
-            <div class="mb-4">
-              <h5 class="font-medium text-gray-900 mb-2">ความคิดเห็นครั้งที่ ${index + 1}${isLate}</h5>
-              <div class="bg-green-50 border border-green-200 p-3 rounded-lg">
-                <div class="flex justify-between text-sm text-green-700 mb-2">
-                  <span>โดย: ${this.escapeHtml(submitter)}</span>
-                  <span>${submitDate}</span>
-                </div>
-                <p class="text-gray-700 whitespace-pre-wrap">${this.escapeHtml(submission.comment)}</p>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-green-800">การส่งครั้งที่ ${submissionsWithComments.length - index}</div>
+                <div class="text-xs text-green-600">${submissionDate}${lateIndicator}</div>
               </div>
+              <p class="text-gray-700">${this.escapeHtml(submission.comment)}</p>
             </div>
           `;
-        }
-      });
+        });
+        
+        notesHTML += `
+            </div>
+          </div>
+        `;
+      }
     }
-
+    
     // If no notes or comments exist, show default message
     if (!notesHTML) {
       notesHTML = '<div class="text-gray-500 text-center py-4">ไม่มีหมายเหตุหรือคำอธิบายเพิ่มเติม</div>';
@@ -2820,8 +2718,8 @@ class DashboardApp {
     
     notesEl.innerHTML = notesHTML;
 
-    // Action buttons - removed immediate call to updateTaskDetailButtons
-    // Will be called after modal is fully opened in openTaskDetail function
+    // Action buttons
+    this.updateTaskDetailButtons(task);
   }
 
   async loadTaskFilesComprehensive(task) {
@@ -2886,22 +2784,13 @@ class DashboardApp {
     const submitBtn = document.getElementById('taskDetailSubmitBtn');
     const completeBtn = document.getElementById('taskDetailCompleteBtn');
     const reopenBtn = document.getElementById('taskDetailReopenBtn');
-    const editBtn = document.getElementById('editTaskBtn');
-    const deleteBtn = document.getElementById('deleteTaskBtn');
 
     // Hide all buttons first
-    [submitBtn, completeBtn, reopenBtn, editBtn, deleteBtn].forEach(btn => {
+    [submitBtn, completeBtn, reopenBtn].forEach(btn => {
       if (btn) btn.style.display = 'none';
     });
 
-    // Debug logging
-    console.log('User ID:', this.currentUserId);
-    console.log('Task:', task);
-    console.log('Can submit:', this.canSubmitTask(task));
-    console.log('Can edit:', this.canEditTask(task));
-    console.log('Can delete:', this.canDeleteTask(task));
-
-    // Show appropriate buttons based on status and permissions
+    // Show appropriate buttons based on status
     if (this.canSubmitTask(task) && submitBtn) {
       submitBtn.style.display = 'inline-flex';
       submitBtn.onclick = () => {
@@ -2918,15 +2807,6 @@ class DashboardApp {
     if (task.status === 'completed' && reopenBtn) {
       reopenBtn.style.display = 'inline-flex';
       reopenBtn.onclick = () => this.reopenTask(task.id);
-    }
-
-    // Show edit and delete buttons only if user has permission
-    if (this.canEditTask(task) && editBtn) {
-      editBtn.style.display = 'inline-flex';
-    }
-
-    if (this.canDeleteTask(task) && deleteBtn) {
-      deleteBtn.style.display = 'inline-flex';
     }
   }
 

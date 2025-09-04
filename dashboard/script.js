@@ -199,64 +199,6 @@ class Dashboard {
     }
   }
 
-  // ====================
-  // Permission Checking
-  // ====================
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถส่งงานได้หรือไม่
-   */
-  canSubmitTask(task) {
-    // ตรวจสอบสถานะงานก่อน
-    const validStatus = task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
-    if (!validStatus) return false;
-    
-    // ตรวจสอบว่าผู้ใช้เป็นผู้รับผิดชอบงานหรือไม่
-    if (!this.currentUserId) return false;
-    
-    // ตรวจสอบว่าผู้ใช้เป็นหนึ่งในผู้รับผิดชอบงาน
-    const isAssignee = task.assignedUsers && task.assignedUsers.some(user => 
-      user.id === this.currentUserId || 
-      user.lineUserId === this.currentUserId
-    );
-    
-    return isAssignee;
-  }
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถแก้ไขงานได้หรือไม่
-   */
-  canEditTask(task) {
-    // ตรวจสอบว่าผู้ใช้เป็นผู้สร้างงานหรือไม่
-    if (!this.currentUserId) return false;
-    
-    return task.createdBy === this.currentUserId || 
-           task.createdByUser?.id === this.currentUserId || 
-           task.createdByUser?.lineUserId === this.currentUserId;
-  }
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถลบงานได้หรือไม่
-   */
-  canDeleteTask(task) {
-    // ใช้กฎเดียวกับการแก้ไขงาน
-    return this.canEditTask(task);
-  }
-
-  /**
-   * ตรวจสอบว่าผู้ใช้สามารถตรวจงานได้หรือไม่
-   */
-  canReviewTask(task) {
-    // ตรวจสอบว่าผู้ใช้เป็นผู้ตรวจงานหรือผู้สร้างงาน
-    if (!this.currentUserId) return false;
-    
-    const reviewerUserId = task.workflow?.review?.reviewerUserId;
-    const isReviewer = reviewerUserId === this.currentUserId;
-    const isCreator = this.canEditTask(task);
-    
-    return isReviewer || isCreator;
-  }
-
   bindEvents() {
     // Navigation
     document.querySelectorAll('.nav-item').forEach(item => {
@@ -2145,8 +2087,18 @@ class Dashboard {
           </div>
         </div>
         <div class="task-actions">
-          ${this.canSubmitTask(task) ? `
+          ${task.status === 'pending' ? `
             <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+              <i class="fas fa-upload"></i> ส่งงาน
+            </button>
+          ` : ''}
+          ${task.status === 'overdue' ? `
+            <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+              <i class="fas fa-upload"></i> ส่งงาน
+            </button>
+          ` : ''}
+          ${task.status === 'in_progress' ? `
+            <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
               <i class="fas fa-upload"></i> ส่งงาน
             </button>
           ` : ''}
@@ -2192,8 +2144,18 @@ class Dashboard {
               ${hasAttachments ? `<span style="color: #3b82f6; font-weight: 500;">📎 ${task.attachedFiles.length} ไฟล์</span>` : ''}
             </div>
             <div style="display: flex; gap: 8px;">
-              ${this.canSubmitTask(task) ? `
+              ${task.status === 'pending' ? `
                 <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
+                </button>
+              ` : ''}
+              ${task.status === 'overdue' ? `
+                <button class="btn btn-sm btn-primary" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
+                  <i class="fas fa-upload"></i> ส่งงาน
+                </button>
+              ` : ''}
+              ${task.status === 'in_progress' ? `
+                <button class="btn btn-sm btn-info" onclick="event.stopPropagation(); app.openSubmitTaskModal('${task.id}')">
                   <i class="fas fa-upload"></i> ส่งงาน
                 </button>
               ` : ''}

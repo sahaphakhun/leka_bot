@@ -6,6 +6,7 @@
     <title>ส่งงาน - เลขาบอท</title>
     <link rel="stylesheet" href="tailwind.css">
     <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="modal-fix.css">
     <style>
         /* Simple icon styles to replace Font Awesome */
         .fas { font-family: Arial, sans-serif; font-weight: bold; }
@@ -131,10 +132,10 @@
     </main>
 
     <!-- Submit Modal -->
-    <div id="submitModal" class="modal">
-        <div class="modal-content max-w-2xl">
+    <div class="modal-overlay" id="submitModal">
+        <div class="modal modal-lg">
             <div class="modal-header">
-                <h3>ยืนยันการส่งงาน</h3>
+                <h3 class="modal-title">ยืนยันการส่งงาน</h3>
                 <button class="modal-close" id="closeSubmitModal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -146,12 +147,12 @@
                 
                 <form id="submitForm">
                     <div class="form-group">
-                        <label for="submitComment">หมายเหตุ (ไม่บังคับ)</label>
-                        <textarea id="submitComment" rows="3" placeholder="กรอกหมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                        <label for="submitComment" class="form-label">หมายเหตุ (ไม่บังคับ)</label>
+                        <textarea id="submitComment" class="form-textarea" rows="3" placeholder="กรอกหมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label for="submitFiles">ไฟล์แนบเพิ่มเติม (ไม่บังคับ)</label>
+                        <label for="submitFiles" class="form-label">ไฟล์แนบเพิ่มเติม (ไม่บังคับ)</label>
                         <div class="file-upload-area" id="fileUploadArea">
                             <div class="file-upload-content">
                                 <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
@@ -161,15 +162,14 @@
                             <input type="file" id="submitFiles" name="submitFiles" multiple style="display: none;">
                         </div>
                     </div>
-                    
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-outline" id="cancelSubmit">ยกเลิก</button>
-                        <button type="submit" class="btn btn-primary">
-                            <i class="fas fa-upload mr-2"></i>
-                            ส่งงาน
-                        </button>
-                    </div>
                 </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-outline" id="cancelSubmit">ยกเลิก</button>
+                <button type="submit" class="btn btn-primary" form="submitForm">
+                    <i class="fas fa-upload mr-2"></i>
+                    ส่งงาน
+                </button>
             </div>
         </div>
     </div>
@@ -436,7 +436,8 @@
                 
                 // ปิด modal เมื่อคลิกข้างนอก
                 document.getElementById('submitModal').addEventListener('click', (e) => {
-                    if (e.target.id === 'submitModal') {
+                    // Close modal when clicking on the overlay (not the modal content)
+                    if (e.target.classList.contains('modal-overlay')) {
                         this.closeSubmitModal();
                     }
                 });
@@ -584,7 +585,9 @@
                     </div>
                 `;
                 
-                document.getElementById('submitModal').classList.add('show');
+                // Use the correct modal show approach
+                const modal = document.getElementById('submitModal');
+                modal.classList.add('show');
                 
                 // ตั้งค่า file upload functionality หลังจากแสดง modal
                 setTimeout(() => {
@@ -593,7 +596,24 @@
             }
 
             closeSubmitModal() {
-                document.getElementById('submitModal').classList.remove('show');
+                // Use the correct modal hide approach
+                const modal = document.getElementById('submitModal');
+                modal.classList.remove('show');
+                
+                // Reset form when closing
+                document.getElementById('submitForm').reset();
+                
+                // Clear file input
+                const fileInput = document.getElementById('submitFiles');
+                if (fileInput) {
+                    fileInput.value = '';
+                }
+                
+                // Remove file list container if exists
+                const fileListContainer = document.getElementById('fileListContainer');
+                if (fileListContainer) {
+                    fileListContainer.remove();
+                }
             }
 
             async submitTasks() {
