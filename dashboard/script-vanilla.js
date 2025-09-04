@@ -61,6 +61,9 @@ class DashboardApp {
     this.hideLoadingScreen();
     this.setupNavigation();
     this.setupFileUpload();
+    
+    // Initialize calendar to show current month immediately when page loads
+    this.initializeCalendar();
   }
 
   setupEventListeners() {
@@ -1285,8 +1288,48 @@ class DashboardApp {
   }
 
   async loadCalendarEvents() {
-    // Mock calendar events
+    // Initialize calendar with current month and year
+    this.initializeCalendar();
     this.showToast('โหลดปฏิทินเรียบร้อย', 'success');
+  }
+
+  initializeCalendar() {
+    // Set current month and year in the header with Thailand timezone
+    const currentMonth = document.getElementById('currentMonth');
+    if (currentMonth) {
+      try {
+        // Always use Thailand timezone for calendar
+        const now = new Date();
+        // Adjust to Thailand timezone (UTC+7)
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const thaiTime = new Date(utc + (7 * 3600000));
+        
+        const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+                       'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        const currentMonthName = months[thaiTime.getMonth()];
+        const currentYear = thaiTime.getFullYear() + 543; // Convert to Thai Buddhist year
+        
+        currentMonth.textContent = `${currentMonthName} ${currentYear}`;
+        
+        // Store current month and year for navigation (in Gregorian calendar for calculation)
+        this.currentCalendarMonth = thaiTime.getMonth();
+        this.currentCalendarYear = thaiTime.getFullYear();
+        
+        console.log(`✅ Calendar initialized to Thailand timezone: ${currentMonthName} ${currentYear}`);
+      } catch (error) {
+        console.error('❌ Error initializing calendar with Thailand timezone:', error);
+        // Fallback to basic initialization
+        const now = new Date();
+        const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+                       'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        const currentMonthName = months[now.getMonth()];
+        const currentYear = now.getFullYear() + 543;
+        
+        currentMonth.textContent = `${currentMonthName} ${currentYear}`;
+        this.currentCalendarMonth = now.getMonth();
+        this.currentCalendarYear = now.getFullYear();
+      }
+    }
   }
 
   async loadReports() {
@@ -1444,27 +1487,88 @@ class DashboardApp {
 
   prevMonth() {
     this.showToast('เดือนก่อนหน้า', 'info');
-    // อัปเดตปฏิทิน
-    const currentMonth = document.getElementById('currentMonth');
-    if (currentMonth) {
-      const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
-                     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-      const currentIndex = months.indexOf(currentMonth.textContent);
-      const prevIndex = currentIndex > 0 ? currentIndex - 1 : 11;
-      currentMonth.textContent = months[prevIndex];
+    
+    try {
+      // Initialize if not set using Thailand timezone
+      if (this.currentCalendarMonth === undefined || this.currentCalendarYear === undefined) {
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const thaiTime = new Date(utc + (7 * 3600000));
+        this.currentCalendarMonth = thaiTime.getMonth();
+        this.currentCalendarYear = thaiTime.getFullYear();
+      }
+      
+      // Navigate to previous month
+      this.currentCalendarMonth--;
+      if (this.currentCalendarMonth < 0) {
+        this.currentCalendarMonth = 11;
+        this.currentCalendarYear--;
+      }
+      
+      this.updateCalendarHeader();
+    } catch (error) {
+      console.error('❌ Error navigating to previous month:', error);
+      this.showToast('เกิดข้อผิดพลาดในการเปลี่ยนเดือน', 'error');
     }
   }
 
   nextMonth() {
     this.showToast('เดือนถัดไป', 'info');
-    // อัปเดตปฏิทิน
+    
+    try {
+      // Initialize if not set using Thailand timezone
+      if (this.currentCalendarMonth === undefined || this.currentCalendarYear === undefined) {
+        const now = new Date();
+        const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+        const thaiTime = new Date(utc + (7 * 3600000));
+        this.currentCalendarMonth = thaiTime.getMonth();
+        this.currentCalendarYear = thaiTime.getFullYear();
+      }
+      
+      // Navigate to next month
+      this.currentCalendarMonth++;
+      if (this.currentCalendarMonth > 11) {
+        this.currentCalendarMonth = 0;
+        this.currentCalendarYear++;
+      }
+      
+      this.updateCalendarHeader();
+    } catch (error) {
+      console.error('❌ Error navigating to next month:', error);
+      this.showToast('เกิดข้อผิดพลาดในการเปลี่ยนเดือน', 'error');
+    }
+  }
+
+  updateCalendarHeader() {
     const currentMonth = document.getElementById('currentMonth');
-    if (currentMonth) {
-      const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
-                     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
-      const currentIndex = months.indexOf(currentMonth.textContent);
-      const nextIndex = currentIndex < 11 ? currentIndex + 1 : 0;
-      currentMonth.textContent = months[nextIndex];
+    if (currentMonth && this.currentCalendarMonth !== undefined && this.currentCalendarYear !== undefined) {
+      try {
+        const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
+                       'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        
+        // Validate month index
+        if (this.currentCalendarMonth < 0 || this.currentCalendarMonth > 11) {
+          console.warn('⚠️ Invalid month index:', this.currentCalendarMonth);
+          this.currentCalendarMonth = Math.max(0, Math.min(11, this.currentCalendarMonth));
+        }
+        
+        // Validate year
+        if (this.currentCalendarYear < 1900 || this.currentCalendarYear > 3000) {
+          console.warn('⚠️ Invalid year:', this.currentCalendarYear);
+          this.currentCalendarYear = new Date().getFullYear();
+        }
+        
+        const monthName = months[this.currentCalendarMonth];
+        const thaiYear = this.currentCalendarYear + 543; // Convert to Thai Buddhist year
+        
+        currentMonth.textContent = `${monthName} ${thaiYear}`;
+        
+        console.log(`📅 Calendar header updated: ${monthName} ${thaiYear} (Thailand timezone)`);
+      } catch (error) {
+        console.error('❌ Error updating calendar header:', error);
+        // Fallback to safe display
+        currentMonth.textContent = 'ปฏิทิน - เกิดข้อผิดพลาด';
+      }
     }
   }
 

@@ -69,9 +69,13 @@
 
 // เพิ่ม moment-timezone สำหรับการจัดการเวลา (CDN version)
 let moment;
+const THAILAND_TIMEZONE = 'Asia/Bangkok';
+const THAILAND_UTC_OFFSET = 7; // เขตเวลาประเทศไทย UTC+7
+
 if (typeof require !== 'undefined') {
   // Node.js environment
   moment = require('moment-timezone');
+  moment.tz.setDefault(THAILAND_TIMEZONE);
 } else if (typeof window !== 'undefined' && window.moment) {
   // Browser environment - ใช้ moment ที่โหลดจาก CDN
   moment = window.moment;
@@ -79,8 +83,8 @@ if (typeof require !== 'undefined') {
   // ตรวจสอบว่า moment-timezone โหลดสำเร็จหรือไม่
   if (moment && moment.tz) {
     console.log('✅ moment-timezone โหลดสำเร็จ (CDN version)');
-    // ตั้งค่า timezone เริ่มต้น
-    moment.tz.setDefault('Asia/Bangkok');
+    // ตั้งค่า timezone เริ่มต้นเป็นเขตเวลาประเทศไทย
+    moment.tz.setDefault(THAILAND_TIMEZONE);
   } else {
     console.warn('⚠️ moment-timezone ไม่ได้โหลด กรุณาตรวจสอบ CDN');
     // ใช้ moment ปกติแทน
@@ -108,8 +112,8 @@ class Dashboard {
     this.apiBase = window.location.origin;
     this.isLoading = false;
     
-    // ตั้งค่า timezone เริ่มต้น
-    this.timezone = 'Asia/Bangkok';
+    // ตั้งค่า timezone เริ่มต้นเป็นเขตเวลาประเทศไทย
+    this.timezone = THAILAND_TIMEZONE;
     
     this.init();
   }
@@ -737,31 +741,73 @@ class Dashboard {
   }
 
   /**
-   * Safely get current time with fallback to native Date
+   * ตรวจสอบว่า moment.js พร้อมใช้งานหรือไม่ (พร้อม timezone support)
+   */
+  isMomentAvailable() {
+    return moment && typeof moment === 'function' && moment.tz && typeof moment.tz === 'function';
+  }
+
+  /**
+   * ได้เวลาปัจจุบันในเขตเวลาประเทศไทยอย่างปลอดภัย
    */
   getSafeCurrentTime() {
-    if (moment && typeof moment === 'function' && moment.tz && typeof moment.tz === 'function') {
+    if (this.isMomentAvailable()) {
       try {
         return moment().tz(this.timezone);
       } catch (error) {
         console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        return new Date();
+        return this.adjustToThailandTimezone(new Date());
       }
     } else {
-      return new Date();
+      return this.adjustToThailandTimezone(new Date());
     }
   }
 
-  // ฟังก์ชันแปลงปี ค.ศ. เป็น พ.ศ.
-  convertToThaiYear(year) {
-    return year + 543;
+  /**
+   * ปรับเวลาให้เป็นเขตเวลาประเทศไทย (UTC+7) แบบ manual
+   */
+  adjustToThailandTimezone(date) {
+    const inputDate = new Date(date);
+    if (isNaN(inputDate.getTime())) {
+      console.warn('⚠️ Invalid date input:', date);
+      return new Date();
+    }
+    
+    const utc = inputDate.getTime() + (inputDate.getTimezoneOffset() * 60000);
+    return new Date(utc + (THAILAND_UTC_OFFSET * 3600000));
   }
 
   /**
-   * ตรวจสอบว่า moment.js พร้อมใช้งานหรือไม่
+   * สร้าง Date object ใหม่ในเขตเวลาประเทศไทย
    */
-  isMomentAvailable() {
-    return moment && typeof moment === 'function' && moment.tz && typeof moment.tz === 'function';
+  createThaiDate(year, month, day, hour = 0, minute = 0) {
+    if (this.isMomentAvailable()) {
+      try {
+        return moment.tz({
+          year: year || moment().tz(this.timezone).year(),
+          month: (month || moment().tz(this.timezone).month() + 1) - 1, // moment uses 0-based months
+          day: day || moment().tz(this.timezone).date(),
+          hour: hour,
+          minute: minute,
+          second: 0,
+          millisecond: 0
+        }, this.timezone).toDate();
+      } catch (error) {
+        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ fallback method:', error);
+      }
+    }
+    
+    // Fallback: สร้างแบบ manual
+    const now = this.adjustToThailandTimezone(new Date());
+    return new Date(
+      year || now.getFullYear(),
+      (month || now.getMonth() + 1) - 1,
+      day || now.getDate(),
+      hour,
+      minute,
+      0,
+      0
+    );
   }
 
   /**
@@ -945,6 +991,59 @@ class Dashboard {
       // Ultimate fallback
       return new Date().toLocaleString('th-TH');
     }
+  }
+
+  // ==================== 
+  // Timezone Utility Functions
+  // ==================== 
+
+  /**
+   * แปลงปี ค.ศ. เป็น พ.ศ. (พร้อม validation)
+   */
+  convertToThaiYear(year) {
+    if (typeof year !== 'number' || isNaN(year)) {
+      console.warn('⚠️ Invalid year input:', year);
+      return new Date().getFullYear() + 543;
+    }
+    return year + 543;
+  }
+
+  /**
+   * แปลงปี พ.ศ. กลับเป็น ค.ศ.
+   */
+  convertFromThaiYear(thaiYear) {
+    if (typeof thaiYear !== 'number' || isNaN(thaiYear)) {
+      console.warn('⚠️ Invalid Thai year input:', thaiYear);
+      return new Date().getFullYear();
+    }
+    return thaiYear - 543;
+  }
+
+  /**
+   * ตรวจสอบว่าวันที่อยู่ในช่วงเวลาทำงานหรือไม่
+   */
+  isWorkingHours(date = null) {
+    const checkDate = date ? new Date(date) : this.getSafeCurrentTime();
+    const hour = this.isMomentAvailable() 
+      ? moment(checkDate).tz(this.timezone).hour()
+      : this.adjustToThailandTimezone(checkDate).getHours();
+    
+    return hour >= 9 && hour < 18; // 09:00 - 18:00
+  }
+
+  /**
+   * ได้วันทำงานถัดไป (ข้ามวันหยุดเสาร์อาทิตย์)
+   */
+  getNextWorkingDay(date = null) {
+    let nextDay = date ? new Date(date) : this.getSafeCurrentTime();
+    nextDay = new Date(nextDay.getTime() + (24 * 60 * 60 * 1000)); // เพิ่ม 1 วัน
+    
+    // ข้ามวันเสาร์ (6) และวันอาทิตย์ (0)
+    while (nextDay.getDay() === 0 || nextDay.getDay() === 6) {
+      nextDay = new Date(nextDay.getTime() + (24 * 60 * 60 * 1000));
+    }
+    
+    return nextDay;
   }
 
   // ==================== 
@@ -3121,18 +3220,23 @@ class Dashboard {
     });
     
     // โหมดยังเป็น placeholder แสดงผลเดือนเป็นหลัก (พร้อมไว้ต่อยอด)
-    if (moment && moment.tz) {
-      try {
-        const now = moment().tz(this.timezone);
-        this.loadCalendarEvents(now.month() + 1, now.year());
-      } catch (error) {
-        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        const now = new Date();
+    try {
+      if (moment && moment.tz) {
+        try {
+          const now = moment().tz(THAILAND_TIMEZONE);
+          this.loadCalendarEvents(now.month() + 1, now.year());
+        } catch (error) {
+          console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+          const now = this.adjustToThailandTimezone(new Date());
+          this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+        }
+      } else {
+        const now = this.adjustToThailandTimezone(new Date());
         this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
       }
-    } else {
-      const now = new Date();
-      this.loadCalendarEvents(now.getMonth() + 1, now.getFullYear());
+    } catch (error) {
+      console.error('❌ Error switching calendar mode:', error);
+      this.showToast('เกิดข้อผิดพลาดในการเปลี่ยนโหมดปฏิทิน', 'error');
     }
   }
 
@@ -3187,26 +3291,39 @@ class Dashboard {
   }
 
   navigateCalendar(direction) {
-    const header = document.getElementById('currentMonth').textContent || '';
-    const parts = header.split(' ');
-    const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
-    const currentMonthIdx = months.indexOf(parts[0]);
-    let currentYear;
-    if (moment && moment.tz) {
-      try {
-        currentYear = parseInt(parts[1]) || this.getSafeCurrentTime().getFullYear();
-      } catch (error) {
-        console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
-        currentYear = parseInt(parts[1]) || new Date().getFullYear();
+    try {
+      const header = document.getElementById('currentMonth').textContent || '';
+      const parts = header.split(' ');
+      const months = ['มกราคม','กุมภาพันธ์','มีนาคม','เมษายน','พฤษภาคม','มิถุนายน','กรกฎาคม','สิงหาคม','กันยายน','ตุลาคม','พฤศจิกายน','ธันวาคม'];
+      const currentMonthIdx = months.indexOf(parts[0]);
+      
+      let currentYear;
+      if (this.isMomentAvailable()) {
+        try {
+          currentYear = parseInt(parts[1]) || this.getSafeCurrentTime().year();
+        } catch (error) {
+          console.warn('⚠️ moment.tz ไม่ทำงาน ใช้ Date ปกติแทน:', error);
+          currentYear = parseInt(parts[1]) || this.adjustToThailandTimezone(new Date()).getFullYear();
+        }
+      } else {
+        currentYear = parseInt(parts[1]) || this.adjustToThailandTimezone(new Date()).getFullYear();
       }
-    } else {
-      currentYear = parseInt(parts[1]) || new Date().getFullYear();
+      
+      // Convert Thai Buddhist year back to Gregorian for calculation
+      if (currentYear > 2500) {
+        currentYear = currentYear - 543;
+      }
+      
+      let m = currentMonthIdx + 1 + direction;
+      let y = currentYear;
+      if (m < 1) { m = 12; y -= 1; }
+      if (m > 12) { m = 1; y += 1; }
+      
+      this.loadCalendarEvents(m, y);
+    } catch (error) {
+      console.error('❌ Error navigating calendar:', error);
+      this.showToast('เกิดข้อผิดพลาดในการเปลี่ยนเดือน', 'error');
     }
-    let m = currentMonthIdx + 1 + direction;
-    let y = currentYear;
-    if (m < 1) { m = 12; y -= 1; }
-    if (m > 12) { m = 1; y += 1; }
-    this.loadCalendarEvents(m, y);
   }
 
   onCalendarDayClick(year, month, day) {
