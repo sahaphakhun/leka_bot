@@ -1839,13 +1839,16 @@ class DashboardApp {
     return html;
   }
   
-  getTaskDisplayClass(task) {
-    const isPast = new Date(task.dueTime) < new Date();
-    const isOverdue = (task.status === 'pending' || task.status === 'in_progress') && isPast;
-    
-    if (isOverdue) return 'text-red-700';
-    if (task.status === 'completed' || task.status === 'submitted') return 'text-green-700';
-    return 'text-blue-700';
+  getTaskPriorityClass(task) {
+    switch (task.priority) {
+      case 'high':
+      case 'urgent':
+        return 'priority-high';
+      case 'medium':
+        return 'priority-medium';
+      default:
+        return '';
+    }
   }
 
   attachCalendarEventListeners() {
