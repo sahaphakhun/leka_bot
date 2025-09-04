@@ -342,8 +342,8 @@ export class CronService {
   /**
    * สร้าง Flex Message สำหรับรายงานรายวัน
    */
-  private createDailySummaryFlexMessage(group: any, tasks: any[], timezone: string): any {
-    return FlexMessageTemplateService.createDailySummaryCard(group, tasks, timezone);
+  private createDailySummaryFlexMessage(group: any, tasks: any[], timezone: string, viewerLineUserId?: string): any {
+    return FlexMessageTemplateService.createDailySummaryCard(group, tasks, timezone, viewerLineUserId);
   }
 
   /**

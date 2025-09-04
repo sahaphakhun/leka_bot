@@ -431,7 +431,7 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับงานที่อนุมัติอัตโนมัติ
    */
-  private createTaskAutoApprovedFlexMessage(task: any, group: any): FlexMessage {
+  private createTaskAutoApprovedFlexMessage(task: any, group: any, viewerLineUserId?: string): FlexMessage {
     const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ') || 'ไม่ระบุ';
     const completedDate = moment(task.completedAt).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
 
@@ -446,7 +446,7 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -462,8 +462,8 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับงานที่ถูกปฏิเสธ
    */
-  private createTaskRejectedFlexMessage(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): FlexMessage {
-    return FlexMessageTemplateService.createRejectedTaskCard(task, group, newDueTime, reviewerDisplayName);
+  private createTaskRejectedFlexMessage(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string, viewerLineUserId?: string): FlexMessage {
+    return FlexMessageTemplateService.createRejectedTaskCard(task, group, newDueTime, reviewerDisplayName, viewerLineUserId);
   }
 
   /**
@@ -483,7 +483,7 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับการเตือนงาน
    */
-  private createTaskReminderFlexMessage(task: any, group: any, reminderType: string): FlexMessage {
+  private createTaskReminderFlexMessage(task: any, group: any, reminderType: string, viewerLineUserId?: string): FlexMessage {
     const reminderEmoji = this.getReminderEmoji(reminderType);
     const now = moment().tz(config.app.defaultTimezone);
     const dueMoment = moment(task.dueTime).tz(config.app.defaultTimezone);
@@ -503,7 +503,7 @@ export class NotificationService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -711,15 +711,15 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับงานที่ถูกลบ
    */
-  private createTaskDeletedFlexMessage(task: any, group: any): FlexMessage {
-    return FlexMessageTemplateService.createDeletedTaskCard(task, group);
+  private createTaskDeletedFlexMessage(task: any, group: any, viewerLineUserId?: string): FlexMessage {
+    return FlexMessageTemplateService.createDeletedTaskCard(task, group, viewerLineUserId);
   }
 
   /**
    * สร้าง Flex Message สำหรับงานที่อัปเดต
    */
-  private createTaskUpdatedFlexMessage(task: any, group: any, changes: Record<string, any>, changedFields: string[]): FlexMessage {
-    return FlexMessageTemplateService.createUpdatedTaskCard(task, group, changes, changedFields);
+  private createTaskUpdatedFlexMessage(task: any, group: any, changes: Record<string, any>, changedFields: string[], viewerLineUserId?: string): FlexMessage {
+    return FlexMessageTemplateService.createUpdatedTaskCard(task, group, changes, changedFields, viewerLineUserId);
   }
 
   /**

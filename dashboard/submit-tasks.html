@@ -20,6 +20,36 @@
         .fa-exclamation-triangle:before { content: "⚠️"; }
         .fa-info-circle:before { content: "ℹ️"; }
         .fa-spinner:before { content: "⏳"; }
+        .fa-cloud-upload-alt:before { content: "☁️"; }
+        .fa-file:before { content: "📄"; }
+        .fa-check-circle:before { content: "✅"; }
+        .fa-exclamation-circle:before { content: "❌"; }
+        
+        /* File upload styles */
+        .file-upload-area {
+            border: 2px dashed #d1d5db;
+            border-radius: 8px;
+            padding: 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            cursor: pointer;
+            background-color: #f9fafb;
+        }
+        
+        .file-upload-area:hover {
+            border-color: #3b82f6;
+            background-color: #eff6ff;
+        }
+        
+        .file-upload-area.dragover {
+            border-color: #3b82f6;
+            background-color: #dbeafe;
+            transform: scale(1.02);
+        }
+        
+        .file-upload-content {
+            pointer-events: none;
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -109,8 +139,14 @@
                     
                     <div class="form-group">
                         <label for="submitFiles">ไฟล์แนบเพิ่มเติม (ไม่บังคับ)</label>
-                        <input type="file" id="submitFiles" multiple>
-                        <small class="text-gray-600">สามารถเลือกไฟล์เพิ่มเติมได้ (สูงสุด 5 ไฟล์)</small>
+                        <div class="file-upload-area" id="fileUploadArea">
+                            <div class="file-upload-content">
+                                <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
+                                <p class="text-gray-600 mb-2">ลากไฟล์มาวางที่นี่ หรือคลิกเพื่อเลือกไฟล์</p>
+                                <p class="text-sm text-gray-500">รองรับไฟล์ทุกประเภท สูงสุด 5 ไฟล์</p>
+                            </div>
+                            <input type="file" id="submitFiles" name="submitFiles" multiple style="display: none;">
+                        </div>
                     </div>
                     
                     <div class="form-actions">
@@ -176,10 +212,27 @@
                         this.renderTasks();
                         this.updateTaskCount();
                         
-                        // ถ้ามี taskId ที่ระบุมา ให้เลือกงานนั้น
+                        // ถ้ามี taskId ที่ระบุมา ให้เลือกงานนั้นและอัปเดตปุ่ม (แต่ไม่เปิด modal ทันที)
                         if (this.selectedTaskId) {
                             this.selectedTasks.add(this.selectedTaskId);
                             this.updateSubmitButton();
+                            // เลื่อนไปที่งานที่เลือก
+                            setTimeout(() => {
+                                const taskElement = document.getElementById(`task-${this.selectedTaskId}`);
+                                if (taskElement) {
+                                    taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                    // เพิ่มเอฟเฟกต์ highlight ชั่วคราว
+                                    const taskCard = taskElement.closest('.p-6');
+                                    if (taskCard) {
+                                        taskCard.classList.add('bg-blue-50', 'border-2', 'border-blue-200');
+                                        setTimeout(() => {
+                                            taskCard.classList.remove('bg-blue-50', 'border-2', 'border-blue-200');
+                                        }, 2000);
+                                    }
+                                    // แสดงข้อความแจ้งเตือน
+                                    this.showToast('งานนี้ถูกเลือกไว้แล้ว กรุณากดปุ่มส่งงานเมื่อพร้อม', 'info');
+                                }
+                            }, 100);
                         }
                     }
                 } catch (error) {
@@ -364,6 +417,136 @@
                     e.preventDefault();
                     this.submitTasks();
                 });
+                
+                // ปิด modal เมื่อคลิกข้างนอก
+                document.getElementById('submitModal').addEventListener('click', (e) => {
+                    if (e.target.id === 'submitModal') {
+                        this.closeSubmitModal();
+                    }
+                });
+                
+                // ปิด modal ด้วย Escape key
+                document.addEventListener('keydown', (e) => {
+                    if (e.key === 'Escape' && document.getElementById('submitModal').classList.contains('show')) {
+                        this.closeSubmitModal();
+                    }
+                });
+            }
+
+            setupFileUpload() {
+                const fileUploadArea = document.getElementById('fileUploadArea');
+                const fileInput = document.getElementById('submitFiles');
+                
+                if (!fileUploadArea || !fileInput) return;
+                
+                // คลิกเพื่อเลือกไฟล์
+                fileUploadArea.addEventListener('click', () => {
+                    fileInput.click();
+                });
+                
+                // Drag and drop events
+                fileUploadArea.addEventListener('dragover', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fileUploadArea.classList.add('dragover');
+                });
+                
+                fileUploadArea.addEventListener('dragleave', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!fileUploadArea.contains(e.relatedTarget)) {
+                        fileUploadArea.classList.remove('dragover');
+                    }
+                });
+                
+                fileUploadArea.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    fileUploadArea.classList.remove('dragover');
+                    
+                    const files = e.dataTransfer.files;
+                    if (files.length > 0) {
+                        // กำหนดจำนวนไฟล์สูงสุด 5 ไฟล์
+                        const limitedFiles = Array.from(files).slice(0, 5);
+                        
+                        // สร้าง FileList ใหม่
+                        const dt = new DataTransfer();
+                        limitedFiles.forEach(file => dt.items.add(file));
+                        fileInput.files = dt.files;
+                        
+                        this.updateFileList(limitedFiles);
+                        
+                        if (files.length > 5) {
+                            this.showToast('สามารถเลือกได้สูงสุด 5 ไฟล์', 'warning');
+                        }
+                    }
+                });
+                
+                // เมื่อเลือกไฟล์ผ่าน input
+                fileInput.addEventListener('change', (e) => {
+                    const files = Array.from(e.target.files || []);
+                    this.updateFileList(files);
+                });
+            }
+            
+            updateFileList(files) {
+                const fileListContainer = document.getElementById('fileListContainer');
+                
+                if (!fileListContainer) {
+                    // สร้าง container สำหรับแสดงรายการไฟล์
+                    const container = document.createElement('div');
+                    container.id = 'fileListContainer';
+                    container.className = 'mt-3';
+                    document.getElementById('submitFiles').parentNode.appendChild(container);
+                }
+                
+                const container = document.getElementById('fileListContainer');
+                
+                if (files.length === 0) {
+                    container.innerHTML = '';
+                    return;
+                }
+                
+                container.innerHTML = `
+                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
+                        <h5 class="text-sm font-medium text-gray-700 mb-2">ไฟล์ที่เลือก (${files.length} ไฟล์)</h5>
+                        <div class="space-y-2">
+                            ${files.map((file, index) => `
+                                <div class="flex items-center justify-between bg-white p-2 rounded border text-sm">
+                                    <div class="flex items-center">
+                                        <i class="fas fa-file text-blue-500 mr-2"></i>
+                                        <span class="font-medium">${file.name}</span>
+                                        <span class="text-gray-500 ml-2">(${this.formatFileSize(file.size)})</span>
+                                    </div>
+                                    <button type="button" class="text-red-500 hover:text-red-700" onclick="submitTasksInstance.removeFile(${index})">
+                                        <i class="fas fa-times"></i>
+                                    </button>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            }
+            
+            removeFile(index) {
+                const fileInput = document.getElementById('submitFiles');
+                const files = Array.from(fileInput.files || []);
+                
+                files.splice(index, 1);
+                
+                const dt = new DataTransfer();
+                files.forEach(file => dt.items.add(file));
+                fileInput.files = dt.files;
+                
+                this.updateFileList(files);
+            }
+            
+            formatFileSize(bytes) {
+                if (bytes === 0) return '0 Bytes';
+                const k = 1024;
+                const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+                const i = Math.floor(Math.log(bytes) / Math.log(k));
+                return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
 
             showSubmitModal() {
@@ -386,6 +569,11 @@
                 `;
                 
                 document.getElementById('submitModal').classList.add('show');
+                
+                // ตั้งค่า file upload functionality หลังจากแสดง modal
+                setTimeout(() => {
+                    this.setupFileUpload();
+                }, 100);
             }
 
             closeSubmitModal() {
@@ -489,8 +677,9 @@
         }
 
         // Initialize the page
+        let submitTasksInstance;
         document.addEventListener('DOMContentLoaded', () => {
-            new SubmitTasksPage();
+            submitTasksInstance = new SubmitTasksPage();
         });
 
         // Register clean service worker to replace any old one

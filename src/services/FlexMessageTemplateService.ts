@@ -176,7 +176,7 @@ export class FlexMessageTemplateService {
   /**
    * สร้างการ์ดงานที่อัปเดต
    */
-  static createUpdatedTaskCard(task: any, group: any, changes: Record<string, any>, changedFields: string[]): FlexMessage {
+  static createUpdatedTaskCard(task: any, group: any, changes: Record<string, any>, changedFields: string[], viewerLineUserId?: string): FlexMessage {
     const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
     const tagsText = (task.tags && task.tags.length > 0) ? `🏷️ ${task.tags.map((t: string) => `#${t}`).join(' ')}` : '';
     const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ');
@@ -204,7 +204,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -220,7 +220,7 @@ export class FlexMessageTemplateService {
   /**
    * สร้างการ์ดงานที่ถูกลบ
    */
-  static createDeletedTaskCard(task: any, group: any): FlexMessage {
+  static createDeletedTaskCard(task: any, group: any, viewerLineUserId?: string): FlexMessage {
     const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
     const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ');
     const priorityColor = FlexMessageDesignSystem.getPriorityColor(task.priority);
@@ -234,7 +234,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -250,7 +250,7 @@ export class FlexMessageTemplateService {
   /**
    * สร้างการ์ดงานที่ถูกส่ง
    */
-  static createSubmittedTaskCard(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[]): FlexMessage {
+  static createSubmittedTaskCard(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[], viewerLineUserId?: string): FlexMessage {
     const dueText = task.dueTime ? moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm') : '-';
     const assigneeNames = (task.assignedUsers || []).map((u: any) => u.displayName).join(', ');
     const priorityColor = FlexMessageDesignSystem.getPriorityColor(task.priority);
@@ -266,7 +266,7 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
+      FlexMessageDesignSystem.createButton('ดูงาน', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -351,7 +351,7 @@ export class FlexMessageTemplateService {
   /**
    * สร้างการ์ดงานที่ถูกตีกลับ (มาตรฐานใหม่)
    */
-  static createRejectedTaskCard(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string): FlexMessage {
+  static createRejectedTaskCard(task: any, group: any, newDueTime: Date, reviewerDisplayName?: string, viewerLineUserId?: string): FlexMessage {
     const newDueText = moment(newDueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
     
     const content = [
@@ -367,8 +367,8 @@ export class FlexMessageTemplateService {
     ];
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
-      FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config.baseUrl}/dashboard/submit-tasks?taskId=${task.id}`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary'),
+      FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config.baseUrl}/dashboard/submit-tasks?taskId=${task.id}${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -450,7 +450,7 @@ export class FlexMessageTemplateService {
   /**
    * สร้างการ์ดรายงานรายวัน
    */
-  static createDailySummaryCard(group: any, tasks: any[], timezone: string): FlexMessage {
+  static createDailySummaryCard(group: any, tasks: any[], timezone: string, viewerLineUserId?: string): FlexMessage {
     const now = moment().tz(timezone);
     const today = now.clone().startOf('day');
     const tomorrow = now.clone().add(1, 'day').startOf('day');
@@ -572,8 +572,8 @@ export class FlexMessageTemplateService {
     );
 
       const buttons = [
-        FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}`, 'primary'),
-        FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}#tasks`, 'secondary')
+        FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary'),
+        FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมด', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}#tasks`, 'secondary')
       ];
 
       return FlexMessageDesignSystem.createStandardTaskCard(
@@ -795,7 +795,7 @@ export class FlexMessageTemplateService {
     initialFiles: any[];
     submissionFiles: any[];
     allFiles: any[];
-  }, group: any): FlexMessage {
+  }, group: any, viewerLineUserId?: string): FlexMessage {
     const { initialFiles, submissionFiles, allFiles } = filesByType;
     const totalFiles = allFiles.length;
 
@@ -874,7 +874,7 @@ export class FlexMessageTemplateService {
 
     const buttons = [
       ...fileButtons,
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}#files`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
@@ -890,7 +890,7 @@ export class FlexMessageTemplateService {
   /**
    * สร้างการ์ดแสดงรายการไฟล์แนบของงาน (เดิม - สำหรับ backward compatibility)
    */
-  static createTaskFilesCard(task: any, files: any[], group: any): FlexMessage {
+  static createTaskFilesCard(task: any, files: any[], group: any, viewerLineUserId?: string): FlexMessage {
     if (!files || files.length === 0) {
       return FlexMessageDesignSystem.createStandardTaskCard(
         '📎 ไฟล์แนบ',
@@ -940,7 +940,7 @@ export class FlexMessageTemplateService {
 
     const buttons = [
       ...fileButtons, // ปุ่มดาวน์โหลดไฟล์แต่ละไฟล์
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
+      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}#files`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(

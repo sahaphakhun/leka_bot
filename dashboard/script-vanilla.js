@@ -2458,6 +2458,11 @@ class DashboardApp {
     this.submitFiles = [];
 
     this.openModal('submitTaskModal');
+    
+    // Setup file upload functionality after modal is opened
+    setTimeout(() => {
+      this.setupSubmitFileUpload();
+    }, 100);
   }
 
   // Task Detail Modal Functions
@@ -2880,78 +2885,53 @@ class DashboardApp {
     this.setupSubmitFileUpload();
   }
 
+  // File Upload Setup - Works for both dynamic and static modals
   setupSubmitFileUpload() {
-    const uploadArea = document.getElementById('submitFileUploadArea');
     const fileInput = document.getElementById('submitTaskFiles');
+    const uploadArea = document.getElementById('submitFileUploadArea');
     const fileList = document.getElementById('submitFileList');
     
-    uploadArea.addEventListener('click', () => fileInput.click());
-    
-    uploadArea.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadArea.classList.add('border-blue-400', 'bg-blue-50');
-    });
-    
-    uploadArea.addEventListener('dragleave', () => {
-      uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
-    });
-    
-    uploadArea.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadArea.classList.remove('border-blue-400', 'bg-blue-50');
-      const files = Array.from(e.dataTransfer.files);
-      this.handleSubmitFileSelection(files);
-    });
-    
-    fileInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files);
-      this.handleSubmitFileSelection(files);
-    });
-  }
-
-  handleSubmitFileSelection(files) {
-    const fileList = document.getElementById('submitFileList');
-    const fileListContent = document.getElementById('submitFileListContent');
-    
-    if (files.length === 0) {
-      fileList.classList.add('hidden');
+    if (!fileInput || !uploadArea) {
+      console.warn('Submit file upload elements not found');
       return;
     }
     
-    const filesHTML = files.map((file, index) => `
-      <div class="flex items-center justify-between p-2 bg-gray-50 rounded mb-2">
-        <div class="flex items-center">
-          <i class="fas fa-file mr-2 text-gray-500"></i>
-          <span class="text-sm text-gray-900">${file.name}</span>
-          <span class="text-xs text-gray-500 ml-2">(${this.formatFileSize(file.size)})</span>
-        </div>
-        <button type="button" class="text-red-500 hover:text-red-700" onclick="dashboardApp.removeSubmitFile(${index})">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    `).join('');
+    // Remove existing event listeners to prevent duplicates
+    const newUploadArea = uploadArea.cloneNode(true);
+    uploadArea.parentNode.replaceChild(newUploadArea, uploadArea);
     
-    if (!fileListContent) {
-      fileList.innerHTML = `
-        <div id="submitFileListContent">
-          <h5 class="font-medium text-gray-900 mb-2">ไฟล์ที่เลือก:</h5>
-          ${filesHTML}
-        </div>
-      `;
-    } else {
-      fileListContent.innerHTML = `
-        <h5 class="font-medium text-gray-900 mb-2">ไฟล์ที่เลือก:</h5>
-        ${filesHTML}
-      `;
-    }
+    const newFileInput = fileInput.cloneNode(true);
+    fileInput.parentNode.replaceChild(newFileInput, fileInput);
     
-    fileList.classList.remove('hidden');
-    this.submitFiles = files;
-  }
-
-  removeSubmitFile(index) {
-    this.submitFiles.splice(index, 1);
-    this.handleSubmitFileSelection(this.submitFiles);
+    // Click to upload
+    newUploadArea.addEventListener('click', () => newFileInput.click());
+    
+    // Drag and drop
+    newUploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      newUploadArea.classList.add('bg-blue-50', 'border-blue-300');
+    });
+    
+    newUploadArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      if (!newUploadArea.contains(e.relatedTarget)) {
+        newUploadArea.classList.remove('bg-blue-50', 'border-blue-300');
+      }
+    });
+    
+    newUploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      newUploadArea.classList.remove('bg-blue-50', 'border-blue-300');
+      
+      const files = Array.from(e.dataTransfer.files);
+      this.displaySelectedFiles(files, newFileInput);
+    });
+    
+    // File input change
+    newFileInput.addEventListener('change', (e) => {
+      const files = Array.from(e.target.files);
+      this.displaySelectedFiles(files, newFileInput);
+    });
   }
 
   async confirmSubmitTask() {
@@ -3121,99 +3101,6 @@ class DashboardApp {
     } catch (error) {
       console.error('Error submitting task:', error);
       this.showToast(`เกิดข้อผิดพลาดในการส่งงาน: ${error.message}`, 'error');
-    }
-  }
-
-  // File Upload Setup
-  setupSubmitFileUpload() {
-    const fileInput = document.getElementById('submitTaskFiles');
-    const uploadArea = document.getElementById('submitFileUploadArea');
-    const fileList = document.getElementById('submitFileList');
-    
-    if (!fileInput || !uploadArea) return;
-    
-    // Click to upload
-    uploadArea.addEventListener('click', () => fileInput.click());
-    
-    // Drag and drop
-    uploadArea.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      uploadArea.classList.add('bg-blue-50', 'border-blue-300');
-    });
-    
-    uploadArea.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      uploadArea.classList.remove('bg-blue-50', 'border-blue-300');
-    });
-    
-    uploadArea.addEventListener('drop', (e) => {
-      e.preventDefault();
-      uploadArea.classList.remove('bg-blue-50', 'border-blue-300');
-      
-      const files = Array.from(e.dataTransfer.files);
-      this.displaySelectedFiles(files, fileInput);
-    });
-    
-    // File input change
-    fileInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files);
-      this.displaySelectedFiles(files, fileInput);
-    });
-  }
-
-  displaySelectedFiles(files, fileInput) {
-    const fileList = document.getElementById('submitFileList');
-    if (!fileList) return;
-    
-    if (files.length === 0) {
-      fileList.classList.add('hidden');
-      this.submitFiles = []; // Clear submitFiles when no files
-      return;
-    }
-    
-    const filesHTML = files.map((file, index) => `
-      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-        <div class="flex items-center">
-          <i class="fas fa-file text-gray-400 mr-3"></i>
-          <div>
-            <div class="font-medium text-sm">${this.escapeHtml(file.name)}</div>
-            <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
-          </div>
-        </div>
-        <button type="button" class="text-red-500 hover:text-red-700" onclick="window.dashboardApp.removeSelectedFile(${index})">
-          <i class="fas fa-times"></i>
-        </button>
-      </div>
-    `).join('');
-    
-    fileList.innerHTML = `
-      <div class="space-y-2">
-        <h5 class="font-medium text-gray-900">ไฟล์ที่เลือก (${files.length}):</h5>
-        ${filesHTML}
-      </div>
-    `;
-    fileList.classList.remove('hidden');
-    
-    // Update file input
-    const dataTransfer = new DataTransfer();
-    files.forEach(file => dataTransfer.items.add(file));
-    fileInput.files = dataTransfer.files;
-    
-    // Store files for validation
-    this.submitFiles = files;
-  }
-
-  removeSelectedFile(index) {
-    const fileInput = document.getElementById('submitTaskFiles');
-    if (!fileInput) return;
-    
-    const files = Array.from(fileInput.files);
-    files.splice(index, 1);
-    this.displaySelectedFiles(files, fileInput);
-    
-    // Also update submitFiles array if it exists
-    if (this.submitFiles && this.submitFiles.length > index) {
-      this.submitFiles.splice(index, 1);
     }
   }
 
@@ -5184,31 +5071,47 @@ class DashboardApp {
     const fileUploadArea = document.querySelector('.file-upload-area');
     const fileList = document.getElementById('fileList');
 
-    if (!fileInput || !fileUploadArea || !fileList) return;
+    if (!fileInput || !fileUploadArea || !fileList) {
+      console.warn('Add task file upload elements not found');
+      return;
+    }
+    
+    // Remove existing event listeners to prevent duplicates
+    const newFileUploadArea = fileUploadArea.cloneNode(true);
+    fileUploadArea.parentNode.replaceChild(newFileUploadArea, fileUploadArea);
+    
+    const newFileInput = fileInput.cloneNode(true);
+    fileInput.parentNode.replaceChild(newFileInput, fileInput);
 
     // คลิกเพื่อเลือกไฟล์
-    fileUploadArea.addEventListener('click', () => {
-      fileInput.click();
+    newFileUploadArea.addEventListener('click', () => {
+      newFileInput.click();
     });
 
     // จัดการการเลือกไฟล์
-    fileInput.addEventListener('change', (e) => {
+    newFileInput.addEventListener('change', (e) => {
       this.handleFileSelection(e.target.files);
     });
 
     // Drag and drop
-    fileUploadArea.addEventListener('dragover', (e) => {
+    newFileUploadArea.addEventListener('dragover', (e) => {
       e.preventDefault();
-      fileUploadArea.classList.add('dragover');
+      e.stopPropagation();
+      newFileUploadArea.classList.add('dragover');
     });
 
-    fileUploadArea.addEventListener('dragleave', () => {
-      fileUploadArea.classList.remove('dragover');
+    newFileUploadArea.addEventListener('dragleave', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      if (!newFileUploadArea.contains(e.relatedTarget)) {
+        newFileUploadArea.classList.remove('dragover');
+      }
     });
 
-    fileUploadArea.addEventListener('drop', (e) => {
+    newFileUploadArea.addEventListener('drop', (e) => {
       e.preventDefault();
-      fileUploadArea.classList.remove('dragover');
+      e.stopPropagation();
+      newFileUploadArea.classList.remove('dragover');
       this.handleFileSelection(e.dataTransfer.files);
     });
   }
