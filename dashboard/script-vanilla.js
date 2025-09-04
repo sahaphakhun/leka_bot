@@ -225,6 +225,7 @@ class DashboardApp {
 
   async loadUserData() {
     try {
+      console.log('loadUserData started');
       this.showLoading();
       
       // Mock user data for now
@@ -236,6 +237,7 @@ class DashboardApp {
         email: 'test@example.com'
       };
       
+      console.log('Loading user info and data...');
       this.updateUserInfo();
       await this.loadTasks();
       await this.loadGroups();
@@ -245,6 +247,7 @@ class DashboardApp {
       await this.loadAssigneeFilter(); // โหลดตัวกรองผู้รับผิดชอบ
       
       // แสดงข้อมูลตาม view ปัจจุบัน
+      console.log('Switching to current view:', this.currentView);
       this.switchView(this.currentView);
       
       // ตรวจสอบ action parameter และเปิด modal ที่เหมาะสม
@@ -257,6 +260,8 @@ class DashboardApp {
       
       // อัปเดตข้อมูลเริ่มต้น
       this.renderRecentTasks();
+      
+      console.log('loadUserData completed successfully');
       
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -277,8 +282,11 @@ class DashboardApp {
   async loadTasks() {
     try {
       if (!this.currentGroupId) {
-        console.warn('No group ID available for loading tasks');
-        this.tasks = [];
+        console.warn('No group ID available for loading tasks, using mock data');
+        // Use the mock data from initializeMockData if no tasks exist
+        if (!this.tasks || this.tasks.length === 0) {
+          this.initializeMockData();
+        }
         this.renderTasks();
         this.updateUpcomingTasks();
         return;
@@ -317,10 +325,19 @@ class DashboardApp {
           id: 'task2', 
           title: 'งานทดสอบ 2',
           description: 'รายละเอียดงานทดสอบ 2',
-          status: 'in_progress',
+          status: 'completed',
           priority: 'high',
           dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
           group: { id: 'group2', name: 'กลุ่มทดสอบ 2' }
+        },
+        {
+          id: 'task3', 
+          title: 'งานทดสอบ 3',
+          description: 'รายละเอียดงานทดสอบ 3',
+          status: 'overdue',
+          priority: 'low',
+          dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
+          group: { id: 'group1', name: 'กลุ่มทดสอบ' }
         }
       ];
       this.renderTasks();
@@ -344,14 +361,19 @@ class DashboardApp {
 
   async loadStats(period = 'this_week') {
     try {
+      console.log('loadStats called with period:', period);
+      console.log('Current tasks:', this.tasks);
+      console.log('Current groupId:', this.currentGroupId);
+      
       if (!this.currentGroupId) {
-        // Fallback to mock data
+        // Fallback to mock data - calculate from current tasks
         const stats = {
           totalTasks: this.tasks.length,
           pendingTasks: this.tasks.filter(t => t.status === 'pending').length,
           completedTasks: this.tasks.filter(t => t.status === 'completed').length,
           overdueTasks: this.tasks.filter(t => t.status === 'overdue').length
         };
+        console.log('Calculated stats from tasks:', stats);
         this.updateStats(stats, period);
         return;
       }
@@ -363,6 +385,7 @@ class DashboardApp {
       
       const result = await response.json();
       if (result.success) {
+        console.log('API stats received:', result.data);
         this.updateStats(result.data, period);
       } else {
         throw new Error(result.error || 'Failed to load stats');
@@ -370,13 +393,14 @@ class DashboardApp {
       
     } catch (error) {
       console.error('Error loading stats:', error);
-      // Fallback to mock data
+      // Fallback to mock data - calculate from current tasks
       const stats = {
         totalTasks: this.tasks.length,
         pendingTasks: this.tasks.filter(t => t.status === 'pending').length,
         completedTasks: this.tasks.filter(t => t.status === 'completed').length,
         overdueTasks: this.tasks.filter(t => t.status === 'overdue').length
       };
+      console.log('Fallback stats calculated:', stats);
       this.updateStats(stats, period);
     }
   }
@@ -422,10 +446,24 @@ class DashboardApp {
   }
 
   updateStats(stats, period = 'this_week') {
-    document.getElementById('totalTasks').textContent = stats.totalTasks || 0;
-    document.getElementById('pendingTasks').textContent = stats.pendingTasks || 0;
-    document.getElementById('completedTasks').textContent = stats.completedTasks || 0;
-    document.getElementById('overdueTasks').textContent = stats.overdueTasks || 0;
+    console.log('Updating stats:', stats);
+    
+    const totalTasksEl = document.getElementById('totalTasks');
+    const pendingTasksEl = document.getElementById('pendingTasks');
+    const completedTasksEl = document.getElementById('completedTasks');
+    const overdueTasksEl = document.getElementById('overdueTasks');
+    
+    console.log('Found elements:', {
+      totalTasks: !!totalTasksEl,
+      pendingTasks: !!pendingTasksEl,
+      completedTasks: !!completedTasksEl,
+      overdueTasks: !!overdueTasksEl
+    });
+    
+    if (totalTasksEl) totalTasksEl.textContent = stats.totalTasks || 0;
+    if (pendingTasksEl) pendingTasksEl.textContent = stats.pendingTasks || 0;
+    if (completedTasksEl) completedTasksEl.textContent = stats.completedTasks || 0;
+    if (overdueTasksEl) overdueTasksEl.textContent = stats.overdueTasks || 0;
     
     // อัปเดตปุ่มเลือกช่วงเวลา
     this.updateStatsPeriodButtons(period);
@@ -2288,9 +2326,14 @@ class DashboardApp {
 
   async loadFilesData() {
     try {
+      console.log('loadFilesData called');
+      console.log('Current groupId:', this.currentGroupId);
+      
       if (!this.currentGroupId) {
         // Fallback to mock data
+        console.log('No groupId, using mock files');
         this.files = this.getMockFiles();
+        console.log('Mock files loaded:', this.files);
         this.renderFiles();
         return;
       }
@@ -2303,6 +2346,7 @@ class DashboardApp {
       const result = await response.json();
       if (result.success) {
         this.files = result.data || [];
+        console.log('API files loaded:', this.files);
         this.organizedFiles = this.organizeFilesByTask(this.files);
         this.renderFiles();
         this.populateTaskFilter();
@@ -2314,7 +2358,9 @@ class DashboardApp {
       console.error('Error loading files:', error);
       this.showToast('เกิดข้อผิดพลาดในการโหลดไฟล์', 'error');
       // Fallback to mock data
+      console.log('Error fallback, using mock files');
       this.files = this.getMockFiles();
+      console.log('Fallback files loaded:', this.files);
       this.organizedFiles = this.organizeFilesByTask(this.files);
       this.renderFiles();
       this.populateTaskFilter();
@@ -2385,7 +2431,14 @@ class DashboardApp {
 
   renderFiles() {
     const filesContainer = document.getElementById('filesContainer');
-    if (!filesContainer) return;
+    console.log('renderFiles called - filesContainer found:', !!filesContainer);
+    console.log('Files array:', this.files);
+    console.log('Files length:', this.files?.length || 0);
+    
+    if (!filesContainer) {
+      console.error('filesContainer element not found!');
+      return;
+    }
 
     // Get current filters
     const searchTerm = document.getElementById('searchFiles')?.value.toLowerCase() || '';
@@ -2393,10 +2446,15 @@ class DashboardApp {
     const typeFilter = document.getElementById('fileTypeFilter')?.value || '';
     const viewMode = this.currentFileViewMode || 'folder';
 
+    console.log('Filters:', { searchTerm, taskFilter, typeFilter, viewMode });
+
     // Filter files
     const filteredFiles = this.filterFilesByControls(searchTerm, taskFilter, typeFilter);
+    console.log('Filtered files:', filteredFiles);
+    console.log('Filtered files length:', filteredFiles.length);
 
     if (filteredFiles.length === 0) {
+      console.log('No files to display, showing empty state');
       filesContainer.innerHTML = `
         <div class="text-center py-8 text-gray-500">
           <i class="fas fa-folder text-4xl mb-4"></i>
@@ -2421,6 +2479,8 @@ class DashboardApp {
       html = this.renderListView(filteredFiles);
     }
 
+    console.log('Generated HTML length:', html.length);
+    console.log('Setting innerHTML to filesContainer');
     filesContainer.innerHTML = html;
   }
 
