@@ -258,22 +258,35 @@ class DashboardApp {
       console.log('loadUserData started');
       this.showLoading();
       
-      // Mock user data for now
-      // ควรโหลดผู้ใช้จริงจาก backend เพื่อให้ได้ lineUserId
-      this.currentUser = {
-        id: 'user123',
-        lineUserId: 'Uc92411a226e4d4c9866adef05068bdf1', // ใช้ LINE User ID ที่มีอยู่จริง
-        displayName: 'ผู้ใช้ทดสอบ',
-        email: 'test@example.com'
-      };
+      // ไม่ใช้ mock data แล้ว เพื่อให้การทดสอบโหมด read-only ทำงานได้ถูกต้อง
+      // ใช้ currentUserId จาก URL parameter เท่านั้น
+      this.currentUser = null;
       
       console.log('Loading user info and data...');
+      console.log('Current User ID from URL:', this.currentUserId);
       
       // ตรวจสอบและจัดการแสดง banner โหมดดูอย่างเดียว
       if (!this.currentUserId) {
         this.showReadOnlyBanner();
+        this.disableActionButtons();
+        console.log('🔒 โหมดดูอย่างเดียว - ไม่มี userId');
       } else {
         this.hideReadOnlyBanner();
+        this.enableActionButtons();
+        console.log('🔓 โหมดปกติ - มี userId:', this.currentUserId);
+        
+        // โหลดข้อมูลผู้ใช้จริงจาก backend
+        try {
+          // สามารถเพิ่ม API call เพื่อโหลดข้อมูลผู้ใช้จริงได้ที่นี่
+          this.currentUser = {
+            id: this.currentUserId,
+            lineUserId: this.currentUserId,
+            displayName: 'ผู้ใช้',
+            email: ''
+          };
+        } catch (userError) {
+          console.warn('ไม่สามารถโหลดข้อมูลผู้ใช้ได้:', userError);
+        }
       }
       
       this.updateUserInfo();
@@ -1308,28 +1321,73 @@ class DashboardApp {
     }
 
     const recentTasks = this.tasks.slice(0, 5); // แสดงแค่ 5 งานล่าสุด
-    const tasksHTML = recentTasks.map(task => `
-      <div class="bg-white rounded-lg shadow-sm border p-4 mb-4">
-        <div class="flex justify-between items-start">
-          <div class="flex-1">
-            <h3 class="font-semibold text-gray-900">${task.title}</h3>
-            <p class="text-gray-600 text-sm mt-1">${task.description}</p>
-            <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500">
-              <span>📅 ${this.formatDate(task.dueTime)}</span>
-              <span class="px-2 py-1 rounded-full text-xs ${
-                task.priority === 'high' ? 'bg-red-100 text-red-800' :
-                task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
-                'bg-green-100 text-green-800'
-              }">${task.priority}</span>
+    const tasksHTML = recentTasks.map(task => {
+      // ตรวจสอบสิทธิ์ตามบทบาทของผู้ใช้
+      const canSubmit = this.canSubmitTask(task);
+      const canEdit = this.canEditTask(task);
+      const canDelete = this.canDeleteTask(task);
+      const canApprove = this.canApproveTask(task);
+      
+      return `
+        <div class="bg-white rounded-lg shadow-sm border p-4 mb-4">
+          <div class="flex justify-between items-start">
+            <div class="flex-1">
+              <h3 class="font-semibold text-gray-900">${task.title}</h3>
+              <p class="text-gray-600 text-sm mt-1">${task.description || 'ไม่มีรายละเอียด'}</p>
+              <div class="flex items-center mt-2 space-x-4 text-sm text-gray-500">
+                <span>📅 ${this.formatDate(task.dueTime)}</span>
+                <span class="px-2 py-1 rounded-full text-xs ${
+                  task.priority === 'high' ? 'bg-red-100 text-red-800' :
+                  task.priority === 'medium' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-green-100 text-green-800'
+                }">${task.priority}</span>
+              </div>
+            </div>
+            <div class="flex space-x-2">
+              ${canSubmit ? `
+                <button 
+                  onclick="window.dashboardApp.openSubmitTaskModal('${task.id}')" 
+                  class="text-blue-600 hover:text-blue-800" 
+                  title="ส่งงาน"
+                >
+                  📝
+                </button>
+              ` : ''}
+              ${canApprove ? `
+                <button 
+                  onclick="window.dashboardApp.approveTask('${task.id}')" 
+                  class="text-green-600 hover:text-green-800" 
+                  title="อนุมัติงาน"
+                >
+                  ✅
+                </button>
+              ` : ''}
+              ${canEdit ? `
+                <button 
+                  onclick="window.dashboardApp.openEditTaskModal('${task.id}')" 
+                  class="text-blue-600 hover:text-blue-800" 
+                  title="แก้ไขงาน"
+                >
+                  ✏️
+                </button>
+              ` : ''}
+              ${canDelete ? `
+                <button 
+                  onclick="window.dashboardApp.deleteTask('${task.id}')" 
+                  class="text-red-600 hover:text-red-800" 
+                  title="ลบงาน"
+                >
+                  🗑️
+                </button>
+              ` : ''}
+              ${(!canSubmit && !canEdit && !canDelete && !canApprove) ? `
+                <span class="text-xs text-gray-500">ดูอย่างเดียว</span>
+              ` : ''}
             </div>
           </div>
-          <div class="flex space-x-2">
-            <button onclick="window.dashboardApp.editTask('${task.id}')" class="text-blue-600 hover:text-blue-800">✏️</button>
-            <button onclick="window.dashboardApp.deleteTask('${task.id}')" class="text-red-600 hover:text-red-800">🗑️</button>
-          </div>
         </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     
     container.innerHTML = tasksHTML;
   }
@@ -1364,7 +1422,12 @@ class DashboardApp {
     const assignedTo = this.getAssignedToDisplay(task);
     const filesCount = task.files ? task.files.length : 0;
     const tags = task.tags || [];
-    const canSubmit = task.status === 'pending' || task.status === 'in_progress';
+    
+    // ตรวจสอบสิทธิ์ตามบทบาทของผู้ใช้
+    const canSubmit = this.canSubmitTask(task);
+    const canEdit = this.canEditTask(task);
+    const canDelete = this.canDeleteTask(task);
+    const canApprove = this.canApproveTask(task);
     const isSubmitted = task.status === 'submitted' || task.status === 'completed';
 
     return `
@@ -1425,10 +1488,12 @@ class DashboardApp {
                 <i class="fas fa-eye mr-1"></i>
                 ดูรายละเอียด
               </button>
-              <button class="btn btn-outline btn-sm" onclick="dashboardApp.editTask('${task.id}')">
-                <i class="fas fa-edit mr-1"></i>
-                แก้ไข
-              </button>
+              ${canEdit ? `
+                <button class="btn btn-outline btn-sm" onclick="dashboardApp.editTask('${task.id}')">
+                  <i class="fas fa-edit mr-1"></i>
+                  แก้ไข
+                </button>
+              ` : ''}
               ${canSubmit ? `
                 <button class="btn btn-success btn-sm" onclick="dashboardApp.openSubmitTaskModal('${task.id}')">
                   <i class="fas fa-upload mr-1"></i>
@@ -3659,10 +3724,12 @@ class DashboardApp {
               <i class="fas fa-download mr-1"></i>
               ดาวน์โหลด
             </button>
-            <button class="btn btn-sm btn-outline" onclick="dashboardApp.deleteFile('${file.id}')">
-              <i class="fas fa-trash mr-1"></i>
-              ลบ
-            </button>
+            ${this.currentUserId ? `
+              <button class="btn btn-sm btn-outline" onclick="dashboardApp.deleteFile('${file.id}')">
+                <i class="fas fa-trash mr-1"></i>
+                ลบ
+              </button>
+            ` : ''}
           </div>
         </div>
       </div>
@@ -3701,7 +3768,7 @@ class DashboardApp {
         <div class="text-center py-8 text-gray-500">
           <i class="fas fa-folder text-4xl mb-4"></i>
           <p>${searchTerm || taskFilter || typeFilter ? 'ไม่พบไฟล์ที่ตรงกับเงื่อนไข' : 'ยังไม่มีไฟล์'}</p>
-          ${!searchTerm && !taskFilter && !typeFilter ? `
+          ${!searchTerm && !taskFilter && !typeFilter && this.currentUserId ? `
             <button class="btn btn-primary mt-4" onclick="dashboardApp.uploadFile()">
               <i class="fas fa-upload mr-2"></i>
               อัปโหลดไฟล์แรก
@@ -5543,6 +5610,52 @@ class DashboardApp {
       banner.classList.add('hidden');
       console.log('🔓 ซ่อน banner โหมดดูอย่างเดียว');
     }
+  }
+
+  /**
+   * ปิดปุ่มดำเนินการทั้งหมดในโหมดดูอย่างเดียว
+   */
+  disableActionButtons() {
+    // ปุ่มอัปโหลดไฟล์
+    const uploadBtn = document.getElementById('uploadFileBtn');
+    if (uploadBtn) {
+      uploadBtn.disabled = true;
+      uploadBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      uploadBtn.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
+    }
+    
+    // ปุ่มเพิ่มงาน (ถ้ามี)
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    if (addTaskBtn) {
+      addTaskBtn.disabled = true;
+      addTaskBtn.classList.add('opacity-50', 'cursor-not-allowed');
+      addTaskBtn.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
+    }
+    
+    console.log('🔒 ปิดปุ่มดำเนินการสำหรับโหมดดูอย่างเดียว');
+  }
+
+  /**
+   * เปิดปุ่มดำเนินการในโหมดปกติ
+   */
+  enableActionButtons() {
+    // ปุ่มอัปโหลดไฟล์
+    const uploadBtn = document.getElementById('uploadFileBtn');
+    if (uploadBtn) {
+      uploadBtn.disabled = false;
+      uploadBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      uploadBtn.title = 'อัปโหลดไฟล์';
+    }
+    
+    // ปุ่มเพิ่มงาน (ถ้ามี)
+    const addTaskBtn = document.getElementById('addTaskBtn');
+    if (addTaskBtn) {
+      addTaskBtn.disabled = false;
+      addTaskBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+      addTaskBtn.title = 'เพิ่มงานใหม่';
+    }
+    
+    console.log('🔓 เปิดปุ่มดำเนินการสำหรับโหมดปกติ');
   }
 }
 

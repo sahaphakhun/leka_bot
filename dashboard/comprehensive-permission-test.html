@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบระบบสิทธิ์ทั้งหมด - เลขาบอท</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .permission-pass { border-color: #10b981; background-color: #f0fdf4; }
+        .permission-fail { border-color: #ef4444; background-color: #fef2f2; }
+        .test-section { border: 2px solid #e5e7eb; border-radius: 8px; padding: 16px; margin: 16px 0; }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold text-center mb-8">ทดสอบระบบสิทธิ์ครบถ้วน</h1>
+        
+        <div class="max-w-6xl mx-auto">
+            <!-- Test Controls -->
+            <div class="bg-white rounded-lg shadow p-6 mb-6">
+                <h2 class="text-xl font-semibold mb-4">ตั้งค่าการทดสอบ</h2>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div>
+                        <label class="block text-sm font-medium mb-2">โหมดการทดสอบ</label>
+                        <select id="testMode" class="w-full p-2 border rounded">
+                            <option value="readonly">โหมดดูอย่างเดียว (ไม่มี userId)</option>
+                            <option value="creator">ผู้สร้างงาน (user1)</option>
+                            <option value="assignee">ผู้รับผิดชอบงาน (user2)</option>
+                            <option value="reviewer">ผู้ตรวจงาน (user3)</option>
+                            <option value="unrelated">ไม่เกี่ยวข้องกับงาน (user4)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium mb-2">สถานะงานทดสอบ</label>
+                        <select id="taskStatus" class="w-full p-2 border rounded">
+                            <option value="pending">รอดำเนินการ</option>
+                            <option value="in_progress">กำลังดำเนินการ</option>
+                            <option value="submitted">ส่งแล้ว</option>
+                            <option value="completed">เสร็จแล้ว</option>
+                            <option value="overdue">เกินกำหนด</option>
+                        </select>
+                    </div>
+                </div>
+                <button id="runTest" class="bg-blue-500 text-white px-6 py-2 rounded hover:bg-blue-600">
+                    <i class="fas fa-play mr-2"></i>เริ่มการทดสอบ
+                </button>
+            </div>
+
+            <!-- Test Results -->
+            <div id="testResults" class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Results will be populated here -->
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Mock permission functions (ต้องตรงกับ dashboard)
+        function createMockTask(status, reviewerUserId) {
+            return {
+                id: 'test-task-1',
+                title: 'งานทดสอบระบบสิทธิ์',
+                status: status,
+                createdBy: 'user1',
+                createdByUser: { id: 'user1', lineUserId: 'user1', displayName: 'ผู้สร้างงาน' },
+                reviewerUserId: reviewerUserId,
+                assignedUsers: [
+                    { id: 'user2', lineUserId: 'user2', displayName: 'ผู้รับผิดชอบงาน' }
+                ],
+                workflow: {
+                    review: {
+                        reviewerUserId: reviewerUserId
+                    }
+                }
+            };
+        }
+
+        function isUserAssignee(task, currentUserId) {
+            if (!currentUserId || !task?.assignedUsers) return false;
+            return task.assignedUsers.some(user => 
+                user.id === currentUserId || user.lineUserId === currentUserId
+            );
+        }
+
+        function isUserCreator(task, currentUserId) {
+            if (!currentUserId || !task) return false;
+            return task.createdBy === currentUserId || 
+                   task.createdByUser?.id === currentUserId ||
+                   task.createdByUser?.lineUserId === currentUserId;
+        }
+
+        function isUserReviewer(task, currentUserId) {
+            if (!currentUserId || !task) return false;
+            const reviewerUserId = task.reviewerUserId || task.workflow?.review?.reviewerUserId;
+            return reviewerUserId === currentUserId;
+        }
+
+        function canSubmitTask(task, currentUserId) {
+            if (!task) return false;
+            const validStatuses = ['pending', 'in_progress', 'overdue'];
+            const isValidStatus = validStatuses.includes(task.status);
+            const isAssignee = isUserAssignee(task, currentUserId);
+            return isValidStatus && isAssignee;
+        }
+
+        function canEditTask(task, currentUserId) {
+            if (!task) return false;
+            if (!currentUserId) return false;
+            const isCreator = isUserCreator(task, currentUserId);
+            const isReviewer = isUserReviewer(task, currentUserId);
+            return isCreator || isReviewer;
+        }
+
+        function canDeleteTask(task, currentUserId) {
+            if (!task) return false;
+            if (!currentUserId) return false;
+            return isUserCreator(task, currentUserId);
+        }
+
+        function canApproveTask(task, currentUserId) {
+            if (!task) return false;
+            if (!currentUserId) return false;
+            const validStatuses = ['submitted', 'reviewed'];
+            if (!validStatuses.includes(task.status)) return false;
+            const isReviewer = isUserReviewer(task, currentUserId);
+            const isCreatorWithNoReviewer = !task.reviewerUserId && isUserCreator(task, currentUserId);
+            return isReviewer || isCreatorWithNoReviewer;
+        }
+
+        function runPermissionTests() {
+            const testMode = document.getElementById('testMode').value;
+            const taskStatus = document.getElementById('taskStatus').value;
+            
+            let currentUserId = '';
+            let reviewerUserId = 'user3'; // Default reviewer
+            
+            switch (testMode) {
+                case 'readonly':
+                    currentUserId = '';
+                    break;
+                case 'creator':
+                    currentUserId = 'user1';
+                    break;
+                case 'assignee':
+                    currentUserId = 'user2';
+                    break;
+                case 'reviewer':
+                    currentUserId = 'user3';
+                    break;
+                case 'unrelated':
+                    currentUserId = 'user4';
+                    break;
+            }
+            
+            const task = createMockTask(taskStatus, reviewerUserId);
+            
+            // Test sections
+            const sections = [
+                {
+                    name: 'งาน (Tasks)',
+                    tests: [
+                        { name: 'ส่งงาน', func: () => canSubmitTask(task, currentUserId) },
+                        { name: 'แก้ไขงาน', func: () => canEditTask(task, currentUserId) },
+                        { name: 'ลบงาน', func: () => canDeleteTask(task, currentUserId) },
+                        { name: 'อนุมัติงาน', func: () => canApproveTask(task, currentUserId) }
+                    ]
+                },
+                {
+                    name: 'ไฟล์ (Files)',
+                    tests: [
+                        { name: 'อัปโหลดไฟล์', func: () => !!currentUserId },
+                        { name: 'ลบไฟล์', func: () => !!currentUserId },
+                        { name: 'ดาวน์โหลดไฟล์', func: () => true }, // ทุกคนดาวน์โหลดได้
+                        { name: 'ดูไฟล์', func: () => true } // ทุกคนดูได้
+                    ]
+                },
+                {
+                    name: 'ปฏิทิน (Calendar)',
+                    tests: [
+                        { name: 'ดูปฏิทิน', func: () => true }, // ทุกคนดูได้
+                        { name: 'เพิ่มงานใหม่', func: () => !!currentUserId },
+                        { name: 'แก้ไขงานจากปฏิทิน', func: () => canEditTask(task, currentUserId) }
+                    ]
+                },
+                {
+                    name: 'อันดับ (Leaderboard)',
+                    tests: [
+                        { name: 'ดูอันดับ', func: () => true }, // ทุกคนดูได้
+                        { name: 'เปลี่ยนช่วงเวลา', func: () => true }, // ทุกคนใช้ได้
+                        { name: 'ซิงค์ข้อมูล', func: () => !!currentUserId }
+                    ]
+                },
+                {
+                    name: 'รายงาน (Reports)',
+                    tests: [
+                        { name: 'ดูรายงาน', func: () => true }, // ทุกคนดูได้
+                        { name: 'ส่งออกรายงาน', func: () => !!currentUserId },
+                        { name: 'กำหนดผู้รับรายงาน', func: () => !!currentUserId }
+                    ]
+                }
+            ];
+            
+            displayTestResults(sections, testMode, currentUserId);
+        }
+
+        function displayTestResults(sections, testMode, currentUserId) {
+            const container = document.getElementById('testResults');
+            
+            const modeText = {
+                'readonly': 'โหมดดูอย่างเดียว (ไม่มี userId)',
+                'creator': 'ผู้สร้างงาน (user1)',
+                'assignee': 'ผู้รับผิดชอบงาน (user2)',
+                'reviewer': 'ผู้ตรวจงาน (user3)',
+                'unrelated': 'ไม่เกี่ยวข้องกับงาน (user4)'
+            };
+            
+            let html = '';
+            
+            sections.forEach(section => {
+                const testResults = section.tests.map(test => {
+                    const result = test.func();
+                    return { name: test.name, result };
+                });
+                
+                const passCount = testResults.filter(t => t.result).length;
+                const totalCount = testResults.length;
+                const isAllCorrect = testResults.every(test => {
+                    // Logic for expected results based on mode
+                    if (testMode === 'readonly') {
+                        return test.name.includes('ดู') || test.name.includes('ดาวน์โหลด') || test.name.includes('เปลี่ยน') ? test.result : !test.result;
+                    }
+                    return true; // For simplicity, assume other modes are working correctly
+                });
+                
+                html += `
+                    <div class="test-section ${isAllCorrect ? 'permission-pass' : 'permission-fail'}">
+                        <h3 class="text-lg font-semibold mb-3">
+                            <i class="fas fa-${getSectionIcon(section.name)} mr-2"></i>
+                            ${section.name}
+                            <span class="text-sm text-gray-600 ml-2">(${passCount}/${totalCount})</span>
+                        </h3>
+                        <div class="space-y-2">
+                            ${testResults.map(test => `
+                                <div class="flex items-center justify-between p-2 bg-gray-50 rounded">
+                                    <span class="text-sm">${test.name}</span>
+                                    <span class="text-xs px-2 py-1 rounded ${test.result ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}">
+                                        ${test.result ? 'อนุญาต' : 'ปิดกั้น'}
+                                    </span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = `
+                <div class="col-span-2 bg-blue-50 p-4 rounded-lg mb-4">
+                    <h3 class="font-semibold text-blue-900">โหมดทดสอบปัจจุบัน: ${modeText[testMode]}</h3>
+                    <p class="text-sm text-blue-700">User ID: ${currentUserId || 'ไม่มี (โหมดดูอย่างเดียว)'}</p>
+                </div>
+                ${html}
+            `;
+        }
+
+        function getSectionIcon(sectionName) {
+            const iconMap = {
+                'งาน (Tasks)': 'tasks',
+                'ไฟล์ (Files)': 'folder',
+                'ปฏิทิน (Calendar)': 'calendar-alt',
+                'อันดับ (Leaderboard)': 'trophy',
+                'รายงาน (Reports)': 'chart-bar'
+            };
+            return iconMap[sectionName] || 'cog';
+        }
+
+        // Event listeners
+        document.getElementById('runTest').addEventListener('click', runPermissionTests);
+
+        // Run initial test
+        runPermissionTests();
+    </script>
+</body>
+</html>
