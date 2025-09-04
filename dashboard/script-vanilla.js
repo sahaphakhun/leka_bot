@@ -1988,6 +1988,9 @@ class DashboardApp {
         overlay.appendChild(modal);
         modal.classList.remove('hidden');
         overlay.classList.remove('hidden');
+        
+        // เรียกใช้ setupFileUpload เมื่อเปิด modal
+        this.setupFileUpload();
       });
     }
   }
@@ -3698,11 +3701,15 @@ class DashboardApp {
           ` : ''}
         </div>
         <div class="flex gap-1 mt-2" onclick="event.stopPropagation()">
-          <button class="btn btn-xs bg-blue-500 text-white hover:bg-blue-600 flex-1 px-1 py-1 rounded text-xs" onclick="dashboardApp.downloadFile('${file.id}')" title="ดาวน์โหลด">
-            <i class="fas fa-download"></i>
+          <button class="btn btn-xs bg-blue-500 text-white hover:bg-blue-600 flex-[2] px-2 py-1 rounded text-xs font-medium" 
+                  onclick="dashboardApp.previewFile('${file.id}')" 
+                  title="ดูไฟล์">
+            ดู
           </button>
-          <button class="btn btn-xs bg-red-500 text-white hover:bg-red-600 px-1 py-1 rounded text-xs" onclick="dashboardApp.deleteFile('${file.id}')" title="ลบ">
-            <i class="fas fa-trash"></i>
+          <button class="btn btn-xs bg-green-500 text-white hover:bg-green-600 flex-[1] px-1 py-1 rounded text-xs" 
+                  onclick="dashboardApp.downloadFile('${file.id}')" 
+                  title="ดาวน์โหลด">
+            โหลด
           </button>
         </div>
       </div>
@@ -3751,10 +3758,6 @@ class DashboardApp {
           <button class="btn btn-sm btn-outline" onclick="dashboardApp.downloadFile('${file.id}')">
             <i class="fas fa-download mr-1"></i>
             ดาวน์โหลด
-          </button>
-          <button class="btn btn-sm btn-outline" onclick="dashboardApp.deleteFile('${file.id}')">
-            <i class="fas fa-trash mr-1 text-red-500"></i>
-            ลบ
           </button>
         </div>
       </div>

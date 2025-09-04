@@ -2490,9 +2490,105 @@ class Dashboard {
     return task.createdBy;
   }
 
+  // Setup file upload functionality for create task modal
+  setupTaskFileUpload() {
+    const fileInput = document.getElementById('taskFiles');
+    const fileUploadArea = document.getElementById('fileUploadArea');
+    const fileList = document.getElementById('fileList');
+
+    if (!fileInput || !fileUploadArea || !fileList) return;
+
+    // Remove existing event listeners to prevent duplicates
+    fileUploadArea.replaceWith(fileUploadArea.cloneNode(true));
+    const newUploadArea = document.getElementById('fileUploadArea');
+
+    // Click to upload
+    newUploadArea.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    // File input change
+    fileInput.addEventListener('change', (e) => {
+      this.handleTaskFileSelection(e.target.files);
+    });
+
+    // Drag and drop
+    newUploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      newUploadArea.classList.add('dragover');
+    });
+
+    newUploadArea.addEventListener('dragleave', () => {
+      newUploadArea.classList.remove('dragover');
+    });
+
+    newUploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      newUploadArea.classList.remove('dragover');
+      this.handleTaskFileSelection(e.dataTransfer.files);
+    });
+  }
+
+  // Handle file selection for create task modal
+  handleTaskFileSelection(files) {
+    const fileList = document.getElementById('fileList');
+    if (!fileList) return;
+
+    // Clear previous files
+    fileList.innerHTML = '';
+
+    if (files.length === 0) {
+      fileList.classList.add('hidden');
+      return;
+    }
+
+    fileList.classList.remove('hidden');
+
+    Array.from(files).forEach((file, index) => {
+      const fileItem = document.createElement('div');
+      fileItem.className = 'file-item';
+      fileItem.innerHTML = `
+        <div class="file-info">
+          <div class="file-icon">
+            <i class="fas fa-file"></i>
+          </div>
+          <div class="file-details">
+            <div class="file-name">${this.escapeHtml(file.name)}</div>
+            <div class="file-size">${this.formatFileSize(file.size)}</div>
+          </div>
+        </div>
+        <button type="button" class="file-remove" onclick="dashboard.removeTaskFile(${index})">
+          <i class="fas fa-times"></i>
+        </button>
+      `;
+      fileList.appendChild(fileItem);
+    });
+  }
+
+  // Remove file from task files
+  removeTaskFile(index) {
+    const fileInput = document.getElementById('taskFiles');
+    if (!fileInput) return;
+
+    // Create new FileList without the selected file
+    const dt = new DataTransfer();
+    for (let i = 0; i < fileInput.files.length; i++) {
+      if (i !== index) {
+        dt.items.add(fileInput.files[i]);
+      }
+    }
+    fileInput.files = dt.files;
+
+    // Update UI
+    this.handleTaskFileSelection(fileInput.files);
+  }
+
   openAddTaskModal() {
     this.openModal('addTaskModal');
     this.loadGroupMembers(); // Load members for assignee selection
+    
+    // Setup file upload functionality
+    this.setupTaskFileUpload();
 
     // ตั้งค่า UI Recurrence
     const recurrenceType = document.getElementById('recurrenceType');
@@ -3719,27 +3815,27 @@ class Dashboard {
         <div style="display: flex; gap: 8px;">
           ${file.mimeType === 'application/pdf' ? `
             <button class="btn btn-primary" onclick="event.stopPropagation(); dashboard.viewPdfFile('${file.id}')" 
-                    style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
+                    style="flex: 2; padding: 8px 12px; font-size: 0.85rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
                     onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
-              <i class="fas fa-eye"></i> ดู PDF
+              ดู PDF
             </button>
           ` : file.mimeType.startsWith('image/') ? `
             <button class="btn btn-primary" onclick="event.stopPropagation(); dashboard.viewImageFile('${file.id}')" 
-                    style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
+                    style="flex: 2; padding: 8px 12px; font-size: 0.85rem; background: #3b82f6; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
                     onmouseover="this.style.background='#2563eb'" onmouseout="this.style.background='#3b82f6'">
-              <i class="fas fa-eye"></i> ดูรูป
+              ดูรูป
             </button>
           ` : `
             <button class="btn btn-outline" onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')" 
-                    style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: white; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
+                    style="flex: 2; padding: 8px 12px; font-size: 0.85rem; background: white; color: #374151; border: 1px solid #d1d5db; border-radius: 6px; cursor: pointer; transition: all 0.2s ease;"
                     onmouseover="this.style.background='#f9fafb'; this.style.borderColor='#9ca3af'" onmouseout="this.style.background='white'; this.style.borderColor='#d1d5db'">
-              <i class="fas fa-eye"></i> ดู
+              ดู
             </button>
           `}
           <button class="btn btn-success" onclick="event.stopPropagation(); dashboard.downloadFile('${file.id}')" 
-                  style="padding: 8px 12px; font-size: 0.85rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
+                  style="flex: 1; padding: 8px 12px; font-size: 0.85rem; background: #10b981; color: white; border: none; border-radius: 6px; cursor: pointer; transition: background 0.2s ease;"
                   onmouseover="this.style.background='#059669'" onmouseout="this.style.background='#10b981'">
-            <i class="fas fa-download"></i>
+            โหลด
           </button>
         </div>
       </div>
