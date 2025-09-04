@@ -31,7 +31,20 @@ class DashboardApp {
         status: 'pending',
         priority: 'medium',
         dueTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+        group: { id: 'group1', name: 'กลุ่มทดสอบ' },
+        createdBy: 'user123',
+        createdByUser: {
+          id: 'user123',
+          lineUserId: 'Uc92411a226e4d4c9866adef05068bdf1',
+          displayName: 'ผู้ใช้ทดสอบ'
+        },
+        assignedUsers: [
+          {
+            id: 'user123',
+            lineUserId: 'Uc92411a226e4d4c9866adef05068bdf1',
+            displayName: 'ผู้ใช้ทดสอบ'
+          }
+        ]
       },
       {
         id: 'task2', 
@@ -40,7 +53,20 @@ class DashboardApp {
         status: 'completed',
         priority: 'high',
         dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group2', name: 'กลุ่มทดสอบ 2' }
+        group: { id: 'group2', name: 'กลุ่มทดสอบ 2' },
+        createdBy: 'user456',
+        createdByUser: {
+          id: 'user456',
+          lineUserId: 'Uc92411a226e4d4c9866adef05068bdf2',
+          displayName: 'ผู้ใช้คนอื่น'
+        },
+        assignedUsers: [
+          {
+            id: 'user123',
+            lineUserId: 'Uc92411a226e4d4c9866adef05068bdf1',
+            displayName: 'ผู้ใช้ทดสอบ'
+          }
+        ]
       },
       {
         id: 'task3', 
@@ -49,7 +75,20 @@ class DashboardApp {
         status: 'overdue',
         priority: 'low',
         dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+        group: { id: 'group1', name: 'กลุ่มทดสอบ' },
+        createdBy: 'user789',
+        createdByUser: {
+          id: 'user789',
+          lineUserId: 'Uc92411a226e4d4c9866adef05068bdf3',
+          displayName: 'ผู้ใช้คนที่สาม'
+        },
+        assignedUsers: [
+          {
+            id: 'user456',
+            lineUserId: 'Uc92411a226e4d4c9866adef05068bdf2',
+            displayName: 'ผู้ใช้คนอื่น'
+          }
+        ]
       }
     ];
   }
@@ -979,6 +1018,7 @@ class DashboardApp {
       user.lineUserId === this.currentUserId
     );
     
+    console.log('canSubmitTask - validStatus:', validStatus, 'currentUserId:', this.currentUserId, 'isAssignee:', isAssignee);
     return isAssignee;
   }
 
@@ -989,9 +1029,12 @@ class DashboardApp {
     // ตรวจสอบว่าผู้ใช้เป็นผู้สร้างงานหรือไม่
     if (!this.currentUserId) return false;
     
-    return task.createdBy === this.currentUserId || 
+    const result = task.createdBy === this.currentUserId || 
            task.createdByUser?.id === this.currentUserId || 
            task.createdByUser?.lineUserId === this.currentUserId;
+           
+    console.log('canEditTask - currentUserId:', this.currentUserId, 'task.createdBy:', task.createdBy, 'task.createdByUser:', task.createdByUser, 'result:', result);
+    return result;
   }
 
   /**
@@ -999,7 +1042,9 @@ class DashboardApp {
    */
   canDeleteTask(task) {
     // ใช้กฎเดียวกับการแก้ไขงาน
-    return this.canEditTask(task);
+    const result = this.canEditTask(task);
+    console.log('canDeleteTask - result:', result);
+    return result;
   }
 
   /**
@@ -2575,6 +2620,11 @@ class DashboardApp {
 
       this.populateTaskDetailModal(detailedTask);
       this.openModal('taskDetailModal');
+      
+      // Delay updating buttons to ensure DOM is fully loaded
+      setTimeout(() => {
+        this.updateTaskDetailButtons(detailedTask);
+      }, 100);
     } catch (error) {
       console.error('Error opening task detail:', error);
       this.showToast('เกิดข้อผิดพลาดในการโหลดรายละเอียดงาน', 'error');
@@ -2721,58 +2771,48 @@ class DashboardApp {
     const notesEl = document.getElementById('taskDetailNotes');
     let notesHTML = '';
     
-    // Add task notes if they exist
+    // Task notes
     if (task.notes) {
       notesHTML += `
         <div class="mb-4">
-          <h5 class="font-medium text-gray-900 mb-2">หมายเหตุงาน:</h5>
-          <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
-            <p class="text-gray-700">${this.escapeHtml(task.notes)}</p>
+          <h5 class="font-medium text-gray-900 mb-2">หมายเหตุของงาน</h5>
+          <div class="bg-gray-50 p-3 rounded-lg">
+            <p class="text-gray-700 whitespace-pre-wrap">${this.escapeHtml(task.notes)}</p>
           </div>
         </div>
       `;
     }
-    
-    // Add submission comments if they exist
+
+    // Submission comments
     if (task.workflow && task.workflow.submissions && Array.isArray(task.workflow.submissions)) {
-      const submissionsWithComments = task.workflow.submissions.filter(submission => submission.comment && submission.comment.trim());
-      
-      if (submissionsWithComments.length > 0) {
-        notesHTML += `
-          <div class="mb-4">
-            <h5 class="font-medium text-gray-900 mb-2">หมายเหตุจากผู้ส่งงาน:</h5>
-            <div class="space-y-3">
-        `;
-        
-        submissionsWithComments.forEach((submission, index) => {
-          const submissionDate = submission.submittedAt ? new Date(submission.submittedAt).toLocaleDateString('th-TH', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-          }) : 'ไม่ระบุวันที่';
-          
-          const lateIndicator = submission.lateSubmission ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">ส่งช้า</span>' : '';
+      task.workflow.submissions.forEach((submission, index) => {
+        if (submission.comment) {
+          const submitter = submission.submittedByUser ? 
+            (submission.submittedByUser.displayName || submission.submittedByUser.name || 'ไม่ระบุชื่อ') : 
+            'ไม่ระบุผู้ส่ง';
+            
+          const submitDate = submission.submittedAt ? 
+            new Date(submission.submittedAt).toLocaleString('th-TH') : 
+            'ไม่ระบุวันที่';
+            
+          const isLate = submission.isLate ? ' (ส่งเกินกำหนด)' : '';
           
           notesHTML += `
-            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
-              <div class="flex items-center justify-between mb-2">
-                <div class="text-sm font-medium text-green-800">การส่งครั้งที่ ${submissionsWithComments.length - index}</div>
-                <div class="text-xs text-green-600">${submissionDate}${lateIndicator}</div>
+            <div class="mb-4">
+              <h5 class="font-medium text-gray-900 mb-2">ความคิดเห็นครั้งที่ ${index + 1}${isLate}</h5>
+              <div class="bg-green-50 border border-green-200 p-3 rounded-lg">
+                <div class="flex justify-between text-sm text-green-700 mb-2">
+                  <span>โดย: ${this.escapeHtml(submitter)}</span>
+                  <span>${submitDate}</span>
+                </div>
+                <p class="text-gray-700 whitespace-pre-wrap">${this.escapeHtml(submission.comment)}</p>
               </div>
-              <p class="text-gray-700">${this.escapeHtml(submission.comment)}</p>
             </div>
           `;
-        });
-        
-        notesHTML += `
-            </div>
-          </div>
-        `;
-      }
+        }
+      });
     }
-    
+
     // If no notes or comments exist, show default message
     if (!notesHTML) {
       notesHTML = '<div class="text-gray-500 text-center py-4">ไม่มีหมายเหตุหรือคำอธิบายเพิ่มเติม</div>';
@@ -2780,8 +2820,8 @@ class DashboardApp {
     
     notesEl.innerHTML = notesHTML;
 
-    // Action buttons
-    this.updateTaskDetailButtons(task);
+    // Action buttons - removed immediate call to updateTaskDetailButtons
+    // Will be called after modal is fully opened in openTaskDetail function
   }
 
   async loadTaskFilesComprehensive(task) {
@@ -2853,6 +2893,13 @@ class DashboardApp {
     [submitBtn, completeBtn, reopenBtn, editBtn, deleteBtn].forEach(btn => {
       if (btn) btn.style.display = 'none';
     });
+
+    // Debug logging
+    console.log('User ID:', this.currentUserId);
+    console.log('Task:', task);
+    console.log('Can submit:', this.canSubmitTask(task));
+    console.log('Can edit:', this.canEditTask(task));
+    console.log('Can delete:', this.canDeleteTask(task));
 
     // Show appropriate buttons based on status and permissions
     if (this.canSubmitTask(task) && submitBtn) {
