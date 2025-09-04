@@ -75,6 +75,22 @@ export class TaskService {
     fileIds?: string[]; // ไฟล์ที่แนบมาตอนสร้างงาน
   }): Promise<Task> {
     try {
+      // ตรวจสอบความถูกต้องของข้อมูลที่จำเป็น
+      if (!data.title || !data.title.trim()) {
+        throw new Error('ชื่องานเป็นฟิลด์ที่จำเป็น');
+      }
+      if (!data.createdBy || !data.createdBy.trim()) {
+        throw new Error('ต้องระบุผู้สร้างงาน (createdBy)');
+      }
+      if (!data.groupId || !data.groupId.trim()) {
+        throw new Error('ต้องระบุกลุ่ม (groupId)');
+      }
+      if (!data.assigneeIds || data.assigneeIds.length === 0) {
+        throw new Error('ต้องระบุผู้รับผิดชอบอย่างน้อย 1 คน');
+      }
+      if (!data.dueTime) {
+        throw new Error('ต้องระบุวันที่กำหนดส่ง');
+      }
       // ค้นหา Group entity จาก LINE Group ID หรือ internal UUID
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.groupId);
       const group = isUuid

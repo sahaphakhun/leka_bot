@@ -2255,12 +2255,23 @@ class DashboardApp {
       // แปลง tags เป็น array
       const tags = this.parseTags(formData.get('taskTags'));
 
-      // กำหนดผู้สร้างงาน (ต้องเป็น LINE userId ที่มีอยู่ในระบบ)
+      // กำหนดผู้สร้างงาน - ใช้ userId จาก URL parameter หรือ fallback เป็นผู้ใช้ปัจจุบัน
+      const urlParams = new URLSearchParams(window.location.search);
+      const userIdFromUrl = urlParams.get('userId'); // LINE User ID จาก URL
+      
       const selectedAssignees = this.getSelectedAssignees();
-      const createdByLineUserId =
-        (this.currentUser && /^U[0-9A-Za-z]+$/.test(this.currentUser.lineUserId || ''))
+      
+      // ลำดับความสำคัญ: URL userId > current user > ผู้รับผิดชอบคนแรก
+      const createdByLineUserId = userIdFromUrl 
+        ? userIdFromUrl
+        : (this.currentUser && /^U[0-9A-Za-z]+$/.test(this.currentUser.lineUserId || ''))
           ? this.currentUser.lineUserId
           : (selectedAssignees.find(id => /^U[0-9A-Za-z]+$/.test(id)) || undefined);
+      
+      // ตรวจสอบว่ามี createdBy
+      if (!createdByLineUserId) {
+        throw new Error('ไม่สามารถระบุผู้สร้างงานได้ กรุณาเข้าใช้จากลิงก์ LINE ที่ถูกต้อง');
+      }
       
       const requestData = {
         title: formData.get('taskTitle'),

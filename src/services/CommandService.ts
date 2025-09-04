@@ -205,14 +205,27 @@ ${supervisorNames}
    * เพิ่มงานจากคำสั่งธรรมชาติ
    */
   private async handleAddTaskCommand(command: BotCommand): Promise<string | any> {
-    // เปลี่ยนเป็นแสดงการ์ดพร้อมปุ่มไปหน้าเว็บเพิ่มงาน
     try {
+      // ตรวจสอบว่ามีข้อความรายละเอียดงานหรือไม่ (เช่น เพิ่มงาน "ชื่องาน" @คน due 25/12)
+      if (command.args.length > 0 || command.mentions.length > 0) {
+        // ใช้ natural language parsing เพื่อสร้างงานทันที
+        return await this.handleNaturalLanguageTaskCreation(command);
+      }
+
+      // ถ้าไม่มีรายละเอียด แสดงการ์ดพร้อมปุ่มไปหน้าเว็บเพิ่มงาน
       const newTaskUrl = UrlBuilder.getNewTaskUrl(command.groupId, command.userId);
 
       const content = [
         FlexMessageDesignSystem.createText(
           'กดปุ่มด้านล่างเพื่อเปิดหน้าเว็บกรอกข้อมูลงาน (ชื่องาน กำหนดส่ง ผู้รับผิดชอบ แท็ก ฯลฯ) โดยระบบเลือกกลุ่มให้อัตโนมัติ',
           'sm',
+          FlexMessageDesignSystem.colors.textSecondary,
+          undefined,
+          true
+        ),
+        FlexMessageDesignSystem.createText(
+          '💡 หรือพิมพ์: เพิ่มงาน "ชื่องาน" @คน due 25/12 14:00',
+          'xs',
           FlexMessageDesignSystem.colors.textSecondary,
           undefined,
           true
@@ -243,6 +256,116 @@ ${supervisorNames}
       logger.error('Error generating add task card:', error);
       return 'เกิดข้อผิดพลาดในการสร้างการ์ดเพิ่มงาน กรุณาลองใหม่';
     }
+  }
+
+  /**
+   * จัดการการสร้างงานจากภาษาธรรมชาติ
+   * เช่น: เพิ่มงาน "ทำรายงาน" @สมชาย @me due 25/12 14:00 #สำคัญ
+   */
+  private async handleNaturalLanguageTaskCreation(command: BotCommand): Promise<string | any> {
+    try {
+      // รวมข้อความทั้งหมด
+      const fullText = command.originalText;
+      
+      // แยกวิเคราะห์ข้อมูลงาน
+      const taskData = this.parseTaskFromText(fullText, command);
+      
+      if (!taskData.title) {
+        return '❌ กรุณาระบุชื่องาน\n\n💡 ตัวอย่าง: เพิ่มงาน "ทำรายงาน" @สมชาย due 25/12 14:00';
+      }
+      
+      if (!taskData.assigneeIds || taskData.assigneeIds.length === 0) {
+        return '❌ กรุณาระบุผู้รับผิดชอบ (@คน หรือ @me)\n\n💡 ตัวอย่าง: เพิ่มงาน "ทำรายงาน" @สมชาย @me due 25/12';
+      }
+      
+      // สร้างงาน
+      const task = await this.taskService.createTask({
+        groupId: command.groupId,
+        title: taskData.title,
+        description: taskData.description,
+        assigneeIds: taskData.assigneeIds,
+        createdBy: command.userId, // สำคัญ: ใช้ userId ของคนที่ส่งคำสั่ง
+        dueTime: taskData.dueTime || new Date(Date.now() + 24 * 60 * 60 * 1000), // ถ้าไม่มี dueTime ให้ตั้งเป็นพรุ่งนี้
+        priority: taskData.priority || 'medium',
+        tags: taskData.tags || [],
+        requireAttachment: false
+      });
+      
+      // ส่งการแจ้งเตือน - ใช้ NotificationService
+      const notificationService = new (await import('./NotificationService')).NotificationService();
+      await notificationService.sendTaskCreatedNotification(task);
+      
+      return `✅ สร้างงานเรียบร้อยแล้ว!\n\n📋 ${task.title}\n👥 ผู้รับผิดชอบ: ${taskData.assigneeIds.length} คน\n📅 กำหนดส่ง: ${taskData.dueTime ? new Date(taskData.dueTime).toLocaleDateString('th-TH') : 'ไม่กำหนด'}\n\n💡 ดูรายละเอียดใน Dashboard หรือรอการ์ดจากบอท`;
+      
+    } catch (error) {
+      logger.error('Error creating task from natural language:', error);
+      return `❌ ไม่สามารถสร้างงานได้: ${error instanceof Error ? error.message : 'เกิดข้อผิดพลาด'}\n\n💡 ลองใช้การ์ดเพิ่มงานแทน หรือตรวจสอบรูปแบบคำสั่ง`;
+    }
+  }
+  
+  /**
+   * แยกวิเคราะห์ข้อมูลงานจากข้อความ
+   */
+  private parseTaskFromText(text: string, command: BotCommand): {
+    title?: string;
+    description?: string;
+    assigneeIds: string[];
+    dueTime?: Date;
+    priority?: 'low' | 'medium' | 'high';
+    tags?: string[];
+  } {
+    const result: any = {
+      assigneeIds: [],
+      tags: []
+    };
+    
+    // ลบคำสั่ง "เพิ่มงาน" ออก
+    let cleanText = text.replace(/^(เพิ่มงาน|add)\s*/i, '').trim();
+    
+    // แยกชื่องาน (ข้อความในเครื่องหมายคำพูด)
+    const titleMatch = cleanText.match(/"([^"]+)"|'([^']+)'|([^@#\s]+(?:\s+[^@#\s]+)*)/i);
+    if (titleMatch) {
+      result.title = (titleMatch[1] || titleMatch[2] || titleMatch[3] || '').trim();
+      cleanText = cleanText.replace(titleMatch[0], '').trim();
+    }
+    
+    // แยก mentions (ผู้รับผิดชอบ)
+    result.assigneeIds = [...command.mentions]; // ใช้ mentions ที่แยกแล้วจาก command
+    
+    // ถ้าพบ @me ให้เพิ่มผู้ส่งคำสั่ง
+    if (/@me\b/i.test(text)) {
+      result.assigneeIds.push(command.userId);
+    }
+    
+    // แยกวันที่กำหนดส่ง (due)
+    const dueMatch = cleanText.match(/due\s+([0-9]{1,2})\/([0-9]{1,2})(?:\/([0-9]{2,4}))?(?:\s+([0-9]{1,2}):([0-9]{2}))?/i);
+    if (dueMatch) {
+      const day = parseInt(dueMatch[1]);
+      const month = parseInt(dueMatch[2]);
+      const year = dueMatch[3] ? parseInt(dueMatch[3]) : new Date().getFullYear();
+      const hour = dueMatch[4] ? parseInt(dueMatch[4]) : 23;
+      const minute = dueMatch[5] ? parseInt(dueMatch[5]) : 59;
+      
+      // แปลงเป็น Date
+      result.dueTime = new Date(year, month - 1, day, hour, minute);
+    }
+    
+    // แยกแท็ก (#แท็ก)
+    const tagMatches = cleanText.match(/#([^\s#]+)/g);
+    if (tagMatches) {
+      result.tags = tagMatches.map(tag => tag.substring(1));
+    }
+    
+    // กำหนดความสำคัญจากแท็ก
+    if (result.tags.some((tag: string) => ['ด่วน', 'สำคัญ', 'urgent', 'high'].includes(tag.toLowerCase()))) {
+      result.priority = 'high';
+    } else if (result.tags.some((tag: string) => ['ปานกลาง', 'medium'].includes(tag.toLowerCase()))) {
+      result.priority = 'medium';
+    } else if (result.tags.some((tag: string) => ['ต่ำ', 'low'].includes(tag.toLowerCase()))) {
+      result.priority = 'low';
+    }
+    
+    return result;
   }
 
 

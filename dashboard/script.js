@@ -3099,7 +3099,19 @@ class Dashboard {
       taskData.dueTime = this.formatDateForAPI(dueDate);
       taskData.priority = document.getElementById('taskPriority')?.value || 'medium';
       taskData.assigneeIds = assigneeIds;
-      taskData.createdBy = this.currentUserId || 'unknown';
+      
+      // กำหนดผู้สร้างงาน - ใช้ userId จาก URL parameter หรือ fallback เป็น currentUserId
+      const urlParams = new URLSearchParams(window.location.search);
+      const userIdFromUrl = urlParams.get('userId'); // LINE User ID จาก URL
+      
+      // ลำดับความสำคัญ: URL userId > current user ID > fallback
+      const createdBy = userIdFromUrl 
+        ? userIdFromUrl
+        : this.currentUserId 
+          ? this.currentUserId
+          : 'unknown';
+      
+      taskData.createdBy = createdBy;
       taskData.requireAttachment = document.getElementById('requireAttachment').checked;
       
       // แสดงสถานะ success สำหรับฟิลด์ที่จำเป็น
@@ -3147,7 +3159,7 @@ class Dashboard {
             dayOfMonth: (recurrenceType === 'monthly' || recurrenceType === 'quarterly') ? parseInt(document.getElementById('dayOfMonthInput').value || '1', 10) : undefined,
             timeOfDay: document.getElementById('timeOfDayInput').value || '09:00',
             timezone: this.timezone, // ใช้ timezone ที่ตั้งค่าไว้ใน class
-            createdBy: this.currentUserId || 'unknown'
+            createdBy: userIdFromUrl || this.currentUserId || 'unknown' // ใช้ userId จาก URL หรือ fallback
           };
           
           // เพิ่มฟิลด์ที่ไม่จำเป็นเฉพาะเมื่อมีค่า
