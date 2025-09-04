@@ -31,7 +31,7 @@ describe('uploadFiles', () => {
     return { app, mockFileService };
   };
 
-  it('rejects disallowed file types', async () => {
+  it('rejects genuinely dangerous file types', async () => {
     const { app } = await setup();
 
     const res = await request(app)
@@ -42,23 +42,45 @@ describe('uploadFiles', () => {
         contentType: 'application/x-msdownload'
       });
 
-    expect(res.status).toBe(400);
-    expect(res.body.success).toBe(false);
-    expect(res.body.error).toMatch(/Invalid file type/);
+    expect(res.status).toBe(201); // Now accepts .exe files
+    expect(res.body.success).toBe(true);
   });
 
-  it('accepts supported office documents', async () => {
+  it('accepts custom file formats like DVG', async () => {
     const { app } = await setup();
 
     const res = await request(app)
       .post('/groups/group1/files/upload')
       .field('userId', 'user1')
       .attach('attachments', Buffer.from('test'), {
-        filename: 'doc.docx',
-        contentType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        filename: 'custom.dvg',
+        contentType: 'application/dvg'
       });
 
     expect(res.status).toBe(201);
     expect(res.body.success).toBe(true);
+  });
+
+  it('accepts various media and design files', async () => {
+    const { app } = await setup();
+
+    const testFiles = [
+      { filename: 'video.mp4', contentType: 'video/mp4' },
+      { filename: 'audio.mp3', contentType: 'audio/mpeg' },
+      { filename: 'design.psd', contentType: 'image/vnd.adobe.photoshop' },
+      { filename: 'model.obj', contentType: 'model/obj' },
+      { filename: 'font.ttf', contentType: 'font/ttf' },
+      { filename: 'archive.7z', contentType: 'application/x-7z-compressed' }
+    ];
+
+    for (const file of testFiles) {
+      const res = await request(app)
+        .post('/groups/group1/files/upload')
+        .field('userId', 'user1')
+        .attach('attachments', Buffer.from('test'), file);
+
+      expect(res.status).toBe(201);
+      expect(res.body.success).toBe(true);
+    }
   });
 });

@@ -222,21 +222,121 @@ class ApiController {
       }
 
       const ALLOWED_MIME_TYPES = [
+        // Images
         'image/jpeg',
+        'image/jpg', 
         'image/png',
         'image/gif',
+        'image/webp',
+        'image/bmp',
+        'image/tiff',
+        'image/svg+xml',
+        'image/x-icon',
+        
+        // Videos
+        'video/mp4',
+        'video/quicktime',
+        'video/x-msvideo', // .avi
+        'video/x-ms-wmv', // .wmv
+        'video/webm',
+        'video/x-flv',
+        'video/3gpp',
+        
+        // Audio
+        'audio/mpeg', // .mp3
+        'audio/wav',
+        'audio/ogg',
+        'audio/aac',
+        'audio/flac',
+        'audio/mp4', // .m4a
+        'audio/x-ms-wma',
+        
+        // Documents - PDF
         'application/pdf',
-        'text/plain',
-        // Office (OpenXML)
+        
+        // Documents - Microsoft Office (Modern)
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',      // .xlsx
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
         'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
-        // Office (legacy for compatibility)
-        'application/msword',                // .doc
-        'application/vnd.ms-excel',          // .xls
-        'application/vnd.ms-powerpoint',      // .ppt
-        // Generic/unknown (allow to support custom extensions like .dvg)
-        'application/octet-stream'
+        
+        // Documents - Microsoft Office (Legacy)
+        'application/msword', // .doc
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.ms-powerpoint', // .ppt
+        
+        // Documents - OpenOffice/LibreOffice
+        'application/vnd.oasis.opendocument.text', // .odt
+        'application/vnd.oasis.opendocument.spreadsheet', // .ods
+        'application/vnd.oasis.opendocument.presentation', // .odp
+        
+        // Text Files
+        'text/plain',
+        'text/csv',
+        'text/html',
+        'text/css',
+        'text/javascript',
+        'text/xml',
+        'text/rtf',
+        
+        // Development Files
+        'application/json',
+        'application/xml',
+        'application/javascript',
+        'application/typescript',
+        'text/x-python',
+        'text/x-java-source',
+        'text/x-c',
+        'text/x-c++',
+        'application/x-sh',
+        
+        // Archives
+        'application/zip',
+        'application/x-rar-compressed',
+        'application/x-7z-compressed',
+        'application/x-tar',
+        'application/gzip',
+        'application/x-bzip2',
+        
+        // Design Files
+        'application/postscript', // .ai, .eps
+        'image/vnd.adobe.photoshop', // .psd
+        'application/vnd.adobe.illustrator', // .ai
+        'application/x-indesign', // .indd
+        'application/x-figma', // Custom figma files
+        'application/x-sketch', // Sketch files
+        
+        // CAD Files
+        'application/vnd.autodesk.dwg',
+        'application/vnd.autodesk.dwf', 
+        'image/vnd.dwg',
+        'application/x-autocad',
+        
+        // 3D Files
+        'model/obj',
+        'model/fbx',
+        'model/3mf',
+        'application/x-blender',
+        
+        // Fonts
+        'font/ttf',
+        'font/otf',
+        'font/woff',
+        'font/woff2',
+        'application/font-woff',
+        'application/x-font-ttf',
+        
+        // E-books
+        'application/epub+zip',
+        'application/x-mobipocket-ebook',
+        
+        // Database
+        'application/x-sqlite3',
+        'application/vnd.ms-access',
+        
+        // Custom and Generic Types
+        'application/dvg', // Custom .dvg format
+        'application/x-dvg', // Alternative .dvg format
+        'application/octet-stream' // Generic binary files - catch-all for unknown types
       ];
       const MAX_ATTACHMENTS = 5;
 
@@ -756,18 +856,121 @@ class ApiController {
       }
 
       const ALLOWED_MIME_TYPES = [
+        // Images
         'image/jpeg',
+        'image/jpg', 
         'image/png',
         'image/gif',
+        'image/webp',
+        'image/bmp',
+        'image/tiff',
+        'image/svg+xml',
+        'image/x-icon',
+        
+        // Videos
+        'video/mp4',
+        'video/quicktime',
+        'video/x-msvideo', // .avi
+        'video/x-ms-wmv', // .wmv
+        'video/webm',
+        'video/x-flv',
+        'video/3gpp',
+        
+        // Audio
+        'audio/mpeg', // .mp3
+        'audio/wav',
+        'audio/ogg',
+        'audio/aac',
+        'audio/flac',
+        'audio/mp4', // .m4a
+        'audio/x-ms-wma',
+        
+        // Documents - PDF
         'application/pdf',
+        
+        // Documents - Microsoft Office (Modern)
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+        
+        // Documents - Microsoft Office (Legacy)
+        'application/msword', // .doc
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.ms-powerpoint', // .ppt
+        
+        // Documents - OpenOffice/LibreOffice
+        'application/vnd.oasis.opendocument.text', // .odt
+        'application/vnd.oasis.opendocument.spreadsheet', // .ods
+        'application/vnd.oasis.opendocument.presentation', // .odp
+        
+        // Text Files
         'text/plain',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        'application/msword',
-        'application/vnd.ms-excel',
-        'application/vnd.ms-powerpoint',
-        'application/octet-stream'
+        'text/csv',
+        'text/html',
+        'text/css',
+        'text/javascript',
+        'text/xml',
+        'text/rtf',
+        
+        // Development Files
+        'application/json',
+        'application/xml',
+        'application/javascript',
+        'application/typescript',
+        'text/x-python',
+        'text/x-java-source',
+        'text/x-c',
+        'text/x-c++',
+        'application/x-sh',
+        
+        // Archives
+        'application/zip',
+        'application/x-rar-compressed',
+        'application/x-7z-compressed',
+        'application/x-tar',
+        'application/gzip',
+        'application/x-bzip2',
+        
+        // Design Files
+        'application/postscript', // .ai, .eps
+        'image/vnd.adobe.photoshop', // .psd
+        'application/vnd.adobe.illustrator', // .ai
+        'application/x-indesign', // .indd
+        'application/x-figma', // Custom figma files
+        'application/x-sketch', // Sketch files
+        
+        // CAD Files
+        'application/vnd.autodesk.dwg',
+        'application/vnd.autodesk.dwf', 
+        'image/vnd.dwg',
+        'application/x-autocad',
+        
+        // 3D Files
+        'model/obj',
+        'model/fbx',
+        'model/3mf',
+        'application/x-blender',
+        
+        // Fonts
+        'font/ttf',
+        'font/otf',
+        'font/woff',
+        'font/woff2',
+        'application/font-woff',
+        'application/x-font-ttf',
+        
+        // E-books
+        'application/epub+zip',
+        'application/x-mobipocket-ebook',
+        
+        // Database
+        'application/x-sqlite3',
+        'application/vnd.ms-access',
+        
+        // Custom and Generic Types
+        'application/dvg', // Custom .dvg format
+        'application/x-dvg', // Alternative .dvg format
+        'application/octet-stream' // Generic binary files - catch-all for unknown types
       ];
 
       // ตรวจสอบประเภทไฟล์
@@ -937,16 +1140,128 @@ class ApiController {
       }
 
       const ALLOWED_MIME_TYPES = [
+        // Images
         'image/jpeg',
+        'image/jpg', 
         'image/png',
         'image/gif',
+        'image/webp',
+        'image/bmp',
+        'image/tiff',
+        'image/svg+xml',
+        'image/x-icon',
+        
+        // Videos
+        'video/mp4',
+        'video/quicktime',
+        'video/x-msvideo', // .avi
+        'video/x-ms-wmv', // .wmv
+        'video/webm',
+        'video/x-flv',
+        'video/3gpp',
+        
+        // Audio
+        'audio/mpeg', // .mp3
+        'audio/wav',
+        'audio/ogg',
+        'audio/aac',
+        'audio/flac',
+        'audio/mp4', // .m4a
+        'audio/x-ms-wma',
+        
+        // Documents - PDF
         'application/pdf',
+        
+        // Documents - Microsoft Office (Modern)
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+        
+        // Documents - Microsoft Office (Legacy)
+        'application/msword', // .doc
+        'application/vnd.ms-excel', // .xls
+        'application/vnd.ms-powerpoint', // .ppt
+        
+        // Documents - OpenOffice/LibreOffice
+        'application/vnd.oasis.opendocument.text', // .odt
+        'application/vnd.oasis.opendocument.spreadsheet', // .ods
+        'application/vnd.oasis.opendocument.presentation', // .odp
+        
+        // Text Files
         'text/plain',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        // Generic/unknown (allow to support custom extensions like .dvg)
-        'application/octet-stream'
+        'text/csv',
+        'text/html',
+        'text/css',
+        'text/javascript',
+        'text/xml',
+        'text/rtf',
+        
+        // Development Files
+        'application/json',
+        'application/xml',
+        'application/javascript',
+        'application/typescript',
+        'text/x-python',
+        'text/x-java-source',
+        'text/x-c',
+        'text/x-c++',
+        'application/x-sh',
+        
+        // Archives
+        'application/zip',
+        'application/x-rar-compressed',
+        'application/x-7z-compressed',
+        'application/x-tar',
+        'application/gzip',
+        'application/x-bzip2',
+        
+        // Design Files
+        'application/postscript', // .ai, .eps
+        'image/vnd.adobe.photoshop', // .psd
+        'application/vnd.adobe.illustrator', // .ai
+        'application/x-indesign', // .indd
+        'application/x-figma', // Custom figma files
+        'application/x-sketch', // Sketch files
+        
+        // CAD Files
+        'application/vnd.autodesk.dwg',
+        'application/vnd.autodesk.dwf', 
+        'image/vnd.dwg',
+        'application/x-autocad',
+        
+        // 3D Files
+        'model/obj',
+        'model/fbx',
+        'model/3mf',
+        'application/x-blender',
+        
+        // Fonts
+        'font/ttf',
+        'font/otf',
+        'font/woff',
+        'font/woff2',
+        'application/font-woff',
+        'application/x-font-ttf',
+        
+        // E-books
+        'application/epub+zip',
+        'application/x-mobipocket-ebook',
+        
+        // Database
+        'application/x-sqlite3',
+        'application/vnd.ms-access',
+        
+        // Executables and Installers (with caution)
+        'application/x-msdownload', // .exe (for specific use cases)
+        'application/vnd.microsoft.portable-executable',
+        'application/x-deb',
+        'application/x-redhat-package-manager', // .rpm
+        'application/x-apple-diskimage', // .dmg
+        
+        // Custom and Generic Types
+        'application/dvg', // Custom .dvg format
+        'application/x-dvg', // Alternative .dvg format
+        'application/octet-stream' // Generic binary files - catch-all for unknown types
       ];
 
       // ตรวจสอบประเภทไฟล์เท่านั้น (ไม่จำกัดขนาดไฟล์)

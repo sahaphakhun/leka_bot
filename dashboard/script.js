@@ -3959,14 +3959,58 @@ class Dashboard {
   }
 
   getFileCategory(mimeType) {
+    // Images
     if (mimeType.startsWith('image/')) return 'image';
+    
+    // Videos
     if (mimeType.startsWith('video/')) return 'video';
+    
+    // Audio
     if (mimeType.startsWith('audio/')) return 'audio';
+    
+    // Documents (including PDFs and Office files)
     if (mimeType.includes('pdf') || mimeType.includes('word') || mimeType.includes('excel') || 
         mimeType.includes('powerpoint') || mimeType.includes('spreadsheet') || 
-        mimeType.includes('presentation') || mimeType.startsWith('text/')) return 'document';
+        mimeType.includes('presentation') || mimeType.startsWith('text/') ||
+        mimeType.includes('opendocument') || mimeType.includes('msword') ||
+        mimeType.includes('wordprocessingml')) return 'document';
+    
+    // Archives
     if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || 
-        mimeType.includes('tar') || mimeType.includes('gz')) return 'archive';
+        mimeType.includes('tar') || mimeType.includes('gz') || mimeType.includes('bzip2')) return 'archive';
+    
+    // Development files
+    if (mimeType.includes('javascript') || mimeType.includes('typescript') || 
+        mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('css') ||
+        mimeType.includes('html') || mimeType.includes('python') || mimeType.includes('java') ||
+        mimeType.includes('cpp') || mimeType.includes('c++') || mimeType.includes('x-sh')) return 'code';
+    
+    // Design files
+    if (mimeType.includes('photoshop') || mimeType.includes('illustrator') || 
+        mimeType.includes('indesign') || mimeType.includes('figma') || 
+        mimeType.includes('sketch') || mimeType.includes('postscript')) return 'design';
+    
+    // CAD files
+    if (mimeType.includes('dwg') || mimeType.includes('dwf') || 
+        mimeType.includes('autocad')) return 'cad';
+    
+    // 3D files
+    if (mimeType.startsWith('model/') || mimeType.includes('blender') || 
+        mimeType.includes('obj') || mimeType.includes('fbx') || mimeType.includes('3mf')) return '3d';
+    
+    // Fonts
+    if (mimeType.startsWith('font/') || mimeType.includes('font')) return 'font';
+    
+    // E-books
+    if (mimeType.includes('epub') || mimeType.includes('mobi')) return 'ebook';
+    
+    // Database
+    if (mimeType.includes('sqlite') || mimeType.includes('access')) return 'database';
+    
+    // Custom formats
+    if (mimeType.includes('dvg')) return 'custom';
+    
+    // Default
     return 'other';
   }
 
@@ -4097,32 +4141,125 @@ class Dashboard {
   }
 
   getFileIcon(mimeType) {
-    if (mimeType.startsWith('image/')) return 'fa-image';
+    // Images
+    if (mimeType.startsWith('image/')) {
+      if (mimeType.includes('svg')) return 'fa-file-image';
+      return 'fa-image';
+    }
+    
+    // Videos
     if (mimeType.startsWith('video/')) return 'fa-video';
+    
+    // Audio
     if (mimeType.startsWith('audio/')) return 'fa-music';
+    
+    // Documents
     if (mimeType.includes('pdf')) return 'fa-file-pdf';
     if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml')) return 'fa-file-word';
     if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('sheet')) return 'fa-file-excel';
     if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return 'fa-file-powerpoint';
-    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('tar') || mimeType.includes('gz')) return 'fa-file-archive';
+    
+    // OpenOffice/LibreOffice
+    if (mimeType.includes('opendocument')) {
+      if (mimeType.includes('text')) return 'fa-file-word';
+      if (mimeType.includes('spreadsheet')) return 'fa-file-excel';
+      if (mimeType.includes('presentation')) return 'fa-file-powerpoint';
+    }
+    
+    // Archives
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || 
+        mimeType.includes('tar') || mimeType.includes('gz') || mimeType.includes('bzip2')) return 'fa-file-archive';
+    
+    // Text and Development
     if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('csv')) return 'fa-file-alt';
     if (mimeType.includes('javascript') || mimeType.includes('typescript')) return 'fa-file-code';
     if (mimeType.includes('html') || mimeType.includes('css')) return 'fa-file-code';
     if (mimeType.includes('python') || mimeType.includes('java') || mimeType.includes('cpp') || mimeType.includes('c++')) return 'fa-file-code';
+    
+    // Design Files
+    if (mimeType.includes('photoshop') || mimeType.includes('psd')) return 'fa-file-image';
+    if (mimeType.includes('illustrator') || mimeType.includes('postscript')) return 'fa-file-image';
+    if (mimeType.includes('indesign') || mimeType.includes('figma') || mimeType.includes('sketch')) return 'fa-palette';
+    
+    // CAD Files
+    if (mimeType.includes('dwg') || mimeType.includes('dwf') || mimeType.includes('autocad')) return 'fa-drafting-compass';
+    
+    // 3D Files
+    if (mimeType.startsWith('model/') || mimeType.includes('blender') || mimeType.includes('obj') || mimeType.includes('fbx')) return 'fa-cube';
+    
+    // Fonts
+    if (mimeType.startsWith('font/') || mimeType.includes('font')) return 'fa-font';
+    
+    // E-books
+    if (mimeType.includes('epub') || mimeType.includes('mobi')) return 'fa-book';
+    
+    // Database
+    if (mimeType.includes('sqlite') || mimeType.includes('access')) return 'fa-database';
+    
+    // Custom formats like DVG
+    if (mimeType.includes('dvg')) return 'fa-file-alt';
+    
+    // Default
     return 'fa-file';
   }
 
   getFileColor(mimeType) {
+    // Images
     if (mimeType.startsWith('image/')) return '#3b82f6';
+    
+    // Videos
     if (mimeType.startsWith('video/')) return '#ef4444';
+    
+    // Audio
     if (mimeType.startsWith('audio/')) return '#8b5cf6';
+    
+    // Documents
     if (mimeType.includes('pdf')) return '#dc2626';
     if (mimeType.includes('word') || mimeType.includes('msword') || mimeType.includes('wordprocessingml')) return '#2563eb';
     if (mimeType.includes('excel') || mimeType.includes('spreadsheet') || mimeType.includes('sheet')) return '#059669';
     if (mimeType.includes('powerpoint') || mimeType.includes('presentation')) return '#ea580c';
+    
+    // OpenOffice/LibreOffice
+    if (mimeType.includes('opendocument')) {
+      if (mimeType.includes('text')) return '#2563eb';
+      if (mimeType.includes('spreadsheet')) return '#059669';
+      if (mimeType.includes('presentation')) return '#ea580c';
+    }
+    
+    // Text and Development
     if (mimeType.startsWith('text/') || mimeType.includes('json') || mimeType.includes('xml') || mimeType.includes('csv')) return '#6b7280';
-    if (mimeType.includes('javascript') || mimeType.includes('typescript') || mimeType.includes('html') || mimeType.includes('css') || mimeType.includes('python') || mimeType.includes('java') || mimeType.includes('cpp') || mimeType.includes('c++')) return '#7c3aed';
-    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || mimeType.includes('tar') || mimeType.includes('gz')) return '#f59e0b';
+    if (mimeType.includes('javascript') || mimeType.includes('typescript') || mimeType.includes('html') || 
+        mimeType.includes('css') || mimeType.includes('python') || mimeType.includes('java') || 
+        mimeType.includes('cpp') || mimeType.includes('c++')) return '#7c3aed';
+    
+    // Archives
+    if (mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('7z') || 
+        mimeType.includes('tar') || mimeType.includes('gz') || mimeType.includes('bzip2')) return '#f59e0b';
+    
+    // Design Files
+    if (mimeType.includes('photoshop') || mimeType.includes('psd')) return '#31c48d';
+    if (mimeType.includes('illustrator') || mimeType.includes('postscript')) return '#ff6a00';
+    if (mimeType.includes('indesign') || mimeType.includes('figma') || mimeType.includes('sketch')) return '#a855f7';
+    
+    // CAD Files
+    if (mimeType.includes('dwg') || mimeType.includes('dwf') || mimeType.includes('autocad')) return '#0ea5e9';
+    
+    // 3D Files
+    if (mimeType.startsWith('model/') || mimeType.includes('blender') || mimeType.includes('obj') || mimeType.includes('fbx')) return '#f97316';
+    
+    // Fonts
+    if (mimeType.startsWith('font/') || mimeType.includes('font')) return '#84cc16';
+    
+    // E-books
+    if (mimeType.includes('epub') || mimeType.includes('mobi')) return '#8b5a2b';
+    
+    // Database
+    if (mimeType.includes('sqlite') || mimeType.includes('access')) return '#0891b2';
+    
+    // Custom formats
+    if (mimeType.includes('dvg')) return '#ec4899'; // Pink for custom DVG files
+    
+    // Default
     return '#9ca3af';
   }
 

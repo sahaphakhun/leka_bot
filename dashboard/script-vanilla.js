@@ -116,7 +116,21 @@ class DashboardApp {
         this.openEditTaskModal(taskId);
       }
     });
+    document.getElementById('taskDetailEditBtn')?.addEventListener('click', () => {
+      const taskId = document.getElementById('taskDetailId')?.textContent?.replace('#', '');
+      if (taskId) {
+        this.closeModal('taskDetailModal');
+        this.openEditTaskModal(taskId);
+      }
+    });
     document.getElementById('deleteTaskBtn')?.addEventListener('click', () => {
+      const taskId = document.getElementById('taskDetailId')?.textContent?.replace('#', '');
+      if (taskId) {
+        this.closeModal('taskDetailModal');
+        this.deleteTask(taskId);
+      }
+    });
+    document.getElementById('taskDetailDeleteBtn')?.addEventListener('click', () => {
       const taskId = document.getElementById('taskDetailId')?.textContent?.replace('#', '');
       if (taskId) {
         this.closeModal('taskDetailModal');
@@ -586,22 +600,30 @@ class DashboardApp {
       return;
     }
 
-    const html = upcomingTasks.map(task => `
-      <div class="task-item" data-task-id="${task.id}">
-        <div class="task-priority ${task.priority}"></div>
-        <div class="task-content">
-          <div class="task-title">${task.title}</div>
-          <div class="task-meta">
-            <span><i class="fas fa-clock"></i> ครบกำหนด ${this.formatDateTime(task.dueTime)}</span>
+    const html = upcomingTasks.map(task => {
+      const canSubmit = this.canSubmitTask(task);
+      
+      return `
+        <div class="task-item" data-task-id="${task.id}">
+          <div class="task-priority ${task.priority}"></div>
+          <div class="task-content">
+            <div class="task-title">${task.title}</div>
+            <div class="task-meta">
+              <span><i class="fas fa-clock"></i> ครบกำหนด ${this.formatDateTime(task.dueTime)}</span>
+            </div>
+          </div>
+          <div class="task-actions">
+            ${canSubmit ? `
+              <button class="btn btn-sm btn-primary" onclick="dashboardApp.openSubmitTaskModal('${task.id}')">
+                <i class="fas fa-upload"></i> ส่งงาน
+              </button>
+            ` : `
+              <span class="text-xs text-gray-500">ดูอย่างเดียว</span>
+            `}
           </div>
         </div>
-        <div class="task-actions">
-          <button class="btn btn-sm btn-primary" onclick="dashboardApp.openSubmitTaskModal('${task.id}')">
-            <i class="fas fa-upload"></i> ส่งงาน
-          </button>
-        </div>
-      </div>
-    `).join('');
+      `;
+    }).join('');
     
     container.innerHTML = html;
   }
@@ -636,7 +658,12 @@ class DashboardApp {
     const priorityInfo = this.getPriorityInfo(task.priority);
     const assignees = this.getTaskAssignees(task);
     const dueInfo = this.getDueInfo(task.dueTime);
+    
+    // ตรวจสอบสิทธิ์ตามบทบาทของผู้ใช้
     const canSubmit = this.canSubmitTask(task);
+    const canEdit = this.canEditTask(task);
+    const canDelete = this.canDeleteTask(task);
+    const canApprove = this.canApproveTask(task);
 
     return `
       <!-- Task Card -->
@@ -686,21 +713,38 @@ class DashboardApp {
                   ส่ง
                 </button>
               ` : ''}
-              <button 
-                class="btn btn-sm btn-outline" 
-                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
-                title="แก้ไขงาน"
-              >
-                <i class="fas fa-edit"></i>
-              </button>
-              <button 
-                class="btn btn-sm" 
-                style="background-color: #dc2626; color: white;" 
-                onclick="window.dashboardApp.deleteTask('${task.id}')"
-                title="ลบงาน"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
+              ${canApprove ? `
+                <button 
+                  class="btn btn-sm btn-success" 
+                  onclick="window.dashboardApp.approveTask('${task.id}')"
+                  title="อนุมัติงาน"
+                >
+                  <i class="fas fa-check"></i>
+                  อนุมัติ
+                </button>
+              ` : ''}
+              ${canEdit ? `
+                <button 
+                  class="btn btn-sm btn-outline" 
+                  onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                  title="แก้ไขงาน"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+              ` : ''}
+              ${canDelete ? `
+                <button 
+                  class="btn btn-sm" 
+                  style="background-color: #dc2626; color: white;" 
+                  onclick="window.dashboardApp.deleteTask('${task.id}')"
+                  title="ลบงาน"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              ` : ''}
+              ${(!canSubmit && !canEdit && !canDelete && !canApprove) ? `
+                <span class="text-xs text-gray-500">ดูอย่างเดียว</span>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -758,23 +802,40 @@ class DashboardApp {
                   ส่งงาน
                 </button>
               ` : ''}
-              <button 
-                class="btn btn-xs btn-outline" 
-                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
-                title="แก้ไข"
-              >
-                <i class="fas fa-edit mr-1"></i>
-                แก้ไข
-              </button>
-              <button 
-                class="btn btn-xs text-white" 
-                style="background-color: #dc2626;" 
-                onclick="window.dashboardApp.deleteTask('${task.id}')"
-                title="ลบ"
-              >
-                <i class="fas fa-trash mr-1"></i>
-                ลบ
-              </button>
+              ${canApprove ? `
+                <button 
+                  class="btn btn-xs btn-success" 
+                  onclick="window.dashboardApp.approveTask('${task.id}')"
+                  title="อนุมัติงาน"
+                >
+                  <i class="fas fa-check mr-1"></i>
+                  อนุมัติ
+                </button>
+              ` : ''}
+              ${canEdit ? `
+                <button 
+                  class="btn btn-xs btn-outline" 
+                  onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                  title="แก้ไข"
+                >
+                  <i class="fas fa-edit mr-1"></i>
+                  แก้ไข
+                </button>
+              ` : ''}
+              ${canDelete ? `
+                <button 
+                  class="btn btn-xs text-white" 
+                  style="background-color: #dc2626;" 
+                  onclick="window.dashboardApp.deleteTask('${task.id}')"
+                  title="ลบ"
+                >
+                  <i class="fas fa-trash mr-1"></i>
+                  ลบ
+                </button>
+              ` : ''}
+              ${(!canSubmit && !canEdit && !canDelete && !canApprove) ? `
+                <span class="text-xs text-gray-500">ดูอย่างเดียว</span>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -951,7 +1012,104 @@ class DashboardApp {
   }
 
   canSubmitTask(task) {
-    return task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
+    if (!task) return false;
+    
+    // ตรวจสอบสถานะงาน - สามารถส่งงานได้หากสถานะยังไม่เสร็จ
+    const validStatuses = ['pending', 'in_progress', 'overdue'];
+    const isValidStatus = validStatuses.includes(task.status);
+    
+    // ตรวจสอบว่าผู้ใช้เป็นผู้รับผิดชอบงานหรือไม่
+    const isAssignee = this.isUserAssignee(task);
+    
+    return isValidStatus && isAssignee;
+  }
+
+  /**
+   * ตรวจสอบสิทธิ์ในการแก้ไขงาน
+   */
+  canEditTask(task) {
+    if (!task) return false;
+    
+    // ไม่มี userId = โหมดดูอย่างเดียว
+    if (!this.currentUserId) return false;
+    
+    // ผู้สร้างงานสามารถแก้ไขได้
+    const isCreator = this.isUserCreator(task);
+    
+    // ผู้ตรวจงานสามารถแก้ไขได้
+    const isReviewer = this.isUserReviewer(task);
+    
+    return isCreator || isReviewer;
+  }
+
+  /**
+   * ตรวจสอบสิทธิ์ในการลบงาน
+   */
+  canDeleteTask(task) {
+    if (!task) return false;
+    
+    // ไม่มี userId = โหมดดูอย่างเดียว
+    if (!this.currentUserId) return false;
+    
+    // เฉพาะผู้สร้างงานเท่านั้นที่ลบได้
+    return this.isUserCreator(task);
+  }
+
+  /**
+   * ตรวจสอบสิทธิ์ในการอนุมัติงาน
+   */
+  canApproveTask(task) {
+    if (!task) return false;
+    
+    // ไม่มี userId = โหมดดูอย่างเดียว
+    if (!this.currentUserId) return false;
+    
+    // สถานะต้องเป็น submitted หรือ reviewed
+    const validStatuses = ['submitted', 'reviewed'];
+    if (!validStatuses.includes(task.status)) return false;
+    
+    // ผู้ตรวจงานสามารถอนุมัติได้
+    const isReviewer = this.isUserReviewer(task);
+    
+    // ถ้าไม่มีผู้ตรวจงาน ผู้สร้างงานสามารถอนุมัติได้
+    const isCreatorWithNoReviewer = !task.reviewerUserId && this.isUserCreator(task);
+    
+    return isReviewer || isCreatorWithNoReviewer;
+  }
+
+  /**
+   * ตรวจสอบว่าผู้ใช้เป็นผู้รับผิดชอบงานหรือไม่
+   */
+  isUserAssignee(task) {
+    if (!this.currentUserId || !task?.assignedUsers) return false;
+    
+    return task.assignedUsers.some(user => 
+      user.id === this.currentUserId || 
+      user.lineUserId === this.currentUserId
+    );
+  }
+
+  /**
+   * ตรวจสอบว่าผู้ใช้เป็นผู้สร้างงานหรือไม่
+   */
+  isUserCreator(task) {
+    if (!this.currentUserId || !task) return false;
+    
+    return task.createdBy === this.currentUserId || 
+           task.createdByUser?.id === this.currentUserId ||
+           task.createdByUser?.lineUserId === this.currentUserId;
+  }
+
+  /**
+   * ตรวจสอบว่าผู้ใช้เป็นผู้ตรวจงานหรือไม่
+   */
+  isUserReviewer(task) {
+    if (!this.currentUserId || !task) return false;
+    
+    // ตรวจสอบจาก reviewerUserId ใน task
+    const reviewerUserId = task.reviewerUserId || task.workflow?.review?.reviewerUserId;
+    
+    return reviewerUserId === this.currentUserId;
   }
 
   escapeHtml(text) {
@@ -2784,14 +2942,22 @@ class DashboardApp {
     const submitBtn = document.getElementById('taskDetailSubmitBtn');
     const completeBtn = document.getElementById('taskDetailCompleteBtn');
     const reopenBtn = document.getElementById('taskDetailReopenBtn');
+    const editBtn = document.getElementById('taskDetailEditBtn');
+    const deleteBtn = document.getElementById('taskDetailDeleteBtn');
 
     // Hide all buttons first
-    [submitBtn, completeBtn, reopenBtn].forEach(btn => {
+    [submitBtn, completeBtn, reopenBtn, editBtn, deleteBtn].forEach(btn => {
       if (btn) btn.style.display = 'none';
     });
 
-    // Show appropriate buttons based on status
-    if (this.canSubmitTask(task) && submitBtn) {
+    // ตรวจสอบสิทธิ์ตามบทบาทของผู้ใช้
+    const canSubmit = this.canSubmitTask(task);
+    const canEdit = this.canEditTask(task);
+    const canDelete = this.canDeleteTask(task);
+    const canApprove = this.canApproveTask(task);
+
+    // Show appropriate buttons based on permissions and status
+    if (canSubmit && submitBtn) {
       submitBtn.style.display = 'inline-flex';
       submitBtn.onclick = () => {
         this.closeModal('taskDetailModal');
@@ -2799,14 +2965,39 @@ class DashboardApp {
       };
     }
 
-    if (task.status === 'submitted' && completeBtn) {
+    if (canApprove && completeBtn) {
       completeBtn.style.display = 'inline-flex';
-      completeBtn.onclick = () => this.completeTask(task.id);
+      completeBtn.textContent = 'อนุมัติงาน';
+      completeBtn.onclick = () => this.approveTask(task.id);
     }
 
-    if (task.status === 'completed' && reopenBtn) {
-      reopenBtn.style.display = 'inline-flex';
-      reopenBtn.onclick = () => this.reopenTask(task.id);
+    if (canEdit && editBtn) {
+      editBtn.style.display = 'inline-flex';
+      editBtn.onclick = () => {
+        this.closeModal('taskDetailModal');
+        this.openEditTaskModal(task.id);
+      };
+    }
+
+    if (canDelete && deleteBtn) {
+      deleteBtn.style.display = 'inline-flex';
+      deleteBtn.onclick = () => {
+        this.closeModal('taskDetailModal');
+        this.deleteTask(task.id);
+      };
+    }
+
+    // ถ้าไม่มีสิทธิ์ใดๆ แสดงข้อความ
+    if (!canSubmit && !canEdit && !canDelete && !canApprove) {
+      const noPermissionMsg = document.createElement('div');
+      noPermissionMsg.className = 'text-center text-gray-500 text-sm py-2';
+      noPermissionMsg.textContent = 'คุณไม่มีสิทธิ์ในการดำเนินการกับงานนี้';
+      
+      // เพิ่มข้อความใน modal footer
+      const modalFooter = document.querySelector('#taskDetailModal .modal-footer');
+      if (modalFooter) {
+        modalFooter.appendChild(noPermissionMsg);
+      }
     }
   }
 
@@ -3028,6 +3219,60 @@ class DashboardApp {
     } catch (error) {
       console.error('Error submitting task:', error);
       this.showToast(`เกิดข้อผิดพลาดในการส่งงาน: ${error.message}`, 'error');
+    }
+  }
+
+  /**
+   * อนุมัติงาน
+   */
+  async approveTask(taskId) {
+    if (!taskId) {
+      this.showToast('ไม่พบงานที่ต้องการอนุมัติ', 'error');
+      return;
+    }
+
+    if (!confirm('คุณต้องการอนุมัติงานนี้หรือไม่?')) {
+      return;
+    }
+
+    try {
+      this.showToast('กำลังอนุมัติงาน...', 'info');
+      
+      const response = await fetch(`/api/tasks/${taskId}/approve`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          userId: this.currentUserId
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      const result = await response.json();
+      if (result.success) {
+        // อัปเดตสถานะงาน
+        const taskIndex = this.tasks.findIndex(t => t.id === taskId);
+        if (taskIndex !== -1) {
+          this.tasks[taskIndex].status = 'completed';
+          this.tasks[taskIndex].completedAt = new Date().toISOString();
+        }
+        
+        this.showToast('อนุมัติงานเรียบร้อย', 'success');
+        this.renderTasks();
+        this.renderRecentTasks();
+        this.updateUpcomingTasks();
+      } else {
+        throw new Error(result.error || 'Failed to approve task');
+      }
+      
+    } catch (error) {
+      console.error('Error approving task:', error);
+      this.showToast(`เกิดข้อผิดพลาดในการอนุมัติงาน: ${error.message}`, 'error');
     }
   }
 
@@ -3826,24 +4071,77 @@ class DashboardApp {
     const extension = fileName.split('.').pop()?.toLowerCase() || '';
 
     // Image files
-    if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(extension)) {
+    if (mimeType.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp', 'tiff', 'ico'].includes(extension)) {
       return 'image';
     }
     
     // Video files
-    if (mimeType.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv'].includes(extension)) {
+    if (mimeType.startsWith('video/') || ['mp4', 'avi', 'mov', 'wmv', 'flv', 'webm', 'mkv', '3gp'].includes(extension)) {
       return 'video';
     }
     
     // Audio files
-    if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a'].includes(extension)) {
+    if (mimeType.startsWith('audio/') || ['mp3', 'wav', 'ogg', 'aac', 'flac', 'm4a', 'wma'].includes(extension)) {
       return 'audio';
     }
     
     // Document files
-    if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp'].includes(extension) ||
-        mimeType.includes('document') || mimeType.includes('text') || mimeType.includes('pdf')) {
+    if (['pdf', 'doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx', 'txt', 'rtf', 'odt', 'ods', 'odp', 'csv'].includes(extension) ||
+        mimeType.includes('document') || mimeType.includes('text') || mimeType.includes('pdf') ||
+        mimeType.includes('word') || mimeType.includes('excel') || mimeType.includes('powerpoint') ||
+        mimeType.includes('spreadsheet') || mimeType.includes('presentation') || mimeType.includes('opendocument')) {
       return 'document';
+    }
+    
+    // Archive files
+    if (['zip', 'rar', '7z', 'tar', 'gz', 'bz2'].includes(extension) ||
+        mimeType.includes('zip') || mimeType.includes('rar') || mimeType.includes('compressed') ||
+        mimeType.includes('tar') || mimeType.includes('gzip')) {
+      return 'archive';
+    }
+    
+    // Development/Code files
+    if (['js', 'ts', 'py', 'java', 'c', 'cpp', 'html', 'css', 'json', 'xml', 'sh'].includes(extension) ||
+        mimeType.includes('javascript') || mimeType.includes('typescript') || mimeType.includes('json') ||
+        mimeType.includes('xml') || mimeType.includes('python') || mimeType.includes('java')) {
+      return 'code';
+    }
+    
+    // Design files
+    if (['psd', 'ai', 'indd', 'fig', 'sketch', 'eps'].includes(extension) ||
+        mimeType.includes('photoshop') || mimeType.includes('illustrator') || 
+        mimeType.includes('indesign') || mimeType.includes('figma') || mimeType.includes('sketch')) {
+      return 'design';
+    }
+    
+    // CAD files
+    if (['dwg', 'dwf'].includes(extension) || mimeType.includes('dwg') || mimeType.includes('autocad')) {
+      return 'cad';
+    }
+    
+    // 3D files
+    if (['obj', 'fbx', '3mf', 'blend'].includes(extension) || mimeType.startsWith('model/') || mimeType.includes('blender')) {
+      return '3d';
+    }
+    
+    // Font files
+    if (['ttf', 'otf', 'woff', 'woff2'].includes(extension) || mimeType.startsWith('font/') || mimeType.includes('font')) {
+      return 'font';
+    }
+    
+    // E-book files
+    if (['epub', 'mobi'].includes(extension) || mimeType.includes('epub') || mimeType.includes('mobi')) {
+      return 'ebook';
+    }
+    
+    // Database files
+    if (['sqlite', 'mdb', 'db'].includes(extension) || mimeType.includes('sqlite') || mimeType.includes('access')) {
+      return 'database';
+    }
+    
+    // Custom formats like DVG
+    if (['dvg'].includes(extension) || mimeType.includes('dvg')) {
+      return 'custom';
     }
     
     return 'other';

@@ -1490,17 +1490,39 @@ class WebhookController {
     }
   }
 
-  /**
-   * ได้ MIME type จากชื่อไฟล์
-   */
   private getMimeTypeFromFileName(fileName: string): string {
     const ext = fileName.split('.').pop()?.toLowerCase();
     const mimeMap: { [key: string]: string } = {
+      // Images
       'jpg': 'image/jpeg',
       'jpeg': 'image/jpeg',
       'png': 'image/png',
       'gif': 'image/gif',
       'webp': 'image/webp',
+      'bmp': 'image/bmp',
+      'tiff': 'image/tiff',
+      'svg': 'image/svg+xml',
+      'ico': 'image/x-icon',
+      
+      // Videos
+      'mp4': 'video/mp4',
+      'mov': 'video/quicktime',
+      'avi': 'video/x-msvideo',
+      'wmv': 'video/x-ms-wmv',
+      'webm': 'video/webm',
+      'flv': 'video/x-flv',
+      '3gp': 'video/3gpp',
+      
+      // Audio
+      'mp3': 'audio/mpeg',
+      'wav': 'audio/wav',
+      'ogg': 'audio/ogg',
+      'aac': 'audio/aac',
+      'flac': 'audio/flac',
+      'm4a': 'audio/mp4',
+      'wma': 'audio/x-ms-wma',
+      
+      // Documents
       'pdf': 'application/pdf',
       'doc': 'application/msword',
       'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -1508,12 +1530,69 @@ class WebhookController {
       'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
       'ppt': 'application/vnd.ms-powerpoint',
       'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      'odt': 'application/vnd.oasis.opendocument.text',
+      'ods': 'application/vnd.oasis.opendocument.spreadsheet',
+      'odp': 'application/vnd.oasis.opendocument.presentation',
+      
+      // Text
       'txt': 'text/plain',
+      'csv': 'text/csv',
+      'html': 'text/html',
+      'css': 'text/css',
+      'js': 'text/javascript',
+      'xml': 'text/xml',
+      'rtf': 'text/rtf',
+      
+      // Development
+      'json': 'application/json',
+      'ts': 'application/typescript',
+      'py': 'text/x-python',
+      'java': 'text/x-java-source',
+      'c': 'text/x-c',
+      'cpp': 'text/x-c++',
+      'sh': 'application/x-sh',
+      
+      // Archives
       'zip': 'application/zip',
       'rar': 'application/x-rar-compressed',
-      'mp3': 'audio/mpeg',
-      'mp4': 'video/mp4',
-      'mov': 'video/quicktime'
+      '7z': 'application/x-7z-compressed',
+      'tar': 'application/x-tar',
+      'gz': 'application/gzip',
+      'bz2': 'application/x-bzip2',
+      
+      // Design
+      'ai': 'application/vnd.adobe.illustrator',
+      'psd': 'image/vnd.adobe.photoshop',
+      'indd': 'application/x-indesign',
+      'fig': 'application/x-figma',
+      'sketch': 'application/x-sketch',
+      
+      // CAD
+      'dwg': 'application/vnd.autodesk.dwg',
+      'dwf': 'application/vnd.autodesk.dwf',
+      
+      // 3D
+      'obj': 'model/obj',
+      'fbx': 'model/fbx',
+      '3mf': 'model/3mf',
+      'blend': 'application/x-blender',
+      
+      // Fonts
+      'ttf': 'font/ttf',
+      'otf': 'font/otf',
+      'woff': 'font/woff',
+      'woff2': 'font/woff2',
+      
+      // E-books
+      'epub': 'application/epub+zip',
+      'mobi': 'application/x-mobipocket-ebook',
+      
+      // Database
+      'sqlite': 'application/x-sqlite3',
+      'mdb': 'application/vnd.ms-access',
+      
+      // Custom formats
+      'dvg': 'application/dvg' // Your custom .dvg format
     };
     return mimeMap[ext || ''] || 'application/octet-stream';
   }

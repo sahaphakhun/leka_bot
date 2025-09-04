@@ -1093,25 +1093,114 @@ export class FileService {
 
     // ถ้าไม่มี ใช้ mimeType
     const mimeToExt: { [key: string]: string } = {
+      // Images
       'image/jpeg': '.jpg',
       'image/jpg': '.jpg',
       'image/png': '.png',
       'image/gif': '.gif',
       'image/webp': '.webp',
+      'image/bmp': '.bmp',
+      'image/tiff': '.tiff',
+      'image/svg+xml': '.svg',
+      'image/x-icon': '.ico',
+      
+      // Videos
       'video/mp4': '.mp4',
       'video/quicktime': '.mov',
+      'video/x-msvideo': '.avi',
+      'video/x-ms-wmv': '.wmv',
+      'video/webm': '.webm',
+      'video/x-flv': '.flv',
+      'video/3gpp': '.3gp',
+      
+      // Audio
       'audio/mpeg': '.mp3',
       'audio/wav': '.wav',
+      'audio/ogg': '.ogg',
+      'audio/aac': '.aac',
+      'audio/flac': '.flac',
+      'audio/mp4': '.m4a',
+      'audio/x-ms-wma': '.wma',
+      
+      // Documents
       'application/pdf': '.pdf',
+      'application/msword': '.doc',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document': '.docx',
+      'application/vnd.ms-excel': '.xls',
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': '.xlsx',
+      'application/vnd.ms-powerpoint': '.ppt',
       'application/vnd.openxmlformats-officedocument.presentationml.presentation': '.pptx',
+      'application/vnd.oasis.opendocument.text': '.odt',
+      'application/vnd.oasis.opendocument.spreadsheet': '.ods',
+      'application/vnd.oasis.opendocument.presentation': '.odp',
+      
+      // Text
       'text/plain': '.txt',
+      'text/csv': '.csv',
       'text/html': '.html',
       'text/css': '.css',
       'text/javascript': '.js',
+      'text/xml': '.xml',
+      'text/rtf': '.rtf',
+      
+      // Development
       'application/json': '.json',
       'application/xml': '.xml',
+      'application/javascript': '.js',
+      'application/typescript': '.ts',
+      'text/x-python': '.py',
+      'text/x-java-source': '.java',
+      'text/x-c': '.c',
+      'text/x-c++': '.cpp',
+      'application/x-sh': '.sh',
+      
+      // Archives
+      'application/zip': '.zip',
+      'application/x-rar-compressed': '.rar',
+      'application/x-7z-compressed': '.7z',
+      'application/x-tar': '.tar',
+      'application/gzip': '.gz',
+      'application/x-bzip2': '.bz2',
+      
+      // Design
+      'application/postscript': '.ai',
+      'image/vnd.adobe.photoshop': '.psd',
+      'application/vnd.adobe.illustrator': '.ai',
+      'application/x-indesign': '.indd',
+      'application/x-figma': '.fig',
+      'application/x-sketch': '.sketch',
+      
+      // CAD
+      'application/vnd.autodesk.dwg': '.dwg',
+      'application/vnd.autodesk.dwf': '.dwf',
+      'image/vnd.dwg': '.dwg',
+      'application/x-autocad': '.dwg',
+      
+      // 3D
+      'model/obj': '.obj',
+      'model/fbx': '.fbx',
+      'model/3mf': '.3mf',
+      'application/x-blender': '.blend',
+      
+      // Fonts
+      'font/ttf': '.ttf',
+      'font/otf': '.otf',
+      'font/woff': '.woff',
+      'font/woff2': '.woff2',
+      'application/font-woff': '.woff',
+      'application/x-font-ttf': '.ttf',
+      
+      // E-books
+      'application/epub+zip': '.epub',
+      'application/x-mobipocket-ebook': '.mobi',
+      
+      // Database
+      'application/x-sqlite3': '.sqlite',
+      'application/vnd.ms-access': '.mdb',
+      
+      // Custom
+      'application/dvg': '.dvg',
+      'application/x-dvg': '.dvg',
       'application/octet-stream': '.bin'
     };
 
