@@ -2469,6 +2469,27 @@ class Dashboard {
   // Modal Management
   // ==================== 
 
+  // Helper function to get creator display name
+  getCreatorDisplayName(task) {
+    if (!task.createdBy) {
+      return 'ไม่ระบุ';
+    }
+    
+    // หาชื่อผู้สร้างจากรายชื่อสมาชิกกลุ่ม
+    if (this.groupMembers && this.groupMembers.length > 0) {
+      const creator = this.groupMembers.find(m => 
+        m.lineUserId === task.createdBy || 
+        m.id === task.createdBy ||
+        m.userId === task.createdBy
+      );
+      if (creator) {
+        return creator.displayName || creator.name || task.createdBy;
+      }
+    }
+    
+    return task.createdBy;
+  }
+
   openAddTaskModal() {
     this.openModal('addTaskModal');
     this.loadGroupMembers(); // Load members for assignee selection

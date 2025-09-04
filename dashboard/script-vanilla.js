@@ -136,6 +136,18 @@ class DashboardApp {
     document.getElementById('prevMonth')?.addEventListener('click', () => this.prevMonth());
     document.getElementById('nextMonth')?.addEventListener('click', () => this.nextMonth());
     
+    // Calendar quick navigation
+    document.getElementById('todayBtn')?.addEventListener('click', () => this.goToToday());
+    document.getElementById('thisMonthBtn')?.addEventListener('click', () => this.goToThisMonth());
+    
+    // Close calendar detail view
+    document.getElementById('closeCalendarDetail')?.addEventListener('click', () => {
+      const detailContainer = document.getElementById('calendarTaskDetail');
+      if (detailContainer) {
+        detailContainer.classList.add('hidden');
+      }
+    });
+    
     // ปุ่ม Leaderboard
     document.querySelectorAll('[data-period]').forEach(btn => {
       btn.addEventListener('click', (e) => this.changeLeaderboardPeriod(e.target.dataset.period));
@@ -877,6 +889,52 @@ class DashboardApp {
       class: className
     };
   }
+  
+  goToToday() {
+    try {
+      // Get current date in Thailand timezone
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const thaiTime = new Date(utc + (7 * 3600000));
+      
+      this.currentCalendarMonth = thaiTime.getMonth();
+      this.currentCalendarYear = thaiTime.getFullYear();
+      
+      this.updateCalendarHeader();
+      this.renderCalendarGrid();
+      
+      this.showToast('กลับไปยังวันนี้', 'success');
+      
+    } catch (error) {
+      console.error('❌ Error going to today:', error);
+      this.showToast('เกิดข้อผิดพลาดในการไปยังวันนี้', 'error');
+    }
+  }
+  
+  goToThisMonth() {
+    try {
+      // Get current month in Thailand timezone
+      const now = new Date();
+      const utc = now.getTime() + (now.getTimezoneOffset() * 60000);
+      const thaiTime = new Date(utc + (7 * 3600000));
+      
+      this.currentCalendarMonth = thaiTime.getMonth();
+      this.currentCalendarYear = thaiTime.getFullYear();
+      
+      this.updateCalendarHeader();
+      this.renderCalendarGrid();
+      
+      // Reload upcoming and overdue tasks for current timeframe
+      this.loadUpcomingTasks();
+      this.loadOverdueTasks();
+      
+      this.showToast('กลับไปยังเดือนนี้', 'success');
+      
+    } catch (error) {
+      console.error('❌ Error going to this month:', error);
+      this.showToast('เกิดข้อผิดพลาดในการไปยังเดือนนี้', 'error');
+    }
+  }
 
   canSubmitTask(task) {
     return task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
@@ -1213,7 +1271,7 @@ class DashboardApp {
               ` : ''}
             </div>
             <div class="text-xs text-gray-500">
-              สร้างโดย ${task.createdBy || 'ไม่ระบุ'}
+              สร้างโดย ${this.getCreatorDisplayName(task)}
             </div>
           </div>
         </div>
@@ -1360,9 +1418,511 @@ class DashboardApp {
   }
 
   async loadCalendarEvents() {
-    // Initialize calendar with current month and year
-    this.initializeCalendar();
-    this.showToast('โหลดปฏิทินเรียบร้อย', 'success');
+    try {
+      // Initialize calendar with current month and year
+      this.initializeCalendar();
+      
+      // Load tasks for current month
+      await this.renderCalendarGrid();
+      
+      // Load upcoming and overdue tasks
+      await this.loadUpcomingTasks();
+      await this.loadOverdueTasks();
+      
+      this.showToast('โหลดปฏิทินเรียบร้อย', 'success');
+    } catch (error) {
+      console.error('❌ Error loading calendar events:', error);
+      this.showToast('เกิดข้อผิดพลาดในการโหลดปฏิทิน', 'error');
+    }
+  }
+
+  async renderCalendarGrid() {
+    const calendarGrid = document.getElementById('calendarGrid');
+    if (!calendarGrid) return;
+
+    try {
+      // Get current month's tasks
+      const tasksResponse = await this.getTasksForMonth(this.currentCalendarYear, this.currentCalendarMonth + 1);
+      const monthTasks = tasksResponse || [];
+      
+      // Generate calendar HTML
+      const calendarHTML = this.generateCalendarHTML(this.currentCalendarYear, this.currentCalendarMonth, monthTasks);
+      calendarGrid.innerHTML = calendarHTML;
+      
+      // Add event listeners for calendar interactions
+      this.attachCalendarEventListeners();
+      
+    } catch (error) {
+      console.error('❌ Error rendering calendar grid:', error);
+      calendarGrid.innerHTML = `
+        <div class="col-span-7 text-center py-8 text-gray-500">
+          <i class="fas fa-exclamation-triangle text-2xl mb-2 text-red-400"></i>
+          <p>เกิดข้อผิดพลาดในการแสดงปฏิทิน</p>
+        </div>
+      `;
+    }
+  }
+
+  async getTasksForMonth(year, month) {
+    try {
+      if (!this.currentGroupId) {
+        console.warn('⚠️ No current group ID for calendar');
+        return [];
+      }
+
+      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load tasks');
+      }
+      
+      const allTasks = result.data || [];
+      
+      // Filter tasks for the specific month
+      return allTasks.filter(task => {
+        if (!task.dueTime) return false;
+        
+        const dueDate = new Date(task.dueTime);
+        return dueDate.getFullYear() === year && dueDate.getMonth() === (month - 1);
+      });
+      
+    } catch (error) {
+      console.error('❌ Error fetching tasks for month:', error);
+      return [];
+    }
+  }
+
+  generateCalendarHTML(year, month, tasks) {
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+    const daysInMonth = lastDay.getDate();
+    const startingDayOfWeek = firstDay.getDay();
+    
+    const today = new Date();
+    const isCurrentMonth = today.getFullYear() === year && today.getMonth() === month;
+    const todayDate = isCurrentMonth ? today.getDate() : -1;
+    
+    let html = '';
+    
+    // Previous month padding days
+    const prevMonth = new Date(year, month, 0);
+    const prevMonthDays = prevMonth.getDate();
+    
+    for (let i = startingDayOfWeek - 1; i >= 0; i--) {
+      const day = prevMonthDays - i;
+      html += `
+        <div class="calendar-day other-month border-r border-b border-gray-200 p-2 h-20 md:h-24 text-gray-400">
+          <div class="text-sm">${day}</div>
+        </div>
+      `;
+    }
+    
+    // Current month days
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dayTasks = tasks.filter(task => {
+        const dueDate = new Date(task.dueTime);
+        return dueDate.getDate() === day;
+      });
+      
+      const pendingTasks = dayTasks.filter(task => task.status === 'pending' || task.status === 'in_progress');
+      const overdueTasks = dayTasks.filter(task => {
+        const dueDate = new Date(task.dueTime);
+        const now = new Date();
+        return (task.status === 'pending' || task.status === 'in_progress') && dueDate < now;
+      });
+      const completedTasks = dayTasks.filter(task => task.status === 'completed' || task.status === 'submitted');
+      
+      const isToday = day === todayDate;
+      const isPast = new Date(year, month, day) < new Date().setHours(0, 0, 0, 0);
+      
+      let dayClass = 'calendar-day border-r border-b border-gray-200 p-2 h-20 md:h-24 cursor-pointer hover:bg-gray-50';
+      if (isToday) dayClass += ' today bg-yellow-50 border-yellow-300';
+      if (isPast) dayClass += ' past';
+      
+      html += `
+        <div class="${dayClass}" data-year="${year}" data-month="${month + 1}" data-day="${day}">
+          <div class="flex justify-between items-start mb-1">
+            <span class="text-sm font-medium ${isToday ? 'text-yellow-800' : 'text-gray-900'}">${day}</span>
+            ${isToday ? '<i class="fas fa-circle text-yellow-500 text-xs"></i>' : ''}
+          </div>
+          
+          <div class="space-y-1">
+            ${pendingTasks.length > 0 ? `
+              <div class="flex items-center text-xs">
+                <div class="w-2 h-2 bg-blue-500 rounded-full mr-1"></div>
+                <span class="text-blue-700">${pendingTasks.length}</span>
+              </div>
+            ` : ''}
+            
+            ${overdueTasks.length > 0 ? `
+              <div class="flex items-center text-xs">
+                <div class="w-2 h-2 bg-red-500 rounded-full mr-1"></div>
+                <span class="text-red-700">${overdueTasks.length}</span>
+              </div>
+            ` : ''}
+            
+            ${completedTasks.length > 0 ? `
+              <div class="flex items-center text-xs">
+                <div class="w-2 h-2 bg-green-500 rounded-full mr-1"></div>
+                <span class="text-green-700">${completedTasks.length}</span>
+              </div>
+            ` : ''}
+          </div>
+          
+          ${dayTasks.length > 0 ? `
+            <div class="mt-1">
+              ${dayTasks.slice(0, 2).map(task => `
+                <div class="text-xs truncate ${this.getTaskDisplayClass(task)}" title="${this.escapeHtml(task.title)}">
+                  ${this.escapeHtml(task.title.substring(0, 15))}${task.title.length > 15 ? '...' : ''}
+                </div>
+              `).join('')}
+              ${dayTasks.length > 2 ? `<div class="text-xs text-gray-500">+${dayTasks.length - 2} อีก</div>` : ''}
+            </div>
+          ` : ''}
+        </div>
+      `;
+    }
+    
+    // Next month padding days
+    const totalCells = Math.ceil((startingDayOfWeek + daysInMonth) / 7) * 7;
+    const nextMonthDays = totalCells - (startingDayOfWeek + daysInMonth);
+    
+    for (let day = 1; day <= nextMonthDays; day++) {
+      html += `
+        <div class="calendar-day other-month border-r border-b border-gray-200 p-2 h-20 md:h-24 text-gray-400">
+          <div class="text-sm">${day}</div>
+        </div>
+      `;
+    }
+    
+    return html;
+  }
+  
+  getTaskDisplayClass(task) {
+    const isPast = new Date(task.dueTime) < new Date();
+    const isOverdue = (task.status === 'pending' || task.status === 'in_progress') && isPast;
+    
+    if (isOverdue) return 'text-red-700';
+    if (task.status === 'completed' || task.status === 'submitted') return 'text-green-700';
+    return 'text-blue-700';
+  }
+
+  attachCalendarEventListeners() {
+    // Calendar day click events
+    document.querySelectorAll('.calendar-day[data-year]').forEach(dayElement => {
+      dayElement.addEventListener('click', (e) => {
+        const year = parseInt(e.currentTarget.dataset.year);
+        const month = parseInt(e.currentTarget.dataset.month);
+        const day = parseInt(e.currentTarget.dataset.day);
+        this.showDayTasks(year, month, day);
+      });
+    });
+  }
+
+  async showDayTasks(year, month, day) {
+    try {
+      const tasks = await this.getTasksForMonth(year, month);
+      const dayTasks = tasks.filter(task => {
+        const dueDate = new Date(task.dueTime);
+        return dueDate.getDate() === day;
+      });
+      
+      const detailContainer = document.getElementById('calendarTaskDetail');
+      const contentContainer = document.getElementById('calendarTaskDetailContent');
+      
+      if (!detailContainer || !contentContainer) return;
+      
+      if (dayTasks.length === 0) {
+        this.showToast(`ไม่มีงานในวันที่ ${day}/${month}/${year}`, 'info');
+        return;
+      }
+      
+      const dateStr = `${day}/${month}/${year + 543}`;
+      contentContainer.innerHTML = `
+        <h5 class="font-semibold text-gray-800 mb-3">งานวันที่ ${dateStr} (รวม ${dayTasks.length} งาน)</h5>
+        <div class="space-y-2 max-h-60 overflow-y-auto">
+          ${dayTasks.map(task => this.renderCalendarTaskItem(task)).join('')}
+        </div>
+      `;
+      
+      detailContainer.classList.remove('hidden');
+      detailContainer.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      
+    } catch (error) {
+      console.error('❌ Error showing day tasks:', error);
+      this.showToast('เกิดข้อผิดพลาดในการแสดงงาน', 'error');
+    }
+  }
+  
+  renderCalendarTaskItem(task) {
+    const statusInfo = this.getStatusInfo(task.status);
+    const priorityInfo = this.getPriorityInfo(task.priority);
+    const dueTime = new Date(task.dueTime).toLocaleTimeString('th-TH', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+    
+    const isOverdue = new Date(task.dueTime) < new Date() && (task.status === 'pending' || task.status === 'in_progress');
+    
+    return `
+      <div class="border rounded-lg p-3 hover:bg-gray-50 cursor-pointer ${isOverdue ? 'border-red-200 bg-red-50' : 'border-gray-200'}" 
+           onclick="window.dashboardApp.openTaskDetail('${task.id}')">
+        <div class="flex items-start justify-between">
+          <div class="flex-1 min-w-0">
+            <h6 class="font-medium text-gray-900 truncate">${this.escapeHtml(task.title)}</h6>
+            <p class="text-sm text-gray-600 mt-1">เวลา: ${dueTime}</p>
+            <div class="flex items-center gap-2 mt-2">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.class}">
+                <i class="${statusInfo.icon} mr-1"></i>
+                ${statusInfo.text}
+              </span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priorityInfo.class}">
+                <i class="${priorityInfo.icon} mr-1"></i>
+                ${priorityInfo.text}
+              </span>
+            </div>
+          </div>
+          ${isOverdue ? '<i class="fas fa-exclamation-triangle text-red-500 text-lg"></i>' : ''}
+        </div>
+      </div>
+    `;
+  }
+
+  async loadUpcomingTasks() {
+    try {
+      if (!this.currentGroupId) {
+        console.warn('⚠️ No current group ID for upcoming tasks');
+        return;
+      }
+      
+      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load tasks');
+      }
+      
+      const allTasks = result.data || [];
+      const now = new Date();
+      const sevenDaysLater = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
+      
+      // Filter upcoming tasks (due within 7 days, not completed)
+      const upcomingTasks = allTasks.filter(task => {
+        if (!task.dueTime) return false;
+        if (task.status === 'completed' || task.status === 'submitted') return false;
+        
+        const dueDate = new Date(task.dueTime);
+        return dueDate >= now && dueDate <= sevenDaysLater;
+      });
+      
+      // Sort by due date
+      upcomingTasks.sort((a, b) => new Date(a.dueTime) - new Date(b.dueTime));
+      
+      this.renderUpcomingTasks(upcomingTasks);
+      
+    } catch (error) {
+      console.error('❌ Error loading upcoming tasks:', error);
+      const container = document.getElementById('upcomingTasksList');
+      if (container) {
+        container.innerHTML = `
+          <div class="text-center py-4 text-red-500">
+            <i class="fas fa-exclamation-triangle mb-2"></i>
+            <p class="text-sm">เกิดข้อผิดพลาดในการโหลดงาน</p>
+          </div>
+        `;
+      }
+    }
+  }
+  
+  renderUpcomingTasks(tasks) {
+    const container = document.getElementById('upcomingTasksList');
+    if (!container) return;
+    
+    if (tasks.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-8 text-gray-500">
+          <i class="fas fa-calendar-check text-3xl mb-3 text-green-400"></i>
+          <p class="font-medium">ไม่มีงานที่จะมาถึงใน 7 วันข้างหน้า</p>
+          <p class="text-sm text-gray-400 mt-1">งานทั้งหมดอยู่ในสถานะดี</p>
+        </div>
+      `;
+      return;
+    }
+    
+    container.innerHTML = `
+      <div class="space-y-3 max-h-80 overflow-y-auto">
+        ${tasks.map(task => this.renderUpcomingTaskItem(task)).join('')}
+      </div>
+    `;
+  }
+  
+  renderUpcomingTaskItem(task) {
+    const statusInfo = this.getStatusInfo(task.status);
+    const priorityInfo = this.getPriorityInfo(task.priority);
+    const dueInfo = this.getDueInfo(task.dueTime);
+    const assignees = this.getTaskAssignees(task);
+    
+    return `
+      <div class="border border-blue-200 rounded-lg p-3 hover:bg-blue-50 cursor-pointer transition-colors" 
+           onclick="window.dashboardApp.openTaskDetail('${task.id}')">
+        <div class="flex items-start justify-between">
+          <div class="flex-1 min-w-0">
+            <h6 class="font-medium text-gray-900 truncate">${this.escapeHtml(task.title)}</h6>
+            <p class="text-sm text-gray-600 mt-1 line-clamp-2">${this.escapeHtml(task.description || 'ไม่มีรายละเอียด')}</p>
+            
+            <div class="flex items-center gap-2 mt-2">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.class}">
+                <i class="${statusInfo.icon} mr-1"></i>
+                ${statusInfo.text}
+              </span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priorityInfo.class}">
+                <i class="${priorityInfo.icon} mr-1"></i>
+                ${priorityInfo.text}
+              </span>
+            </div>
+            
+            <div class="flex items-center justify-between mt-2 text-sm">
+              <span class="text-gray-600">
+                <i class="fas fa-user mr-1"></i>
+                ${assignees}
+              </span>
+              <span class="${dueInfo.class} font-medium">
+                <i class="fas fa-clock mr-1"></i>
+                ${dueInfo.remaining}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
+  }
+  
+  async loadOverdueTasks() {
+    try {
+      if (!this.currentGroupId) {
+        console.warn('⚠️ No current group ID for overdue tasks');
+        return;
+      }
+      
+      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks`);
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to load tasks');
+      }
+      
+      const allTasks = result.data || [];
+      const now = new Date();
+      
+      // Filter overdue tasks (past due date, not completed/submitted)
+      const overdueTasks = allTasks.filter(task => {
+        if (!task.dueTime) return false;
+        if (task.status === 'completed' || task.status === 'submitted') return false;
+        
+        const dueDate = new Date(task.dueTime);
+        return dueDate < now;
+      });
+      
+      // Sort by due date (oldest first)
+      overdueTasks.sort((a, b) => new Date(a.dueTime) - new Date(b.dueTime));
+      
+      this.renderOverdueTasks(overdueTasks);
+      
+    } catch (error) {
+      console.error('❌ Error loading overdue tasks:', error);
+      const container = document.getElementById('overdueTasksList');
+      if (container) {
+        container.innerHTML = `
+          <div class="text-center py-4 text-red-500">
+            <i class="fas fa-exclamation-triangle mb-2"></i>
+            <p class="text-sm">เกิดข้อผิดพลาดในการโหลดงาน</p>
+          </div>
+        `;
+      }
+    }
+  }
+  
+  renderOverdueTasks(tasks) {
+    const container = document.getElementById('overdueTasksList');
+    if (!container) return;
+    
+    if (tasks.length === 0) {
+      container.innerHTML = `
+        <div class="text-center py-8 text-gray-500">
+          <i class="fas fa-thumbs-up text-3xl mb-3 text-green-400"></i>
+          <p class="font-medium">ไม่มีงานเกินกำหนด</p>
+          <p class="text-sm text-gray-400 mt-1">งานทั้งหมดอยู่ในเกณฑ์ดี</p>
+        </div>
+      `;
+      return;
+    }
+    
+    container.innerHTML = `
+      <div class="space-y-3 max-h-80 overflow-y-auto">
+        ${tasks.map(task => this.renderOverdueTaskItem(task)).join('')}
+      </div>
+    `;
+  }
+  
+  renderOverdueTaskItem(task) {
+    const statusInfo = this.getStatusInfo(task.status);
+    const priorityInfo = this.getPriorityInfo(task.priority);
+    const dueInfo = this.getDueInfo(task.dueTime);
+    const assignees = this.getTaskAssignees(task);
+    
+    // Calculate overdue days
+    const now = new Date();
+    const dueDate = new Date(task.dueTime);
+    const overdueDays = Math.ceil((now - dueDate) / (1000 * 60 * 60 * 24));
+    
+    return `
+      <div class="border border-red-200 rounded-lg p-3 hover:bg-red-50 cursor-pointer transition-colors bg-red-25" 
+           onclick="window.dashboardApp.openTaskDetail('${task.id}')">
+        <div class="flex items-start justify-between">
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2">
+              <h6 class="font-medium text-gray-900 truncate flex-1">${this.escapeHtml(task.title)}</h6>
+              <span class="text-xs font-bold text-red-600 bg-red-100 px-2 py-1 rounded">
+                เกิน ${overdueDays} วัน
+              </span>
+            </div>
+            <p class="text-sm text-gray-600 mt-1 line-clamp-2">${this.escapeHtml(task.description || 'ไม่มีรายละเอียด')}</p>
+            
+            <div class="flex items-center gap-2 mt-2">
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.class}">
+                <i class="${statusInfo.icon} mr-1"></i>
+                ${statusInfo.text}
+              </span>
+              <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${priorityInfo.class}">
+                <i class="${priorityInfo.icon} mr-1"></i>
+                ${priorityInfo.text}
+              </span>
+            </div>
+            
+            <div class="flex items-center justify-between mt-2 text-sm">
+              <span class="text-gray-600">
+                <i class="fas fa-user mr-1"></i>
+                ${assignees}
+              </span>
+              <span class="text-red-600 font-medium">
+                <i class="fas fa-exclamation-triangle mr-1"></i>
+                ${dueInfo.date}
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    `;
   }
 
   initializeCalendar() {
@@ -1558,7 +2118,7 @@ class DashboardApp {
   }
 
   prevMonth() {
-    this.showToast('เดือนก่อนหน้า', 'info');
+    this.showToast('เดือนก่อน', 'info');
     
     try {
       // Initialize if not set using Thailand timezone
@@ -1578,6 +2138,8 @@ class DashboardApp {
       }
       
       this.updateCalendarHeader();
+      this.renderCalendarGrid();
+      
     } catch (error) {
       console.error('❌ Error navigating to previous month:', error);
       this.showToast('เกิดข้อผิดพลาดในการเปลี่ยนเดือน', 'error');
@@ -1605,6 +2167,8 @@ class DashboardApp {
       }
       
       this.updateCalendarHeader();
+      this.renderCalendarGrid();
+      
     } catch (error) {
       console.error('❌ Error navigating to next month:', error);
       this.showToast('เกิดข้อผิดพลาดในการเปลี่ยนเดือน', 'error');
@@ -1613,10 +2177,14 @@ class DashboardApp {
 
   updateCalendarHeader() {
     const currentMonth = document.getElementById('currentMonth');
+    const currentMonthEng = document.getElementById('currentMonthEng');
+    
     if (currentMonth && this.currentCalendarMonth !== undefined && this.currentCalendarYear !== undefined) {
       try {
         const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
                        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
+        const monthsEng = ['January', 'February', 'March', 'April', 'May', 'June',
+                          'July', 'August', 'September', 'October', 'November', 'December'];
         
         // Validate month index
         if (this.currentCalendarMonth < 0 || this.currentCalendarMonth > 11) {
@@ -1631,15 +2199,23 @@ class DashboardApp {
         }
         
         const monthName = months[this.currentCalendarMonth];
+        const monthNameEng = monthsEng[this.currentCalendarMonth];
         const thaiYear = this.currentCalendarYear + 543; // Convert to Thai Buddhist year
         
         currentMonth.textContent = `${monthName} ${thaiYear}`;
+        
+        if (currentMonthEng) {
+          currentMonthEng.textContent = `${monthNameEng} ${this.currentCalendarYear}`;
+        }
         
         console.log(`📅 Calendar header updated: ${monthName} ${thaiYear} (Thailand timezone)`);
       } catch (error) {
         console.error('❌ Error updating calendar header:', error);
         // Fallback to safe display
         currentMonth.textContent = 'ปฏิทิน - เกิดข้อผิดพลาด';
+        if (currentMonthEng) {
+          currentMonthEng.textContent = 'Calendar - Error';
+        }
       }
     }
   }
@@ -3831,9 +4407,39 @@ class DashboardApp {
     const statusColor = this.getStatusColor(task.status);
     const priorityText = this.getPriorityText(task.priority);
     const priorityClass = this.getPriorityClass(task.priority);
-    const assignedTo = this.getAssignedToDisplay(task);
+    
+    // Fix assignee display to show proper names
+    let assignedTo = 'ไม่ระบุ';
+    if (task.assignedUsers && task.assignedUsers.length > 0) {
+      assignedTo = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ระบุชื่อ').join(', ');
+    } else if (task.assigneeIds && task.assigneeIds.length > 0) {
+      // Fallback to use getAssignedToDisplay if assignedUsers is not available
+      assignedTo = this.getAssignedToDisplay(task);
+    }
+    
     const dueDate = this.formatDateTime(task.dueTime || task.dueDate);
     const createdDate = this.formatDateTime(task.createdAt);
+    
+    // Get creator display name
+    let createdByDisplay = 'ไม่ระบุ';
+    if (task.createdBy) {
+      // Try to find the creator in group members to get display name
+      if (this.groupMembers && this.groupMembers.length > 0) {
+        const creator = this.groupMembers.find(m => 
+          m.lineUserId === task.createdBy || 
+          m.id === task.createdBy ||
+          m.userId === task.createdBy
+        );
+        if (creator) {
+          createdByDisplay = creator.displayName || creator.name || task.createdBy;
+        } else {
+          createdByDisplay = task.createdBy;
+        }
+      } else {
+        createdByDisplay = task.createdBy;
+      }
+    }
+    
     const files = task.files || [];
     const submissions = task.submissions || [];
     const tags = task.tags || [];
@@ -3845,22 +4451,14 @@ class DashboardApp {
           <h4 class="text-lg font-semibold text-gray-900 mb-4">ข้อมูลงาน</h4>
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label class="text-sm font-medium text-gray-500">สถานะ</label>
-              <div class="mt-1">
-                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}">
-                  ${statusText}
-                </span>
-              </div>
-            </div>
-            <div>
-              <label class="text-sm font-medium text-gray-500">ความสำคัญ</label>
-              <div class="mt-1">
-                <span class="priority-badge ${priorityClass}">${priorityText}</span>
-              </div>
-            </div>
-            <div>
               <label class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</label>
               <p class="mt-1 text-sm text-gray-900">${assignedTo}</p>
+            </div>
+            <div class="flex items-center justify-end gap-2">
+              <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}">
+                ${statusText}
+              </span>
+              <span class="priority-badge ${priorityClass}">${priorityText}</span>
             </div>
             <div>
               <label class="text-sm font-medium text-gray-500">วันที่ครบกำหนด</label>
@@ -3987,6 +4585,11 @@ class DashboardApp {
             <i class="fas fa-edit mr-1"></i>
             แก้ไขงาน
           </button>
+        </div>
+        
+        <!-- ข้อมูลผู้สร้าง -->
+        <div class="text-center pt-3 border-t border-gray-200">
+          <p class="text-sm text-gray-500">สร้างโดย: <span class="font-medium text-gray-700">${createdByDisplay}</span></p>
         </div>
       </div>
     `;
@@ -4329,6 +4932,13 @@ class DashboardApp {
 
   // ฟังก์ชันแสดงรายชื่อผู้รับผิดชอบหลายคน
   getAssignedToDisplay(task) {
+    // ใช้ assignedUsers ก่อนถ้ามี
+    if (task.assignedUsers && Array.isArray(task.assignedUsers) && task.assignedUsers.length > 0) {
+      const names = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ระบุชื่อ');
+      return names.join(', ');
+    }
+    
+    // Fallback ใช้ assigneeIds
     if (task.assigneeIds && Array.isArray(task.assigneeIds)) {
       if (task.assigneeIds.length === 0) {
         return 'ไม่ระบุ';
@@ -4342,6 +4952,27 @@ class DashboardApp {
     
     // Fallback สำหรับข้อมูลเก่า
     return task.assignedToName || task.assignedTo || 'ไม่ระบุ';
+  }
+
+  // ฟังก์ชันเพื่อแสดงชื่อผู้สร้างงาน
+  getCreatorDisplayName(task) {
+    if (!task.createdBy) {
+      return 'ไม่ระบุ';
+    }
+    
+    // หาชื่อผู้สร้างจากรายชื่อสมาชิกกลุ่ม
+    if (this.groupMembers && this.groupMembers.length > 0) {
+      const creator = this.groupMembers.find(m => 
+        m.lineUserId === task.createdBy || 
+        m.id === task.createdBy ||
+        m.userId === task.createdBy
+      );
+      if (creator) {
+        return creator.displayName || creator.name || task.createdBy;
+      }
+    }
+    
+    return task.createdBy;
   }
 
   // ฟังก์ชันจัดการการเลือกผู้รับผิดชอบ
