@@ -1657,12 +1657,21 @@ class DashboardApp {
 
       // โหลดข้อมูลเพิ่มเติมจาก API
       let detailedTask = task;
+      console.log('Original task data:', task);
+      
       try {
-        const response = await fetch(`/api/task/${taskId}`);
+        // Try the group-specific endpoint first
+        let response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${taskId}`);
+        if (!response.ok) {
+          // Fallback to general task endpoint
+          response = await fetch(`/api/task/${taskId}`);
+        }
+        
         if (response.ok) {
           const result = await response.json();
-          if (result.success) {
+          if (result.success && result.data) {
             detailedTask = result.data;
+            console.log('Detailed task data from API:', detailedTask);
           }
         }
       } catch (error) {
@@ -1749,14 +1758,25 @@ class DashboardApp {
     document.getElementById('taskDetailProgress').textContent = `${progress}%`;
     document.getElementById('taskDetailProgressBar').style.width = `${progress}%`;
 
-    // Submission info
-    document.getElementById('taskDetailSubmissions').textContent = task.submissionCount || 0;
-    const lastSubmission = task.lastSubmissionAt ? 
-      new Date(task.lastSubmissionAt).toLocaleDateString('th-TH') : 'ไม่มี';
-    document.getElementById('taskDetailLastSubmission').textContent = lastSubmission;
+    // Submission info - check workflow for submissions
+    let submissionCount = 0;
+    let lastSubmissionDate = 'ไม่มี';
+    
+    if (task.workflow && task.workflow.submissions && Array.isArray(task.workflow.submissions)) {
+      submissionCount = task.workflow.submissions.length;
+      if (submissionCount > 0) {
+        const lastSubmission = task.workflow.submissions[task.workflow.submissions.length - 1];
+        if (lastSubmission.submittedAt) {
+          lastSubmissionDate = new Date(lastSubmission.submittedAt).toLocaleDateString('th-TH');
+        }
+      }
+    }
+    
+    document.getElementById('taskDetailSubmissions').textContent = submissionCount;
+    document.getElementById('taskDetailLastSubmission').textContent = lastSubmissionDate;
 
-    // Files
-    this.loadTaskFiles(task.id);
+    // Files - check both API and task.attachedFiles
+    this.loadTaskFilesComprehensive(task);
 
     // Notes
     const notesEl = document.getElementById('taskDetailNotes');
@@ -1766,35 +1786,61 @@ class DashboardApp {
     this.updateTaskDetailButtons(task);
   }
 
-  async loadTaskFiles(taskId) {
+  async loadTaskFilesComprehensive(task) {
+    const filesEl = document.getElementById('taskDetailFiles');
+    let allFiles = [];
+    
     try {
-      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${taskId}/files`);
+      // Try to load files from API first
+      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${task.id}/files`);
       if (response.ok) {
         const result = await response.json();
-        const filesEl = document.getElementById('taskDetailFiles');
-        
         if (result.success && result.data && result.data.length > 0) {
-          filesEl.innerHTML = result.data.map(file => `
-            <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
-              <div class="flex items-center">
-                <i class="fas fa-file text-gray-400 mr-3"></i>
-                <div>
-                  <div class="font-medium">${this.escapeHtml(file.originalName || file.filename)}</div>
-                  <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)}</div>
-                </div>
-              </div>
-              <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}')">
-                <i class="fas fa-download"></i>
-              </button>
-            </div>
-          `).join('');
-        } else {
-          filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
+          allFiles = result.data;
+          console.log('Loaded files from API:', allFiles.length);
         }
       }
     } catch (error) {
-      console.error('Error loading task files:', error);
-      document.getElementById('taskDetailFiles').innerHTML = '<div class="text-gray-500 text-center py-4">ไม่สามารถโหลดไฟล์ได้</div>';
+      console.warn('Could not load files from API:', error);
+    }
+    
+    // Also check task.attachedFiles property
+    if (task.attachedFiles && Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0) {
+      console.log('Found attached files in task:', task.attachedFiles.length);
+      // Merge with API files, avoiding duplicates by ID
+      const existingIds = allFiles.map(f => f.id);
+      const additionalFiles = task.attachedFiles.filter(f => !existingIds.includes(f.id));
+      allFiles = [...allFiles, ...additionalFiles];
+    }
+    
+    // Check workflow submissions for files
+    if (task.workflow && task.workflow.submissions && Array.isArray(task.workflow.submissions)) {
+      task.workflow.submissions.forEach(submission => {
+        if (submission.fileIds && Array.isArray(submission.fileIds)) {
+          console.log('Found submission files:', submission.fileIds.length);
+          // Note: We have file IDs but not file objects, so we'll note this in the display
+        }
+      });
+    }
+    
+    // Render files
+    if (allFiles.length > 0) {
+      filesEl.innerHTML = allFiles.map(file => `
+        <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+          <div class="flex items-center">
+            <i class="fas fa-file text-gray-400 mr-3"></i>
+            <div>
+              <div class="font-medium">${this.escapeHtml(file.originalName || file.filename || file.name || 'Unnamed file')}</div>
+              <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${this.formatDate(file.uploadedAt || file.createdAt)}</div>
+            </div>
+          </div>
+          <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}')">
+            <i class="fas fa-download"></i>
+          </button>
+        </div>
+      `).join('');
+    } else {
+      filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
     }
   }
 
