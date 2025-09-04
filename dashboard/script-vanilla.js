@@ -2527,16 +2527,60 @@ class DashboardApp {
       assigneesEl.innerHTML = task.assignedUsers.map(user => `
         <div class="flex items-center p-2 bg-gray-100 rounded-lg">
           <div class="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center text-white text-sm mr-3">
-            ${(user.displayName || user.name || 'U')[0].toUpperCase()}
+            ${(user.displayName || user.realName || user.name || 'U')[0].toUpperCase()}
           </div>
           <div>
-            <div class="font-medium">${user.displayName || user.name || 'ไม่ระบุชื่อ'}</div>
+            <div class="font-medium">${user.displayName || user.realName || user.name || 'ไม่ระบุชื่อ'}</div>
             <div class="text-sm text-gray-600">${user.email || ''}</div>
           </div>
         </div>
       `).join('');
     } else {
       assigneesEl.innerHTML = '<div class="text-gray-500">ไม่มีผู้รับผิดชอบ</div>';
+    }
+
+    // Reviewer
+    const reviewerEl = document.getElementById('taskDetailReviewer');
+    if (task.reviewerUserId || task.reviewerUser) {
+      // ถ้ามีข้อมูล reviewer user object จาก API
+      if (task.reviewerUser) {
+        reviewerEl.innerHTML = `
+          <div class="flex items-center">
+            <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm mr-3">
+              ${(task.reviewerUser.displayName || task.reviewerUser.realName || task.reviewerUser.name || 'R')[0].toUpperCase()}
+            </div>
+            <div>
+              <div class="font-medium">${task.reviewerUser.displayName || task.reviewerUser.realName || task.reviewerUser.name || 'ไม่ระบุชื่อ'}</div>
+              <div class="text-sm text-gray-600">${task.reviewerUser.email || ''}</div>
+            </div>
+          </div>
+        `;
+      } else {
+        // ถ้ามีแค่ ID ให้หาจาก group members
+        const reviewer = this.groupMembers?.find(m => 
+          m.lineUserId === task.reviewerUserId || 
+          m.id === task.reviewerUserId ||
+          m.userId === task.reviewerUserId
+        );
+        
+        if (reviewer) {
+          reviewerEl.innerHTML = `
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm mr-3">
+                ${(reviewer.displayName || reviewer.realName || reviewer.name || 'R')[0].toUpperCase()}
+              </div>
+              <div>
+                <div class="font-medium">${reviewer.displayName || reviewer.realName || reviewer.name || 'ไม่ระบุชื่อ'}</div>
+                <div class="text-sm text-gray-600">${reviewer.email || ''}</div>
+              </div>
+            </div>
+          `;
+        } else {
+          reviewerEl.innerHTML = `<div class="text-gray-500">ผู้ตรวจ: ${task.reviewerUserId}</div>`;
+        }
+      }
+    } else {
+      reviewerEl.innerHTML = '<div class="text-gray-500">ไม่ระบุผู้ตรวจ</div>';
     }
 
     // Tags
@@ -4425,7 +4469,10 @@ class DashboardApp {
     
     // Get creator display name
     let createdByDisplay = 'ไม่ระบุ';
-    if (task.createdBy) {
+    if (task.createdByUser) {
+      // ใช้ข้อมูลผู้สร้างที่ส่งมาจาก API โดยตรง
+      createdByDisplay = task.createdByUser.displayName || task.createdByUser.realName || task.createdByUser.name || task.createdBy;
+    } else if (task.createdBy) {
       // Try to find the creator in group members to get display name
       if (this.groupMembers && this.groupMembers.length > 0) {
         const creator = this.groupMembers.find(m => 
@@ -4434,7 +4481,7 @@ class DashboardApp {
           m.userId === task.createdBy
         );
         if (creator) {
-          createdByDisplay = creator.displayName || creator.name || task.createdBy;
+          createdByDisplay = creator.displayName || creator.realName || creator.name || task.createdBy;
         } else {
           createdByDisplay = task.createdBy;
         }
@@ -4456,6 +4503,10 @@ class DashboardApp {
             <div>
               <label class="text-sm font-medium text-gray-500">ผู้รับผิดชอบ</label>
               <p class="mt-1 text-sm text-gray-900">${assignedTo}</p>
+            </div>
+            <div>
+              <label class="text-sm font-medium text-gray-500">ผู้สร้างงาน</label>
+              <p class="mt-1 text-sm text-gray-900">${createdByDisplay}</p>
             </div>
             <div class="flex items-center justify-end gap-2">
               <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}">
@@ -4935,9 +4986,9 @@ class DashboardApp {
 
   // ฟังก์ชันแสดงรายชื่อผู้รับผิดชอบหลายคน
   getAssignedToDisplay(task) {
-    // ใช้ assignedUsers ก่อนถ้ามี
+    // ใช้ assignedUsers ที่มาจาก API ก่อน
     if (task.assignedUsers && Array.isArray(task.assignedUsers) && task.assignedUsers.length > 0) {
-      const names = task.assignedUsers.map(user => user.displayName || user.name || 'ไม่ระบุชื่อ');
+      const names = task.assignedUsers.map(user => user.displayName || user.realName || user.name || 'ไม่ระบุชื่อ');
       return names.join(', ');
     }
     
@@ -4959,6 +5010,11 @@ class DashboardApp {
 
   // ฟังก์ชันเพื่อแสดงชื่อผู้สร้างงาน
   getCreatorDisplayName(task) {
+    // ใช้ข้อมูลผู้สร้างที่ส่งมาจาก API ก่อน
+    if (task.createdByUser) {
+      return task.createdByUser.displayName || task.createdByUser.realName || task.createdByUser.name || task.createdBy;
+    }
+    
     if (!task.createdBy) {
       return 'ไม่ระบุ';
     }
@@ -4971,7 +5027,7 @@ class DashboardApp {
         m.userId === task.createdBy
       );
       if (creator) {
-        return creator.displayName || creator.name || task.createdBy;
+        return creator.displayName || creator.realName || creator.name || task.createdBy;
       }
     }
     

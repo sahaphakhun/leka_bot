@@ -2427,7 +2427,7 @@ class Dashboard {
     if (select) {
       // แสดงเป็น checkbox list เพื่อเลือกหลายคนได้ง่าย
       select.innerHTML = members.map(member => 
-        `<label class="checkbox-item"><input type="checkbox" class="assignee-checkbox" value="${member.lineUserId || member.id}"><span>${member.displayName}</span></label>`
+        `<label class="checkbox-item"><input type="checkbox" class="assignee-checkbox" value="${member.lineUserId || member.id}"><span>${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</span></label>`
       ).join('');
     }
     
@@ -2488,6 +2488,57 @@ class Dashboard {
     }
     
     return task.createdBy;
+  }
+
+  // Helper function to get reviewer display HTML
+  getReviewerDisplayHTML(task) {
+    if (!task.reviewerUserId && !task.reviewerUser && !task.workflow?.review?.reviewerUserId) {
+      return `
+        <div class="task-reviewer">
+          <h4>ผู้ตรวจงาน</h4>
+          <p>ไม่ระบุผู้ตรวจ</p>
+        </div>
+      `;
+    }
+
+    // Get reviewer ID from multiple possible sources
+    const reviewerUserId = task.reviewerUserId || task.workflow?.review?.reviewerUserId;
+    
+    // If we have reviewer user object from API
+    if (task.reviewerUser) {
+      return `
+        <div class="task-reviewer">
+          <h4>ผู้ตรวจงาน</h4>
+          <p>${task.reviewerUser.displayName || task.reviewerUser.realName || task.reviewerUser.name || 'ไม่ระบุชื่อ'}</p>
+        </div>
+      `;
+    }
+    
+    // Find reviewer in group members
+    if (reviewerUserId && this.groupMembers && this.groupMembers.length > 0) {
+      const reviewer = this.groupMembers.find(m => 
+        m.lineUserId === reviewerUserId || 
+        m.id === reviewerUserId ||
+        m.userId === reviewerUserId
+      );
+      
+      if (reviewer) {
+        return `
+          <div class="task-reviewer">
+            <h4>ผู้ตรวจงาน</h4>
+            <p>${reviewer.displayName || reviewer.realName || reviewer.name || 'ไม่ระบุชื่อ'}</p>
+          </div>
+        `;
+      }
+    }
+    
+    // Fallback to showing the ID
+    return `
+      <div class="task-reviewer">
+        <h4>ผู้ตรวจงาน</h4>
+        <p>ผู้ตรวจ: ${reviewerUserId}</p>
+      </div>
+    `;
   }
 
   // Setup file upload functionality for create task modal
@@ -2761,6 +2812,8 @@ class Dashboard {
               <h4>ผู้รับผิดชอบ</h4>
               <p>${(task.assignedUsers || task.assignees || []).map(u => u.displayName || u.name).join(', ') || 'ไม่ระบุ'}</p>
             </div>
+
+            ${this.getReviewerDisplayHTML(task)}
 
             ${attachedFiles.length > 0 ? `
               <div class="task-attachments">

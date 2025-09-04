@@ -258,7 +258,7 @@
                                     ${task.assignedUsers && task.assignedUsers.length > 0 ? `
                                         <div class="flex items-center text-sm text-gray-600">
                                             <span class="mr-2">👥 ผู้รับผิดชอบ:</span>
-                                            <span class="font-medium">${task.assignedUsers.map(u => u.displayName).join(', ')}</span>
+                                            <span class="font-medium">${task.assignedUsers.map(u => u.displayName || u.realName || u.name || 'ไม่ระบุชื่อ').join(', ')}</span>
                                         </div>
                                     ` : ''}
                                 </div>

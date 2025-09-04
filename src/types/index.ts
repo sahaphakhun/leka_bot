@@ -64,6 +64,23 @@ export interface Task {
   // ผู้รับผิดชอบ
   assignees: string[]; // User IDs
   createdBy: string;   // User ID
+  reviewerUserId?: string; // User ID ของผู้ตรวจงาน
+  
+  // ข้อมูลผู้ใช้ที่สมบูรณ์สำหรับการแสดงผล
+  assignedUsers?: Array<{
+    id: string;
+    lineUserId: string;
+    displayName: string;
+    realName?: string;
+    email?: string;
+  }>;
+  createdByUser?: {
+    id: string;
+    lineUserId: string;
+    displayName: string;
+    realName?: string;
+    email?: string;
+  } | null;
   
   // การเตือน
   remindersSent: ReminderLog[];

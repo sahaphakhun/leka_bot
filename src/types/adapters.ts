@@ -25,7 +25,25 @@ export const taskEntityToInterface = (entity: TaskEntity): Task => {
     googleEventId: entity.googleEventId,
     attachedFiles: entity.attachedFiles?.map(file => file.id) || [],
     createdAt: entity.createdAt,
-    updatedAt: entity.updatedAt
+    updatedAt: entity.updatedAt,
+    // เพิ่มข้อมูลผู้ใช้ที่สมบูรณ์สำหรับการแสดงผล
+    assignedUsers: entity.assignedUsers?.map(user => ({
+      id: user.id,
+      lineUserId: user.lineUserId,
+      displayName: user.displayName,
+      realName: user.realName,
+      email: user.email
+    })) || [],
+    createdByUser: entity.createdByUser ? {
+      id: entity.createdByUser.id,
+      lineUserId: entity.createdByUser.lineUserId,
+      displayName: entity.createdByUser.displayName,
+      realName: entity.createdByUser.realName,
+      email: entity.createdByUser.email
+    } : null,
+    // เพิ่มข้อมูลผู้ตรวจจาก workflow
+    reviewerUserId: entity.workflow?.review?.reviewerUserId,
+    workflow: entity.workflow
   };
 };
 

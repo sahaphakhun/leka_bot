@@ -77,9 +77,12 @@ class ApiController {
 
       const { tasks, total } = await this.taskService.getGroupTasks(groupId, options);
 
+      // แปลง Task entities เป็น interfaces พร้อมข้อมูลผู้ใช้ที่สมบูรณ์
+      const tasksWithUserInfo = tasks.map(task => taskEntityToInterface(task));
+
       const response: PaginatedResponse<any> = {
         success: true,
-        data: tasks,
+        data: tasksWithUserInfo,
         pagination: {
           page: parseInt(page as string),
           limit: parseInt(limit as string),
@@ -2322,7 +2325,12 @@ apiRouter.get('/task/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     const svc = new TaskService();
-    const task = await svc.getTaskById(taskId);
+    const taskEntity = await svc.getTaskById(taskId);
+    if (!taskEntity) {
+      res.status(404).json({ success: false, error: 'Task not found' });
+      return;
+    }
+    const task = taskEntityToInterface(taskEntity);
     res.json({ success: true, data: task });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to get task' });
@@ -2334,7 +2342,12 @@ apiRouter.get('/groups/:groupId/tasks/:taskId', async (req, res) => {
   try {
     const { taskId } = req.params;
     const svc = new TaskService();
-    const task = await svc.getTaskById(taskId);
+    const taskEntity = await svc.getTaskById(taskId);
+    if (!taskEntity) {
+      res.status(404).json({ success: false, error: 'Task not found' });
+      return;
+    }
+    const task = taskEntityToInterface(taskEntity);
     res.json({ success: true, data: task });
   } catch (err) {
     res.status(500).json({ success: false, error: 'Failed to get task' });
