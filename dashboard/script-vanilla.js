@@ -1630,6 +1630,10 @@ class DashboardApp {
       return;
     }
 
+    // Store task data for validation
+    this.currentTaskToSubmit = task;
+    this.currentTaskId = taskId;
+
     // Populate modal with task info
     document.getElementById('submitTaskId').value = taskId;
     document.getElementById('submitTaskTitle').textContent = task.title;
@@ -1637,11 +1641,55 @@ class DashboardApp {
     const dueInfo = this.getDueInfo(task.dueTime);
     document.getElementById('submitTaskDue').textContent = `กำหนดส่ง: ${dueInfo.date}`;
 
+    // Check if file attachment is required and show warning
+    const fileUploadArea = document.getElementById('submitFileUploadArea');
+    const fileLabel = fileUploadArea.parentElement.querySelector('label');
+    
+    if (task.requireAttachment) {
+      // Update label to show required status
+      fileLabel.innerHTML = 'ไฟล์แนบ <span class="text-red-500">*บังคับ</span>';
+      
+      // Add warning message
+      let warningEl = document.getElementById('fileRequiredWarning');
+      if (!warningEl) {
+        warningEl = document.createElement('div');
+        warningEl.id = 'fileRequiredWarning';
+        warningEl.className = 'bg-yellow-50 border border-yellow-200 rounded-lg p-3 mt-2';
+        fileUploadArea.parentElement.insertBefore(warningEl, fileUploadArea);
+      }
+      warningEl.innerHTML = `
+        <div class="flex items-center">
+          <i class="fas fa-exclamation-triangle text-yellow-500 mr-2"></i>
+          <span class="text-sm text-yellow-700 font-medium">งานนี้ต้องแนบไฟล์เพื่อส่งงาน กรุณาเลือกไฟล์ก่อนกดส่ง</span>
+        </div>
+      `;
+      
+      // Style the upload area to indicate required
+      fileUploadArea.classList.add('border-yellow-300', 'bg-yellow-50');
+      fileUploadArea.classList.remove('border-gray-300');
+    } else {
+      // Reset to optional status
+      fileLabel.innerHTML = 'ไฟล์แนบ (ไม่บังคับ)';
+      
+      // Remove warning if exists
+      const warningEl = document.getElementById('fileRequiredWarning');
+      if (warningEl) {
+        warningEl.remove();
+      }
+      
+      // Reset upload area style
+      fileUploadArea.classList.remove('border-yellow-300', 'bg-yellow-50');
+      fileUploadArea.classList.add('border-gray-300');
+    }
+
     // Reset form
     document.getElementById('submitComment').value = '';
     document.getElementById('submitTaskFiles').value = '';
     document.getElementById('submitFileList').innerHTML = '';
     document.getElementById('submitFileList').classList.add('hidden');
+    
+    // Reset submitFiles array
+    this.submitFiles = [];
 
     this.openModal('submitTaskModal');
   }
@@ -1778,9 +1826,68 @@ class DashboardApp {
     // Files - check both API and task.attachedFiles
     this.loadTaskFilesComprehensive(task);
 
-    // Notes
+    // Notes - show both task notes and submission comments
     const notesEl = document.getElementById('taskDetailNotes');
-    notesEl.textContent = task.notes || 'ไม่มีหมายเหตุเพิ่มเติม';
+    let notesHTML = '';
+    
+    // Add task notes if they exist
+    if (task.notes) {
+      notesHTML += `
+        <div class="mb-4">
+          <h5 class="font-medium text-gray-900 mb-2">หมายเหตุงาน:</h5>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            <p class="text-gray-700">${this.escapeHtml(task.notes)}</p>
+          </div>
+        </div>
+      `;
+    }
+    
+    // Add submission comments if they exist
+    if (task.workflow && task.workflow.submissions && Array.isArray(task.workflow.submissions)) {
+      const submissionsWithComments = task.workflow.submissions.filter(submission => submission.comment && submission.comment.trim());
+      
+      if (submissionsWithComments.length > 0) {
+        notesHTML += `
+          <div class="mb-4">
+            <h5 class="font-medium text-gray-900 mb-2">หมายเหตุจากผู้ส่งงาน:</h5>
+            <div class="space-y-3">
+        `;
+        
+        submissionsWithComments.forEach((submission, index) => {
+          const submissionDate = submission.submittedAt ? new Date(submission.submittedAt).toLocaleDateString('th-TH', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }) : 'ไม่ระบุวันที่';
+          
+          const lateIndicator = submission.lateSubmission ? '<span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-800 ml-2">ส่งช้า</span>' : '';
+          
+          notesHTML += `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-3">
+              <div class="flex items-center justify-between mb-2">
+                <div class="text-sm font-medium text-green-800">การส่งครั้งที่ ${submissionsWithComments.length - index}</div>
+                <div class="text-xs text-green-600">${submissionDate}${lateIndicator}</div>
+              </div>
+              <p class="text-gray-700">${this.escapeHtml(submission.comment)}</p>
+            </div>
+          `;
+        });
+        
+        notesHTML += `
+            </div>
+          </div>
+        `;
+      }
+    }
+    
+    // If no notes or comments exist, show default message
+    if (!notesHTML) {
+      notesHTML = '<div class="text-gray-500 text-center py-4">ไม่มีหมายเหตุหรือคำอธิบายเพิ่มเติม</div>';
+    }
+    
+    notesEl.innerHTML = notesHTML;
 
     // Action buttons
     this.updateTaskDetailButtons(task);
@@ -2042,11 +2149,35 @@ class DashboardApp {
       this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
       return;
     }
+
+    // Check if file attachment is required and validate
+    if (this.currentTaskToSubmit && this.currentTaskToSubmit.requireAttachment) {
+      const hasFiles = this.submitFiles && this.submitFiles.length > 0;
+      if (!hasFiles) {
+        this.showToast('งานนี้ต้องแนบไฟล์เพื่อส่งงาน กรุณาเลือกไฟล์ก่อนกดส่ง', 'error');
+        
+        // Highlight the upload area to draw attention
+        const uploadArea = document.getElementById('submitFileUploadArea');
+        if (uploadArea) {
+          uploadArea.classList.remove('border-yellow-300', 'bg-yellow-50');
+          uploadArea.classList.add('border-red-300', 'bg-red-50');
+          
+          // Reset to warning style after 3 seconds
+          setTimeout(() => {
+            uploadArea.classList.remove('border-red-300', 'bg-red-50');
+            uploadArea.classList.add('border-yellow-300', 'bg-yellow-50');
+          }, 3000);
+        }
+        
+        return;
+      }
+    }
     
     try {
       await this.submitTask(this.currentTaskId, this.submitFiles || []);
       this.closeModal('submitTaskModal');
       this.submitFiles = [];
+      this.currentTaskToSubmit = null; // Clear stored task data
     } catch (error) {
       console.error('Error submitting task:', error);
     }
@@ -2109,6 +2240,29 @@ class DashboardApp {
       this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
       return;
     }
+
+    // Check if file attachment is required and validate
+    if (this.currentTaskToSubmit && this.currentTaskToSubmit.requireAttachment) {
+      const hasValidFiles = files.some(file => file.size > 0);
+      if (!hasValidFiles) {
+        this.showToast('งานนี้ต้องแนบไฟล์เพื่อส่งงาน กรุณาเลือกไฟล์ก่อนกดส่ง', 'error');
+        
+        // Highlight the upload area to draw attention
+        const uploadArea = document.getElementById('submitFileUploadArea');
+        if (uploadArea) {
+          uploadArea.classList.remove('border-yellow-300', 'bg-yellow-50');
+          uploadArea.classList.add('border-red-300', 'bg-red-50');
+          
+          // Reset to warning style after 3 seconds
+          setTimeout(() => {
+            uploadArea.classList.remove('border-red-300', 'bg-red-50');
+            uploadArea.classList.add('border-yellow-300', 'bg-yellow-50');
+          }, 3000);
+        }
+        
+        return;
+      }
+    }
     
     try {
       this.showToast('กำลังส่งงาน...', 'info');
@@ -2147,6 +2301,9 @@ class DashboardApp {
         this.renderTasks();
         this.renderRecentTasks();
         this.updateUpcomingTasks();
+        
+        // Clear stored task data
+        this.currentTaskToSubmit = null;
       } else {
         throw new Error(result.error || 'Failed to submit task');
       }
@@ -2200,6 +2357,7 @@ class DashboardApp {
     
     if (files.length === 0) {
       fileList.classList.add('hidden');
+      this.submitFiles = []; // Clear submitFiles when no files
       return;
     }
     
@@ -2230,6 +2388,9 @@ class DashboardApp {
     const dataTransfer = new DataTransfer();
     files.forEach(file => dataTransfer.items.add(file));
     fileInput.files = dataTransfer.files;
+    
+    // Store files for validation
+    this.submitFiles = files;
   }
 
   removeSelectedFile(index) {
@@ -2239,6 +2400,11 @@ class DashboardApp {
     const files = Array.from(fileInput.files);
     files.splice(index, 1);
     this.displaySelectedFiles(files, fileInput);
+    
+    // Also update submitFiles array if it exists
+    if (this.submitFiles && this.submitFiles.length > index) {
+      this.submitFiles.splice(index, 1);
+    }
   }
 
   // Task Action Functions
