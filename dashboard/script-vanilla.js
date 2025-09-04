@@ -686,21 +686,25 @@ class DashboardApp {
                   ส่ง
                 </button>
               ` : ''}
-              <button 
-                class="btn btn-sm btn-outline" 
-                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
-                title="แก้ไขงาน"
-              >
-                <i class="fas fa-edit"></i>
-              </button>
-              <button 
-                class="btn btn-sm" 
-                style="background-color: #dc2626; color: white;" 
-                onclick="window.dashboardApp.deleteTask('${task.id}')"
-                title="ลบงาน"
-              >
-                <i class="fas fa-trash"></i>
-              </button>
+              ${this.canEditTask(task) ? `
+                <button 
+                  class="btn btn-sm btn-outline" 
+                  onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                  title="แก้ไขงาน"
+                >
+                  <i class="fas fa-edit"></i>
+                </button>
+              ` : ''}
+              ${this.canDeleteTask(task) ? `
+                <button 
+                  class="btn btn-sm" 
+                  style="background-color: #dc2626; color: white;" 
+                  onclick="window.dashboardApp.deleteTask('${task.id}')"
+                  title="ลบงาน"
+                >
+                  <i class="fas fa-trash"></i>
+                </button>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -758,23 +762,27 @@ class DashboardApp {
                   ส่งงาน
                 </button>
               ` : ''}
-              <button 
-                class="btn btn-xs btn-outline" 
-                onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
-                title="แก้ไข"
-              >
-                <i class="fas fa-edit mr-1"></i>
-                แก้ไข
-              </button>
-              <button 
-                class="btn btn-xs text-white" 
-                style="background-color: #dc2626;" 
-                onclick="window.dashboardApp.deleteTask('${task.id}')"
-                title="ลบ"
-              >
-                <i class="fas fa-trash mr-1"></i>
-                ลบ
-              </button>
+              ${this.canEditTask(task) ? `
+                <button 
+                  class="btn btn-xs btn-outline" 
+                  onclick="window.dashboardApp.openEditTaskModal('${task.id}')"
+                  title="แก้ไข"
+                >
+                  <i class="fas fa-edit mr-1"></i>
+                  แก้ไข
+                </button>
+              ` : ''}
+              ${this.canDeleteTask(task) ? `
+                <button 
+                  class="btn btn-xs text-white" 
+                  style="background-color: #dc2626;" 
+                  onclick="window.dashboardApp.deleteTask('${task.id}')"
+                  title="ลบ"
+                >
+                  <i class="fas fa-trash mr-1"></i>
+                  ลบ
+                </button>
+              ` : ''}
             </div>
           </div>
         </div>
@@ -950,8 +958,62 @@ class DashboardApp {
     }
   }
 
+  // ====================
+  // Permission Checking
+  // ====================
+
+  /**
+   * ตรวจสอบว่าผู้ใช้สามารถส่งงานได้หรือไม่
+   */
   canSubmitTask(task) {
-    return task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
+    // ตรวจสอบสถานะงานก่อน
+    const validStatus = task.status === 'pending' || task.status === 'in_progress' || task.status === 'overdue';
+    if (!validStatus) return false;
+    
+    // ตรวจสอบว่าผู้ใช้เป็นผู้รับผิดชอบงานหรือไม่
+    if (!this.currentUserId) return false;
+    
+    // ตรวจสอบว่าผู้ใช้เป็นหนึ่งในผู้รับผิดชอบงาน
+    const isAssignee = task.assignedUsers && task.assignedUsers.some(user => 
+      user.id === this.currentUserId || 
+      user.lineUserId === this.currentUserId
+    );
+    
+    return isAssignee;
+  }
+
+  /**
+   * ตรวจสอบว่าผู้ใช้สามารถแก้ไขงานได้หรือไม่
+   */
+  canEditTask(task) {
+    // ตรวจสอบว่าผู้ใช้เป็นผู้สร้างงานหรือไม่
+    if (!this.currentUserId) return false;
+    
+    return task.createdBy === this.currentUserId || 
+           task.createdByUser?.id === this.currentUserId || 
+           task.createdByUser?.lineUserId === this.currentUserId;
+  }
+
+  /**
+   * ตรวจสอบว่าผู้ใช้สามารถลบงานได้หรือไม่
+   */
+  canDeleteTask(task) {
+    // ใช้กฎเดียวกับการแก้ไขงาน
+    return this.canEditTask(task);
+  }
+
+  /**
+   * ตรวจสอบว่าผู้ใช้สามารถตรวจงานได้หรือไม่
+   */
+  canReviewTask(task) {
+    // ตรวจสอบว่าผู้ใช้เป็นผู้ตรวจงานหรือผู้สร้างงาน
+    if (!this.currentUserId) return false;
+    
+    const reviewerUserId = task.workflow?.review?.reviewerUserId;
+    const isReviewer = reviewerUserId === this.currentUserId;
+    const isCreator = this.canEditTask(task);
+    
+    return isReviewer || isCreator;
   }
 
   escapeHtml(text) {
@@ -2784,13 +2846,15 @@ class DashboardApp {
     const submitBtn = document.getElementById('taskDetailSubmitBtn');
     const completeBtn = document.getElementById('taskDetailCompleteBtn');
     const reopenBtn = document.getElementById('taskDetailReopenBtn');
+    const editBtn = document.getElementById('editTaskBtn');
+    const deleteBtn = document.getElementById('deleteTaskBtn');
 
     // Hide all buttons first
-    [submitBtn, completeBtn, reopenBtn].forEach(btn => {
+    [submitBtn, completeBtn, reopenBtn, editBtn, deleteBtn].forEach(btn => {
       if (btn) btn.style.display = 'none';
     });
 
-    // Show appropriate buttons based on status
+    // Show appropriate buttons based on status and permissions
     if (this.canSubmitTask(task) && submitBtn) {
       submitBtn.style.display = 'inline-flex';
       submitBtn.onclick = () => {
@@ -2807,6 +2871,15 @@ class DashboardApp {
     if (task.status === 'completed' && reopenBtn) {
       reopenBtn.style.display = 'inline-flex';
       reopenBtn.onclick = () => this.reopenTask(task.id);
+    }
+
+    // Show edit and delete buttons only if user has permission
+    if (this.canEditTask(task) && editBtn) {
+      editBtn.style.display = 'inline-flex';
+    }
+
+    if (this.canDeleteTask(task) && deleteBtn) {
+      deleteBtn.style.display = 'inline-flex';
     }
   }
 
