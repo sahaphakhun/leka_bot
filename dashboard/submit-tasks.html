@@ -617,12 +617,16 @@
             }
 
             async submitTasks() {
-                const submitBtn = document.querySelector('#submitForm button[type="submit"]');
-                const originalText = submitBtn.innerHTML;
+                // Get the submit button from the modal footer
+                const submitBtn = document.querySelector('.modal-footer .btn-primary');
+                let originalText = '<i class="fas fa-upload mr-2"></i>ส่งงาน'; // Default text
                 
                 try {
-                    submitBtn.disabled = true;
-                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่งงาน...';
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        originalText = submitBtn.innerHTML;
+                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่งงาน...';
+                    }
                     
                     const selectedTasks = Array.from(this.selectedTasks);
                     const comment = document.getElementById('submitComment').value;
@@ -667,8 +671,10 @@
                     console.error('Error submitting tasks:', error);
                     this.showToast('เกิดข้อผิดพลาดในการส่งงาน', 'error');
                 } finally {
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = originalText;
+                    if (submitBtn) {
+                        submitBtn.disabled = false;
+                        submitBtn.innerHTML = originalText;
+                    }
                 }
             }
 
@@ -755,7 +761,7 @@
                     }
                 })
                 .catch(function(error) {
-                    console.log('Service worker registration failed:', error);
+                    console.log('Service worker registration failed (this is normal in development):', error);
                 });
         }
     </script>
