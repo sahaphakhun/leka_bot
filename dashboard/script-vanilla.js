@@ -385,8 +385,10 @@ class DashboardApp {
       
       const result = await response.json();
       if (result.success) {
-        console.log('API stats received:', result.data);
-        this.updateStats(result.data, period);
+        // แยกข้อมูลสถิติออกจาก API response
+        const statsData = result.data.stats || result.data;
+        console.log('API stats received:', statsData);
+        this.updateStats(statsData, period);
       } else {
         throw new Error(result.error || 'Failed to load stats');
       }
@@ -2347,6 +2349,14 @@ class DashboardApp {
       if (result.success) {
         this.files = result.data || [];
         console.log('API files loaded:', this.files);
+        
+        // ถ้า API ส่งไฟล์ว่างกลับมา ให้ใช้ mock data แทน
+        if (this.files.length === 0) {
+          console.log('API returned empty files, using mock data instead');
+          this.files = this.getMockFiles();
+          console.log('Using mock files:', this.files);
+        }
+        
         this.organizedFiles = this.organizeFilesByTask(this.files);
         this.renderFiles();
         this.populateTaskFilter();
