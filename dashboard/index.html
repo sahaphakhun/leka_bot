@@ -1516,6 +1516,38 @@
         </div>
     </div>
 
+    <!-- File Preview Modal -->
+    <div id="filePreviewModal" class="modal hidden">
+        <div class="modal-content" style="max-width: 90vw; max-height: 90vh; width: auto; height: auto;">
+            <div class="modal-header">
+                <h3 id="filePreviewTitle">ดูไฟล์</h3>
+                <button class="modal-close" id="filePreviewModalClose">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="modal-body" style="padding: 0; position: relative; min-height: 400px;">
+                <!-- Loading indicator -->
+                <div id="filePreviewLoading" class="text-center py-8" style="display: none;">
+                    <div class="spinner mx-auto mb-4"></div>
+                    <p class="text-gray-600">กำลังโหลดไฟล์...</p>
+                </div>
+                
+                <!-- File content container -->
+                <div id="filePreviewContent" style="width: 100%; height: 100%; min-height: 400px;">
+                    <!-- Content will be loaded here -->
+                </div>
+                
+                <!-- Download button -->
+                <div class="absolute bottom-4 right-4" style="z-index: 10;">
+                    <button id="downloadFileBtn" class="btn btn-primary btn-sm">
+                        <i class="fas fa-download mr-2"></i>
+                        ดาวน์โหลด
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Modal Overlay -->
     <div id="modalOverlay" class="modal-overlay hidden"></div>
 

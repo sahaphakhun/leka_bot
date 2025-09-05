@@ -210,6 +210,9 @@ class DashboardApp {
     // ปุ่ม Debug (ถ้ามี)
     document.getElementById('debugLeaderboardBtn')?.addEventListener('click', () => this.debugLeaderboard());
     
+    // File Preview Modal events
+    document.getElementById('filePreviewModalClose')?.addEventListener('click', () => this.closeModal('filePreviewModal'));
+    
     // ปิด modal เมื่อคลิกพื้นหลัง (แต่ไม่ปิดเมื่อคลิกที่ modal content)
     document.getElementById('modalOverlay')?.addEventListener('click', (e) => {
       if (e.target === e.currentTarget) {
@@ -3764,17 +3767,32 @@ class DashboardApp {
 
   async downloadFile(fileId) {
     try {
-      const response = await fetch(`/api/files/${fileId}/download`);
+      // Use correct API endpoint with groupId
+      const response = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'download';
+        
+        // Try to get filename from Content-Disposition header
+        let filename = 'download';
+        const contentDisposition = response.headers.get('Content-Disposition');
+        if (contentDisposition) {
+          const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+          if (filenameMatch) {
+            filename = filenameMatch[1];
+          }
+        }
+        
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
+        this.showToast('ดาวน์โหลดไฟล์สำเร็จ', 'success');
+      } else {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error downloading file:', error);
@@ -4374,7 +4392,8 @@ class DashboardApp {
     try {
       this.showToast('กำลังดาวน์โหลดไฟล์...', 'info');
       
-      const response = await fetch(`/api/files/${fileId}/download`);
+      // Use correct API endpoint with groupId
+      const response = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}/download`);
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
@@ -4383,7 +4402,18 @@ class DashboardApp {
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = response.headers.get('Content-Disposition')?.split('filename=')[1] || 'file';
+      
+      // Try to get filename from Content-Disposition header
+      let filename = 'download';
+      const contentDisposition = response.headers.get('Content-Disposition');
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+        if (filenameMatch) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       window.URL.revokeObjectURL(url);
@@ -4642,10 +4672,211 @@ class DashboardApp {
   // File action functions
   previewFile(fileId) {
     const file = this.files.find(f => f.id === fileId);
-    if (!file) return;
+    if (!file) {
+      this.showToast('ไม่พบไฟล์ที่ต้องการ', 'error');
+      return;
+    }
 
-    this.showToast(`กำลังเปิดไฟล์: ${file.originalName || file.name}`, 'info');
-    // In a real implementation, this would open a file preview modal
+    this.openFilePreviewModal(file);
+  }
+
+  openFilePreviewModal(file) {
+    const modal = document.getElementById('filePreviewModal');
+    const title = document.getElementById('filePreviewTitle');
+    const loading = document.getElementById('filePreviewLoading');
+    const content = document.getElementById('filePreviewContent');
+    const downloadBtn = document.getElementById('downloadFileBtn');
+    
+    if (!modal || !title || !loading || !content) {
+      console.error('File preview modal elements not found');
+      return;
+    }
+
+    // ตั้งค่า modal
+    title.textContent = file.originalName || file.name || 'ดูไฟล์';
+    content.innerHTML = '';
+    loading.style.display = 'block';
+    
+    // ตั้งค่าปุ่มดาวน์โหลด
+    if (downloadBtn) {
+      downloadBtn.onclick = () => this.downloadFile(file.id);
+    }
+
+    // เปิด modal
+    this.openModal('filePreviewModal');
+    
+    // โหลดเนื้อหาไฟล์
+    setTimeout(() => {
+      this.loadFilePreview(file);
+    }, 100);
+  }
+
+  loadFilePreview(file) {
+    const loading = document.getElementById('filePreviewLoading');
+    const content = document.getElementById('filePreviewContent');
+    
+    if (!content) return;
+
+    const mimeType = file.mimeType || this.getMimeTypeFromName(file.originalName || file.name);
+    let fileContent = '';
+
+    try {
+      if (mimeType.startsWith('image/')) {
+        // แสดงรูปภาพ
+        const imageUrl = this.getFilePreviewUrl(file);
+        fileContent = `
+          <div class="flex items-center justify-center" style="min-height: 400px; background: #f8f9fa;">
+            <img src="${imageUrl}" alt="${this.escapeHtml(file.originalName || file.name)}" 
+                 style="max-width: 100%; max-height: 80vh; object-fit: contain; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);" 
+                 onerror="this.parentElement.innerHTML='<div class=\'text-center py-8\'><i class=\'fas fa-image text-4xl text-gray-400 mb-4\'></i><p class=\'text-gray-600\'>ไม่สามารถโหลดรูปภาพได้</p></div>'">
+          </div>
+        `;
+      } else if (mimeType === 'application/pdf') {
+        // แสดง PDF
+        const pdfUrl = this.getFilePreviewUrl(file);
+        fileContent = `
+          <div style="width: 100%; height: 80vh; min-height: 500px;">
+            <iframe src="${pdfUrl}" 
+                    style="width: 100%; height: 100%; border: none; border-radius: 8px;" 
+                    title="PDF Viewer"
+                    onload="console.log('PDF loaded successfully')" 
+                    onerror="this.parentElement.innerHTML='<div class=\'text-center py-8\'><i class=\'fas fa-file-pdf text-4xl text-red-400 mb-4\'></i><p class=\'text-gray-600\'>ไม่สามารถแสดง PDF ได้</p><a href=\"${pdfUrl}\" target=\"_blank\" class=\"btn btn-primary mt-4\"><i class=\"fas fa-external-link-alt mr-2\"></i>เปิดในแท็บใหม่</a></div>'">
+            </iframe>
+          </div>
+        `;
+      } else if (mimeType.startsWith('video/')) {
+        // แสดงวิดีโอ
+        const videoUrl = this.getFilePreviewUrl(file);
+        fileContent = `
+          <div class="flex items-center justify-center" style="min-height: 400px; background: #f8f9fa;">
+            <video controls style="max-width: 100%; max-height: 80vh; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.1);">
+              <source src="${videoUrl}" type="${mimeType}">
+              เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
+            </video>
+          </div>
+        `;
+      } else if (mimeType.startsWith('audio/')) {
+        // แสดงเสียง
+        const audioUrl = this.getFilePreviewUrl(file);
+        fileContent = `
+          <div class="text-center py-12" style="background: #f8f9fa; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
+            <i class="fas fa-music text-6xl text-blue-500 mb-6"></i>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">${this.escapeHtml(file.originalName || file.name)}</h3>
+            <div class="max-w-md mx-auto">
+              <audio controls style="width: 100%;" class="mb-4">
+                <source src="${audioUrl}" type="${mimeType}">
+                เบราว์เซอร์ของคุณไม่รองรับการเล่นเสียง
+              </audio>
+              <p class="text-sm text-gray-600">ขนาด: ${this.formatFileSize(file.size || 0)}</p>
+            </div>
+          </div>
+        `;
+      } else if (mimeType.startsWith('text/')) {
+        // แสดงไฟล์ข้อความ (ถ้ามี API)
+        fileContent = `
+          <div class="text-center py-12" style="background: #f8f9fa; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
+            <i class="fas fa-file-alt text-6xl text-green-500 mb-6"></i>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">${this.escapeHtml(file.originalName || file.name)}</h3>
+            <p class="text-gray-600 mb-4">ขนาด: ${this.formatFileSize(file.size || 0)}</p>
+            <p class="text-sm text-gray-500 mb-4">ไฟล์ข้อความ - กรุณาดาวน์โหลดเพื่อดูเนื้อหา</p>
+            <button class="btn btn-primary" onclick="window.dashboardApp.downloadFile('${file.id}')">
+              <i class="fas fa-download mr-2"></i>
+              ดาวน์โหลดเพื่อดู
+            </button>
+          </div>
+        `;
+      } else {
+        // ไฟล์ประเภทอื่นๆ ที่ไม่สามารถแสดงได้
+        const icon = this.getFileIcon(file.originalName || file.name);
+        fileContent = `
+          <div class="text-center py-12" style="background: #f8f9fa; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
+            <i class="${icon} text-6xl text-gray-400 mb-6"></i>
+            <h3 class="text-xl font-semibold text-gray-900 mb-4">${this.escapeHtml(file.originalName || file.name)}</h3>
+            <p class="text-gray-600 mb-2">ขนาด: ${this.formatFileSize(file.size || 0)}</p>
+            <p class="text-gray-600 mb-4">ประเภท: ${mimeType}</p>
+            <p class="text-sm text-gray-500 mb-4">ไม่สามารถแสดงตัวอย่างไฟล์ประเภทนี้ได้</p>
+            <button class="btn btn-primary" onclick="window.dashboardApp.downloadFile('${file.id}')">
+              <i class="fas fa-download mr-2"></i>
+              ดาวน์โหลดเพื่อดู
+            </button>
+          </div>
+        `;
+      }
+      
+      content.innerHTML = fileContent;
+      
+    } catch (error) {
+      console.error('Error loading file preview:', error);
+      content.innerHTML = `
+        <div class="text-center py-12" style="background: #f8f9fa; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
+          <i class="fas fa-exclamation-triangle text-6xl text-red-400 mb-6"></i>
+          <h3 class="text-xl font-semibold text-gray-900 mb-4">เกิดข้อผิดพลาด</h3>
+          <p class="text-gray-600 mb-4">ไม่สามารถโหลดไฟล์ได้</p>
+          <button class="btn btn-primary" onclick="window.dashboardApp.downloadFile('${file.id}')">
+            <i class="fas fa-download mr-2"></i>
+            ดาวน์โหลดแทน
+          </button>
+        </div>
+      `;
+    } finally {
+      // ซ่อน loading
+      if (loading) {
+        loading.style.display = 'none';
+      }
+    }
+  }
+
+  // ได้ MIME type จากชื่อไฟล์
+  getMimeTypeFromName(fileName) {
+    if (!fileName) return 'application/octet-stream';
+    
+    const ext = fileName.toLowerCase().split('.').pop();
+    const mimeTypes = {
+      // Images
+      'jpg': 'image/jpeg', 'jpeg': 'image/jpeg', 'png': 'image/png', 'gif': 'image/gif', 
+      'bmp': 'image/bmp', 'webp': 'image/webp', 'svg': 'image/svg+xml',
+      // Documents
+      'pdf': 'application/pdf', 'doc': 'application/msword', 'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      'xls': 'application/vnd.ms-excel', 'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'ppt': 'application/vnd.ms-powerpoint', 'pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+      // Text
+      'txt': 'text/plain', 'csv': 'text/csv', 'json': 'application/json', 'xml': 'text/xml',
+      // Audio
+      'mp3': 'audio/mpeg', 'wav': 'audio/wav', 'ogg': 'audio/ogg', 'm4a': 'audio/mp4',
+      // Video
+      'mp4': 'video/mp4', 'avi': 'video/x-msvideo', 'mov': 'video/quicktime', 'wmv': 'video/x-ms-wmv',
+      // Archives
+      'zip': 'application/zip', 'rar': 'application/x-rar-compressed', '7z': 'application/x-7z-compressed'
+    };
+    
+    return mimeTypes[ext] || 'application/octet-stream';
+  }
+
+  downloadFile(fileId) {
+    const file = this.files.find(f => f.id === fileId);
+    if (!file) {
+      this.showToast('ไม่พบไฟล์ที่ต้องการดาวน์โหลด', 'error');
+      return;
+    }
+
+    // ในการ implement จริง จะเรียก API เพื่อดาวน์โหลดไฟล์
+    this.showToast(`กำลังดาวน์โหลด: ${file.originalName || file.name}`, 'info');
+    
+    // ตัวอย่างการดาวน์โหลดสำหรับ mock data
+    if (file.path && file.path.startsWith('data:')) {
+      // ดาวน์โหลด data URL
+      const link = document.createElement('a');
+      link.href = file.path;
+      link.download = file.originalName || file.name || 'download';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      this.showToast('ดาวน์โหลดเรียบร้อย', 'success');
+    } else {
+      // ในการ implement จริง จะเรียก API endpoint
+      const downloadUrl = `/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+      window.open(downloadUrl, '_blank');
+    }
   }
 
   uploadFile() {
@@ -5228,20 +5459,64 @@ class DashboardApp {
   // ฟังก์ชันดาวน์โหลดไฟล์
   async downloadFile(fileId) {
     try {
-      const response = await fetch(`/api/files/${fileId}/download`);
+      // Use correct API endpoint with groupId
+      const response = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}/download`);
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = 'file'; // ชื่อไฟล์จะถูกกำหนดโดย server
+        
+        // Try to get filename from Content-Disposition header
+        let filename = 'download';
+        const contentDisposition = response.headers.get('Content-Disposition');
+        if (contentDisposition) {
+          // Try to extract from filename*=UTF-8'' first (RFC 5987)
+          const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+          if (utf8Match) {
+            filename = decodeURIComponent(utf8Match[1]);
+          } else {
+            // Try to extract from filename= normally
+            const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+            if (filenameMatch) {
+              filename = filenameMatch[1];
+            }
+          }
+        }
+
+        // If no Content-Disposition or couldn't extract filename
+        if (filename === 'download') {
+          try {
+            // Try to get file info from API to get originalName
+            const infoRes = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
+            if (infoRes.ok) {
+              let fileData = await infoRes.json();
+              if (fileData && typeof fileData === 'object' && 'data' in fileData) {
+                fileData = fileData.data;
+              }
+              if (fileData && fileData.originalName) {
+                filename = fileData.originalName;
+              }
+            }
+          } catch (err) {
+            console.warn('Failed to fetch file info for filename:', err);
+          }
+
+          // If still no filename, try to use data from UI
+          if (filename === 'download') {
+            const nameFromUI = document.querySelector(`[data-file-id="${fileId}"] .file-name`)?.textContent?.trim();
+            if (nameFromUI) filename = nameFromUI;
+          }
+        }
+        
+        a.download = filename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         this.showToast('เริ่มดาวน์โหลดไฟล์', 'success');
       } else {
-        throw new Error('Failed to download file');
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
     } catch (error) {
       console.error('Error downloading file:', error);
