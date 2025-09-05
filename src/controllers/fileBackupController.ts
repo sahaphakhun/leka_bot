@@ -498,4 +498,39 @@ export class FileBackupController {
       });
     }
   }
+
+  /**
+   * ตรวจสอบและทำความสะอาดไฟล์ที่หายไปจาก Cloudinary
+   */
+  public async cleanupMissingFiles(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      
+      logger.info('Starting missing files cleanup via API', { groupId });
+
+      const googleDriveService = (this.fileBackupService as any).googleDriveService;
+      const result = await googleDriveService.cleanupMissingFiles(groupId);
+
+      res.json({
+        success: true,
+        message: `Missing files cleanup completed. Found ${result.missingFiles.length} missing files out of ${result.totalChecked} checked.`,
+        data: {
+          totalChecked: result.totalChecked,
+          missingFilesCount: result.missingFiles.length,
+          missingFiles: result.missingFiles,
+          cleanedFiles: result.cleanedFiles
+        },
+        timestamp: new Date().toISOString()
+      });
+
+    } catch (error) {
+      logger.error('❌ Missing files cleanup via API failed:', error);
+      res.status(500).json({
+        success: false,
+        message: 'Failed to cleanup missing files',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
 }

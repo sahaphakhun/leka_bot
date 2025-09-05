@@ -544,17 +544,40 @@ export class GoogleDriveService {
           });
         } catch (error) {
           const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-          logger.error(`❌ Failed to backup file: ${file.originalName}`, { 
-            error: errorMessage,
-            fileId: file.id,
-            fileName: file.originalName
-          });
-          results.push({
-            success: false,
-            fileId: file.id,
-            error: errorMessage,
-            folderPath: 'unknown'
-          });
+          const statusCode = (error as any)?.statusCode;
+          
+          // ตรวจสอบว่าเป็น error ของไฟล์หายไปจาก Cloudinary หรือไม่
+          if (statusCode === 404 || errorMessage.includes('Remote file not found') || errorMessage.includes('not found')) {
+            logger.warn(`⚠️ Skipping missing file: ${file.originalName} (File not found in Cloudinary)`, {
+              fileId: file.id,
+              fileName: file.originalName,
+              filePath: file.path,
+              statusCode,
+              error: 'File not found in storage'
+            });
+            
+            results.push({
+              success: false,
+              fileId: file.id,
+              error: 'Remote file not found',
+              folderPath: 'skipped'
+            });
+          } else {
+            // Error อื่นๆ ที่ไม่ใช่ไฟล์หายไป
+            logger.error(`❌ Failed to backup file: ${file.originalName}`, { 
+              error: errorMessage,
+              fileId: file.id,
+              fileName: file.originalName,
+              statusCode
+            });
+            
+            results.push({
+              success: false,
+              fileId: file.id,
+              error: errorMessage,
+              folderPath: 'unknown'
+            });
+          }
         }
       }
 
@@ -723,6 +746,81 @@ export class GoogleDriveService {
       .replace(/[<>:"/\\|?*]/g, '_') // ลบอักขระที่ไม่ปลอดภัย
       .replace(/\s+/g, '_') // แทนที่ช่องว่างด้วย underscore
       .substring(0, 100); // จำกัดความยาว
+  }
+
+  /**
+   * ตรวจสอบและทำความสะอาดไฟล์ที่หายไปจาก Cloudinary
+   */
+  public async cleanupMissingFiles(
+    groupId?: string
+  ): Promise<{
+    totalChecked: number;
+    missingFiles: any[];
+    cleanedFiles: string[];
+  }> {
+    try {
+      logger.info('Starting cleanup of missing files from Cloudinary', { groupId });
+
+      const fileRepository = AppDataSource.getRepository(File);
+      
+      // ดึงไฟล์ที่เก็บใน Cloudinary
+      const queryBuilder = fileRepository.createQueryBuilder('file')
+        .where("file.path LIKE 'https://res.cloudinary.com%'");
+      
+      if (groupId) {
+        queryBuilder.andWhere('file.groupId = :groupId', { groupId });
+      }
+      
+      const cloudinaryFiles = await queryBuilder.getMany();
+      
+      const missingFiles: any[] = [];
+      const cleanedFiles: string[] = [];
+      
+      logger.info(`Checking ${cloudinaryFiles.length} Cloudinary files for availability`);
+      
+      // ตรวจสอบไฟล์แต่ละไฟล์
+      for (const file of cloudinaryFiles) {
+        try {
+          const fileService = new FileService();
+          await fileService.getFileContent(file.id);
+          // ถ้าไม่มี error แปลว่าไฟล์ยังอยู่
+        } catch (error) {
+          const statusCode = (error as any)?.statusCode;
+          if (statusCode === 404 || (error as any)?.message?.includes('Remote file not found')) {
+            missingFiles.push({
+              fileId: file.id,
+              fileName: file.originalName,
+              filePath: file.path,
+              groupId: file.groupId,
+              uploadedAt: file.uploadedAt
+            });
+            
+            logger.warn(`Found missing file: ${file.originalName}`, {
+              fileId: file.id,
+              fileName: file.originalName,
+              filePath: file.path
+            });
+          }
+        }
+      }
+      
+      // ถามผู้ใช้ก่อนลบ หรือเพียงแค่รายงานผล
+      logger.info('Missing files cleanup summary', {
+        totalChecked: cloudinaryFiles.length,
+        missingFilesCount: missingFiles.length,
+        missingFiles: missingFiles.map(f => ({ id: f.fileId, name: f.fileName }))
+      });
+      
+      return {
+        totalChecked: cloudinaryFiles.length,
+        missingFiles,
+        cleanedFiles
+      };
+      
+    } catch (error) {
+      logger.error('❌ Failed to cleanup missing files:', error);
+      throw error;
+    }
   }
 
   /**

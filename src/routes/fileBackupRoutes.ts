@@ -31,4 +31,7 @@ router.get('/stats', fileBackupController.getBackupStats.bind(fileBackupControll
 // เรียกใช้การคัดลอกไฟล์แนบตามกำหนดเวลา (ไม่ต้องใช้ authentication)
 router.post('/run-scheduled', fileBackupController.runScheduledBackups.bind(fileBackupController));
 
+// ตรวจสอบและทำความสะอาดไฟล์ที่หายไปจาก Cloudinary (ไม่ต้องใช้ authentication)
+router.post('/cleanup-missing-files/:groupId?', fileBackupController.cleanupMissingFiles.bind(fileBackupController));
+
 export default router;
