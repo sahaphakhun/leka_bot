@@ -54,4 +54,4 @@ USER nodeuser
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
   CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||3000)+'/health',res=>{if(res.statusCode!==200)process.exit(1)}).on('error',()=>process.exit(1))"
 
-CMD ["npm","start"]
+CMD ["npm","run","deploy"]

@@ -100,10 +100,13 @@ export const initializeDatabase = async (): Promise<void> => {
       } else {
         console.log('✅ All required database tables already exist');
 
-        // ใน development ให้รัน migrations ต่อหากมี
-        if (process.env.NODE_ENV === 'development') {
+        // รัน migrations ในทุก environment (ไม่ใช่แค่ development)
+        // เพื่อให้มั่นใจว่า schema จะตรงกับ entities
+        try {
           await AppDataSource.runMigrations();
           console.log('✅ Database migrations completed');
+        } catch (migrationError) {
+          console.warn('⚠️ Database migrations failed (continuing anyway):', migrationError);
         }
       }
 

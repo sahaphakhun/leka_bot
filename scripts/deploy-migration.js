@@ -167,6 +167,14 @@ async function runMigration() {
   logInfo('Starting comprehensive database migration...');
   
   try {
+    // First, try to ensure the durationDays column exists (specific fix)
+    try {
+      await runCommand('npm run db:ensure-duration-days', 'Ensuring durationDays column exists');
+      logSuccess('Duration days column check completed');
+    } catch (error) {
+      logWarning('Duration days column check failed, continuing with comprehensive migration...');
+    }
+    
     // Try to run migration via compiled JavaScript first
     let migrationCommand;
     
