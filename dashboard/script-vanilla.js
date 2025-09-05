@@ -73,7 +73,23 @@ class DashboardApp {
     
     // Task form
     document.getElementById('addTaskForm')?.addEventListener('submit', (e) => this.handleAddTask(e));
+    document.getElementById('addRecurringTaskForm')?.addEventListener('submit', (e) => this.handleAddRecurringTask(e));
     document.getElementById('editTaskForm')?.addEventListener('submit', (e) => this.handleEditTask(e));
+    
+    // Task Type Tabs
+    document.getElementById('normalTaskTab')?.addEventListener('click', () => this.switchTaskTab('normal'));
+    document.getElementById('recurringTaskTab')?.addEventListener('click', () => this.switchTaskTab('recurring'));
+    
+    // Recurring Task Settings
+    document.querySelectorAll('input[name="recurrence"]').forEach(radio => {
+      radio.addEventListener('change', () => this.updateRecurrenceSettings());
+    });
+    
+    // Recurring task cancel buttons
+    document.getElementById('cancelAddRecurringTask')?.addEventListener('click', () => this.closeModal('addTaskModal'));
+    
+    // Update preview when form changes
+    document.getElementById('addRecurringTaskForm')?.addEventListener('input', () => this.updateRecurrencePreview());
     
     // Modal events
     document.getElementById('addTaskModalClose')?.addEventListener('click', () => this.closeModal('addTaskModal'));
@@ -6054,6 +6070,231 @@ class DashboardApp {
     }
     
     console.log('🔓 เปิดปุ่มดำเนินการสำหรับโหมดปกติ');
+  }
+  
+  /**
+   * สลับแท็บระหว่างงานปกติและงานประจำ
+   */
+  switchTaskTab(type) {
+    const normalTab = document.getElementById('normalTaskTab');
+    const recurringTab = document.getElementById('recurringTaskTab');
+    const normalForm = document.getElementById('addTaskForm');
+    const recurringForm = document.getElementById('addRecurringTaskForm');
+    
+    if (type === 'normal') {
+      // เปิดแท็บงานปกติ
+      normalTab.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+      normalTab.classList.remove('text-gray-500', 'hover:text-gray-700');
+      
+      recurringTab.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+      recurringTab.classList.add('text-gray-500', 'hover:text-gray-700');
+      
+      normalForm.classList.remove('hidden');
+      recurringForm.classList.add('hidden');
+    } else {
+      // เปิดแท็บงานประจำ
+      recurringTab.classList.add('bg-white', 'text-blue-600', 'shadow-sm');
+      recurringTab.classList.remove('text-gray-500', 'hover:text-gray-700');
+      
+      normalTab.classList.remove('bg-white', 'text-blue-600', 'shadow-sm');
+      normalTab.classList.add('text-gray-500', 'hover:text-gray-700');
+      
+      recurringForm.classList.remove('hidden');
+      normalForm.classList.add('hidden');
+      
+      // โหลดข้อมูลสมาชิกเมื่อเปิดแท็บงานประจำ
+      this.loadMembersForRecurringTask();
+      this.updateRecurrenceSettings();
+      this.updateRecurrencePreview();
+    }
+  }
+  
+  /**
+   * อัปเดตการตั้งค่าการเกิดซ้ำตามประเภทที่เลือก
+   */
+  updateRecurrenceSettings() {
+    const selectedRecurrence = document.querySelector('input[name="recurrence"]:checked')?.value;
+    const weeklySettings = document.getElementById('weeklySettings');
+    const monthlySettings = document.getElementById('monthlySettings');
+    const quarterlySettings = document.getElementById('quarterlySettings');
+    
+    // ซ่อนทั้งหมดก่อน
+    weeklySettings?.classList.add('hidden');
+    monthlySettings?.classList.add('hidden');
+    quarterlySettings?.classList.add('hidden');
+    
+    // แสดงการตั้งค่าที่เหมาะสม
+    switch (selectedRecurrence) {
+      case 'weekly':
+        weeklySettings?.classList.remove('hidden');
+        break;
+      case 'monthly':
+        monthlySettings?.classList.remove('hidden');
+        break;
+      case 'quarterly':
+        quarterlySettings?.classList.remove('hidden');
+        break;
+    }
+    
+    this.updateRecurrencePreview();
+  }
+  
+  /**
+   * อัปเดตตัวอย่างการเกิดซ้ำ
+   */
+  updateRecurrencePreview() {
+    const selectedRecurrence = document.querySelector('input[name="recurrence"]:checked')?.value;
+    const previewElement = document.getElementById('recurrencePreview');
+    const durationDays = document.getElementById('durationDays')?.value || '7';
+    
+    if (!previewElement) return;
+    
+    let previewText = '';
+    
+    switch (selectedRecurrence) {
+      case 'weekly':
+        const weekDay = document.getElementById('weekDay')?.value;
+        const timeOfDay = document.getElementById('timeOfDay')?.value || '09:00';
+        const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
+        previewText = `ทุกวัน${dayNames[weekDay]} เวลา ${timeOfDay} สร้างงานใหม่ให้ทำภายใน ${durationDays} วัน`;
+        break;
+        
+      case 'monthly':
+        const dayOfMonth = document.getElementById('dayOfMonth')?.value || '1';
+        const monthlyTime = document.getElementById('monthlyTimeOfDay')?.value || '09:00';
+        previewText = `ทุกวันที่ ${dayOfMonth} ของเดือน เวลา ${monthlyTime} สร้างงานใหม่ให้ทำภายใน ${durationDays} วัน`;
+        break;
+        
+      case 'quarterly':
+        const quarterlyDay = document.getElementById('quarterlyDayOfMonth')?.value || '1';
+        const quarterlyTime = document.getElementById('quarterlyTimeOfDay')?.value || '09:00';
+        previewText = `ทุกวันที่ ${quarterlyDay} ของไตรมาส เวลา ${quarterlyTime} สร้างงานใหม่ให้ทำภายใน ${durationDays} วัน`;
+        break;
+        
+      default:
+        previewText = 'กรุณาเลือกรอบการทำงาน';
+    }
+    
+    previewElement.textContent = previewText;
+  }
+  
+  /**
+   * โหลดรายชื่อสมาชิกสำหรับงานประจำ
+   */
+  async loadMembersForRecurringTask() {
+    try {
+      const assigneesList = document.getElementById('recurringAssigneesList');
+      const reviewerSelect = document.getElementById('recurringReviewer');
+      
+      if (!assigneesList || !reviewerSelect) return;
+      
+      // ใช้ข้อมูล mock สำหรับตอนนี้
+      const members = [
+        { id: 'user1', name: 'ผู้ใช้ 1' },
+        { id: 'user2', name: 'ผู้ใช้ 2' },
+        { id: 'user3', name: 'ผู้ใช้ 3' },
+        { id: 'team', name: 'ทีมทั้งหมด' }
+      ];
+      
+      // สร้างรายการผู้รับผิดชอบ
+      assigneesList.innerHTML = members.map(member => `
+        <label class="checkbox-item">
+          <input type="checkbox" name="recurringAssignedTo" value="${member.id}">
+          <span class="checkmark"></span>
+          <span class="label-text">${member.name}</span>
+        </label>
+      `).join('');
+      
+      // สร้างรายการผู้ตรวจงาน
+      reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>' + 
+        members.map(member => `<option value="${member.id}">${member.name}</option>`).join('');
+        
+    } catch (error) {
+      console.error('❌ Error loading members for recurring task:', error);
+    }
+  }
+  
+  /**
+   * จัดการการส่งฟอร์มงานประจำ
+   */
+  async handleAddRecurringTask(e) {
+    e.preventDefault();
+    
+    try {
+      const formData = new FormData(e.target);
+      const assignees = Array.from(document.querySelectorAll('input[name="recurringAssignedTo"]:checked'))
+        .map(input => input.value);
+      
+      const recurringTaskData = {
+        title: formData.get('recurringTaskTitle'),
+        description: formData.get('recurringTaskDescription'),
+        assigneeLineUserIds: assignees,
+        reviewerLineUserId: formData.get('recurringReviewer') || null,
+        priority: formData.get('recurringPriority'),
+        tags: formData.get('recurringTags')?.split(',').map(tag => tag.trim()).filter(tag => tag) || [],
+        requireAttachment: formData.get('recurringRequireAttachment') === 'on',
+        recurrence: formData.get('recurrence'),
+        weekDay: formData.get('weekDay') ? parseInt(formData.get('weekDay')) : null,
+        dayOfMonth: formData.get('dayOfMonth') ? parseInt(formData.get('dayOfMonth')) : null,
+        timeOfDay: this.getSelectedTimeOfDay(formData.get('recurrence')),
+        durationDays: parseInt(formData.get('durationDays') || '7'),
+        timezone: this.timezone,
+        createdBy: this.currentUserId || 'unknown'
+      };
+      
+      // ตรวจสอบข้อมูลที่จำเป็น
+      if (!recurringTaskData.title) {
+        this.showAlert('กรุณากรอกชื่องาน', 'error');
+        return;
+      }
+      
+      if (!assignees.length) {
+        this.showAlert('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน', 'error');
+        return;
+      }
+      
+      console.log('📝 Creating recurring task:', recurringTaskData);
+      
+      // เรียก API สร้างงานประจำ
+      const response = await this.apiRequest(`/groups/${this.currentGroupId}/recurring`, {
+        method: 'POST',
+        body: JSON.stringify(recurringTaskData)
+      });
+      
+      if (response.success) {
+        this.showAlert('สร้างงานประจำสำเร็จ', 'success');
+        this.closeModal('addTaskModal');
+        
+        // รีเซ็ตฟอร์ม
+        e.target.reset();
+        this.switchTaskTab('normal'); // กลับไปแท็บงานปกติ
+        
+        // รีเฟรชข้อมูล
+        this.refreshData();
+      } else {
+        throw new Error(response.error || 'Failed to create recurring task');
+      }
+      
+    } catch (error) {
+      console.error('❌ Error creating recurring task:', error);
+      this.showAlert('เกิดข้อผิดพลาดในการสร้างงานประจำ: ' + error.message, 'error');
+    }
+  }
+  
+  /**
+   * ดึงเวลาที่เลือกตามประเภทการเกิดซ้ำ
+   */
+  getSelectedTimeOfDay(recurrence) {
+    switch (recurrence) {
+      case 'weekly':
+        return document.getElementById('timeOfDay')?.value || '09:00';
+      case 'monthly':
+        return document.getElementById('monthlyTimeOfDay')?.value || '09:00';
+      case 'quarterly':
+        return document.getElementById('quarterlyTimeOfDay')?.value || '09:00';
+      default:
+        return '09:00';
+    }
   }
 }
 

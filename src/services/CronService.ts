@@ -9,6 +9,7 @@ import { KPIService } from './KPIService';
 import { FlexMessageTemplateService } from './FlexMessageTemplateService';
 import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { FileBackupService } from './FileBackupService';
+import { RecurringTaskService } from './RecurringTaskService';
 import { AppDataSource } from '@/utils/database';
 import { RecurringTask } from '@/models';
 
@@ -17,6 +18,7 @@ export class CronService {
   private notificationService: NotificationService;
   private kpiService: KPIService;
   private fileBackupService: FileBackupService;
+  private recurringTaskService: RecurringTaskService;
   private jobs: Map<string, cron.ScheduledTask> = new Map();
   private isStarted = false;
 
@@ -25,6 +27,7 @@ export class CronService {
     this.notificationService = new NotificationService();
     this.kpiService = new KPIService();
     this.fileBackupService = new FileBackupService();
+    this.recurringTaskService = new RecurringTaskService();
   }
 
   public start(): void {
@@ -103,8 +106,8 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
-    // ตรวจงานประจำทุกนาที (คำนวณ nextRunAt)
-    const recurringJob = cron.schedule('* * * * *', async () => {
+    // ตรวจงานประจำทุก 5 นาที (เพื่อลดภาระของระบบ)
+    const recurringJob = cron.schedule('*/5 * * * *', async () => {
       await this.processRecurringTasks();
     }, {
       scheduled: false,
@@ -648,22 +651,74 @@ export class CronService {
   }
 
   /**
-   * ตรวจงานประจำทุกนาที (คำนวณ nextRunAt)
+   * ตรวจงานประจำทุกนาที - สร้างงานใหม่จากแม่แบบที่ถึงเวลา
    */
   private async processRecurringTasks(): Promise<void> {
     try {
       console.log('🔄 Processing recurring tasks...');
       
-      const recurringTasks = await this.taskService.getAllRecurringTasks();
+      // ดึงแม่แบบงานประจำที่ใช้งานอยู่
+      const recurringTemplates = await AppDataSource.getRepository(RecurringTask)
+        .createQueryBuilder('rt')
+        .where('rt.active = :active', { active: true })
+        .andWhere('rt.nextRunAt <= :now', { now: new Date() })
+        .getMany();
       
-      for (const task of recurringTasks) {
-        // ตรวจสอบว่าควรสร้างงานใหม่หรือไม่ (ทุก 7 วัน)
-        const lastUpdated = moment(task.updatedAt).tz(config.app.defaultTimezone);
-        const shouldCreate = moment().diff(lastUpdated, 'days') >= 7;
-        
-        if (shouldCreate) {
-          await this.taskService.executeRecurringTask(task.id);
-          await this.taskService.updateRecurringTaskNextRunAt(task.id);
+      console.log(`📋 Found ${recurringTemplates.length} recurring tasks ready to run`);
+      
+      for (const template of recurringTemplates) {
+        try {
+          console.log(`🔄 Processing recurring task: ${template.title}`);
+          
+          // สร้างงานใหม่จากแม่แบบ
+          const dueTime = new Date();
+          dueTime.setDate(dueTime.getDate() + (template.durationDays || 7));
+          
+          const newTask = await this.taskService.createTask({
+            groupId: template.lineGroupId,
+            title: template.title,
+            description: template.description,
+            assigneeIds: template.assigneeLineUserIds,
+            createdBy: template.createdByLineUserId,
+            dueTime: dueTime,
+            priority: template.priority,
+            tags: template.tags,
+            requireAttachment: template.requireAttachment,
+            reviewerUserId: template.reviewerLineUserId
+          });
+          
+          // อัปเดตข้อมูลในงานที่สร้างให้เชื่อมโยงกับแม่แบบ
+          await AppDataSource.getRepository('tasks')
+            .createQueryBuilder()
+            .update()
+            .set({ 
+              recurringTaskId: template.id,
+              recurringInstance: (template.totalInstances || 0) + 1
+            })
+            .where('id = :taskId', { taskId: newTask.id })
+            .execute();
+          
+          // อัปเดตแม่แบบ: เพิ่มจำนวนครั้งและคำนวณเวลาถัดไป
+          const nextRunAt = this.recurringTaskService.calculateNextRunAt({
+            recurrence: template.recurrence,
+            weekDay: template.weekDay,
+            dayOfMonth: template.dayOfMonth,
+            timeOfDay: template.timeOfDay,
+            timezone: template.timezone
+          });
+          
+          await this.recurringTaskService.update(template.id, {
+            lastRunAt: new Date(),
+            nextRunAt: nextRunAt,
+            totalInstances: (template.totalInstances || 0) + 1
+          });
+          
+          console.log(`✅ Created recurring task: ${template.title} (Instance #${(template.totalInstances || 0) + 1})`);
+          console.log(`📅 Next run scheduled for: ${nextRunAt}`);
+          
+        } catch (taskError) {
+          console.error(`❌ Error processing recurring task ${template.id}:`, taskError);
+          // ไม่หยุดการประมวลผลแม่แบบอื่นๆ
         }
       }
 

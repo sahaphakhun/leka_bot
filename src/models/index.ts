@@ -171,6 +171,13 @@ export class Task {
   @Column({ type: 'boolean', default: false })
   requireAttachment: boolean;
 
+  // เชื่อมโยงกับงานประจำ
+  @Column({ type: 'uuid', nullable: true })
+  recurringTaskId?: string;
+
+  @Column({ type: 'int', nullable: true })
+  recurringInstance?: number;
+
   @Column({ type: 'uuid' })
   createdBy: string;
 
@@ -415,6 +422,13 @@ export class RecurringTask {
 
   @Column({ type: 'varchar', default: 'Asia/Bangkok' })
   timezone: string;
+
+  // ฟิลด์เพิ่มเติมสำหรับการติดตาม
+  @Column({ type: 'int', default: 7 })
+  durationDays: number; // จำนวนวันที่ให้ทำงาน
+
+  @Column({ type: 'int', default: 0 })
+  totalInstances: number; // จำนวนครั้งที่สร้างงานไปแล้ว
 
   @Column({ type: 'timestamp', nullable: true })
   lastRunAt?: Date;

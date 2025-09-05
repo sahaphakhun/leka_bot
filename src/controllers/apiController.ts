@@ -2125,6 +2125,67 @@ class ApiController {
     }
   }
 
+  public async getRecurring(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const recurring = await this.recurringService.findById(id);
+      if (!recurring) {
+        res.status(404).json({ success: false, error: 'Recurring task not found' });
+        return;
+      }
+      res.json({ success: true, data: recurring });
+    } catch (error) {
+      logger.error('❌ Error getting recurring:', error);
+      res.status(500).json({ success: false, error: 'Failed to get recurring task' });
+    }
+  }
+
+  public async getRecurringHistory(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const { limit = 10, offset = 0 } = req.query;
+      
+      // ดึงงานที่สร้างจากแม่แบบงานประจำนี้
+      const tasks = await this.taskService.getTasksByRecurringId(id, {
+        limit: parseInt(limit as string),
+        offset: parseInt(offset as string)
+      });
+      
+      res.json({ success: true, data: tasks });
+    } catch (error) {
+      logger.error('❌ Error getting recurring history:', error);
+      res.status(500).json({ success: false, error: 'Failed to get recurring task history' });
+    }
+  }
+
+  public async getRecurringStats(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      
+      // ดึงสถิติของงานประจำ
+      const stats = await this.taskService.getRecurringTaskStats(id);
+      
+      res.json({ success: true, data: stats });
+    } catch (error) {
+      logger.error('❌ Error getting recurring stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to get recurring task statistics' });
+    }
+  }
+
+  public async getGroupRecurringStats(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      
+      // ดึงสถิติงานประจำทั้งหมดในกลุ่ม
+      const stats = await this.taskService.getGroupRecurringStats(groupId);
+      
+      res.json({ success: true, data: stats });
+    } catch (error) {
+      logger.error('❌ Error getting group recurring stats:', error);
+      res.status(500).json({ success: false, error: 'Failed to get group recurring statistics' });
+    }
+  }
+
   /**
    * GET /api/users/:userId/stats - ดึงสถิติผู้ใช้
    */
@@ -2872,8 +2933,14 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   // Recurring tasks routes (UI management)
   apiRouter.get('/groups/:groupId/recurring', apiController.listRecurring.bind(apiController));
   apiRouter.post('/groups/:groupId/recurring', apiController.createRecurring.bind(apiController));
+  apiRouter.get('/recurring/:id', apiController.getRecurring.bind(apiController));
   apiRouter.put('/recurring/:id', apiController.updateRecurring.bind(apiController));
   apiRouter.delete('/recurring/:id', apiController.deleteRecurring.bind(apiController));
+  
+  // Recurring task history and statistics
+  apiRouter.get('/recurring/:id/history', apiController.getRecurringHistory.bind(apiController));
+  apiRouter.get('/recurring/:id/stats', apiController.getRecurringStats.bind(apiController));
+  apiRouter.get('/groups/:groupId/recurring/stats', apiController.getGroupRecurringStats.bind(apiController));
 
   // Task submission (UI upload)
   apiRouter.post('/groups/:groupId/tasks/:taskId/submit', 

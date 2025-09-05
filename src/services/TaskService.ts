@@ -1,6 +1,6 @@
 // Task Service - จัดการงานและปฏิทิน
 
-import { Repository, In, MoreThanOrEqual, QueryRunner } from 'typeorm';
+import { Repository, In, MoreThanOrEqual, Not, QueryRunner } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { Task, Group, User, File } from '@/models';
 import { Task as TaskType, CalendarEvent } from '@/types';
@@ -1428,6 +1428,108 @@ export class TaskService {
 
     } catch (error) {
       console.error('❌ Error updating recurring task next run time:', error);
+    }
+  }
+
+  /**
+   * ดึงงานที่สร้างจากแม่แบบงานประจำ
+   */
+  public async getTasksByRecurringId(recurringId: string, options: { limit?: number; offset?: number } = {}): Promise<{ tasks: Task[]; total: number }> {
+    try {
+      const queryBuilder = this.taskRepository.createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .leftJoinAndSelect('task.createdByUser', 'creator')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('task.recurringTaskId = :recurringId', { recurringId })
+        .orderBy('task.createdAt', 'DESC');
+
+      const total = await queryBuilder.getCount();
+
+      if (options.limit) {
+        queryBuilder.limit(options.limit);
+      }
+
+      if (options.offset) {
+        queryBuilder.offset(options.offset);
+      }
+
+      const tasks = await queryBuilder.getMany();
+
+      return { tasks, total };
+
+    } catch (error) {
+      console.error('❌ Error getting tasks by recurring ID:', error);
+      return { tasks: [], total: 0 };
+    }
+  }
+
+  /**
+   * ดึงสถิติงานประจำ
+   */
+  public async getRecurringTaskStats(recurringId: string): Promise<any> {
+    try {
+      const { tasks } = await this.getTasksByRecurringId(recurringId);
+      
+      const stats = {
+        totalInstances: tasks.length,
+        completed: tasks.filter(t => t.status === 'completed').length,
+        pending: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length,
+        overdue: tasks.filter(t => t.status === 'overdue').length,
+        onTime: 0,
+        late: 0,
+        early: 0
+      };
+      
+      // คำนวณสถิติเวลาส่งงาน
+      for (const task of tasks.filter(t => t.status === 'completed' && t.completedAt)) {
+        const dueTime = new Date(task.dueTime);
+        const completedTime = new Date(task.completedAt!);
+        const diffHours = (completedTime.getTime() - dueTime.getTime()) / (1000 * 60 * 60);
+        
+        if (diffHours <= 0) {
+          stats.early++;
+        } else if (diffHours <= 24) {
+          stats.onTime++;
+        } else {
+          stats.late++;
+        }
+      }
+      
+      return stats;
+      
+    } catch (error) {
+      console.error('❌ Error getting recurring task stats:', error);
+      return { totalInstances: 0, completed: 0, pending: 0, overdue: 0, onTime: 0, late: 0, early: 0 };
+    }
+  }
+
+  /**
+   * ดึงสถิติงานประจำทั้งหมดในกลุ่ม
+   */
+  public async getGroupRecurringStats(groupId: string): Promise<any> {
+    try {
+      // ดึงงานที่มาจากงานประจำในกลุ่ม
+      const tasks = await this.taskRepository.find({
+        where: {
+          groupId: groupId,
+          recurringTaskId: Not(null)
+        },
+        relations: ['group']
+      });
+      
+      const stats = {
+        totalRecurringTasks: new Set(tasks.map(t => t.recurringTaskId)).size,
+        totalInstances: tasks.length,
+        completed: tasks.filter(t => t.status === 'completed').length,
+        pending: tasks.filter(t => ['pending', 'in_progress'].includes(t.status)).length,
+        overdue: tasks.filter(t => t.status === 'overdue').length
+      };
+      
+      return stats;
+      
+    } catch (error) {
+      console.error('❌ Error getting group recurring stats:', error);
+      return { totalRecurringTasks: 0, totalInstances: 0, completed: 0, pending: 0, overdue: 0 };
     }
   }
 

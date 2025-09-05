@@ -53,6 +53,10 @@ export class RecurringTaskService {
     return await this.repo.find({ where: { lineGroupId }, order: { createdAt: 'DESC' } });
   }
 
+  public async findById(id: string): Promise<RecurringTask | null> {
+    return await this.repo.findOneBy({ id });
+  }
+
   public async update(id: string, updates: Partial<RecurringTask>): Promise<RecurringTask> {
     const entity = await this.repo.findOneBy({ id });
     if (!entity) throw new Error('Recurring template not found');
@@ -83,7 +87,7 @@ export class RecurringTaskService {
     await this.repo.delete({ id });
   }
 
-  private calculateNextRunAt(input: {
+  public calculateNextRunAt(input: {
     recurrence: 'weekly' | 'monthly' | 'quarterly';
     weekDay?: number;
     dayOfMonth?: number;

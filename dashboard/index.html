@@ -58,6 +58,39 @@
         .content-section { display: none; }
         .content-section.active { display: block; }
         
+        /* Task Type Tabs */
+        .task-type-tabs .tab-button {
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .task-type-tabs .tab-button.active {
+            background-color: white;
+            color: #2563eb;
+            box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+        }
+        
+        .task-type-tabs .tab-button:not(.active) {
+            color: #6b7280;
+        }
+        
+        .task-type-tabs .tab-button:not(.active):hover {
+            color: #374151;
+        }
+        
+        .recurrence-settings {
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .recurrence-settings.hidden {
+            display: none;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
         .sidebar-nav-item, .bottom-nav-item {
             display: flex;
             align-items: center;
@@ -1143,7 +1176,20 @@
                 </button>
             </div>
             <div class="modal-body">
-                <form id="addTaskForm">
+                <!-- แท็บสำหรับเลือกประเภทงาน -->
+                <div class="task-type-tabs mb-6">
+                    <div class="tab-buttons flex bg-gray-100 rounded-lg p-1">
+                        <button type="button" id="normalTaskTab" class="tab-button flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 bg-white text-blue-600 shadow-sm">
+                            📄 งานทั่วไป
+                        </button>
+                        <button type="button" id="recurringTaskTab" class="tab-button flex-1 py-2 px-4 text-sm font-medium rounded-md transition-colors duration-200 text-gray-500 hover:text-gray-700">
+                            🔄 งานประจำ
+                        </button>
+                    </div>
+                </div>
+
+                <!-- ฟอร์มงานทั่วไป -->
+                <form id="addTaskForm" class="task-form-content">
                     <div class="form-group">
                         <label for="taskTitle">ชื่องาน *</label>
                         <input type="text" id="taskTitle" name="taskTitle" required placeholder="กรอกชื่องาน...">
@@ -1265,6 +1311,170 @@
                         <button type="submit" class="btn btn-primary flex-1">
                             <i class="fas fa-plus mr-2"></i>
                             เพิ่มงาน
+                        </button>
+                    </div>
+                </form>
+
+                <!-- ฟอร์มงานประจำ -->
+                <form id="addRecurringTaskForm" class="task-form-content hidden">
+                    <div class="form-group">
+                        <label for="recurringTaskTitle">ชื่องานประจำ *</label>
+                        <input type="text" id="recurringTaskTitle" name="recurringTaskTitle" required placeholder="เช่น: รายงานยอดขายประจำสัปดาห์...">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="recurringTaskDescription">รายละเอียด</label>
+                        <textarea id="recurringTaskDescription" name="recurringTaskDescription" rows="3" placeholder="อธิบายรายละเอียดงาน..."></textarea>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>ผู้รับผิดชอบ *</label>
+                        <div class="assigned-to-container">
+                            <div class="checkbox-group" id="recurringAssigneesList">
+                                <!-- รายชื่อผู้รับผิดชอบจะถูกเติมด้วย JavaScript -->
+                            </div>
+                            <div class="assigned-to-actions">
+                                <button type="button" class="btn btn-sm btn-outline" id="recurringSelectAllAssigned">เลือกทั้งหมด</button>
+                                <button type="button" class="btn btn-sm btn-outline" id="recurringClearAllAssigned">ล้างทั้งหมด</button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div class="form-group">
+                            <label for="recurringPriority">ความสำคัญ</label>
+                            <select id="recurringPriority" name="recurringPriority">
+                                <option value="low">ต่ำ</option>
+                                <option value="medium" selected>ปานกลาง</option>
+                                <option value="high">สูง</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="recurringReviewer">ผู้ตรวจงาน</label>
+                            <select id="recurringReviewer" name="recurringReviewer">
+                                <option value="">(ไม่ระบุ)</option>
+                                <!-- รายชื่อสมาชิกจะถูกเติมด้วย JavaScript -->
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="recurringTags">แท็ก (คั่นด้วยจุลภาค)</label>
+                        <input type="text" id="recurringTags" name="recurringTags" placeholder="เช่น: รายงาน, ประจำ, ขาย">
+                    </div>
+                    
+                    <div class="form-group">
+                        <label class="flex items-center">
+                            <input type="checkbox" id="recurringRequireAttachment" name="recurringRequireAttachment" class="mr-2">
+                            ต้องแนบไฟล์
+                        </label>
+                    </div>
+                    
+                    <!-- รอบการทำงาน -->
+                    <div class="form-group border-t pt-4">
+                        <label class="text-lg font-medium text-gray-800 mb-3 block">รอบการทำงาน</label>
+                        
+                        <div class="space-y-3">
+                            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="recurrence" value="weekly" class="mr-3" checked>
+                                <div>
+                                    <div class="font-medium">📅 รายสัปดาห์</div>
+                                    <div class="text-sm text-gray-600">สร้างงานทุกสัปดาห์ ในวันที่กำหนด</div>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="recurrence" value="monthly" class="mr-3">
+                                <div>
+                                    <div class="font-medium">📆 รายเดือน</div>
+                                    <div class="text-sm text-gray-600">สร้างงานทุกเดือน ในวันที่กำหนด</div>
+                                </div>
+                            </label>
+                            
+                            <label class="flex items-center p-3 border rounded-lg cursor-pointer hover:bg-gray-50">
+                                <input type="radio" name="recurrence" value="quarterly" class="mr-3">
+                                <div>
+                                    <div class="font-medium">📈 รายไตรมาส</div>
+                                    <div class="text-sm text-gray-600">สร้างงานทุก 3 เดือน ในวันที่กำหนด</div>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <!-- การตั้งค่าเวลา -->
+                    <div class="form-group">
+                        <label class="text-lg font-medium text-gray-800 mb-3 block">การตั้งค่าเวลา</label>
+                        
+                        <!-- สำหรับรายสัปดาห์ -->
+                        <div id="weeklySettings" class="recurrence-settings">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="weekDay">วันในสัปดาห์</label>
+                                    <select id="weekDay" name="weekDay">
+                                        <option value="1">จันทร์</option>
+                                        <option value="2">อังคาร</option>
+                                        <option value="3">พุธ</option>
+                                        <option value="4">พฤหัสบดี</option>
+                                        <option value="5">ศุกร์</option>
+                                        <option value="6">เสาร์</option>
+                                        <option value="0">อาทิตย์</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label for="timeOfDay">เวลาสร้างงาน</label>
+                                    <input type="time" id="timeOfDay" name="timeOfDay" value="09:00">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- สำหรับรายเดือน -->
+                        <div id="monthlySettings" class="recurrence-settings hidden">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="dayOfMonth">วันที่ของเดือน</label>
+                                    <input type="number" id="dayOfMonth" name="dayOfMonth" min="1" max="31" value="1">
+                                </div>
+                                <div>
+                                    <label for="monthlyTimeOfDay">เวลาสร้างงาน</label>
+                                    <input type="time" id="monthlyTimeOfDay" name="monthlyTimeOfDay" value="09:00">
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- สำหรับรายไตรมาส -->
+                        <div id="quarterlySettings" class="recurrence-settings hidden">
+                            <div class="grid grid-cols-2 gap-4">
+                                <div>
+                                    <label for="quarterlyDayOfMonth">วันที่ของไตรมาส</label>
+                                    <input type="number" id="quarterlyDayOfMonth" name="quarterlyDayOfMonth" min="1" max="31" value="1">
+                                </div>
+                                <div>
+                                    <label for="quarterlyTimeOfDay">เวลาสร้างงาน</label>
+                                    <input type="time" id="quarterlyTimeOfDay" name="quarterlyTimeOfDay" value="09:00">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label for="durationDays">ระยะเวลาทำงาน (วัน)</label>
+                        <input type="number" id="durationDays" name="durationDays" min="1" max="365" value="7" placeholder="7">
+                        <div class="text-sm text-gray-500 mt-1">หลังสร้างงานแล้ว จะให้เวลาทำกี่วัน</div>
+                    </div>
+                    
+                    <!-- ตัวอย่างการทำงาน -->
+                    <div class="form-group bg-blue-50 p-4 rounded-lg">
+                        <h4 class="font-medium text-blue-800 mb-2">💡 ตัวอย่าง</h4>
+                        <div id="recurrencePreview" class="text-sm text-blue-600">
+                            ทุกวันจันทร์ เวลา 09:00 สร้างงานใหม่ให้ทำภายใน 7 วัน
+                        </div>
+                    </div>
+                    
+                    <div class="flex gap-2 mt-6">
+                        <button type="button" class="btn btn-outline flex-1" id="cancelAddRecurringTask">ยกเลิก</button>
+                        <button type="submit" class="btn btn-primary flex-1">
+                            <i class="fas fa-plus mr-2"></i>
+                            สร้างงานประจำ
                         </button>
                     </div>
                 </form>
