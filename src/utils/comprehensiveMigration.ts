@@ -676,6 +676,24 @@ export class ComprehensiveMigration {
       const queryRunner = AppDataSource.createQueryRunner();
       
       try {
+        // Check if all required tables exist
+        const tables = await queryRunner.query(`
+          SELECT table_name 
+          FROM information_schema.tables 
+          WHERE table_schema = 'public' 
+          AND table_type = 'BASE TABLE'
+        `);
+        
+        const tableNames = tables.map((t: any) => t.table_name);
+        const requiredTables = ['users', 'groups', 'group_members', 'tasks', 'files', 'kpi_records', 'task_assignees', 'task_files', 'recurring_tasks'];
+        
+        const missingTables = requiredTables.filter(table => !tableNames.includes(table));
+        
+        if (missingTables.length > 0) {
+          logger.info(`📋 Missing tables detected: ${missingTables.join(', ')} - migration needed`);
+          return true;
+        }
+
         // Check for missing columns
         const taskColumns = await this.getTableColumns(queryRunner, 'tasks');
         const requiredTaskColumns = ['submittedAt', 'reviewedAt', 'approvedAt', 'requireAttachment', 'workflow'];
@@ -704,7 +722,15 @@ export class ComprehensiveMigration {
 
         const hasTasksWithoutWorkflow = parseInt(tasksWithoutWorkflow[0].count) > 0;
 
-        return tasksMissingColumns || filesMissingAttachmentType || hasOrphanedData || hasTasksWithoutWorkflow;
+        const migrationNeeded = tasksMissingColumns || filesMissingAttachmentType || hasOrphanedData || hasTasksWithoutWorkflow;
+        
+        if (migrationNeeded) {
+          logger.info('📋 Migration needed due to missing columns or data issues');
+        } else {
+          logger.info('✅ All tables and columns exist, no migration needed');
+        }
+        
+        return migrationNeeded;
         
       } finally {
         await queryRunner.release();
