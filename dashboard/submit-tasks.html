@@ -520,11 +520,12 @@
             }
 
             /**
-             * Load user tasks using userId directly
+             * Load user tasks using userId directly - exclude already submitted tasks
              */
             async loadTasks() {
                 try {
-                    const response = await fetch(`/api/users/${this.userId}/tasks?status=pending,in_progress,overdue`);
+                    // Use excludeSubmitted parameter to filter out tasks user has already submitted
+                    const response = await fetch(`/api/users/${this.userId}/tasks?status=pending,in_progress,overdue&excludeSubmitted=true`);
                     const data = await response.json();
                     
                     if (data.success) {
@@ -596,7 +597,7 @@
                     <div class="p-8 text-center text-gray-500">
                         <i class="fas fa-check-circle text-4xl mb-4 text-green-500"></i>
                         <p class="text-lg font-medium">ไม่มีงานที่ต้องส่ง</p>
-                        <p class="text-sm">งานทั้งหมดเสร็จสิ้นแล้ว</p>
+                        <p class="text-sm">งานทั้งหมดส่งเสร็จแล้ว หรือยังไม่มีงานใหม่</p>
                     </div>
                 `;
             }

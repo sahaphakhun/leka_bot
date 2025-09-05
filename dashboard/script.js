@@ -3346,7 +3346,7 @@ class Dashboard {
       const totalSize = selectedFiles.reduce((s, f) => s + (f.size || 0), 0);
       this.showUploadOverlay({ subtitle: `${selectedFiles.length} ไฟล์ • รวม ${this.formatFileSize(totalSize)}` });
 
-      const url = `${this.apiBase}/api/groups/${this.currentGroupId}/tasks/${taskId}/submit`;
+      const url = `/api/dashboard/tasks/${taskId}/submit`;
       const data = await this.uploadWithProgress(url, formData, (loaded, total, lengthComputable) => {
         this.updateUploadOverlay({ loaded, total, lengthComputable, detail: `${this.formatFileSize(loaded)} / ${lengthComputable ? this.formatFileSize(total) : 'ไม่ทราบขนาด'}` });
       });

@@ -3399,7 +3399,7 @@ class DashboardApp {
         formData.append(`files`, file);
       });
       
-      const response = await fetch(`/api/tasks/${taskId}/submit`, {
+      const response = await fetch(`/api/dashboard/tasks/${taskId}/submit`, {
         method: 'POST',
         body: formData
       });
@@ -3536,7 +3536,7 @@ class DashboardApp {
         }
       });
       
-      const response = await fetch(`/api/tasks/${taskId}/submit`, {
+      const response = await fetch(`/api/dashboard/tasks/${taskId}/submit`, {
         method: 'POST',
         body: submitFormData
       });

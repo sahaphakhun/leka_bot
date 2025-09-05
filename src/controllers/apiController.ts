@@ -2725,7 +2725,7 @@ class ApiController {
   public async getUserTasks(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
-      const { status } = req.query;
+      const { status, excludeSubmitted } = req.query;
       
       // ดึงข้อมูลผู้ใช้จาก Line User ID
       const user = await this.userService.findByLineUserId(userId);
@@ -2739,7 +2739,21 @@ class ApiController {
       const statusArray = status ? (status as string).split(',') : ['pending', 'in_progress', 'overdue'];
       
       // ดึงงานของผู้ใช้
-      const tasks = await this.taskService.getUserTasks(user.id, statusArray);
+      let tasks = await this.taskService.getUserTasks(user.id, statusArray);
+      
+      // ถ้าต้องการกรองงานที่ส่งแล้วออก (สำหรับหน้า submit-tasks)
+      if (excludeSubmitted === 'true') {
+        tasks = tasks.filter(task => {
+          // ตรวจสอบว่าผู้ใช้นี้ได้ส่งงานแล้วหรือไม่
+          if (task.workflow && Array.isArray((task.workflow as any).submissions)) {
+            const userSubmissions = (task.workflow as any).submissions.filter((submission: any) => 
+              submission.submittedByUserId === user.id
+            );
+            return userSubmissions.length === 0; // แสดงเฉพาะงานที่ยังไม่ได้ส่ง
+          }
+          return true; // แสดงถ้าไม่มีข้อมูล workflow
+        });
+      }
       
       // เพิ่มข้อมูลกลุ่มให้กับแต่ละงาน - ใช้ relations ที่มีอยู่แล้วจาก getUserTasks
       const tasksWithGroups = tasks.map(task => ({
