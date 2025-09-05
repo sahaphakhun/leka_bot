@@ -200,6 +200,14 @@ export class ComprehensiveMigration {
 
       await this.addMissingColumnsToTable(queryRunner, 'groups', groupColumns, requiredGroupColumns);
 
+      // Recurring tasks table missing columns
+      const recurringTaskColumns = await this.getTableColumns(queryRunner, 'recurring_tasks');
+      const requiredRecurringTaskColumns = [
+        { name: 'durationDays', type: 'INTEGER', nullable: false, default: '7' }
+      ];
+
+      await this.addMissingColumnsToTable(queryRunner, 'recurring_tasks', recurringTaskColumns, requiredRecurringTaskColumns);
+
     } finally {
       await queryRunner.release();
     }
@@ -702,6 +710,9 @@ export class ComprehensiveMigration {
         const fileColumns = await this.getTableColumns(queryRunner, 'files');
         const filesMissingAttachmentType = !fileColumns.includes('attachmentType');
 
+        const recurringTaskColumns = await this.getTableColumns(queryRunner, 'recurring_tasks');
+        const recurringTasksMissingDurationDays = !recurringTaskColumns.includes('durationDays');
+
         // Check for orphaned data
         const orphanedAssignments = await queryRunner.query(`
           SELECT COUNT(*) as count
@@ -722,7 +733,7 @@ export class ComprehensiveMigration {
 
         const hasTasksWithoutWorkflow = parseInt(tasksWithoutWorkflow[0].count) > 0;
 
-        const migrationNeeded = tasksMissingColumns || filesMissingAttachmentType || hasOrphanedData || hasTasksWithoutWorkflow;
+        const migrationNeeded = tasksMissingColumns || filesMissingAttachmentType || recurringTasksMissingDurationDays || hasOrphanedData || hasTasksWithoutWorkflow;
         
         if (migrationNeeded) {
           logger.info('📋 Migration needed due to missing columns or data issues');
