@@ -291,28 +291,36 @@ class DashboardApp {
       }
       
       this.updateUserInfo();
-      await this.loadTasks();
-      // await this.loadGroups(); // Removed - groups section no longer displayed
-      await this.loadStats();
-      await this.loadLeaderboard();
-      await this.loadFiles();
-      await this.loadAssigneeFilter(); // โหลดตัวกรองผู้รับผิดชอบ
+      
+      // ตรวจสอบ action parameter และเปิด modal ทันทีถ้าเป็น new-task
+      if (this.currentAction === 'new-task') {
+        this.openAddTaskModalFast();
+      }
+      
+      // โหลดข้อมูลแบบ parallel
+      const dataPromises = [
+        this.loadTasks(),
+        this.loadStats(),
+        this.loadLeaderboard(),
+        this.loadFiles(),
+        this.loadAssigneeFilter()
+      ];
+      
+      await Promise.all(dataPromises);
       
       // แสดงข้อมูลตาม view ปัจจุบัน
       console.log('Switching to current view:', this.currentView);
       this.switchView(this.currentView);
       
-      // ตรวจสอบ action parameter และเปิด modal ที่เหมาะสม
-      if (this.currentAction === 'new-task') {
-        this.openAddTaskModal();
-      } else if (this.currentAction === 'edit' && this.currentTaskId) {
+      // ตรวจสอบ action parameter อื่น ๆ หลังจากโหลดข้อมูลเสร็จ
+      if (this.currentAction === 'edit' && this.currentTaskId) {
         // เปิด modal แก้ไขงาน
         this.openEditTaskModal(this.currentTaskId);
       } else if (this.currentAction === 'view' && this.currentTaskId) {
         // เปิด modal รายละเอียดงานอัตโนมัติ
         setTimeout(() => {
           this.openTaskDetail(this.currentTaskId);
-        }, 1000); // รอให้โหลดข้อมูลงานเสร็จก่อน
+        }, 500); // ลดเวลารอ
       }
       
       // อัปเดตข้อมูลเริ่มต้น
@@ -2292,6 +2300,31 @@ class DashboardApp {
     }
   }
 
+  openAddTaskModalFast() {
+    // เปิด modal ทันทีโดยไม่รอโหลดข้อมูลสมาชิก
+    const modal = document.getElementById('addTaskModal');
+    const overlay = document.getElementById('modalOverlay');
+    if (modal && overlay) {
+      // ย้าย modal ไปยัง overlay
+      overlay.innerHTML = '';
+      overlay.appendChild(modal);
+      modal.classList.remove('hidden');
+      overlay.classList.remove('hidden');
+      
+      console.log('🚀 เปิด modal เพิ่มงานแบบเร็ว');
+      
+      // โหลดข้อมูลสมาชิกแบบ background
+      this.loadGroupMembers().then(() => {
+        console.log('✅ โหลดสมาชิกกลุ่มเสร็จแล้ว');
+      }).catch(error => {
+        console.warn('ไม่สามารถโหลดสมาชิกกลุ่มได้:', error);
+      });
+      
+      // Setup file upload ทันที
+      this.setupFileUpload();
+    }
+  }
+
   openAddTaskModal() {
     const modal = document.getElementById('addTaskModal');
     const overlay = document.getElementById('modalOverlay');
@@ -2304,12 +2337,8 @@ class DashboardApp {
         modal.classList.remove('hidden');
         overlay.classList.remove('hidden');
         
-        // Add small delay to ensure DOM is ready
-        setTimeout(() => {
-          console.log('🔄 Setting up file upload after modal open');
-          // เรียกใช้ setupFileUpload เมื่อเปิด modal
-          this.setupFileUpload();
-        }, 100);
+        // Setup file upload
+        this.setupFileUpload();
       });
     }
   }

@@ -387,6 +387,133 @@ class ApiController {
   }
 
   /**
+   * POST /api/dashboard/tasks/:taskId/submit - ส่งงานจากหน้า Dashboard (ไม่ต้องตรวจสอบ authentication)
+   * ใช้ userId โดยตรงแทนการ authenticate
+   */
+  public async submitTaskFromDashboard(req: Request, res: Response): Promise<void> {
+    try {
+      const { taskId } = req.params;
+      const { userId, comment, links } = (req.body || {});
+      const files = ((req as any).files as any[]) || [];
+
+      // Validate required userId
+      if (!userId) {
+        res.status(400).json({ success: false, error: 'userId is required' });
+        return;
+      }
+
+      // ตรวจสอบว่าผู้ใช้มีอยู่จริง
+      const user = await this.userService.findByLineUserId(userId);
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
+      }
+
+      // ตรวจสอบว่างานมีอยู่จริง
+      const task = await this.taskService.getTaskById(taskId);
+      if (!task) {
+        res.status(404).json({ success: false, error: 'Task not found' });
+        return;
+      }
+
+      // ตรวจสอบว่าผู้ใช้ได้รับมอบหมายงานนี้หรือไม่
+      const isAssigned = task.assignedUsers?.some(assignedUser => assignedUser.lineUserId === userId);
+      if (!isAssigned) {
+        res.status(403).json({ 
+          success: false, 
+          error: 'คุณไม่ได้เป็นผู้รับผิดชอบงานนี้ จึงไม่สามารถส่งงานได้',
+          details: 'Task submission is only allowed for assigned users'
+        });
+        return;
+      }
+
+      const ALLOWED_MIME_TYPES = [
+        // Images
+        'image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp', 'image/bmp', 'image/tiff', 'image/svg+xml', 'image/x-icon',
+        // Videos
+        'video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/x-ms-wmv', 'video/webm', 'video/x-flv', 'video/3gpp',
+        // Audio
+        'audio/mpeg', 'audio/wav', 'audio/ogg', 'audio/aac', 'audio/flac', 'audio/mp4', 'audio/x-ms-wma',
+        // Documents - PDF
+        'application/pdf',
+        // Documents - Microsoft Office (Modern)
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // .docx
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // .xlsx
+        'application/vnd.openxmlformats-officedocument.presentationml.presentation', // .pptx
+        // Documents - Microsoft Office (Legacy)
+        'application/msword', 'application/vnd.ms-excel', 'application/vnd.ms-powerpoint',
+        // Documents - OpenOffice/LibreOffice
+        'application/vnd.oasis.opendocument.text', 'application/vnd.oasis.opendocument.spreadsheet', 'application/vnd.oasis.opendocument.presentation',
+        // Text Files
+        'text/plain', 'text/csv', 'text/html', 'text/css', 'text/javascript', 'text/xml', 'text/rtf',
+        // Development Files
+        'application/json', 'application/xml', 'application/javascript', 'application/typescript', 'text/x-python', 'text/x-java-source', 'text/x-c', 'text/x-c++', 'application/x-sh',
+        // Archives
+        'application/zip', 'application/x-rar-compressed', 'application/x-7z-compressed', 'application/x-tar', 'application/gzip', 'application/x-bzip2',
+        // Design Files
+        'application/postscript', 'image/vnd.adobe.photoshop', 'application/vnd.adobe.illustrator', 'application/x-indesign', 'application/x-figma', 'application/x-sketch',
+        // CAD Files
+        'application/vnd.autodesk.dwg', 'application/vnd.autodesk.dwf', 'image/vnd.dwg', 'application/x-autocad',
+        // 3D Files
+        'model/obj', 'model/fbx', 'model/3mf', 'application/x-blender',
+        // Fonts
+        'font/ttf', 'font/otf', 'font/woff', 'font/woff2', 'application/font-woff', 'application/x-font-ttf',
+        // E-books
+        'application/epub+zip', 'application/x-mobipocket-ebook',
+        // Database
+        'application/x-sqlite3', 'application/vnd.ms-access',
+        // Custom and Generic Types
+        'application/dvg', 'application/x-dvg', 'application/octet-stream'
+      ];
+      const MAX_ATTACHMENTS = 5;
+
+      // ตรวจสอบจำนวนไฟล์
+      if (files.length > MAX_ATTACHMENTS) {
+        res.status(400).json({ success: false, error: `Maximum ${MAX_ATTACHMENTS} attachments allowed` });
+        return;
+      }
+
+      // ตรวจสอบชนิดไฟล์
+      const invalidFile = files.find(f => !ALLOWED_MIME_TYPES.includes(f.mimetype));
+      if (invalidFile) {
+        res.status(400).json({ success: false, error: `Invalid file type: ${invalidFile.mimetype}` });
+        return;
+      }
+
+      // บันทึกไฟล์ทั้งหมด แล้วได้ fileIds
+      const savedFileIds: string[] = await Promise.all(
+        files.map(async f => {
+          const saved = await this.fileService.saveFile({
+            groupId: task.groupId,
+            uploadedBy: userId,
+            messageId: f.originalname,
+            content: f.buffer,
+            originalName: f.originalname,
+            mimeType: f.mimetype,
+            folderStatus: 'in_progress'
+          });
+          return saved.id;
+        })
+      );
+
+      // บันทึกเป็นการส่งงาน
+      const submittedTask = await this.taskService.recordSubmission(taskId, userId, savedFileIds, comment, links);
+      
+      logger.info(`✅ Dashboard task submission completed:`, {
+        taskId,
+        userId,
+        filesCount: files.length,
+        hasComment: !!comment
+      });
+      
+      res.json({ success: true, data: submittedTask, message: 'Task submitted successfully from dashboard' });
+    } catch (error) {
+      logger.error('❌ submitTaskFromDashboard error:', error);
+      res.status(500).json({ success: false, error: 'Failed to submit task from dashboard' });
+    }
+  }
+
+  /**
    * PUT /api/tasks/:taskId - อัปเดตงาน
    */
   public async updateTask(req: Request, res: Response): Promise<void> {
@@ -2748,6 +2875,12 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
     requireTaskSubmit,
     upload.array('files', 10), 
     apiController.submitTask.bind(apiController)
+  );
+
+  // Dashboard task submission (no authentication required - uses userId directly)
+  apiRouter.post('/dashboard/tasks/:taskId/submit',
+    upload.array('attachments', 10),
+    apiController.submitTaskFromDashboard.bind(apiController)
   );
 
   // Direct file upload to group vault
