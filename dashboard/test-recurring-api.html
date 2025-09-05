@@ -24,6 +24,7 @@
     <div>
         <button onclick="testListRecurring()">Test List Recurring</button>
         <button onclick="testDebugRecurring()">Test Debug Recurring</button>
+        <button onclick="testMinimalRecurring()">Test Minimal Recurring</button>
         <button onclick="testCreateRecurringNoValidation()">Test Create (No Validation)</button>
         <button onclick="testCreateRecurring()">Test Create Recurring</button>
         <button onclick="clearLogs()">Clear Logs</button>
@@ -172,6 +173,8 @@
                 createdBy: 'test-user'
             };
             
+            log('🔍 Sending payload:', 'info', testData);
+            
             try {
                 const response = await fetch(`${API_BASE}/api/groups/${groupId}/recurring`, {
                     method: 'POST',
@@ -181,12 +184,50 @@
                     body: JSON.stringify(testData)
                 });
                 
+                log(`🔍 Response status: ${response.status} ${response.statusText}`);
+                
                 const result = await response.json();
                 
                 if (response.ok) {
                     log('✅ Create recurring task successful', 'success', result);
                 } else {
                     log('❌ Create recurring task failed', 'error', result);
+                }
+            } catch (error) {
+                log('❌ Network error', 'error', { error: error.message });
+            }
+        }
+        
+        async function testMinimalRecurring() {
+            const groupId = document.getElementById('groupId').value;
+            log('Testing minimal recurring task...');
+            
+            // ทดสอบด้วย payload ที่มีเฉพาะ required fields
+            const minimalData = {
+                title: 'Minimal Test Task',
+                recurrence: 'weekly',
+                createdBy: 'test-user'
+            };
+            
+            log('🔍 Sending minimal payload:', 'info', minimalData);
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/groups/${groupId}/recurring`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(minimalData)
+                });
+                
+                log(`🔍 Response status: ${response.status} ${response.statusText}`);
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Minimal recurring task successful', 'success', result);
+                } else {
+                    log('❌ Minimal recurring task failed', 'error', result);
                 }
             } catch (error) {
                 log('❌ Network error', 'error', { error: error.message });

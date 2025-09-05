@@ -6782,6 +6782,25 @@ class DashboardApp {
       
       console.log('📝 Creating recurring task:', recurringTaskData);
       
+      // เพิ่ม detailed logging สำหรับ debug
+      console.log('🔍 Detailed payload inspection:', {
+        title: recurringTaskData.title,
+        titleType: typeof recurringTaskData.title,
+        titleLength: recurringTaskData.title?.length,
+        assigneeLineUserIds: recurringTaskData.assigneeLineUserIds,
+        assigneeCount: recurringTaskData.assigneeLineUserIds?.length,
+        recurrence: recurringTaskData.recurrence,
+        recurrenceType: typeof recurringTaskData.recurrence,
+        weekDay: recurringTaskData.weekDay,
+        dayOfMonth: recurringTaskData.dayOfMonth,
+        timeOfDay: recurringTaskData.timeOfDay,
+        timezone: recurringTaskData.timezone,
+        createdBy: recurringTaskData.createdBy,
+        createdByType: typeof recurringTaskData.createdBy,
+        currentUserId: this.currentUserId,
+        fullPayload: JSON.stringify(recurringTaskData, null, 2)
+      });
+      
       // เรียก API สร้างงานประจำ
       const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/recurring`, {
         method: 'POST',
