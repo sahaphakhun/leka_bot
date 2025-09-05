@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ทดสอบการโหลดสมาชิก</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .result { border: 1px solid #ccc; padding: 10px; margin: 10px 0; }
+        .loading { color: blue; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>ทดสอบการโหลดสมาชิกกลุ่ม</h1>
+    
+    <button onclick="testLineAPI()">ทดสอบ LINE API</button>
+    <button onclick="testGroupAPI()">ทดสอบ Group API</button>
+    <button onclick="clearResults()">ล้างผลลัพธ์</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const groupId = 'C1467a3dcec992659e48f958415757d5e';
+        
+        function addResult(title, content, className = '') {
+            const results = document.getElementById('results');
+            const div = document.createElement('div');
+            div.className = `result ${className}`;
+            div.innerHTML = `<h3>${title}</h3><pre>${content}</pre>`;
+            results.appendChild(div);
+        }
+        
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+        
+        async function testLineAPI() {
+            addResult('กำลังทดสอบ LINE API...', 'กำลังโหลด...', 'loading');
+            
+            try {
+                const url = `/api/line/members/${groupId}?_t=${Date.now()}`;
+                console.log('Testing URL:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                addResult('ผลลัพธ์ LINE API', JSON.stringify(data, null, 2), 'success');
+                
+                // แสดงชื่อสมาชิกแยกต่างหาก
+                if (data.success && data.data) {
+                    const memberNames = data.data.map(m => m.displayName).join(', ');
+                    addResult('ชื่อสมาชิก', memberNames, 'success');
+                }
+                
+            } catch (error) {
+                addResult('ข้อผิดพลาด LINE API', error.message, 'error');
+                console.error('LINE API Error:', error);
+            }
+        }
+        
+        async function testGroupAPI() {
+            addResult('กำลังทดสอบ Group API...', 'กำลังโหลด...', 'loading');
+            
+            try {
+                const url = `/api/groups/${groupId}/members?_t=${Date.now()}`;
+                console.log('Testing URL:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Cache-Control': 'no-cache',
+                        'Pragma': 'no-cache'
+                    }
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                addResult('ผลลัพธ์ Group API', JSON.stringify(data, null, 2), 'success');
+                
+                // แสดงชื่อสมาชิกแยกต่างหาก
+                if (data.success && data.data) {
+                    const memberNames = data.data.map(m => m.displayName).join(', ');
+                    addResult('ชื่อสมาชิก', memberNames, 'success');
+                }
+                
+            } catch (error) {
+                addResult('ข้อผิดพลาด Group API', error.message, 'error');
+                console.error('Group API Error:', error);
+            }
+        }
+    </script>
+</body>
+</html>

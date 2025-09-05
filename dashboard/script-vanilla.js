@@ -2351,11 +2351,17 @@ class DashboardApp {
   }
 
   openAddTaskModal() {
+    console.log('🚀 กำลังเปิด modal เพิ่มงาน...');
+    
     const modal = document.getElementById('addTaskModal');
     const overlay = document.getElementById('modalOverlay');
     if (modal && overlay) {
       // โหลดรายชื่อสมาชิกก่อนเปิด modal
+      console.log('🔄 เริ่มโหลดสมาชิกก่อนเปิด modal...');
+      
       this.loadGroupMembers().then(() => {
+        console.log('✅ โหลดสมาชิกเสร็จ กำลังเปิด modal UI...');
+        
         // ย้าย modal ไปยัง overlay
         overlay.innerHTML = '';
         overlay.appendChild(modal);
@@ -2364,7 +2370,21 @@ class DashboardApp {
         
         // Setup file upload
         this.setupFileUpload();
+        
+        console.log('✅ เปิด modal เรียบร้อย!');
+      }).catch(error => {
+        console.error('❌ โหลดสมาชิกไม่ได้:', error);
+        
+        // เปิด modal แม้ไม่มีข้อมูลสมาชิก
+        overlay.innerHTML = '';
+        overlay.appendChild(modal);
+        modal.classList.remove('hidden');
+        overlay.classList.remove('hidden');
+        
+        this.setupFileUpload();
       });
+    } else {
+      console.error('❌ ไม่พบ modal หรือ overlay elements');
     }
   }
 
@@ -5559,9 +5579,18 @@ class DashboardApp {
   // API helper method
   async apiRequest(endpoint, options = {}) {
     try {
-      const response = await fetch(endpoint, {
+      // เพิ่ม cache busting สำหรับ API calls
+      const url = endpoint.includes('?') 
+        ? `${endpoint}&_t=${Date.now()}` 
+        : `${endpoint}?_t=${Date.now()}`;
+      
+      console.log('🔗 API Request URL:', url);
+      
+      const response = await fetch(url, {
         headers: {
           'Content-Type': 'application/json',
+          'Cache-Control': 'no-cache',
+          'Pragma': 'no-cache',
           ...options.headers
         },
         ...options
@@ -6258,26 +6287,49 @@ class DashboardApp {
       
       if (!assigneesList || !reviewerSelect) return;
       
-      // ใช้ข้อมูล mock สำหรับตอนนี้
-      const members = [
-        { id: 'user1', name: 'ผู้ใช้ 1' },
-        { id: 'user2', name: 'ผู้ใช้ 2' },
-        { id: 'user3', name: 'ผู้ใช้ 3' },
-        { id: 'team', name: 'ทีมทั้งหมด' }
-      ];
+      console.log('🔄 โหลดสมาชิกสำหรับงานประจำ...');
+      
+      // ใช้ข้อมูลสมาชิกจริงจาก this.groupMembers หรือโหลดใหม่
+      let members = this.groupMembers || [];
+      
+      if (members.length === 0) {
+        console.log('📋 ไม่มีข้อมูลสมาชิกแคช โหลดใหม่...');
+        members = await this.loadGroupMembers() || [];
+      }
+      
+      if (members.length === 0) {
+        console.warn('⚠️ ไม่มีข้อมูลสมาชิกสำหรับงานประจำ');
+        assigneesList.innerHTML = '<div class="text-gray-500">ไม่พบข้อมูลสมาชิก</div>';
+        reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>';
+        return;
+      }
+      
+      console.log(`✅ โหลดสมาชิกสำหรับงานประจำ: ${members.length} คน`);
       
       // สร้างรายการผู้รับผิดชอบ
       assigneesList.innerHTML = members.map(member => `
         <label class="checkbox-item">
-          <input type="checkbox" name="recurringAssignedTo" value="${member.id}">
+          <input type="checkbox" name="recurringAssignedTo" value="${member.lineUserId || member.id}">
           <span class="checkmark"></span>
-          <span class="label-text">${member.name}</span>
+          <span class="label-text">${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</span>
         </label>
       `).join('');
       
+      // เพิ่มตัวเลือก "ทีมทั้งหมด" ถ้ามีสมาชิกมากกว่า 1 คน
+      if (members.length > 1) {
+        const teamOption = `
+          <label class="checkbox-item">
+            <input type="checkbox" name="recurringAssignedTo" value="team">
+            <span class="checkmark"></span>
+            <span class="label-text">ทีมทั้งหมด</span>
+          </label>
+        `;
+        assigneesList.innerHTML += teamOption;
+      }
+      
       // สร้างรายการผู้ตรวจงาน
       reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>' + 
-        members.map(member => `<option value="${member.id}">${member.name}</option>`).join('');
+        members.map(member => `<option value="${member.lineUserId || member.id}">${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</option>`).join('');
         
     } catch (error) {
       console.error('❌ Error loading members for recurring task:', error);
