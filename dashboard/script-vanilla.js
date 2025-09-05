@@ -2305,9 +2305,6 @@ class DashboardApp {
         
         // เรียกใช้ setupFileUpload เมื่อเปิด modal
         this.setupFileUpload();
-        
-        // โหลดสมาชิกใน checkbox group
-        this.populateAssigneeCheckboxes();
       });
     }
   }
@@ -5540,6 +5537,37 @@ class DashboardApp {
         reportUserSelect.value = currentValue;
       }
     }
+    
+    // อัปเดต checkbox group สำหรับ modal การสร้างงาน
+    const checkboxGroup = document.querySelector('.checkbox-group');
+    if (checkboxGroup) {
+      // ล้างรายชื่อเก่า
+      checkboxGroup.innerHTML = '';
+
+      // เพิ่มรายชื่อสมาชิกจริง
+      members.forEach(member => {
+        const checkboxItem = document.createElement('label');
+        checkboxItem.className = 'checkbox-item';
+        checkboxItem.innerHTML = `
+          <input type="checkbox" name="assignedTo" value="${member.lineUserId || member.id}" id="assignedTo_${member.lineUserId || member.id}">
+          <span class="checkmark"></span>
+          <span class="label-text">${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</span>
+        `;
+        checkboxGroup.appendChild(checkboxItem);
+      });
+
+      // เพิ่มตัวเลือก "ทีมทั้งหมด" ถ้ามีสมาชิกมากกว่า 1 คน
+      if (members.length > 1) {
+        const teamItem = document.createElement('label');
+        teamItem.className = 'checkbox-item';
+        teamItem.innerHTML = `
+          <input type="checkbox" name="assignedTo" value="team" id="assignedTo_team">
+          <span class="checkmark"></span>
+          <span class="label-text">ทีมทั้งหมด</span>
+        `;
+        checkboxGroup.appendChild(teamItem);
+      }
+    }
   }
 
   async loadMembersFromDatabase() {
@@ -5561,39 +5589,6 @@ class DashboardApp {
     } catch (error) {
       console.error('Error loading group members:', error);
       this.groupMembers = [];
-    }
-  }
-
-  // ฟังก์ชันแสดงรายชื่อสมาชิกในฟอร์ม
-  renderGroupMembers() {
-    const checkboxGroup = document.querySelector('.checkbox-group');
-    if (!checkboxGroup) return;
-
-    // ล้างรายชื่อเก่า
-    checkboxGroup.innerHTML = '';
-
-    // เพิ่มรายชื่อสมาชิกจริง
-    this.groupMembers.forEach(member => {
-      const checkboxItem = document.createElement('label');
-      checkboxItem.className = 'checkbox-item';
-      checkboxItem.innerHTML = `
-        <input type="checkbox" name="assignedTo" value="${member.lineUserId || member.id}" id="assignedTo_${member.id}">
-        <span class="checkmark"></span>
-        <span class="label-text">${member.displayName || member.name || member.userId}</span>
-      `;
-      checkboxGroup.appendChild(checkboxItem);
-    });
-
-    // เพิ่มตัวเลือก "ทีมทั้งหมด" ถ้ามีสมาชิกมากกว่า 1 คน
-    if (this.groupMembers.length > 1) {
-      const teamItem = document.createElement('label');
-      teamItem.className = 'checkbox-item';
-      teamItem.innerHTML = `
-        <input type="checkbox" name="assignedTo" value="team" id="assignedTo_team">
-        <span class="checkmark"></span>
-        <span class="label-text">ทีมทั้งหมด</span>
-      `;
-      checkboxGroup.appendChild(teamItem);
     }
   }
 
