@@ -24,33 +24,42 @@ class DashboardApp {
 
   initializeMockData() {
     // Default mock tasks to ensure statistics display properly
+    // Generate valid UUIDs for mock data
+    const generateUUID = () => {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = Math.random() * 16 | 0;
+        const v = c == 'x' ? r : (r & 0x3 | 0x8);
+        return v.toString(16);
+      });
+    };
+    
     this.tasks = [
       {
-        id: 'task1',
+        id: generateUUID(),
         title: 'งานทดสอบ 1',
         description: 'รายละเอียดงานทดสอบ',
         status: 'pending',
         priority: 'medium',
         dueTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+        group: { id: generateUUID(), name: 'กลุ่มทดสอบ' }
       },
       {
-        id: 'task2', 
+        id: generateUUID(), 
         title: 'งานทดสอบ 2',
         description: 'รายละเอียดงานทดสอบ 2',
         status: 'completed',
         priority: 'high',
         dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group2', name: 'กลุ่มทดสอบ 2' }
+        group: { id: generateUUID(), name: 'กลุ่มทดสอบ 2' }
       },
       {
-        id: 'task3', 
+        id: generateUUID(), 
         title: 'งานทดสอบ 3',
         description: 'รายละเอียดงานทดสอบ 3',
         status: 'overdue',
         priority: 'low',
         dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+        group: { id: generateUUID(), name: 'กลุ่มทดสอบ' }
       }
     ];
   }
@@ -397,33 +406,38 @@ class DashboardApp {
       this.showToast('เกิดข้อผิดพลาดในการโหลดงาน', 'error');
       
       // Fallback to mock data for development
+      const generateMockUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+        const r = Math.random() * 16 | 0;
+        return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+      
       this.tasks = [
         {
-          id: 'task1',
+          id: generateMockUUID(),
           title: 'งานทดสอบ 1',
           description: 'รายละเอียดงานทดสอบ',
           status: 'pending',
           priority: 'medium',
           dueTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+          group: { id: generateMockUUID(), name: 'กลุ่มทดสอบ' }
         },
         {
-          id: 'task2', 
+          id: generateMockUUID(), 
           title: 'งานทดสอบ 2',
           description: 'รายละเอียดงานทดสอบ 2',
           status: 'completed',
           priority: 'high',
           dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-          group: { id: 'group2', name: 'กลุ่มทดสอบ 2' }
+          group: { id: generateMockUUID(), name: 'กลุ่มทดสอบ 2' }
         },
         {
-          id: 'task3', 
+          id: generateMockUUID(), 
           title: 'งานทดสอบ 3',
           description: 'รายละเอียดงานทดสอบ 3',
           status: 'overdue',
           priority: 'low',
           dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          group: { id: 'group1', name: 'กลุ่มทดสอบ' }
+          group: { id: generateMockUUID(), name: 'กลุ่มทดสอบ' }
         }
       ];
       this.renderTasks();
@@ -4621,7 +4635,7 @@ class DashboardApp {
         mimeType: 'image/jpeg',
         size: 2048576,
         path: 'data:image/svg+xml;base64,' + btoa('<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#3b82f6"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Project Mockup</text></svg>'),
-        linkedTasks: ['task1'],
+        linkedTasks: [generateUUID()],
         tags: ['design', 'mockup'],
         uploadedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
       },
@@ -4631,7 +4645,7 @@ class DashboardApp {
         name: 'requirements.pdf',
         mimeType: 'application/pdf',
         size: 1024000,
-        linkedTasks: ['task1'],
+        linkedTasks: [generateUUID()],
         tags: ['documentation'],
         uploadedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
       },
@@ -4642,7 +4656,7 @@ class DashboardApp {
         mimeType: 'image/png',
         size: 512000,
         path: 'data:image/svg+xml;base64,' + btoa('<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#10b981"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Screenshot</text></svg>'),
-        linkedTasks: ['task2'],
+        linkedTasks: [generateUUID()],
         tags: ['screenshot', 'testing'],
         uploadedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
       },
@@ -4662,7 +4676,7 @@ class DashboardApp {
         name: 'presentation.pptx',
         mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
         size: 5242880,
-        linkedTasks: ['task1'],
+        linkedTasks: [generateUUID()],
         tags: ['presentation', 'meeting'],
         uploadedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
       }

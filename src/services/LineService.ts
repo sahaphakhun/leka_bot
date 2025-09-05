@@ -472,8 +472,13 @@ export class LineService {
     try {
       const result = await this.client.getGroupMemberIds(groupId);
       return result;
-    } catch (error) {
-      console.error('❌ Failed to get group member user IDs:', error);
+    } catch (error: any) {
+      // Reduce logging for known 403 errors to prevent rate limiting
+      if (error.status === 403) {
+        console.warn(`⚠️ LINE API 403: Bot doesn't have permission to access group ${groupId} member list`);
+      } else {
+        console.error('❌ Failed to get group member user IDs:', error);
+      }
       throw error;
     }
   }
@@ -719,17 +724,18 @@ export class LineService {
       return membersWithSource;
       
     } catch (error: any) {
+      // Reduce verbose logging for known issues to prevent Railway rate limiting
       if (error.status === 403) {
-        console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม');
+        console.warn(`⚠️ LINE API 403: Bot lacks permission for group ${groupId}`);
       } else {
-        console.warn('⚠️ LINE API ไม่ทำงาน เปลี่ยนไปใช้ฐานข้อมูลแทน');
+        console.warn(`⚠️ LINE API error for group ${groupId}: ${error.status || 'unknown'}`);
       }
       
       // Fallback ไปใช้ฐานข้อมูล
       const dbMembers = await this.getAllGroupMembersFromDatabase(groupId);
       
       if (dbMembers.length > 0) {
-        console.log('📊 ดึงข้อมูลจากฐานข้อมูล: ' + dbMembers.length + ' คน');
+        console.log(`📊 Using database fallback: ${dbMembers.length} members`);
         
         // แปลง source ให้ถูกต้องตาม type
         const membersWithCorrectSource = dbMembers.map(member => ({
@@ -739,7 +745,7 @@ export class LineService {
         
         return membersWithCorrectSource;
       } else {
-        console.log('ℹ️ ไม่มีข้อมูลในฐานข้อมูล ส่งคืน array ว่าง');
+        console.log('ℹ️ No database fallback available - returning empty array');
         return [];
       }
     }

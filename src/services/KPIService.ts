@@ -6,6 +6,7 @@ import { KPIRecord, Task, User, Group } from '@/models';
 import { Leaderboard } from '@/types';
 import { Task as TaskEntity } from '@/models';
 import { config } from '@/utils/config';
+import { throttledLogger } from '@/utils/throttledLogger';
 // @ts-ignore
 import moment from 'moment-timezone';
 
@@ -393,7 +394,7 @@ export class KPIService {
     period: 'weekly' | 'monthly' | 'all' = 'weekly'
   ): Promise<Leaderboard[]> {
     try {
-      console.log(`🔍 Getting leaderboard for group: ${groupId}, period: ${period}`);
+      throttledLogger.log('info', `🔍 Getting leaderboard for group: ${groupId}, period: ${period}`, 'get_leaderboard');
 
       // แปลง groupId (รองรับ 'default' และ LINE Group ID)
       const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
@@ -1436,7 +1437,7 @@ export class KPIService {
     };
   }> {
     try {
-      console.log(`🔄 Starting leaderboard sync for group: ${groupId}, period: ${period}`);
+      throttledLogger.log('info', `🔄 Starting leaderboard sync for group: ${groupId}, period: ${period}`);
       // รองรับ LINE Group ID และ 'default' → internal UUID
       const internalGroupId = await this.resolveInternalGroupIdOrDefault(groupId);
       if (!internalGroupId) {
@@ -1605,8 +1606,7 @@ export class KPIService {
           } else if (task.status === 'overdue' || 
                      (task.dueTime && moment(task.dueTime).isBefore(now))) {
             // งานเกินกำหนด - บันทึก overdue KPI
-            console.log(`⏰ Processing overdue task: ${task.title} (due: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')})`);
-            for (const assignee of task.assignedUsers) {
+            throttledLogger.log('info', `⏰ Processing overdue task: ${task.title} (due: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')})`, 'process_overdue_task');
               const points = config.app.kpiScoring.overdue; // 0 คะแนน
               const eventDate = new Date();
               
@@ -1632,7 +1632,7 @@ export class KPIService {
           } else {
             // งานที่ยังไม่ถึงกำหนดส่ง - ไม่ต้องทำอะไร
             if (task.dueTime && moment(task.dueTime).isAfter(now)) {
-              console.log(`⏳ Skipping pending task: ${task.title} (due: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')})`);
+              throttledLogger.log('info', `⏳ Skipping pending task: ${task.title} (due: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')})`, 'skip_pending_task');
             }
           }
         } catch (taskError) {
@@ -1641,15 +1641,16 @@ export class KPIService {
         }
       }
 
-      console.log(`✅ Leaderboard sync completed:`);
-      console.log(`   - Processed tasks: ${processedTasks}`);
-      console.log(`   - Updated users: ${processedUsers.size}`);
-      console.log(`   - Completed tasks: ${completedTasks}`);
-      console.log(`   - Overdue tasks: ${overdueTasks}`);
-      console.log(`   - Early completions: ${earlyCompletions}`);
-      console.log(`   - On-time completions: ${onTimeCompletions}`);
-      console.log(`   - Late completions: ${lateCompletions}`);
-      console.log(`   - Overtime completions: ${overtimeCompletions}`);
+      // Update final summary to use throttledLogger
+      throttledLogger.forceLog('info', `✅ Leaderboard sync completed:`);
+      throttledLogger.forceLog('info', `   - Processed tasks: ${processedTasks}`);
+      throttledLogger.forceLog('info', `   - Updated users: ${processedUsers.size}`);
+      throttledLogger.forceLog('info', `   - Completed tasks: ${completedTasks}`);
+      throttledLogger.forceLog('info', `   - Overdue tasks: ${overdueTasks}`);
+      throttledLogger.forceLog('info', `   - Early completions: ${earlyCompletions}`);
+      throttledLogger.forceLog('info', `   - On-time completions: ${onTimeCompletions}`);
+      throttledLogger.forceLog('info', `   - Late completions: ${lateCompletions}`);
+      throttledLogger.forceLog('info', `   - Overtime completions: ${overtimeCompletions}`);
 
       return {
         processedTasks,

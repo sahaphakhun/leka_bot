@@ -41,6 +41,13 @@ export class TaskService {
   /** ดึงงานตาม ID พร้อม relations หลัก */
   public async getTaskById(taskId: string): Promise<Task | null> {
     try {
+      // Validate UUID format as a safety measure
+      const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+      if (!UUID_REGEX.test(taskId)) {
+        console.warn(`⚠️ Invalid UUID format for taskId: ${taskId}`);
+        return null;
+      }
+      
       const task = await this.taskRepository.findOne({
         where: { id: taskId },
         relations: ['assignedUsers', 'createdByUser', 'group', 'attachedFiles']

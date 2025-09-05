@@ -14,10 +14,12 @@ import { AppDataSource } from '@/utils/database';
 
 import multer from 'multer';
 import { logger } from '@/utils/logger';
+import { throttledLogger } from '@/utils/throttledLogger';
 import { serviceContainer } from '@/utils/serviceContainer';
 import { sanitize } from '@/utils';
 import { authenticate, optionalAuth } from '@/middleware/auth';
 import { validateRequest, taskSchemas, recurringTaskSchemas } from '@/middleware/validation';
+import { validateUUIDParams, validateTaskId, validateCommonUUIDs } from '@/middleware/uuidValidation';
 import { requireTaskView, requireTaskSubmit, requireTaskEdit, requireTaskApprove } from '@/middleware/taskAuth';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
@@ -3048,6 +3050,7 @@ apiRouter.get('/groups/:groupId/files/:fileId', apiController.getFileInfo.bind(a
 
 // Task-specific file routes
 apiRouter.get('/groups/:groupId/tasks/:taskId/files', 
+  validateTaskId,
   apiController.getTaskFiles.bind(apiController)
 );
 
@@ -3057,15 +3060,21 @@ apiRouter.get('/groups/:groupId/files',
 );
 
 // User and export routes
-apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));
+apiRouter.get('/users/:userId/stats', 
+  validateUUIDParams(['userId']),
+  apiController.getUserStats.bind(apiController)
+);
 apiRouter.get('/export/kpi/:groupId', apiController.exportKPI.bind(apiController));
 apiRouter.post('/kpi/sample/:groupId', apiController.createSampleKPIData.bind(apiController));
 apiRouter.get('/line/members/:groupId', apiController.getLineMembers.bind(apiController));
 
 // New helper route: fetch single task detail by ID (for dashboard modal)
-apiRouter.get('/task/:taskId', async (req, res) => {
+apiRouter.get('/task/:taskId', 
+  validateTaskId,
+  async (req, res) => {
   try {
     const { taskId } = req.params;
+    
     const svc = new TaskService();
     const taskEntity = await svc.getTaskById(taskId);
     if (!taskEntity) {
@@ -3075,14 +3084,18 @@ apiRouter.get('/task/:taskId', async (req, res) => {
     const task = taskEntityToInterface(taskEntity);
     res.json({ success: true, data: task });
   } catch (err) {
+    logger.error('Failed to get task:', err);
     res.status(500).json({ success: false, error: 'Failed to get task' });
   }
 });
 
 // Group-specific task detail route
-apiRouter.get('/groups/:groupId/tasks/:taskId', async (req, res) => {
+apiRouter.get('/groups/:groupId/tasks/:taskId', 
+  validateTaskId,
+  async (req, res) => {
   try {
     const { taskId } = req.params;
+    
     const svc = new TaskService();
     const taskEntity = await svc.getTaskById(taskId);
     if (!taskEntity) {
@@ -3092,6 +3105,7 @@ apiRouter.get('/groups/:groupId/tasks/:taskId', async (req, res) => {
     const task = taskEntityToInterface(taskEntity);
     res.json({ success: true, data: task });
   } catch (err) {
+    logger.error('Failed to get task:', err);
     res.status(500).json({ success: false, error: 'Failed to get task' });
   }
 });
