@@ -488,7 +488,7 @@ export class LineService {
     source: 'line_api' | 'fallback';
   }> {
     try {
-      console.log(`🔍 พยายามดึงข้อมูลกลุ่ม ${groupId} จาก LINE API`);
+      console.log('🔍 พยายามดึงข้อมูลกลุ่ม ' + groupId + ' จาก LINE API');
       
       // ตรวจสอบว่าเป็น personal chat หรือไม่
       if (groupId.startsWith('personal_')) {
@@ -506,7 +506,7 @@ export class LineService {
           console.log('🆕 ใช้ getGroupSummary API');
           const groupSummary = await (this.client as any).getGroupSummary(groupId);
           if (groupSummary && groupSummary.groupName) {
-            console.log(`✅ ดึงชื่อกลุ่มจาก LINE API: ${groupSummary.groupName}`);
+            console.log('✅ ดึงชื่อกลุ่มจาก LINE API: ' + groupSummary.groupName);
             return {
               groupId,
               name: groupSummary.groupName,
@@ -531,7 +531,7 @@ export class LineService {
           if (typeof (this.client as any).getGroupSummary === 'function') {
             const groupSummary = await (this.client as any).getGroupSummary(groupId);
             if (groupSummary && groupSummary.groupName) {
-              console.log(`✅ ดึงชื่อกลุ่มจาก LINE API: ${groupSummary.groupName}`);
+              console.log('✅ ดึงชื่อกลุ่มจาก LINE API: ' + groupSummary.groupName);
               return {
                 groupId,
                 name: groupSummary.groupName,
@@ -608,11 +608,11 @@ export class LineService {
     pictureUrl?: string;
   }>> {
     try {
-      console.log(`🔄 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} จาก LINE API`);
+      console.log('🔄 ดึงข้อมูลสมาชิกกลุ่ม ' + groupId + ' จาก LINE API');
       
       // ดึง user IDs จากกลุ่ม
       const userIds = await this.getGroupMemberUserIds(groupId);
-      console.log(`📊 พบ user IDs: ${userIds.length} คน`);
+      console.log('📊 พบ user IDs: ' + userIds.length + ' คน');
       
       // ดึงข้อมูล profile ของแต่ละคน
       const memberPromises = userIds.map(async (userId) => {
@@ -628,7 +628,7 @@ export class LineService {
             console.log('🚫 LINE API 403: ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
             return {
               userId,
-              displayName: `User ${userId}`,
+              displayName: 'User ' + userId,
               pictureUrl: undefined
             };
           }
@@ -700,7 +700,7 @@ export class LineService {
   }>> {
     try {
       // ลองใช้ LINE API ก่อน (วิธี 1.3)
-      console.log(`🔄 ลองดึงข้อมูลสมาชิกกลุ่ม ${groupId} จาก LINE API`);
+      console.log('🔄 ลองดึงข้อมูลสมาชิกกลุ่ม ' + groupId + ' จาก LINE API');
       
       const lineMembers = await this.getAllGroupMembers(groupId);
       
@@ -711,7 +711,7 @@ export class LineService {
         lastUpdated: new Date()
       }));
       
-      console.log(`✅ ดึงข้อมูลจาก LINE API สำเร็จ: ${membersWithSource.length} คน`);
+      console.log('✅ ดึงข้อมูลจาก LINE API สำเร็จ: ' + membersWithSource.length + ' คน');
       
       // Sync ข้อมูลลงฐานข้อมูล
       await this.syncGroupMembersToDatabase(groupId, membersWithSource);
@@ -729,7 +729,7 @@ export class LineService {
       const dbMembers = await this.getAllGroupMembersFromDatabase(groupId);
       
       if (dbMembers.length > 0) {
-        console.log(`📊 ดึงข้อมูลจากฐานข้อมูล: ${dbMembers.length} คน`);
+        console.log('📊 ดึงข้อมูลจากฐานข้อมูล: ' + dbMembers.length + ' คน');
         
         // แปลง source ให้ถูกต้องตาม type
         const membersWithCorrectSource = dbMembers.map(member => ({
@@ -760,7 +760,7 @@ export class LineService {
     errors: string[];
   }> {
     try {
-      console.log(`🔄 เริ่ม sync ข้อมูลสมาชิกกลุ่ม ${groupId} จาก LINE API`);
+      console.log('🔄 เริ่ม sync ข้อมูลสมาชิกกลุ่ม ' + groupId + ' จาก LINE API');
       
       let lineMembers = members;
       
@@ -783,17 +783,17 @@ export class LineService {
         }
       }
       
-      console.log(`📊 พบสมาชิก ${lineMembers.length} คนใน LINE API`);
+      console.log('📊 พบสมาชิก ' + lineMembers.length + ' คนใน LINE API');
       
       // TODO: เรียกใช้ UserService เพื่อ sync ข้อมูลลงฐานข้อมูล
       // const syncResult = await this.userService.syncGroupMembers(groupId, lineMembers);
       
       // สำหรับตอนนี้ ให้ log ข้อมูลที่ได้
       lineMembers.forEach(member => {
-        console.log(`📝 Sync: ${member.userId} - ${member.displayName}`);
+        console.log('📝 Sync: ' + member.userId + ' - ' + member.displayName);
       });
       
-      console.log(`✅ Sync ข้อมูลสมาชิกเสร็จสิ้น: ${lineMembers.length} คน`);
+      console.log('✅ Sync ข้อมูลสมาชิกเสร็จสิ้น: ' + lineMembers.length + ' คน');
       
       return {
         success: true,
@@ -823,7 +823,7 @@ export class LineService {
     pictureUrl?: string;
   }>> {
     try {
-      console.log(`📊 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} จากฐานข้อมูล`);
+      console.log('📊 ดึงข้อมูลสมาชิกกลุ่ม ' + groupId + ' จากฐานข้อมูล');
       
       // TODO: เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
       // const members = await this.userService.getGroupMembers(groupId);
@@ -850,13 +850,13 @@ export class LineService {
     lastUpdated: Date;
   }>> {
     try {
-      console.log(`📊 ดึงข้อมูลสมาชิกกลุ่ม ${groupId} จากฐานข้อมูล`);
+      console.log('📊 ดึงข้อมูลสมาชิกกลุ่ม ' + groupId + ' จากฐานข้อมูล');
       
       // เรียกใช้ UserService เพื่อดึงข้อมูลจากฐานข้อมูล
       const members = await this.userService.getGroupMembers(groupId);
       
       if (members.length > 0) {
-        console.log(`✅ พบสมาชิก ${members.length} คนในฐานข้อมูล`);
+        console.log('✅ พบสมาชิก ' + members.length + ' คนในฐานข้อมูล');
         
         // แปลงข้อมูลให้ตรงกับ format ที่ต้องการ
         return members.map(member => ({
@@ -867,7 +867,7 @@ export class LineService {
           lastUpdated: member.updatedAt || member.createdAt
         }));
       } else {
-        console.log(`ℹ️ ไม่พบสมาชิกในฐานข้อมูลสำหรับกลุ่ม ${groupId}`);
+        console.log('ℹ️ ไม่พบสมาชิกในฐานข้อมูลสำหรับกลุ่ม ' + groupId);
         return [];
       }
     } catch (error) {
@@ -892,7 +892,7 @@ export class LineService {
       const member = members.find(m => m.lineUserId === userId);
       
       if (member) {
-        console.log(`✅ พบสมาชิกในฐานข้อมูล: ${member.displayName}`);
+        console.log('✅ พบสมาชิกในฐานข้อมูล: ' + member.displayName);
         return {
           userId: member.lineUserId,
           displayName: member.displayName,
@@ -901,7 +901,7 @@ export class LineService {
           lastUpdated: member.updatedAt || member.createdAt
         };
       } else {
-        console.log(`ℹ️ ไม่พบสมาชิก ${userId} ในฐานข้อมูล`);
+        console.log('ℹ️ ไม่พบสมาชิก ' + userId + ' ในฐานข้อมูล');
         return null;
       }
       
@@ -933,13 +933,13 @@ export class LineService {
           displayName: member.displayName,
           realName: member.displayName
         });
-        console.log(`✅ สร้างผู้ใช้ใหม่: ${member.displayName}`);
+        console.log('✅ สร้างผู้ใช้ใหม่: ' + member.displayName);
       } else {
         // อัปเดตข้อมูลผู้ใช้ (ไม่รวม profilePictureUrl เพราะไม่มีใน User model)
         await this.userService.updateUser(user.id, {
           displayName: member.displayName
         });
-        console.log(`✅ อัปเดตข้อมูลผู้ใช้: ${member.displayName}`);
+        console.log('✅ อัปเดตข้อมูลผู้ใช้: ' + member.displayName);
       }
       
       // ตรวจสอบว่ากลุ่มมีอยู่แล้วหรือไม่
@@ -955,22 +955,22 @@ export class LineService {
           name: groupInfo.name
         });
         
-        console.log(`✅ สร้างกลุ่มใหม่: ${groupInfo.name} (${groupInfo.source})`);
+        console.log('✅ สร้างกลุ่มใหม่: ' + groupInfo.name + ' (' + groupInfo.source + ')');
       }
       
       // เพิ่มสมาชิกในกลุ่ม (หากยังไม่มี)
       try {
         await this.userService.addGroupMember(group.id, user.id);
-        console.log(`✅ เพิ่มสมาชิกในกลุ่ม: ${member.displayName}`);
+        console.log('✅ เพิ่มสมาชิกในกลุ่ม: ' + member.displayName);
       } catch (error: any) {
         if (error.message.includes('already exists')) {
-          console.log(`ℹ️ สมาชิก ${member.displayName} มีอยู่ในกลุ่มแล้ว`);
+          console.log('ℹ️ สมาชิก ' + member.displayName + ' มีอยู่ในกลุ่มแล้ว');
         } else {
           throw error;
         }
       }
       
-      console.log(`💾 บันทึกข้อมูลสมาชิกลงฐานข้อมูล: ${member.userId} - ${member.displayName} (${member.source})`);
+      console.log('💾 บันทึกข้อมูลสมาชิกลงฐานข้อมูล: ' + member.userId + ' - ' + member.displayName + ' (' + member.source + ')');
       
     } catch (error) {
       console.error('❌ Failed to save member to database:', error);
@@ -985,7 +985,7 @@ export class LineService {
       // TODO: เรียกใช้ UserService เพื่อลบข้อมูลออกจากฐานข้อมูล
       // await this.userService.removeGroupMember(groupId, userId);
       
-      console.log(`🗑️ ลบข้อมูลสมาชิกออกจากฐานข้อมูล: ${userId}`);
+      console.log('🗑️ ลบข้อมูลสมาชิกออกจากฐานข้อมูล: ' + userId);
       
     } catch (error) {
       console.error('❌ Failed to remove member from database:', error);
@@ -998,7 +998,7 @@ export class LineService {
    */
   public async updateMemberFromWebhook(groupId: string, userId: string, eventType: 'join' | 'leave'): Promise<void> {
     try {
-      console.log(`🔄 อัปเดตข้อมูลสมาชิกจาก webhook: ${eventType} - ${userId} ในกลุ่ม ${groupId}`);
+      console.log('🔄 อัปเดตข้อมูลสมาชิกจาก webhook: ' + eventType + ' - ' + userId + ' ในกลุ่ม ' + groupId);
       
       if (eventType === 'join') {
         // สมาชิกใหม่เข้ากลุ่ม
@@ -1023,13 +1023,19 @@ export class LineService {
             
             const basicMember = {
               userId,
-              displayName: `User ${userId}`,
+              displayName: 'User ' + userId,
               pictureUrl: undefined,
               source: 'webhook_basic',
               lastUpdated: new Date()
             };
             
             await this.saveMemberToDatabase(groupId, basicMember);
+            
+          } else if (error.status === 404) {
+            console.log('🚫 LINE API 404: ผู้ใช้ไม่พบใน LINE API ข้ามการบันทึกข้อมูลสมาชิกใหม่');
+            console.log(`ℹ️ สมาชิก ${userId} อาจไม่มีอยู่ในระบบ LINE แล้ว');
+            
+            // ไม่บันทึกข้อมูลสำหรับผู้ใช้ที่ไม่มีอยู่ในระบบ
             
           } else {
             throw error;
@@ -1038,7 +1044,7 @@ export class LineService {
         
       } else if (eventType === 'leave') {
         // สมาชิกออกจากกลุ่ม
-        console.log(`👋 สมาชิก ${userId} ออกจากกลุ่ม ${groupId}`);
+        console.log('👋 สมาชิก ' + userId + ' ออกจากกลุ่ม ' + groupId);
         
         // TODO: อัปเดตสถานะสมาชิกในฐานข้อมูล (เช่น ตั้งเป็น inactive)
         // await this.userService.updateMemberStatus(groupId, userId, 'inactive');
@@ -1068,7 +1074,7 @@ export class LineService {
       const existingMember = await this.getMemberFromDatabase(groupId, userId);
       
       if (existingMember) {
-        console.log(`ℹ️ สมาชิก ${existingMember.displayName} มีอยู่ในฐานข้อมูลแล้ว`);
+        console.log('ℹ️ สมาชิก ' + existingMember.displayName + ' มีอยู่ในฐานข้อมูลแล้ว');
 
         // หากชื่อผู้ใช้ยังเป็นค่าเริ่มต้น เช่น "ไม่ทราบ" ให้พยายามดึงข้อมูลจาก LINE อีกครั้ง
         const unknownNames = ['ไม่ทราบ', 'ผู้ใช้ไม่ทราบชื่อ', ''];
@@ -1083,11 +1089,15 @@ export class LineService {
                   realName: profile.displayName
                 });
                 existingMember.displayName = profile.displayName;
-                console.log(`🔄 อัปเดตชื่อผู้ใช้จาก 'ไม่ทราบ' เป็น ${profile.displayName}`);
+                console.log('🔄 อัปเดตชื่อผู้ใช้จาก \'ไม่ทราบ\' เป็น ' + profile.displayName);
               }
             }
-          } catch (error) {
-            console.warn('⚠️ ไม่สามารถอัปเดตชื่อผู้ใช้จาก LINE API ได้:', error);
+          } catch (error: any) {
+            if (error.status === 404) {
+              console.warn('🚫 LINE API 404: ผู้ใช้ไม่พบใน LINE API ไม่สามารถอัปเดตชื่อผู้ใช้ได้');
+            } else {
+              console.warn('⚠️ ไม่สามารถอัปเดตชื่อผู้ใช้จาก LINE API ได้:', error);
+            }
           }
         }
 
@@ -1111,7 +1121,7 @@ export class LineService {
         
         await this.saveMemberToDatabase(groupId, newMember);
         
-        console.log(`✅ บันทึกข้อมูลสมาชิกใหม่จากข้อความ: ${profile.displayName}`);
+        console.log('✅ บันทึกข้อมูลสมาชิกใหม่จากข้อความ: ' + profile.displayName);
         
         return {
           isNewMember: true,
@@ -1125,7 +1135,7 @@ export class LineService {
           // บันทึกข้อมูลพื้นฐาน
           const basicMember = {
             userId,
-            displayName: `User ${userId}`,
+            displayName: 'User ' + userId,
             pictureUrl: undefined,
             source: 'message_webhook_basic',
             lastUpdated: new Date()
@@ -1138,9 +1148,26 @@ export class LineService {
             memberInfo: basicMember
           };
           
+        } else if (error.status === 404) {
+          console.log('🚫 LINE API 404: ผู้ใช้ไม่พบหรือไม่มีสิทธิ์เข้าถึง ข้ามการบันทึกข้อมูล');
+          console.log('ℹ️ User ID: ' + userId + ' อาจเป็น:');
+          console.log('   - ผู้ใช้ที่ลบบัญชี LINE แล้ว');
+          console.log('   - ผู้ใช้ที่บล็อค LINE Bot');
+          console.log('   - User ID ที่ไม่ถูกต้อง');
+          
+          // ส่งคืนผลลัพธ์ว่าไม่ใช่สมาชิกใหม่ เพื่อข้ามการประมวลผลต่อไป
+          return {
+            isNewMember: false
+          };
+          
         } else {
           console.error('❌ Failed to get member profile:', error);
-          throw error;
+          console.error('❌ Error details: Status ' + error.status + ' - ' + error.statusMessage);
+          
+          // สำหรับข้อผิดพลาดอื่นๆ ให้ส่งคืนผลลัพธ์ปลอดภัย
+          return {
+            isNewMember: false
+          };
         }
       }
       
