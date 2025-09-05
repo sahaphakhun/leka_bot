@@ -182,7 +182,7 @@ async function runMigration() {
       migrationCommand = 'node -r ./register-paths.js -e "require(\'./dist/utils/comprehensiveMigration\').comprehensiveMigration.runComprehensiveMigration().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
     } else {
       // Fallback to ts-node if dist doesn't exist
-      migrationCommand = 'npx ts-node -r tsconfig-paths/register -e "import(\\'./src/utils/comprehensiveMigration\\').then(m => m.comprehensiveMigration.runComprehensiveMigration()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
+      migrationCommand = 'npx ts-node -r tsconfig-paths/register -e "import(\'./src/utils/comprehensiveMigration\').then(m => m.comprehensiveMigration.runComprehensiveMigration()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
     }
     
     await runCommand(migrationCommand, 'Database migration');
