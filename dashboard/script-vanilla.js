@@ -5590,24 +5590,38 @@ class DashboardApp {
       
       // ใช้ฟังก์ชัน hybrid ที่ใช้ทั้ง LINE API และฐานข้อมูล
       try {
-        const lineResponse = await this.apiRequest(`/api/line/members/${this.currentGroupId}`);
+        const apiUrl = `/api/line/members/${this.currentGroupId}`;
+        console.log('🔗 กำลังเรียก API:', apiUrl);
+        
+        const lineResponse = await this.apiRequest(apiUrl);
+        console.log('📊 ผลลัพธ์จาก API:', lineResponse);
+        
         if (lineResponse && lineResponse.data && lineResponse.data.length > 0) {
-          console.log(`✅ ดึงข้อมูลจาก LINE API สำเร็จ: ${lineResponse.data.length} คน`);
+          console.log(`✅ ดึงข้อมูลจาก API สำเร็จ: ${lineResponse.data.length} คน`);
           
-          // แปลงข้อมูลจาก LINE API ให้เข้ากับ format เดิม
-          const formattedMembers = lineResponse.data.map(member => ({
-            id: member.userId,
-            lineUserId: member.userId,
-            displayName: member.displayName,
-            pictureUrl: member.pictureUrl,
-            source: member.source || 'line_api',
-            lastUpdated: member.lastUpdated
-          }));
+          // แปลงข้อมูลจาก API ให้เข้ากับ format เดิม
+          const formattedMembers = lineResponse.data.map(member => {
+            console.log('👥 สมาชิกจาก API:', member);
+            return {
+              id: member.userId,
+              lineUserId: member.userId,
+              displayName: member.displayName,
+              pictureUrl: member.pictureUrl,
+              source: member.source || 'api',
+              lastUpdated: member.lastUpdated
+            };
+          });
           
           this.groupMembers = formattedMembers;
+          console.log('📋 อัปเดต this.groupMembers:', this.groupMembers);
+          
           this.updateMembersList(formattedMembers);
           
+          console.log('✅ โหลดสมาชิกกลุ่มเสร็จแล้ว！');
+          
           return formattedMembers;
+        } else {
+          console.warn('⚠️ API ไม่ส่งข้อมูลสมาชิกกลับมา');
         }
       } catch (error) {
         console.warn('⚠️ LINE API ไม่สามารถใช้งานได้:', error.message);
@@ -5638,37 +5652,16 @@ class DashboardApp {
         }
       }
       
-      console.warn('⚠️ ไม่สามารถดึงข้อมูลสมาชิกได้จากทุกแหล่ง - ใช้ข้อมูลตัวอย่างแทน');
+      console.warn('⚠️ ไม่สามารถดึงข้อมูลสมาชิกได้จากทุกแหล่ง');
       
-      // ใช้ข้อมูลตัวอย่างสำหรับการทดสอบ
-      const sampleMembers = [
-        {
-          id: 'sample1',
-          lineUserId: 'sample1',
-          displayName: 'สมาชิก 1',
-          source: 'sample'
-        },
-        {
-          id: 'sample2', 
-          lineUserId: 'sample2',
-          displayName: 'สมาชิก 2',
-          source: 'sample'
-        },
-        {
-          id: 'team',
-          lineUserId: 'team',
-          displayName: 'ทีมทั้งหมด',
-          source: 'sample'
-        }
-      ];
+      // แสดงข้อความว่าไม่สามารถโหลดข้อมูลได้จากทุกแหล่ง
+      this.showToast('ไม่สามารถโหลดรายชื่อสมาชิกได้ กรุณาตรวจสอบการตั้งค่า bot', 'warning');
       
-      this.groupMembers = sampleMembers;
-      this.updateMembersList(sampleMembers);
+      // คืนค่า empty array แทนการใช้ sample data
+      this.groupMembers = [];
+      this.updateMembersList([]);
       
-      // Show informative message to user
-      this.showToast('ใช้ข้อมูลตัวอย่างสำหรับการทดสอบฟังก์ชัน', 'info');
-      
-      return sampleMembers;
+      return [];
       
     } catch (error) {
       console.error('❌ เกิดข้อผิดพลาดในการโหลดสมาชิกกลุ่ม:', error);
@@ -5682,10 +5675,32 @@ class DashboardApp {
     const reportUserSelect = document.getElementById('reportUserSelect');
     
     if (select) {
-      // แสดงเป็น checkbox list เพื่อเลือกหลายคนได้ง่าย
-      select.innerHTML = members.map(member => 
-        `<label class="checkbox-item"><input type="checkbox" class="assignee-checkbox" value="${member.lineUserId || member.id}"><span>${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</span></label>`
-      ).join('');
+      // ล้างเนื้อหาเดิม
+      select.innerHTML = '';
+      
+      // เพิ่มรายชื่อสมาชิกจริง
+      members.forEach(member => {
+        const checkboxItem = document.createElement('label');
+        checkboxItem.className = 'checkbox-item';
+        checkboxItem.innerHTML = `
+          <input type="checkbox" class="assignee-checkbox" name="assignedTo" value="${member.lineUserId || member.id}" id="assignedTo_${member.lineUserId || member.id}">
+          <span class="checkmark"></span>
+          <span class="label-text">${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</span>
+        `;
+        select.appendChild(checkboxItem);
+      });
+      
+      // เพิ่มตัวเลือก "ทีมทั้งหมด" ถ้ามีสมาชิกมากกว่า 1 คน
+      if (members.length > 1) {
+        const teamItem = document.createElement('label');
+        teamItem.className = 'checkbox-item';
+        teamItem.innerHTML = `
+          <input type="checkbox" class="assignee-checkbox" name="assignedTo" value="team" id="assignedTo_team">
+          <span class="checkmark"></span>
+          <span class="label-text">ทีมทั้งหมด</span>
+        `;
+        select.appendChild(teamItem);
+      }
     }
     
     if (reviewerSelect) {
@@ -5714,8 +5729,8 @@ class DashboardApp {
     
     // อัปเดต checkbox group สำหรับ modal การสร้างงาน
     const checkboxGroup = document.querySelector('.checkbox-group');
-    if (checkboxGroup) {
-      // ล้างรายชื่อเก่า
+    if (checkboxGroup && checkboxGroup.id !== 'taskAssignees') {
+      // ล้างรายชื่อเก่า (สำหรับ checkbox group อื่นๆ ที่ไม่ใช่ taskAssignees)
       checkboxGroup.innerHTML = '';
 
       // เพิ่มรายชื่อสมาชิกจริง
@@ -5741,6 +5756,28 @@ class DashboardApp {
         `;
         checkboxGroup.appendChild(teamItem);
       }
+    }
+    
+    console.log(`✅ อัปเดตรายชื่อสมาชิกเรียบร้อย: ${members.length} คน`);
+    
+    // แสดงข้อมูลในหน้าเว็บสำหรับ debugging
+    const debugInfo = document.getElementById('debug-members-info');
+    if (debugInfo) {
+      debugInfo.textContent = `โหลดสมาชิกเสร็จ: ${members.length} คน - ${members.map(m => m.displayName).join(', ')}`;
+    } else {
+      // สร้าง debug element ถ้าไม่มี
+      const debugElement = document.createElement('div');
+      debugElement.id = 'debug-members-info';
+      debugElement.style.cssText = 'position: fixed; top: 10px; right: 10px; background: #333; color: white; padding: 10px; font-size: 12px; z-index: 9999; border-radius: 5px; max-width: 300px;';
+      debugElement.textContent = `DEBUG: โหลดสมาชิกเสร็จ: ${members.length} คน - ${members.map(m => m.displayName).join(', ')}`;
+      document.body.appendChild(debugElement);
+      
+      // ลบหลัง 5 วินาที
+      setTimeout(() => {
+        if (debugElement.parentNode) {
+          debugElement.parentNode.removeChild(debugElement);
+        }
+      }, 5000);
     }
   }
 

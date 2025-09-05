@@ -179,6 +179,28 @@ npm ci --include=dev
 # Solution: Simplified workflow type handling with any types
 ```
 
+#### Railway Deployment Issues
+```bash
+# Error: Cannot find module '/app/scripts/deploy-migration.js'
+# Root cause: scripts directory not copied to Docker container
+# Solution: Updated Dockerfile to include scripts directory
+# Alternative: Use npm start (migration runs on startup)
+```
+
+#### Missing Migration Script
+If you get "Cannot find module '/app/scripts/deploy-migration.js'":
+
+```bash
+# Solution 1: Use built-in migration (recommended)
+npm start  # Migration runs automatically on startup
+
+# Solution 2: Use backup migration script
+npm run deploy:backup
+
+# Solution 3: Manual migration via API
+POST /api/admin/migrate
+```
+
 ### Common Issues
 
 #### Migration Timeout
