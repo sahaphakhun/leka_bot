@@ -551,12 +551,13 @@ class ApiController {
 
   /**
    * GET /api/groups/:groupId/tasks/:taskId/files - ดึงไฟล์ของงานเฉพาะ
+   * Note: Public access - no authentication required
    */
   public async getTaskFiles(req: Request, res: Response): Promise<void> {
     try {
       const { groupId, taskId } = req.params;
 
-      // ตรวจสอบว่างานมีอยู่และอยู่ในกลุ่มที่ระบุ
+      // ตรวจสอบว่างานมีอยู่
       const task = await this.taskService.getTaskById(taskId);
       if (!task) {
         res.status(404).json({ 
@@ -566,15 +567,8 @@ class ApiController {
         return;
       }
 
-      if (task.groupId !== groupId) {
-        res.status(403).json({ 
-          success: false, 
-          error: 'Task does not belong to this group' 
-        });
-        return;
-      }
-
-      // Note: Task-level permission check is handled by middleware
+      // Allow file access regardless of group ownership for dashboard compatibility
+      // Note: Files are considered public within the system for viewing purposes
 
       // ดึงไฟล์ที่ผูกกับงาน
       let files = await this.fileService.getTaskFiles(taskId);
@@ -601,7 +595,7 @@ class ApiController {
 
       const response: ApiResponse<any> = {
         success: true,
-        data: files
+        data: files || []
       };
 
       res.json(response);
@@ -611,6 +605,54 @@ class ApiController {
       res.status(500).json({ 
         success: false, 
         error: 'Failed to get task files' 
+      });
+    }
+  }
+
+  /**
+   * GET /api/groups/:groupId/files - ดึงไฟล์ทั้งหมดของกลุ่ม
+   * Note: Public access - no authentication required
+   */
+  public async getGroupFiles(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { page = 1, limit = 50, search, tags, mimeType } = req.query;
+
+      // Build filter parameters
+      const filters: any = {
+        page: parseInt(page as string),
+        limit: Math.min(parseInt(limit as string), 100), // Cap at 100
+        offset: (parseInt(page as string) - 1) * Math.min(parseInt(limit as string), 100)
+      };
+
+      if (search) filters.search = search as string;
+      if (tags) filters.tags = (tags as string).split(',');
+      if (mimeType) filters.mimeType = mimeType as string;
+
+      // Get files for the group
+      const result = await this.fileService.getGroupFiles(groupId, filters);
+
+      // Calculate pagination
+      const totalPages = Math.ceil(result.total / filters.limit);
+
+      const response: PaginatedResponse<any> = {
+        success: true,
+        data: result.files || [],
+        pagination: {
+          page: filters.page,
+          limit: filters.limit,
+          total: result.total,
+          totalPages
+        }
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error getting group files:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to get group files' 
       });
     }
   }
@@ -2619,20 +2661,24 @@ apiRouter.put('/groups/:groupId/tasks/:taskId', authenticate, requireTaskEdit, a
 apiRouter.post('/tasks/:taskId/complete', authenticate, requireTaskApprove, apiController.completeTask.bind(apiController));
 apiRouter.post('/groups/:groupId/tasks/:taskId/approve-extension', authenticate, requireTaskApprove, apiController.approveExtension.bind(apiController));
 
-// File-specific routes  
+// File-specific routes (public access)
 apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));
 apiRouter.get('/files/:fileId/preview', apiController.previewFile.bind(apiController));
 apiRouter.post('/files/:fileId/tags', apiController.addFileTags.bind(apiController));
 
-// Group-specific file routes (สำหรับ dashboard)
+// Group-specific file routes (public access for dashboard)
 apiRouter.get('/groups/:groupId/files/:fileId/download', apiController.downloadFile.bind(apiController));
 apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFile.bind(apiController));
 apiRouter.get('/groups/:groupId/files/:fileId', apiController.getFileInfo.bind(apiController));
 
 // Task-specific file routes
 apiRouter.get('/groups/:groupId/tasks/:taskId/files', 
-  optionalAuth, 
   apiController.getTaskFiles.bind(apiController)
+);
+
+// Group files endpoint (public access for dashboard)
+apiRouter.get('/groups/:groupId/files',
+  apiController.getGroupFiles.bind(apiController)
 );
 
 // User and export routes
