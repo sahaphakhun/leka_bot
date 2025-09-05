@@ -106,17 +106,25 @@ class Server {
     this.app.get('/migration-status', async (req: Request, res: Response) => {
       try {
         const needsMigration = await autoMigration.checkMigrationNeeded();
+        const migrationResults = autoMigration.getMigrationResults();
+        
         res.json({
           status: 'OK',
           needsMigration,
           timestamp: getCurrentTime(),
-          message: needsMigration ? 'Database needs migration' : 'Database schema is up to date'
+          message: needsMigration ? 'Database needs migration' : 'Database schema is up to date',
+          lastMigrationResults: Object.keys(migrationResults).length > 0 ? migrationResults : null,
+          endpoints: {
+            runMigration: '/api/admin/migrate',
+            checkDatabase: '/api/admin/check-db'
+          }
         });
       } catch (error) {
         res.status(500).json({
           status: 'ERROR',
           error: error instanceof Error ? error.message : 'Unknown error',
-          timestamp: getCurrentTime()
+          timestamp: getCurrentTime(),
+          message: 'Failed to check migration status'
         });
       }
     });

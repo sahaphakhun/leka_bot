@@ -9,6 +9,8 @@
     "css:watch": "postcss ./dashboard/input.css -o ./dashboard/tailwind.css --watch",
     "build": "npm run css:build && node build.js",
     "start": "node -r ./register-paths.js dist/index.js",
+    "deploy": "npm run deploy:migrate && npm run start",
+    "deploy:migrate": "node scripts/deploy-migration.js",
     "db:init": "tsx src/scripts/initDatabase.ts",
     "db:sync": "npm run build && node -r ./register-paths.js dist/scripts/initDatabase.js",
     "db:test": "tsx src/scripts/testDatabase.ts",
@@ -21,12 +23,12 @@
     "db:check-schema": "tsx src/scripts/checkDatabaseSchema.ts",
     "db:migrate-all": "tsx src/scripts/runFullMigration.ts",
     "db:migrate-overdue-kpi": "tsx src/scripts/migrateOverdueKPIType.ts",
+    "db:migrate-comprehensive": "tsx -r tsconfig-paths/register src/utils/comprehensiveMigration.ts",
     "test:rules": "tsx src/scripts/testProjectRules.ts",
     "test:leaderboard": "tsx src/scripts/testLeaderboard.ts",
     "test": "jest",
     "lint": "eslint src --ext .ts",
     "lint:fix": "eslint src --ext .ts --fix"
-
   },
   "keywords": [
     "line",

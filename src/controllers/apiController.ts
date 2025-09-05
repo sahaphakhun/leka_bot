@@ -2441,35 +2441,57 @@ class ApiController {
    */
   public async runMigration(req: Request, res: Response): Promise<void> {
     try {
-      console.log('🔄 เริ่มรัน manual migration...');
+      logger.info('🔄 เริ่มรัน comprehensive manual migration...');
+      
+      const { comprehensiveMigration } = await import('@/utils/comprehensiveMigration');
       
       // ตรวจสอบว่าต้องรัน migration หรือไม่
-      const needsMigration = await autoMigration.checkMigrationNeeded();
-      console.log(`🔍 ตรวจสอบ migration: ${needsMigration ? 'ต้องรัน' : 'ไม่ต้องรัน'}`);
+      const needsMigration = await comprehensiveMigration.checkMigrationNeeded();
+      logger.info(`🔍 ตรวจสอบ migration: ${needsMigration ? 'ต้องรัน' : 'ไม่ต้องรัน'}`);
       
-      if (needsMigration) {
-        await autoMigration.runAutoMigration();
-        console.log('✅ Migration เสร็จสิ้น');
-        res.json({ 
-          success: true, 
-          message: 'Migration completed successfully',
-          migrationRan: true
-        });
-      } else {
-        console.log('✅ Database schema ครบถ้วนแล้ว');
+      if (!needsMigration) {
         res.json({ 
           success: true, 
           message: 'Database schema is already up to date',
-          migrationRan: false
+          migrationRan: false,
+          timestamp: new Date().toISOString()
         });
+        return;
       }
       
+      // รัน comprehensive migration
+      await comprehensiveMigration.runComprehensiveMigration();
+      
+      // ดึงผลลัพธ์ migration
+      const results = comprehensiveMigration.getMigrationResults();
+      const successCount = Object.values(results).filter(r => r.success).length;
+      const totalCount = Object.keys(results).length;
+      const failureCount = totalCount - successCount;
+      
+      logger.info(`✅ Comprehensive migration completed: ${successCount}/${totalCount} steps successful`);
+      
+      res.json({ 
+        success: failureCount === 0,
+        message: failureCount === 0 
+          ? `Migration completed successfully: ${successCount}/${totalCount} steps successful`
+          : `Migration completed with warnings: ${successCount}/${totalCount} steps successful, ${failureCount} failed`,
+        migrationRan: true,
+        results: {
+          successful: successCount,
+          failed: failureCount,
+          total: totalCount,
+          details: results
+        },
+        timestamp: new Date().toISOString()
+      });
+      
     } catch (error) {
-      console.error('❌ Migration failed:', error);
+      logger.error('❌ Comprehensive migration failed:', error);
       res.status(500).json({ 
         success: false, 
         error: error instanceof Error ? error.message : 'Migration failed',
-        migrationRan: false
+        migrationRan: false,
+        timestamp: new Date().toISOString()
       });
     }
   }
