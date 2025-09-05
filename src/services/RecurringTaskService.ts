@@ -5,12 +5,19 @@ import { Repository } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
 import { RecurringTask } from '@/models';
 import { config } from '@/utils/config';
+import { logger } from '@/utils/logger';
 
 export class RecurringTaskService {
   private repo: Repository<RecurringTask>;
 
   constructor() {
-    this.repo = AppDataSource.getRepository(RecurringTask);
+    try {
+      this.repo = AppDataSource.getRepository(RecurringTask);
+      logger.info('✅ RecurringTaskService initialized successfully');
+    } catch (error) {
+      logger.error('❌ Failed to initialize RecurringTaskService:', error);
+      throw error;
+    }
   }
 
   public async create(template: Partial<RecurringTask> & {
@@ -26,31 +33,103 @@ export class RecurringTaskService {
     timezone?: string;
     createdByLineUserId: string;
   }): Promise<RecurringTask> {
-    const tz = template.timezone || config.app.defaultTimezone;
-    const nextRunAt = this.calculateNextRunAt({
-      recurrence: template.recurrence,
-      weekDay: template.weekDay,
-      dayOfMonth: template.dayOfMonth,
-      timeOfDay: template.timeOfDay || '09:00',
-      timezone: tz
-    });
+    try {
+      logger.info('📝 RecurringTaskService.create called:', {
+        lineGroupId: template.lineGroupId,
+        title: template.title,
+        recurrence: template.recurrence,
+        assigneeCount: template.assigneeLineUserIds?.length || 0,
+        createdBy: template.createdByLineUserId
+      });
+      
+      // Validate required fields
+      if (!template.lineGroupId) {
+        throw new Error('lineGroupId is required');
+      }
+      if (!template.title) {
+        throw new Error('title is required');
+      }
+      if (!template.recurrence) {
+        throw new Error('recurrence type is required');
+      }
+      if (!template.createdByLineUserId) {
+        throw new Error('createdByLineUserId is required');
+      }
+      
+      // Check if repository is available
+      if (!this.repo) {
+        logger.error('❌ Repository not initialized');
+        throw new Error('Database repository not initialized');
+      }
+      
+      const tz = template.timezone || config.app.defaultTimezone;
+      logger.info('🕰️ Calculating next run time with timezone:', tz);
+      
+      const nextRunAt = this.calculateNextRunAt({
+        recurrence: template.recurrence,
+        weekDay: template.weekDay,
+        dayOfMonth: template.dayOfMonth,
+        timeOfDay: template.timeOfDay || '09:00',
+        timezone: tz
+      });
+      
+      logger.info('📅 Next run calculated:', nextRunAt);
 
-    const entity = this.repo.create({
-      ...template,
-      timeOfDay: template.timeOfDay || '09:00',
-      timezone: tz,
-      priority: template.priority || 'medium',
-      tags: template.tags || [],
-      requireAttachment: template.requireAttachment ?? true,
-      nextRunAt,
-      active: template.active ?? true
-    });
-
-    return await this.repo.save(entity);
+      const entity = this.repo.create({
+        ...template,
+        timeOfDay: template.timeOfDay || '09:00',
+        timezone: tz,
+        priority: template.priority || 'medium',
+        tags: template.tags || [],
+        requireAttachment: template.requireAttachment ?? true,
+        nextRunAt,
+        active: template.active ?? true
+      });
+      
+      logger.info('💾 Saving entity to database...');
+      const saved = await this.repo.save(entity);
+      logger.info('✅ Recurring task saved successfully:', { id: saved.id });
+      
+      return saved;
+    } catch (error) {
+      logger.error('❌ Error in RecurringTaskService.create:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        template: {
+          lineGroupId: template.lineGroupId,
+          title: template.title,
+          recurrence: template.recurrence
+        }
+      });
+      throw error;
+    }
   }
 
   public async listByGroup(lineGroupId: string): Promise<RecurringTask[]> {
-    return await this.repo.find({ where: { lineGroupId }, order: { createdAt: 'DESC' } });
+    try {
+      logger.info('📝 Listing recurring tasks for group:', lineGroupId);
+      
+      // Check if repository is available
+      if (!this.repo) {
+        logger.error('❌ Repository not initialized in listByGroup');
+        throw new Error('Database repository not initialized');
+      }
+      
+      const results = await this.repo.find({ 
+        where: { lineGroupId }, 
+        order: { createdAt: 'DESC' } 
+      });
+      
+      logger.info('✅ Successfully retrieved recurring tasks:', { count: results.length });
+      return results;
+    } catch (error) {
+      logger.error('❌ Error in RecurringTaskService.listByGroup:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        lineGroupId
+      });
+      throw error;
+    }
   }
 
   public async findById(id: string): Promise<RecurringTask | null> {

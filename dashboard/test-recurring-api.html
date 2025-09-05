@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Recurring Tasks API</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        .log { margin: 10px 0; padding: 10px; border-left: 4px solid #ccc; }
+        .success { border-color: #4caf50; background-color: #f1f8e9; }
+        .error { border-color: #f44336; background-color: #ffebee; }
+        .info { border-color: #2196f3; background-color: #e3f2fd; }
+        button { margin: 5px; padding: 10px 20px; cursor: pointer; }
+        pre { background: #f5f5f5; padding: 10px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>Test Recurring Tasks API</h1>
+    
+    <div>
+        <label>Group ID: <input type="text" id="groupId" value="C1467a3dcec992659e48f958415757d5e" /></label>
+    </div>
+    
+    <div>
+        <button onclick="testListRecurring()">Test List Recurring</button>
+        <button onclick="testCreateRecurring()">Test Create Recurring</button>
+        <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+    
+    <div id="logs"></div>
+
+    <script>
+        const API_BASE = 'https://lekabot-production.up.railway.app';
+        
+        function log(message, type = 'info', data = null) {
+            const logs = document.getElementById('logs');
+            const logDiv = document.createElement('div');
+            logDiv.className = `log ${type}`;
+            
+            let content = `<strong>${new Date().toLocaleTimeString()}</strong>: ${message}`;
+            if (data) {
+                content += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            }
+            
+            logDiv.innerHTML = content;
+            logs.appendChild(logDiv);
+            logs.scrollTop = logs.scrollHeight;
+        }
+        
+        function clearLogs() {
+            document.getElementById('logs').innerHTML = '';
+        }
+        
+        async function testListRecurring() {
+            const groupId = document.getElementById('groupId').value;
+            log('Testing list recurring tasks...');
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/groups/${groupId}/recurring`);
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ List recurring tasks successful', 'success', result);
+                } else {
+                    log('❌ List recurring tasks failed', 'error', result);
+                }
+            } catch (error) {
+                log('❌ Network error', 'error', { error: error.message });
+            }
+        }
+        
+        async function testCreateRecurring() {
+            const groupId = document.getElementById('groupId').value;
+            log('Testing create recurring task...');
+            
+            const testData = {
+                title: 'Test Recurring Task - ' + new Date().toISOString(),
+                description: 'Testing recurring task creation',
+                assigneeLineUserIds: ['U1234567890'],
+                reviewerLineUserId: null,
+                priority: 'medium',
+                tags: ['test'],
+                requireAttachment: false,
+                recurrence: 'weekly',
+                weekDay: 1, // Monday
+                timeOfDay: '09:00',
+                durationDays: 7,
+                timezone: 'Asia/Bangkok',
+                createdBy: 'test-user'
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/groups/${groupId}/recurring`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Create recurring task successful', 'success', result);
+                } else {
+                    log('❌ Create recurring task failed', 'error', result);
+                }
+            } catch (error) {
+                log('❌ Network error', 'error', { error: error.message });
+            }
+        }
+        
+        // Initialize
+        log('🚀 Recurring Tasks API Test Tool Ready');
+        log('ℹ️ Click buttons above to test the API endpoints');
+    </script>
+</body>
+</html>

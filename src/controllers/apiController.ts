@@ -10,13 +10,14 @@ import { KPIService } from '@/services/KPIService';
 import { RecurringTaskService } from '@/services/RecurringTaskService';
 import { LineService } from '@/services/LineService';
 import { NotificationCardService } from '@/services/NotificationCardService';
+import { AppDataSource } from '@/utils/database';
 
 import multer from 'multer';
 import { logger } from '@/utils/logger';
 import { serviceContainer } from '@/utils/serviceContainer';
 import { sanitize } from '@/utils';
 import { authenticate, optionalAuth } from '@/middleware/auth';
-import { validateRequest, taskSchemas } from '@/middleware/validation';
+import { validateRequest, taskSchemas, recurringTaskSchemas } from '@/middleware/validation';
 import { requireTaskView, requireTaskSubmit, requireTaskEdit, requireTaskApprove } from '@/middleware/taskAuth';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
@@ -2068,11 +2069,46 @@ class ApiController {
   public async listRecurring(req: Request, res: Response): Promise<void> {
     try {
       const { groupId } = req.params;
+      
+      logger.info('📝 Listing recurring tasks for group:', groupId);
+      
+      // Check if the database connection and table exist
+      const queryRunner = AppDataSource.createQueryRunner();
+      try {
+        const tableExists = await queryRunner.query(`
+          SELECT EXISTS (
+            SELECT 1 FROM information_schema.tables 
+            WHERE table_schema = 'public' AND table_name = 'recurring_tasks'
+          )
+        `);
+        
+        if (!tableExists[0].exists) {
+          logger.error('❌ recurring_tasks table does not exist');
+          res.status(500).json({ 
+            success: false, 
+            error: 'recurring_tasks table does not exist in database' 
+          });
+          return;
+        }
+        
+        logger.info('✅ recurring_tasks table exists');
+      } finally {
+        await queryRunner.release();
+      }
+      
       const data = await this.recurringService.listByGroup(groupId);
+      logger.info('✅ Successfully retrieved recurring tasks:', { count: data.length });
       res.json({ success: true, data });
     } catch (error) {
-      logger.error('❌ Error listing recurring:', error);
-      res.status(500).json({ success: false, error: 'Failed to get recurring list' });
+      logger.error('❌ Error listing recurring:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        groupId: req.params.groupId
+      });
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to get recurring list' 
+      });
     }
   }
 
@@ -2080,6 +2116,19 @@ class ApiController {
     try {
       const { groupId } = req.params;
       const body = req.body || {};
+      
+      logger.info('📝 Creating recurring task:', {
+        groupId,
+        title: body.title,
+        assigneeCount: body.assigneeLineUserIds?.length || 0,
+        recurrence: body.recurrence,
+        weekDay: body.weekDay,
+        dayOfMonth: body.dayOfMonth,
+        timeOfDay: body.timeOfDay,
+        timezone: body.timezone,
+        createdBy: body.createdBy
+      });
+      
       const created = await this.recurringService.create({
         lineGroupId: groupId,
         title: body.title,
@@ -2096,10 +2145,23 @@ class ApiController {
         timezone: body.timezone,
         createdByLineUserId: body.createdBy
       });
+      
+      logger.info('✅ Recurring task created successfully:', { id: created.id, title: created.title });
       res.status(201).json({ success: true, data: created });
     } catch (error) {
-      logger.error('❌ Error creating recurring:', error);
-      res.status(500).json({ success: false, error: 'Failed to create recurring' });
+      logger.error('❌ Error creating recurring:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack : undefined,
+        groupId: req.params.groupId,
+        bodyKeys: Object.keys(req.body || {})
+      });
+      
+      // Return more detailed error for debugging
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to create recurring task',
+        details: process.env.NODE_ENV === 'development' ? error instanceof Error ? error.stack : undefined : undefined
+      });
     }
   }
 
@@ -3043,9 +3105,9 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
 
   // Recurring tasks routes (UI management)
   apiRouter.get('/groups/:groupId/recurring', apiController.listRecurring.bind(apiController));
-  apiRouter.post('/groups/:groupId/recurring', apiController.createRecurring.bind(apiController));
+  apiRouter.post('/groups/:groupId/recurring', validateRequest(recurringTaskSchemas.create), apiController.createRecurring.bind(apiController));
   apiRouter.get('/recurring/:id', apiController.getRecurring.bind(apiController));
-  apiRouter.put('/recurring/:id', apiController.updateRecurring.bind(apiController));
+  apiRouter.put('/recurring/:id', validateRequest(recurringTaskSchemas.update), apiController.updateRecurring.bind(apiController));
   apiRouter.delete('/recurring/:id', apiController.deleteRecurring.bind(apiController));
   
   // Recurring task history and statistics

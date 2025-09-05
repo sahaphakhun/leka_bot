@@ -143,7 +143,7 @@ export class ComprehensiveMigration {
       `);
       
       const tableNames = tables.map((t: any) => t.table_name);
-      const requiredTables = ['users', 'groups', 'group_members', 'tasks', 'files', 'kpi_records', 'task_assignees', 'task_files'];
+      const requiredTables = ['users', 'groups', 'group_members', 'tasks', 'files', 'kpi_records', 'task_assignees', 'task_files', 'recurring_tasks'];
       
       const missingTables = requiredTables.filter(table => !tableNames.includes(table));
       

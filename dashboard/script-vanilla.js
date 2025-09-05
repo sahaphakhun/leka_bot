@@ -5457,10 +5457,19 @@ class DashboardApp {
   }
 
   // ฟังก์ชันดาวน์โหลดไฟล์
-  async downloadFile(fileId) {
+  async downloadFile(fileId, retryAttempt = 0) {
+    const maxRetries = 3;
+    const retryDelay = 1000; // 1 second
+    
     try {
+      // Show loading indicator for retries
+      if (retryAttempt > 0) {
+        this.showToast(`กำลังลองดาวน์โหลดอีกครั้ง... (ครั้งที่ ${retryAttempt + 1})`, 'info');
+      }
+      
       // Use correct API endpoint with groupId
       const response = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}/download`);
+      
       if (response.ok) {
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
@@ -5514,13 +5523,66 @@ class DashboardApp {
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
-        this.showToast('เริ่มดาวน์โหลดไฟล์', 'success');
+        this.showToast('เริ่มดาวน์โหลดไฟล์เรียบร้อย', 'success');
+        
       } else {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        // Handle different error types with specific messages
+        let errorMessage = `HTTP ${response.status}`;
+        let shouldRetry = false;
+        
+        switch (response.status) {
+          case 502:
+          case 503:
+          case 504:
+            errorMessage = 'เซิร์ฟเวอร์ไม่พร้อมใช้งานชั่วคราว';
+            shouldRetry = true;
+            break;
+          case 404:
+            errorMessage = 'ไม่พบไฟล์ที่ต้องการดาวน์โหลด';
+            break;
+          case 403:
+            errorMessage = 'ไม่มีสิทธิ์เข้าถึงไฟล์นี้';
+            break;
+          case 500:
+            errorMessage = 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์';
+            shouldRetry = true;
+            break;
+          default:
+            errorMessage = `เกิดข้อผิดพลาด: ${response.status} ${response.statusText}`;
+            shouldRetry = response.status >= 500;
+        }
+        
+        // Retry logic for server errors
+        if (shouldRetry && retryAttempt < maxRetries) {
+          console.warn(`Download failed with ${response.status}, retrying... (attempt ${retryAttempt + 1}/${maxRetries})`);
+          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
+          return this.downloadFile(fileId, retryAttempt + 1);
+        }
+        
+        throw new Error(errorMessage);
       }
     } catch (error) {
       console.error('Error downloading file:', error);
-      this.showToast('เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์', 'error');
+      
+      // Check if this is a network error that should be retried
+      const isNetworkError = error.name === 'TypeError' || error.message.includes('Failed to fetch');
+      const isServerError = error.message.includes('502') || error.message.includes('503') || error.message.includes('504');
+      
+      if ((isNetworkError || isServerError) && retryAttempt < maxRetries) {
+        console.warn(`Network error, retrying... (attempt ${retryAttempt + 1}/${maxRetries})`);
+        await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
+        return this.downloadFile(fileId, retryAttempt + 1);
+      }
+      
+      // Final error message
+      let userMessage = 'เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์';
+      if (retryAttempt >= maxRetries) {
+        userMessage = `ไม่สามารถดาวน์โหลดไฟล์ได้หลังจากลองแล้ว ${maxRetries + 1} ครั้ง กรุณาลองใหม่อีกครั้งภายหลัง`;
+      } else if (error.message && !error.message.includes('HTTP')) {
+        userMessage = error.message;
+      }
+      
+      this.showToast(userMessage, 'error');
     }
   }
 

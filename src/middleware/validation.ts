@@ -189,6 +189,46 @@ export const kpiSchemas = {
   }
 };
 
+export const recurringTaskSchemas = {
+  create: {
+    body: Joi.object({
+      title: Joi.string().required().min(1).max(200),
+      description: Joi.string().optional().max(1000),
+      assigneeLineUserIds: Joi.array().items(Joi.string().pattern(/^[U][a-zA-Z0-9]+$/)).optional(),
+      reviewerLineUserId: Joi.string().pattern(/^[U][a-zA-Z0-9]+$/).optional().allow(null),
+      requireAttachment: Joi.boolean().optional().default(true),
+      priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
+      tags: Joi.array().items(Joi.string()).optional(),
+      recurrence: Joi.string().valid('weekly', 'monthly', 'quarterly').required(),
+      weekDay: Joi.number().integer().min(0).max(6).optional(), // 0-6 for Sunday-Saturday
+      dayOfMonth: Joi.number().integer().min(1).max(31).optional(),
+      timeOfDay: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).default('09:00'),
+      durationDays: Joi.number().integer().min(1).max(365).default(7),
+      timezone: Joi.string().default('Asia/Bangkok'),
+      createdBy: Joi.string().pattern(/^[U][a-zA-Z0-9]+$|^test-user$|^unknown$/).required() // Allow test values
+    }).unknown() // Allow unknown fields
+  },
+  
+  update: {
+    body: Joi.object({
+      title: Joi.string().min(1).max(200).optional(),
+      description: Joi.string().max(1000).optional(),
+      assigneeLineUserIds: Joi.array().items(Joi.string().pattern(/^[U][a-zA-Z0-9]+$/)).optional(),
+      reviewerLineUserId: Joi.string().pattern(/^[U][a-zA-Z0-9]+$/).optional().allow(null),
+      requireAttachment: Joi.boolean().optional(),
+      priority: Joi.string().valid('low', 'medium', 'high').optional(),
+      tags: Joi.array().items(Joi.string()).optional(),
+      recurrence: Joi.string().valid('weekly', 'monthly', 'quarterly').optional(),
+      weekDay: Joi.number().integer().min(0).max(6).optional(),
+      dayOfMonth: Joi.number().integer().min(1).max(31).optional(),
+      timeOfDay: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+      durationDays: Joi.number().integer().min(1).max(365).optional(),
+      timezone: Joi.string().optional(),
+      active: Joi.boolean().optional()
+    }).unknown() // Allow unknown fields
+  }
+};
+
 // Common parameter schemas
 export const paramSchemas = {
   uuid: {
