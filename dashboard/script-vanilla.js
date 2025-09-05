@@ -3740,6 +3740,8 @@ class DashboardApp {
 
       console.log('Checking files from', this.tasks.length, 'tasks in group');
       const allTaskFiles = [];
+      let errorCount = 0;
+      let successCount = 0;
       
       // Check each task for files
       for (const task of this.tasks) {
@@ -3757,16 +3759,31 @@ class DashboardApp {
               }));
               allTaskFiles.push(...taskFiles);
             }
+            successCount++;
+          } else {
+            errorCount++;
+            console.log(`Failed to load files for task ${task.id}: ${response.status} ${response.statusText}`);
+            // Continue with other tasks
           }
         } catch (taskError) {
+          errorCount++;
           console.log('Error checking files for task:', task.id, taskError.message);
           // Continue with other tasks even if one fails
         }
       }
       
+      // Show summary message if there were errors (but not permission-related)
+      if (errorCount > 0 && successCount > 0) {
+        console.log(`⚠️ โหลดไฟล์ได้ ${successCount} จาก ${this.tasks.length} งาน (มีข้อผิดพลาด ${errorCount} งาน)`);
+        this.showToast(`โหลดไฟล์ได้บางส่วน (${successCount}/${this.tasks.length} งาน)`, 'info');
+      } else if (errorCount === this.tasks.length && errorCount > 0) {
+        console.log(`❌ ไม่สามารถโหลดไฟล์จากงานใดๆ ได้`);
+        this.showToast('มีปัญหาการเชื่อมต่อเซิร์ฟเวอร์ กรุณาลองใหม่อีกครั้ง', 'warning');
+      }
+      
       if (allTaskFiles.length > 0) {
         this.files = allTaskFiles;
-        console.log('Total task files found:', allTaskFiles.length);
+        console.log('Total accessible task files:', allTaskFiles.length);
       } else {
         console.log('No files found in any tasks');
       }
@@ -5443,6 +5460,28 @@ class DashboardApp {
     return true;
   }
 
+  // API helper method
+  async apiRequest(endpoint, options = {}) {
+    try {
+      const response = await fetch(endpoint, {
+        headers: {
+          'Content-Type': 'application/json',
+          ...options.headers
+        },
+        ...options
+      });
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error(`API request failed for ${endpoint}:`, error);
+      throw error;
+    }
+  }
+
   // ฟังก์ชันโหลดรายชื่อสมาชิกในกลุ่ม
   async loadGroupMembers() {
     try {
@@ -5476,6 +5515,10 @@ class DashboardApp {
         }
       } catch (error) {
         console.warn('⚠️ LINE API ไม่สามารถใช้งานได้:', error.message);
+        // Show user-friendly message for common API issues
+        if (error.message.includes('403')) {
+          console.warn('⚠️ บอทไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิก - ใช้ข้อมูลสำรอง');
+        }
       }
       
       // Fallback: ใช้ข้อมูลจากฐานข้อมูล
@@ -5491,10 +5534,45 @@ class DashboardApp {
         }
       } catch (error) {
         console.warn('⚠️ ไม่สามารถดึงข้อมูลจากฐานข้อมูลได้:', error.message);
+        // Show user-friendly message for database access issues
+        if (error.message.includes('403')) {
+          console.warn('⚠️ ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกในฐานข้อมูล - ใช้ข้อมูลตัวอย่าง');
+        } else if (error.message.includes('404')) {
+          console.warn('⚠️ ไม่พบข้อมูลกลุ่มในฐานข้อมูล - อาจเป็นกลุ่มใหม่');
+        }
       }
       
-      console.warn('⚠️ ไม่สามารถดึงข้อมูลสมาชิกได้จากทุกแหล่ง');
-      return [];
+      console.warn('⚠️ ไม่สามารถดึงข้อมูลสมาชิกได้จากทุกแหล่ง - ใช้ข้อมูลตัวอย่างแทน');
+      
+      // ใช้ข้อมูลตัวอย่างสำหรับการทดสอบ
+      const sampleMembers = [
+        {
+          id: 'sample1',
+          lineUserId: 'sample1',
+          displayName: 'สมาชิก 1',
+          source: 'sample'
+        },
+        {
+          id: 'sample2', 
+          lineUserId: 'sample2',
+          displayName: 'สมาชิก 2',
+          source: 'sample'
+        },
+        {
+          id: 'team',
+          lineUserId: 'team',
+          displayName: 'ทีมทั้งหมด',
+          source: 'sample'
+        }
+      ];
+      
+      this.groupMembers = sampleMembers;
+      this.updateMembersList(sampleMembers);
+      
+      // Show informative message to user
+      this.showToast('ใช้ข้อมูลตัวอย่างสำหรับการทดสอบฟังก์ชัน', 'info');
+      
+      return sampleMembers;
       
     } catch (error) {
       console.error('❌ เกิดข้อผิดพลาดในการโหลดสมาชิกกลุ่ม:', error);
@@ -5595,6 +5673,58 @@ class DashboardApp {
   parseTags(tagsString) {
     if (!tagsString) return [];
     return tagsString.split(',').map(tag => tag.trim()).filter(tag => tag.length > 0);
+  }
+
+  // Helper function to check user permissions for tasks
+  getUserPermissionsForTask(task) {
+    if (!this.currentUserId || !task) {
+      return {
+        canView: true,
+        canEdit: false,
+        canDelete: false,
+        canSubmit: false,
+        canApprove: false,
+        isReadOnly: true
+      };
+    }
+
+    const isCreator = task.createdByUser?.lineUserId === this.currentUserId;
+    const isAssigned = task.assignedUsers?.some(user => user.lineUserId === this.currentUserId);
+    const isReviewer = task.reviewerUserId === this.currentUserId;
+    const isReviewerOrCreatorWithNoReviewer = isReviewer || (!task.reviewerUserId && isCreator);
+
+    return {
+      canView: true,
+      canEdit: isCreator,
+      canDelete: isCreator,
+      canSubmit: isAssigned,
+      canApprove: isReviewerOrCreatorWithNoReviewer,
+      isReadOnly: false,
+      userRole: isCreator ? 'creator' : isAssigned ? 'assignee' : isReviewer ? 'reviewer' : 'viewer'
+    };
+  }
+
+  // Helper function to show appropriate error messages based on user permissions
+  showPermissionError(action, task) {
+    const permissions = this.getUserPermissionsForTask(task);
+    
+    let message = '';
+    switch(action) {
+      case 'submit':
+        message = 'คุณไม่ได้เป็นผู้รับผิดชอบงานนี้ จึงไม่สามารถส่งงานได้';
+        break;
+      case 'edit':
+      case 'delete':
+        message = 'คุณไม่ได้เป็นผู้สร้างงานนี้ จึงไม่สามารถแก้ไขหรือลบได้';
+        break;
+      case 'approve':
+        message = 'คุณไม่ได้เป็นผู้ตรวจงานนี้ จึงไม่สามารถอนุมัติได้';
+        break;
+      default:
+        message = 'คุณไม่มีสิทธิ์ดำเนินการนี้';
+    }
+    
+    this.showToast(message, 'error');
   }
 
   getSelectedFiles() {

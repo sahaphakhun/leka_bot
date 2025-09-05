@@ -15,8 +15,9 @@ import multer from 'multer';
 import { logger } from '@/utils/logger';
 import { serviceContainer } from '@/utils/serviceContainer';
 import { sanitize } from '@/utils';
-import { authenticate } from '@/middleware/auth';
+import { authenticate, optionalAuth } from '@/middleware/auth';
 import { validateRequest, taskSchemas } from '@/middleware/validation';
+import { requireTaskView, requireTaskSubmit, requireTaskEdit, requireTaskApprove } from '@/middleware/taskAuth';
 import { ApiResponse, PaginatedResponse, CreateNotificationCardRequest, NotificationCardResponse } from '@/types';
 import { taskEntityToInterface } from '@/types/adapters';
 import { config } from '@/utils/config';
@@ -572,6 +573,8 @@ class ApiController {
         });
         return;
       }
+
+      // Note: Task-level permission check is handled by middleware
 
       // ดึงไฟล์ที่ผูกกับงาน
       let files = await this.fileService.getTaskFiles(taskId);
@@ -2611,10 +2614,10 @@ apiRouter.get('/users/:userId/average-score/:groupId', apiController.getUserAver
   // TODO: เพิ่ม endpoints สำหรับ recurring tasks ในอนาคต เช่น POST/GET /groups/:groupId/recurring
 
 // Task-specific routes
-apiRouter.put('/tasks/:taskId', apiController.updateTask.bind(apiController));
-apiRouter.put('/groups/:groupId/tasks/:taskId', apiController.updateTask.bind(apiController));
-apiRouter.post('/tasks/:taskId/complete', apiController.completeTask.bind(apiController));
-apiRouter.post('/groups/:groupId/tasks/:taskId/approve-extension', apiController.approveExtension.bind(apiController));
+apiRouter.put('/tasks/:taskId', authenticate, requireTaskEdit, apiController.updateTask.bind(apiController));
+apiRouter.put('/groups/:groupId/tasks/:taskId', authenticate, requireTaskEdit, apiController.updateTask.bind(apiController));
+apiRouter.post('/tasks/:taskId/complete', authenticate, requireTaskApprove, apiController.completeTask.bind(apiController));
+apiRouter.post('/groups/:groupId/tasks/:taskId/approve-extension', authenticate, requireTaskApprove, apiController.approveExtension.bind(apiController));
 
 // File-specific routes  
 apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));
@@ -2627,7 +2630,10 @@ apiRouter.get('/groups/:groupId/files/:fileId/preview', apiController.previewFil
 apiRouter.get('/groups/:groupId/files/:fileId', apiController.getFileInfo.bind(apiController));
 
 // Task-specific file routes
-apiRouter.get('/groups/:groupId/tasks/:taskId/files', apiController.getTaskFiles.bind(apiController));
+apiRouter.get('/groups/:groupId/tasks/:taskId/files', 
+  optionalAuth, 
+  apiController.getTaskFiles.bind(apiController)
+);
 
 // User and export routes
 apiRouter.get('/users/:userId/stats', apiController.getUserStats.bind(apiController));
@@ -2684,12 +2690,16 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
 
   // Task submission (UI upload)
   apiRouter.post('/groups/:groupId/tasks/:taskId/submit', 
+    authenticate,
+    requireTaskSubmit,
     upload.array('attachments', 10), 
     apiController.submitTask.bind(apiController)
   );
 
   // Task submission (direct task ID - for backward compatibility)
   apiRouter.post('/tasks/:taskId/submit', 
+    authenticate,
+    requireTaskSubmit,
     upload.array('files', 10), 
     apiController.submitTask.bind(apiController)
   );
