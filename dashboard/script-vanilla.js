@@ -5798,8 +5798,6 @@ class DashboardApp {
       return;
     }
     
-    console.log('✅ Setting up file upload for add task modal');}
-    
     console.log('✅ Setting up file upload for add task modal');
     
     // Remove existing event listeners to prevent duplicates
