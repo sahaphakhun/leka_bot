@@ -12,6 +12,7 @@ interface TaskAuthRequest extends Request {
     email?: string;
     isVerified: boolean;
   };
+  params: any; // Add params property
 }
 
 export class TaskAuthMiddleware {
@@ -168,11 +169,14 @@ export class TaskAuthMiddleware {
         return;
       }
 
-      // Check if user is the designated reviewer
-      const isReviewer = task.reviewerUserId === req.user.lineUserId;
+      // Get reviewer from workflow (stored as internal UUID)
+      const reviewerInternalId = (task.workflow as any)?.review?.reviewerUserId;
       
-      // If no reviewer is set, creator can approve
-      const isCreatorWithNoReviewer = !task.reviewerUserId && 
+      // Check if user is the designated reviewer (compare with user's internal ID)
+      const isReviewer = reviewerInternalId === req.user.id;
+      
+      // If no reviewer is set, creator can approve (compare with user's LINE ID)
+      const isCreatorWithNoReviewer = !reviewerInternalId && 
                                      task.createdByUser?.lineUserId === req.user.lineUserId;
       
       if (!isReviewer && !isCreatorWithNoReviewer) {

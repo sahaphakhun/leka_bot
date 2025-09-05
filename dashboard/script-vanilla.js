@@ -5690,8 +5690,13 @@ class DashboardApp {
 
     const isCreator = task.createdByUser?.lineUserId === this.currentUserId;
     const isAssigned = task.assignedUsers?.some(user => user.lineUserId === this.currentUserId);
-    const isReviewer = task.reviewerUserId === this.currentUserId;
-    const isReviewerOrCreatorWithNoReviewer = isReviewer || (!task.reviewerUserId && isCreator);
+    
+    // Get reviewer from workflow (stored as internal UUID, need to match with user's internal ID)
+    const reviewerInternalId = task.workflow?.review?.reviewerUserId;
+    const isReviewer = reviewerInternalId === this.currentUser?.id; // Compare with internal ID
+    
+    // If no reviewer is set, creator can approve
+    const isReviewerOrCreatorWithNoReviewer = isReviewer || (!reviewerInternalId && isCreator);
 
     return {
       canView: true,
