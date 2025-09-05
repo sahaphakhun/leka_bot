@@ -173,38 +173,81 @@ export class RecurringTaskService {
     timeOfDay: string;
     timezone: string;
   }): Date {
-    const tz = input.timezone || config.app.defaultTimezone;
-    const now = moment().tz(tz);
-    let next = now.clone();
-    if (input.recurrence === 'weekly') {
-      const wd = input.weekDay ?? 1; // default Monday
-      next = now.clone().day(wd);
-      if (next.isSameOrBefore(now, 'day')) next.add(1, 'week');
-    } else if (input.recurrence === 'monthly') {
-      const dom = input.dayOfMonth ?? 1;
-      next = now.clone().date(Math.min(dom, now.daysInMonth()));
-      if (next.isSameOrBefore(now, 'day')) {
-        const nextMonth = now.clone().add(1, 'month');
-        next = nextMonth.clone().date(Math.min(dom, nextMonth.daysInMonth()));
-      }
-    } else {
-      // quarterly: ทุกไตรมาส (3 เดือน)
-      const dom = input.dayOfMonth ?? 1;
-      // หาเดือนของไตรมาสถัดไป
-      const currentMonth = now.month(); // 0-11
-      const nextQuarterStartMonth = Math.floor(currentMonth / 3) * 3 + 3; // 0,3,6,9 → +3
-      const base = now.clone().month(nextQuarterStartMonth).date(1);
-      const target = base.clone().date(Math.min(dom, base.daysInMonth()));
-      if (target.isSameOrBefore(now, 'day')) {
-        const base2 = base.clone().add(3, 'months');
-        next = base2.clone().date(Math.min(dom, base2.daysInMonth()));
+    try {
+      logger.info('🕰️ Calculating next run time:', input);
+      
+      const tz = input.timezone || config.app.defaultTimezone;
+      const now = moment().tz(tz);
+      let next = now.clone();
+      
+      if (input.recurrence === 'weekly') {
+        const wd = input.weekDay ?? 1; // default Monday
+        next = now.clone().day(wd);
+        if (next.isSameOrBefore(now, 'day')) next.add(1, 'week');
+      } else if (input.recurrence === 'monthly') {
+        const dom = input.dayOfMonth ?? 1;
+        next = now.clone().date(Math.min(dom, now.daysInMonth()));
+        if (next.isSameOrBefore(now, 'day')) {
+          const nextMonth = now.clone().add(1, 'month');
+          next = nextMonth.clone().date(Math.min(dom, nextMonth.daysInMonth()));
+        }
       } else {
-        next = target;
+        // quarterly: ทุกไตรมาส (3 เดือน)
+        const dom = input.dayOfMonth ?? 1;
+        // หาเดือนของไตรมาสถัดไป
+        const currentMonth = now.month(); // 0-11
+        const nextQuarterStartMonth = Math.floor(currentMonth / 3) * 3 + 3; // 0,3,6,9 → +3
+        const base = now.clone().month(nextQuarterStartMonth).date(1);
+        const target = base.clone().date(Math.min(dom, base.daysInMonth()));
+        if (target.isSameOrBefore(now, 'day')) {
+          const base2 = base.clone().add(3, 'months');
+          next = base2.clone().date(Math.min(dom, base2.daysInMonth()));
+        } else {
+          next = target;
+        }
       }
+      
+      // Parse and set time
+      const timeParts = input.timeOfDay.split(':');
+      if (timeParts.length !== 2) {
+        logger.warn('⚠️ Invalid time format, using default 09:00');
+        next.hour(9).minute(0);
+      } else {
+        const h = parseInt(timeParts[0], 10);
+        const m = parseInt(timeParts[1], 10);
+        
+        if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+          logger.warn('⚠️ Invalid time values, using default 09:00');
+          next.hour(9).minute(0);
+        } else {
+          next.hour(h).minute(m);
+        }
+      }
+      
+      next.second(0).millisecond(0);
+      const result = next.toDate();
+      
+      logger.info('✅ Calculated next run time:', {
+        from: now.format(),
+        to: next.format(),
+        result: result.toISOString()
+      });
+      
+      return result;
+    } catch (error) {
+      logger.error('❌ Error calculating next run time:', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        input
+      });
+      
+      // Fallback to tomorrow at 9 AM
+      const fallback = new Date();
+      fallback.setDate(fallback.getDate() + 1);
+      fallback.setHours(9, 0, 0, 0);
+      
+      logger.warn('⚠️ Using fallback next run time:', fallback.toISOString());
+      return fallback;
     }
-    const [h, m] = input.timeOfDay.split(':').map(v => parseInt(v, 10));
-    next.hour(h).minute(m).second(0).millisecond(0);
-    return next.toDate();
   }
 }
 

@@ -23,6 +23,8 @@
     
     <div>
         <button onclick="testListRecurring()">Test List Recurring</button>
+        <button onclick="testDebugRecurring()">Test Debug Recurring</button>
+        <button onclick="testCreateRecurringNoValidation()">Test Create (No Validation)</button>
         <button onclick="testCreateRecurring()">Test Create Recurring</button>
         <button onclick="clearLogs()">Clear Logs</button>
     </div>
@@ -63,6 +65,87 @@
                     log('✅ List recurring tasks successful', 'success', result);
                 } else {
                     log('❌ List recurring tasks failed', 'error', result);
+                }
+            } catch (error) {
+                log('❌ Network error', 'error', { error: error.message });
+            }
+        }
+        
+        async function testDebugRecurring() {
+            log('Testing debug recurring endpoint...');
+            
+            const testData = {
+                title: 'Test Recurring Task - ' + new Date().toISOString(),
+                description: 'Testing recurring task creation',
+                assigneeLineUserIds: ['U1234567890'],
+                reviewerLineUserId: null,
+                priority: 'medium',
+                tags: ['test'],
+                requireAttachment: false,
+                recurrence: 'weekly',
+                weekDay: 1, // Monday
+                timeOfDay: '09:00',
+                durationDays: 7,
+                timezone: 'Asia/Bangkok',
+                createdBy: 'test-user'
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/debug/recurring-test`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Debug test successful', 'success', result);
+                } else {
+                    log('❌ Debug test failed', 'error', result);
+                }
+            } catch (error) {
+                log('❌ Network error', 'error', { error: error.message });
+            }
+        }
+        
+        async function testCreateRecurringNoValidation() {
+            const groupId = document.getElementById('groupId').value;
+            log('Testing create recurring task (no validation)...');
+            
+            const testData = {
+                title: 'Test Recurring Task - ' + new Date().toISOString(),
+                description: 'Testing recurring task creation without validation',
+                assigneeLineUserIds: ['U1234567890'],
+                reviewerLineUserId: null,
+                priority: 'medium',
+                tags: ['test'],
+                requireAttachment: false,
+                recurrence: 'weekly',
+                weekDay: 1, // Monday
+                timeOfDay: '09:00',
+                durationDays: 7,
+                timezone: 'Asia/Bangkok',
+                createdBy: 'test-user'
+            };
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/groups/${groupId}/recurring-no-validation`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(testData)
+                });
+                
+                const result = await response.json();
+                
+                if (response.ok) {
+                    log('✅ Create recurring task (no validation) successful', 'success', result);
+                } else {
+                    log('❌ Create recurring task (no validation) failed', 'error', result);
                 }
             } catch (error) {
                 log('❌ Network error', 'error', { error: error.message });

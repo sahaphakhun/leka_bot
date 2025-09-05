@@ -2126,7 +2126,7 @@ class ApiController {
         dayOfMonth: body.dayOfMonth,
         timeOfDay: body.timeOfDay,
         timezone: body.timezone,
-        createdBy: body.createdBy
+        createdBy: body.createdBy || body.createdByLineUserId
       });
       
       const created = await this.recurringService.create({
@@ -2143,7 +2143,7 @@ class ApiController {
         dayOfMonth: body.dayOfMonth,
         timeOfDay: body.timeOfDay,
         timezone: body.timezone,
-        createdByLineUserId: body.createdBy
+        createdByLineUserId: body.createdBy || body.createdByLineUserId // Support both field names
       });
       
       logger.info('✅ Recurring task created successfully:', { id: created.id, title: created.title });
@@ -3102,6 +3102,52 @@ apiRouter.post('/tasks/:groupId', apiController.createTask.bind(apiController));
 apiRouter.get('/calendar/:groupId', apiController.getCalendarEvents.bind(apiController));
 apiRouter.get('/files/:groupId', apiController.getFiles.bind(apiController));
 apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiController));
+
+  // Debug endpoint for recurring tasks
+  apiRouter.post('/debug/recurring-test', async (req, res) => {
+    try {
+      logger.info('🔍 Debug recurring task request:', {
+        headers: req.headers,
+        body: req.body,
+        bodyKeys: Object.keys(req.body || {}),
+        bodyStringified: JSON.stringify(req.body, null, 2)
+      });
+      
+      res.json({
+        success: true,
+        message: 'Debug endpoint - request logged',
+        receivedData: req.body
+      });
+    } catch (error) {
+      logger.error('❌ Debug endpoint error:', error);
+      res.status(500).json({ success: false, error: 'Debug endpoint failed' });
+    }
+  });
+
+  // Temporary recurring endpoint without validation
+  apiRouter.post('/groups/:groupId/recurring-no-validation', async (req, res) => {
+    try {
+      const { groupId } = req.params;
+      const body = req.body || {};
+      
+      logger.info('🔍 Testing recurring without validation:', {
+        groupId,
+        bodyKeys: Object.keys(body),
+        body: JSON.stringify(body, null, 2)
+      });
+      
+      const apiController = new ApiController();
+      await apiController.createRecurring(req, res);
+      
+    } catch (error) {
+      logger.error('❌ No-validation endpoint error:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Failed to create recurring task without validation',
+        details: error instanceof Error ? error.stack : undefined
+      });
+    }
+  });
 
   // Recurring tasks routes (UI management)
   apiRouter.get('/groups/:groupId/recurring', apiController.listRecurring.bind(apiController));
