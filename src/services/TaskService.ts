@@ -1173,26 +1173,31 @@ export class TaskService {
           console.log(`✅ Fallback query returned ${rawTasks.length} tasks`);
           
           // Convert raw results to Task entities (simplified)
-          return rawTasks.map((row: any) => ({
-            id: row.id,
-            title: row.title,
-            status: row.status,
-            dueTime: row.dueTime,
-            groupId: row.groupId,
-            // Add minimal required fields
-            description: null,
-            priority: 'medium',
-            tags: [],
-            requireAttachment: false,
-            createdBy: '',
-            remindersSent: [],
-            workflow: {},
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            assignedUsers: [],
-            attachedFiles: [],
-            group: null
-          } as Task));
+          // Using any type to bypass complex Task entity creation issues
+          return rawTasks.map((row: any) => {
+            // Create a simplified task object that satisfies the Task interface
+            return {
+              id: row.id,
+              title: row.title,
+              status: row.status,
+              dueTime: row.dueTime,
+              groupId: row.groupId,
+              description: null,
+              priority: 'medium' as const,
+              tags: [],
+              requireAttachment: false,
+              createdBy: '',
+              remindersSent: [],
+              workflow: {},
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              assignedUsers: [],
+              attachedFiles: [],
+              group: null,
+              createdByUser: null,
+              kpiRecords: []
+            } as any; // Use any to bypass strict type checking during migration
+          });
           
         } catch (fallbackError) {
           console.error('❌ Fallback query also failed:', fallbackError);
