@@ -14,6 +14,7 @@ class DashboardApp {
     this.currentTaskId = null;
     this.currentAction = null;
     this.isLoading = false;
+    this.selectedTaskFiles = []; // Store selected files for task creation
     
     // Initialize with some default mock tasks for statistics
     this.initializeMockData();
@@ -2303,8 +2304,12 @@ class DashboardApp {
         modal.classList.remove('hidden');
         overlay.classList.remove('hidden');
         
-        // เรียกใช้ setupFileUpload เมื่อเปิด modal
-        this.setupFileUpload();
+        // Add small delay to ensure DOM is ready
+        setTimeout(() => {
+          console.log('🔄 Setting up file upload after modal open');
+          // เรียกใช้ setupFileUpload เมื่อเปิด modal
+          this.setupFileUpload();
+        }, 100);
       });
     }
   }
@@ -2316,6 +2321,19 @@ class DashboardApp {
       modal.classList.add('hidden');
       // ย้าย modal กลับไปยัง body
       document.body.appendChild(modal);
+      
+      // Reset files when closing add task modal
+      if (modalId === 'addTaskModal') {
+        this.selectedTaskFiles = [];
+        const fileInput = document.getElementById('taskFiles');
+        const fileList = document.getElementById('fileList');
+        if (fileInput) fileInput.value = '';
+        if (fileList) {
+          fileList.innerHTML = '';
+          fileList.classList.add('hidden');
+        }
+        console.log('🧹 Reset file selection for add task modal');
+      }
     }
     if (overlay) {
       overlay.classList.add('hidden');
@@ -5768,13 +5786,21 @@ class DashboardApp {
   // ฟังก์ชันสำหรับการจัดการไฟล์
   setupFileUpload() {
     const fileInput = document.getElementById('taskFiles');
-    const fileUploadArea = document.querySelector('.file-upload-area');
+    const fileUploadArea = document.getElementById('fileUploadArea');
     const fileList = document.getElementById('fileList');
 
     if (!fileInput || !fileUploadArea || !fileList) {
-      console.warn('Add task file upload elements not found');
+      console.warn('Add task file upload elements not found:', {
+        fileInput: !!fileInput,
+        fileUploadArea: !!fileUploadArea,
+        fileList: !!fileList
+      });
       return;
     }
+    
+    console.log('✅ Setting up file upload for add task modal');}
+    
+    console.log('✅ Setting up file upload for add task modal');
     
     // Remove existing event listeners to prevent duplicates
     const newFileUploadArea = fileUploadArea.cloneNode(true);
@@ -5784,12 +5810,16 @@ class DashboardApp {
     fileInput.parentNode.replaceChild(newFileInput, fileInput);
 
     // คลิกเพื่อเลือกไฟล์
-    newFileUploadArea.addEventListener('click', () => {
+    newFileUploadArea.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('📎 File upload area clicked');
       newFileInput.click();
     });
 
     // จัดการการเลือกไฟล์
     newFileInput.addEventListener('change', (e) => {
+      console.log('📁 Files selected:', e.target.files.length);
       this.handleFileSelection(e.target.files);
     });
 
@@ -5797,6 +5827,7 @@ class DashboardApp {
     newFileUploadArea.addEventListener('dragover', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log('🐭 Drag over detected');
       newFileUploadArea.classList.add('dragover');
     });
 
@@ -5804,6 +5835,7 @@ class DashboardApp {
       e.preventDefault();
       e.stopPropagation();
       if (!newFileUploadArea.contains(e.relatedTarget)) {
+        console.log('🐭 Drag leave detected');
         newFileUploadArea.classList.remove('dragover');
       }
     });
@@ -5811,24 +5843,34 @@ class DashboardApp {
     newFileUploadArea.addEventListener('drop', (e) => {
       e.preventDefault();
       e.stopPropagation();
+      console.log('📁 Files dropped:', e.dataTransfer.files.length);
       newFileUploadArea.classList.remove('dragover');
       this.handleFileSelection(e.dataTransfer.files);
     });
   }
 
   handleFileSelection(files) {
+    console.log('📁 handleFileSelection called with', files.length, 'files');
     const fileList = document.getElementById('fileList');
-    if (!fileList) return;
+    if (!fileList) {
+      console.warn('⚠️ fileList element not found');
+      return;
+    }
 
     // ล้างรายการไฟล์เก่า
     fileList.innerHTML = '';
 
     if (files.length === 0) {
       fileList.classList.add('hidden');
+      console.log('📁 No files selected, hiding file list');
       return;
     }
 
     fileList.classList.remove('hidden');
+    console.log('✅ Displaying', files.length, 'selected files');
+
+    // Store selected files for form submission
+    this.selectedTaskFiles = Array.from(files);
 
     Array.from(files).forEach((file, index) => {
       const fileItem = document.createElement('div');
@@ -5852,20 +5894,28 @@ class DashboardApp {
   }
 
   removeFile(index) {
+    console.log('🗑️ Removing file at index:', index);
     const fileInput = document.getElementById('taskFiles');
-    if (!fileInput) return;
+    if (!fileInput) {
+      console.warn('⚠️ taskFiles input not found');
+      return;
+    }
+
+    // Remove from stored files array
+    if (this.selectedTaskFiles && this.selectedTaskFiles.length > index) {
+      this.selectedTaskFiles.splice(index, 1);
+    }
 
     // สร้าง FileList ใหม่โดยไม่มีไฟล์ที่เลือก
     const dt = new DataTransfer();
-    for (let i = 0; i < fileInput.files.length; i++) {
-      if (i !== index) {
-        dt.items.add(fileInput.files[i]);
-      }
-    }
+    this.selectedTaskFiles.forEach(file => {
+      dt.items.add(file);
+    });
     fileInput.files = dt.files;
 
     // อัปเดต UI
     this.handleFileSelection(fileInput.files);
+    console.log('✅ File removed, remaining files:', this.selectedTaskFiles.length);
   }
 
   // ฟังก์ชันช่วยเหลือสำหรับ priority และ category
