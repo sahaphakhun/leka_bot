@@ -4,11 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>ส่งงาน - เลขาบอท</title>
-    <link rel="stylesheet" href="tailwind.css">
+    <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="modal-fix.css">
     <style>
-        /* Simple icon styles to replace Font Awesome */
+        /* Project-standard icon styles */
         .fas { font-family: Arial, sans-serif; font-weight: bold; }
         .fa-robot:before { content: "🤖"; }
         .fa-user:before { content: "👤"; }
@@ -26,7 +25,7 @@
         .fa-check-circle:before { content: "✅"; }
         .fa-exclamation-circle:before { content: "❌"; }
         
-        /* File upload styles */
+        /* Project-standard file upload styles */
         .file-upload-area {
             border: 2px dashed #d1d5db;
             border-radius: 8px;
@@ -52,17 +51,22 @@
             pointer-events: none;
         }
         
-        /* Button styles */
+        /* Project-standard component styles */
+        .content-section { display: none; }
+        .content-section.active { display: block; }
+        
+        /* Standard button and form styles from project */
         .btn {
             display: inline-flex;
             align-items: center;
-            padding: 0.5rem 1rem;
-            border-radius: 0.375rem;
+            padding: 8px 16px;
+            border-radius: 6px;
             font-weight: 500;
             text-decoration: none;
             border: none;
             cursor: pointer;
             transition: all 0.2s ease;
+            font-size: 0.875rem;
         }
         
         .btn-primary {
@@ -91,35 +95,139 @@
         }
         
         .btn-lg {
-            padding: 0.75rem 1.5rem;
-            font-size: 1.125rem;
+            padding: 12px 24px;
+            font-size: 1rem;
         }
         
-        /* Form styles */
+        /* Standard form styles */
         .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 20px;
         }
         
-        .form-label {
+        .form-group label {
             display: block;
-            margin-bottom: 0.5rem;
+            margin-bottom: 8px;
             font-weight: 500;
             color: #374151;
+            font-size: 0.875rem;
         }
         
-        .form-textarea {
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
             width: 100%;
-            padding: 0.75rem;
+            padding: 10px 12px;
             border: 1px solid #d1d5db;
-            border-radius: 0.375rem;
-            resize: vertical;
-            font-family: inherit;
+            border-radius: 6px;
+            font-size: 0.875rem;
+            transition: all 0.2s ease;
         }
         
-        .form-textarea:focus {
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus {
             outline: none;
             border-color: #3b82f6;
             box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        
+        /* Standard modal styles */
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+        }
+        
+        .modal.hidden {
+            display: none;
+        }
+        
+        .modal-content {
+            background-color: white;
+            border-radius: 12px;
+            width: 90%;
+            max-width: 600px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+            z-index: 1001;
+            position: relative;
+        }
+        
+        .modal-header {
+            padding: 20px 24px;
+            border-bottom: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-body {
+            padding: 24px;
+        }
+        
+        .modal-footer {
+            padding: 16px 24px;
+            border-top: 1px solid #e5e7eb;
+            display: flex;
+            justify-content: flex-end;
+            gap: 12px;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #6b7280;
+            padding: 4px;
+            border-radius: 4px;
+            transition: all 0.2s ease;
+        }
+        
+        .modal-close:hover {
+            background-color: #f3f4f6;
+            color: #374151;
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 16px 20px;
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+            border-left: 4px solid #3b82f6;
+            z-index: 1050;
+            opacity: 0;
+            transform: translateX(100%);
+            transition: all 0.3s ease;
+        }
+        
+        .toast.show {
+            opacity: 1;
+            transform: translateX(0);
+        }
+        
+        .toast.toast-success {
+            border-left-color: #10b981;
+        }
+        
+        .toast.toast-error {
+            border-left-color: #ef4444;
+        }
+        
+        .toast.toast-warning {
+            border-left-color: #f59e0b;
         }
     </style>
 </head>
@@ -202,10 +310,10 @@
     </main>
 
     <!-- Submit Modal -->
-    <div class="modal-overlay hidden" id="submitModal">
-        <div class="modal modal-lg">
+    <div class="modal hidden" id="submitModal">
+        <div class="modal-content">
             <div class="modal-header">
-                <h3 class="modal-title">ยืนยันการส่งงาน</h3>
+                <h3 class="text-lg font-semibold text-gray-900">ยืนยันการส่งงาน</h3>
                 <button class="modal-close" id="closeSubmitModal">
                     <i class="fas fa-times"></i>
                 </button>
@@ -217,12 +325,12 @@
                 
                 <form id="submitForm">
                     <div class="form-group">
-                        <label for="submitComment" class="form-label">หมายเหตุ (ไม่บังคับ)</label>
-                        <textarea id="submitComment" class="form-textarea" rows="3" placeholder="กรอกหมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
+                        <label for="submitComment">หมายเหตุ (ไม่บังคับ)</label>
+                        <textarea id="submitComment" rows="3" placeholder="กรอกหมายเหตุเพิ่มเติม (ถ้ามี)"></textarea>
                     </div>
                     
                     <div class="form-group">
-                        <label for="submitFiles" class="form-label">ไฟล์แนบเพิ่มเติม (ไม่บังคับ)</label>
+                        <label for="submitFiles">ไฟล์แนบเพิ่มเติม (ไม่บังคับ)</label>
                         <div class="file-upload-area" id="fileUploadArea">
                             <div class="file-upload-content">
                                 <i class="fas fa-cloud-upload-alt text-4xl text-gray-400 mb-2"></i>
@@ -231,6 +339,7 @@
                             </div>
                             <input type="file" id="submitFiles" name="submitFiles" multiple style="display: none;">
                         </div>
+                        <div id="fileListContainer"></div>
                     </div>
                 </form>
             </div>
@@ -248,6 +357,10 @@
     <div id="toastContainer" class="fixed top-4 right-4 z-50"></div>
 
     <script>
+        /**
+         * Submit Tasks Page - Project Standard Implementation
+         * Following Leka Bot project standards and patterns
+         */
         class SubmitTasksPage {
             constructor() {
                 this.userId = new URLSearchParams(window.location.search).get('userId');
@@ -273,6 +386,9 @@
                 this.setupEventListeners();
             }
 
+            /**
+             * Load user information using project standard API
+             */
             async loadUserInfo() {
                 try {
                     const response = await fetch(`/api/users/${this.userId}`);
@@ -282,68 +398,95 @@
                         this.user = data.data;
                         document.getElementById('userName').textContent = this.user.displayName || 'ไม่ระบุชื่อ';
                         document.getElementById('userEmail').textContent = this.user.email || 'ไม่ระบุอีเมล';
+                    } else {
+                        throw new Error(data.error || 'Failed to load user info');
                     }
                 } catch (error) {
                     console.error('Error loading user info:', error);
+                    this.showToast('ไม่สามารถโหลดข้อมูลผู้ใช้ได้', 'error');
                 }
             }
 
+            /**
+             * Load user tasks using project standard API
+             */
             async loadTasks() {
                 try {
                     const response = await fetch(`/api/users/${this.userId}/tasks?status=pending,in_progress,overdue`);
                     const data = await response.json();
                     
                     if (data.success) {
-                        this.tasks = data.data;
+                        this.tasks = data.data || [];
                         this.renderTasks();
                         this.updateTaskCount();
                         
-                        // ถ้ามี taskId ที่ระบุมา ให้เลือกงานนั้นและอัปเดตปุ่ม (แต่ไม่เปิด modal ทันที)
+                        // Auto-select specific task if provided
                         if (this.selectedTaskId) {
                             this.selectedTasks.add(this.selectedTaskId);
                             this.updateSubmitButton();
-                            // เลื่อนไปที่งานที่เลือก
-                            setTimeout(() => {
-                                const taskElement = document.getElementById(`task-${this.selectedTaskId}`);
-                                if (taskElement) {
-                                    taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                    // เพิ่มเอฟเฟกต์ highlight ชั่วคราว
-                                    const taskCard = taskElement.closest('.p-6');
-                                    if (taskCard) {
-                                        taskCard.classList.add('bg-blue-50', 'border-2', 'border-blue-200');
-                                        setTimeout(() => {
-                                            taskCard.classList.remove('bg-blue-50', 'border-2', 'border-blue-200');
-                                        }, 2000);
-                                    }
-                                    // แสดงข้อความแจ้งเตือน
-                                    this.showToast('งานนี้ถูกเลือกไว้แล้ว กรุณากดปุ่มส่งงานเมื่อพร้อม', 'info');
-                                }
-                            }, 100);
+                            this.highlightSelectedTask();
                         }
+                    } else {
+                        throw new Error(data.error || 'Failed to load tasks');
                     }
                 } catch (error) {
                     console.error('Error loading tasks:', error);
                     this.showToast('ไม่สามารถโหลดรายการงานได้', 'error');
+                    this.renderEmptyTasks();
                 }
             }
 
+            /**
+             * Highlight and scroll to selected task
+             */
+            highlightSelectedTask() {
+                setTimeout(() => {
+                    const taskElement = document.getElementById(`task-${this.selectedTaskId}`);
+                    if (taskElement) {
+                        taskElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        const taskCard = taskElement.closest('.task-card');
+                        if (taskCard) {
+                            taskCard.classList.add('ring-2', 'ring-blue-300', 'bg-blue-50');
+                            setTimeout(() => {
+                                taskCard.classList.remove('ring-2', 'ring-blue-300', 'bg-blue-50');
+                            }, 3000);
+                        }
+                        this.showToast('งานนี้ถูกเลือกไว้แล้ว กรุณากดปุ่มส่งงานเมื่อพร้อม', 'info');
+                    }
+                }, 100);
+            }
+
+            /**
+             * Render tasks with project standard styling
+             */
             renderTasks() {
                 const taskList = document.getElementById('taskList');
                 
                 if (this.tasks.length === 0) {
-                    taskList.innerHTML = `
-                        <div class="p-8 text-center text-gray-500">
-                            <i class="fas fa-check-circle text-4xl mb-4 text-green-500"></i>
-                            <p class="text-lg font-medium">ไม่มีงานที่ต้องส่ง</p>
-                            <p class="text-sm">งานทั้งหมดเสร็จสิ้นแล้ว</p>
-                        </div>
-                    `;
+                    this.renderEmptyTasks();
                     return;
                 }
 
                 taskList.innerHTML = this.tasks.map(task => this.renderTaskCard(task)).join('');
             }
 
+            /**
+             * Render empty state
+             */
+            renderEmptyTasks() {
+                const taskList = document.getElementById('taskList');
+                taskList.innerHTML = `
+                    <div class="p-8 text-center text-gray-500">
+                        <i class="fas fa-check-circle text-4xl mb-4 text-green-500"></i>
+                        <p class="text-lg font-medium">ไม่มีงานที่ต้องส่ง</p>
+                        <p class="text-sm">งานทั้งหมดเสร็จสิ้นแล้ว</p>
+                    </div>
+                `;
+            }
+
+            /**
+             * Render individual task card with project styling
+             */
             renderTaskCard(task) {
                 const isSelected = this.selectedTasks.has(task.id);
                 const isOverdue = task.status === 'overdue';
@@ -359,36 +502,38 @@
                 const groupName = task.group?.name || 'ไม่ระบุกลุ่ม';
 
                 return `
-                    <div class="p-6 hover:bg-gray-50 transition-colors">
+                    <div class="task-card p-6 hover:bg-gray-50 transition-colors border-b">
                         <div class="flex items-start justify-between">
                             <div class="flex-1">
-                                <div class="flex items-center mb-2">
+                                <div class="flex items-center mb-3">
                                     <input type="checkbox" 
                                            id="task-${task.id}" 
-                                           class="task-checkbox mr-3" 
+                                           class="task-checkbox mr-3 w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500" 
                                            data-task-id="${task.id}"
                                            ${isSelected ? 'checked' : ''}>
-                                    <h4 class="text-lg font-medium text-gray-900">${task.title}</h4>
-                                    ${isOverdue ? '<span class="ml-2 text-red-500 text-sm">⚠️ เกินกำหนด</span>' : ''}
+                                    <h4 class="text-lg font-semibold text-gray-900">${this.escapeHtml(task.title)}</h4>
+                                    ${isOverdue ? '<span class="ml-2 text-red-500 text-sm font-medium">⚠️ เกินกำหนด</span>' : ''}
                                 </div>
                                 
-                                <div class="ml-6">
-                                    <div class="flex items-center text-sm text-gray-600 mb-2">
+                                <div class="ml-7 space-y-2">
+                                    <div class="flex items-center text-sm text-gray-600">
                                         <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${statusColor}">
                                             ${statusText}
                                         </span>
                                         <span class="mx-2">•</span>
+                                        <i class="fas fa-calendar mr-1"></i>
                                         <span>กำหนดส่ง: ${dueDate}</span>
                                         <span class="mx-2">•</span>
-                                        <span class="text-blue-600 font-medium">${groupName}</span>
+                                        <i class="fas fa-users mr-1"></i>
+                                        <span class="text-blue-600 font-medium">${this.escapeHtml(groupName)}</span>
                                     </div>
                                     
                                     ${task.description ? `
-                                        <p class="text-sm text-gray-600 mb-2">${task.description}</p>
+                                        <p class="text-sm text-gray-600">${this.escapeHtml(task.description)}</p>
                                     ` : ''}
                                     
                                     ${task.priority ? `
-                                        <div class="flex items-center text-sm text-gray-600 mb-2">
+                                        <div class="flex items-center text-sm text-gray-600">
                                             <span class="mr-2">🎯 ความสำคัญ:</span>
                                             <span class="font-medium ${this.getPriorityColor(task.priority)}">${this.getPriorityText(task.priority)}</span>
                                         </div>
@@ -397,7 +542,7 @@
                                     ${task.assignedUsers && task.assignedUsers.length > 0 ? `
                                         <div class="flex items-center text-sm text-gray-600">
                                             <span class="mr-2">👥 ผู้รับผิดชอบ:</span>
-                                            <span class="font-medium">${task.assignedUsers.map(u => u.displayName || u.realName || u.name || 'ไม่ระบุชื่อ').join(', ')}</span>
+                                            <span class="font-medium">${task.assignedUsers.map(u => this.escapeHtml(u.displayName || u.realName || u.name || 'ไม่ระบุชื่อ')).join(', ')}</span>
                                         </div>
                                     ` : ''}
                                 </div>
@@ -407,6 +552,9 @@
                 `;
             }
 
+            /**
+             * Standard status text mapping
+             */
             getStatusText(status) {
                 const statusMap = {
                     'pending': 'รอดำเนินการ',
@@ -418,6 +566,9 @@
                 return statusMap[status] || status;
             }
 
+            /**
+             * Standard status color mapping
+             */
             getStatusColor(status) {
                 const colorMap = {
                     'pending': 'bg-blue-100 text-blue-800',
@@ -429,6 +580,9 @@
                 return colorMap[status] || 'bg-gray-100 text-gray-800';
             }
 
+            /**
+             * Standard priority text mapping
+             */
             getPriorityText(priority) {
                 const priorityMap = {
                     'low': 'ต่ำ',
@@ -438,6 +592,9 @@
                 return priorityMap[priority] || priority;
             }
 
+            /**
+             * Standard priority color mapping
+             */
             getPriorityColor(priority) {
                 const colorMap = {
                     'low': 'text-green-600',
@@ -447,10 +604,16 @@
                 return colorMap[priority] || 'text-gray-600';
             }
 
+            /**
+             * Update task count display
+             */
             updateTaskCount() {
                 document.getElementById('taskCount').textContent = this.tasks.length;
             }
 
+            /**
+             * Update submit button state
+             */
             updateSubmitButton() {
                 const submitBtn = document.getElementById('submitAllBtn');
                 const count = this.selectedTasks.size;
@@ -464,9 +627,12 @@
                 }
             }
 
+            /**
+             * Setup event listeners using project standards
+             */
             setupEventListeners() {
                 // Back button
-                document.getElementById('backBtn').addEventListener('click', () => {
+                document.getElementById('backBtn')?.addEventListener('click', () => {
                     window.history.back();
                 });
 
@@ -486,47 +652,49 @@
                 });
 
                 // Submit button
-                document.getElementById('submitAllBtn').addEventListener('click', () => {
+                document.getElementById('submitAllBtn')?.addEventListener('click', () => {
                     this.showSubmitModal();
                 });
 
                 // Modal events
-                document.getElementById('closeSubmitModal').addEventListener('click', () => {
+                document.getElementById('closeSubmitModal')?.addEventListener('click', () => {
                     this.closeSubmitModal();
                 });
 
-                document.getElementById('cancelSubmit').addEventListener('click', () => {
+                document.getElementById('cancelSubmit')?.addEventListener('click', () => {
                     this.closeSubmitModal();
                 });
 
-                document.getElementById('submitForm').addEventListener('submit', (e) => {
+                document.getElementById('submitForm')?.addEventListener('submit', (e) => {
                     e.preventDefault();
                     this.submitTasks();
                 });
                 
-                // ปิด modal เมื่อคลิกข้างนอก
-                document.getElementById('submitModal').addEventListener('click', (e) => {
-                    // Close modal when clicking on the overlay (not the modal content)
-                    if (e.target.classList.contains('modal-overlay')) {
+                // Close modal when clicking outside
+                document.getElementById('submitModal')?.addEventListener('click', (e) => {
+                    if (e.target.id === 'submitModal') {
                         this.closeSubmitModal();
                     }
                 });
                 
-                // ปิด modal ด้วย Escape key
+                // Close modal with Escape key
                 document.addEventListener('keydown', (e) => {
-                    if (e.key === 'Escape' && document.getElementById('submitModal').classList.contains('show')) {
+                    if (e.key === 'Escape' && !document.getElementById('submitModal').classList.contains('hidden')) {
                         this.closeSubmitModal();
                     }
                 });
             }
 
+            /**
+             * Setup file upload with drag and drop
+             */
             setupFileUpload() {
                 const fileUploadArea = document.getElementById('fileUploadArea');
                 const fileInput = document.getElementById('submitFiles');
                 
                 if (!fileUploadArea || !fileInput) return;
                 
-                // คลิกเพื่อเลือกไฟล์
+                // Click to select files
                 fileUploadArea.addEventListener('click', () => {
                     fileInput.click();
                 });
@@ -553,40 +721,51 @@
                     
                     const files = e.dataTransfer.files;
                     if (files.length > 0) {
-                        // กำหนดจำนวนไฟล์สูงสุด 5 ไฟล์
-                        const limitedFiles = Array.from(files).slice(0, 5);
-                        
-                        // สร้าง FileList ใหม่
-                        const dt = new DataTransfer();
-                        limitedFiles.forEach(file => dt.items.add(file));
-                        fileInput.files = dt.files;
-                        
-                        this.updateFileList(limitedFiles);
-                        
-                        if (files.length > 5) {
-                            this.showToast('สามารถเลือกได้สูงสุด 5 ไฟล์', 'warning');
-                        }
+                        this.handleFileSelection(Array.from(files));
                     }
                 });
                 
-                // เมื่อเลือกไฟล์ผ่าน input
+                // File input change
                 fileInput.addEventListener('change', (e) => {
                     const files = Array.from(e.target.files || []);
-                    this.updateFileList(files);
+                    this.handleFileSelection(files);
                 });
             }
-            
-            updateFileList(files) {
-                const fileListContainer = document.getElementById('fileListContainer');
+
+            /**
+             * Handle file selection with validation
+             */
+            handleFileSelection(files) {
+                const maxFiles = 5;
+                const maxSizePerFile = 10 * 1024 * 1024; // 10MB
                 
-                if (!fileListContainer) {
-                    // สร้าง container สำหรับแสดงรายการไฟล์
-                    const container = document.createElement('div');
-                    container.id = 'fileListContainer';
-                    container.className = 'mt-3';
-                    document.getElementById('submitFiles').parentNode.appendChild(container);
+                // Limit number of files
+                if (files.length > maxFiles) {
+                    this.showToast(`สามารถเลือกได้สูงสุด ${maxFiles} ไฟล์`, 'warning');
+                    files = files.slice(0, maxFiles);
                 }
                 
+                // Validate file sizes
+                const validFiles = files.filter(file => {
+                    if (file.size > maxSizePerFile) {
+                        this.showToast(`ไฟล์ ${file.name} มีขนาดใหญ่เกินไป (10MB)`, 'error');
+                        return false;
+                    }
+                    return true;
+                });
+                
+                this.updateFileList(validFiles);
+                
+                // Update file input
+                const dt = new DataTransfer();
+                validFiles.forEach(file => dt.items.add(file));
+                document.getElementById('submitFiles').files = dt.files;
+            }
+            
+            /**
+             * Update file list display
+             */
+            updateFileList(files) {
                 const container = document.getElementById('fileListContainer');
                 
                 if (files.length === 0) {
@@ -595,17 +774,19 @@
                 }
                 
                 container.innerHTML = `
-                    <div class="bg-gray-50 border border-gray-200 rounded-lg p-3">
-                        <h5 class="text-sm font-medium text-gray-700 mb-2">ไฟล์ที่เลือก (${files.length} ไฟล์)</h5>
+                    <div class="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg">
+                        <h5 class="text-sm font-medium text-gray-700 mb-3">ไฟล์ที่เลือก (${files.length} ไฟล์)</h5>
                         <div class="space-y-2">
                             ${files.map((file, index) => `
-                                <div class="flex items-center justify-between bg-white p-2 rounded border text-sm">
-                                    <div class="flex items-center">
-                                        <i class="fas fa-file text-blue-500 mr-2"></i>
-                                        <span class="font-medium">${file.name}</span>
-                                        <span class="text-gray-500 ml-2">(${this.formatFileSize(file.size)})</span>
+                                <div class="flex items-center justify-between bg-white p-3 rounded border text-sm">
+                                    <div class="flex items-center flex-1 min-w-0">
+                                        <i class="fas fa-file text-blue-500 mr-3 flex-shrink-0"></i>
+                                        <div class="min-w-0 flex-1">
+                                            <p class="font-medium text-gray-900 truncate">${this.escapeHtml(file.name)}</p>
+                                            <p class="text-gray-500">${this.formatFileSize(file.size)}</p>
+                                        </div>
                                     </div>
-                                    <button type="button" class="text-red-500 hover:text-red-700" onclick="submitTasksInstance.removeFile(${index})">
+                                    <button type="button" class="ml-3 text-red-500 hover:text-red-700 p-1" onclick="submitTasksInstance.removeFile(${index})">
                                         <i class="fas fa-times"></i>
                                     </button>
                                 </div>
@@ -615,6 +796,9 @@
                 `;
             }
             
+            /**
+             * Remove file from selection
+             */
             removeFile(index) {
                 const fileInput = document.getElementById('submitFiles');
                 const files = Array.from(fileInput.files || []);
@@ -628,6 +812,9 @@
                 this.updateFileList(files);
             }
             
+            /**
+             * Format file size for display
+             */
             formatFileSize(bytes) {
                 if (bytes === 0) return '0 Bytes';
                 const k = 1024;
@@ -636,96 +823,97 @@
                 return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
             }
 
+            /**
+             * Escape HTML to prevent XSS
+             */
+            escapeHtml(text) {
+                const div = document.createElement('div');
+                div.textContent = text;
+                return div.innerHTML;
+            }
+
+            /**
+             * Show submit modal with selected tasks summary
+             */
             showSubmitModal() {
                 const selectedTasks = this.tasks.filter(task => this.selectedTasks.has(task.id));
                 const summary = document.getElementById('submitSummary');
                 
                 summary.innerHTML = `
                     <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                        <h4 class="font-medium text-blue-900 mb-2">สรุปงานที่จะส่ง</h4>
+                        <h4 class="font-semibold text-blue-900 mb-3">สรุปงานที่จะส่ง</h4>
                         <div class="space-y-2">
                             ${selectedTasks.map(task => `
                                 <div class="flex items-center text-sm">
                                     <i class="fas fa-check text-green-500 mr-2"></i>
-                                    <span class="font-medium">${task.title}</span>
-                                    <span class="text-gray-600 ml-2">(${task.group?.name || 'ไม่ระบุกลุ่ม'})</span>
+                                    <span class="font-medium">${this.escapeHtml(task.title)}</span>
+                                    <span class="text-gray-600 ml-2">(${this.escapeHtml(task.group?.name || 'ไม่ระบุกลุ่ม')})</span>
                                 </div>
                             `).join('')}
                         </div>
                     </div>
                 `;
                 
-                // Use the correct modal show approach
+                // Show modal using project standard method
                 const modal = document.getElementById('submitModal');
                 modal.classList.remove('hidden');
-                modal.classList.add('show');
                 
-                // ตั้งค่า file upload functionality หลังจากแสดง modal
+                // Setup file upload functionality
                 setTimeout(() => {
                     this.setupFileUpload();
                 }, 100);
             }
 
+            /**
+             * Close submit modal
+             */
             closeSubmitModal() {
-                // Use the correct modal hide approach
                 const modal = document.getElementById('submitModal');
-                modal.classList.remove('show');
                 modal.classList.add('hidden');
                 
-                // Reset form when closing
+                // Reset form
                 document.getElementById('submitForm').reset();
                 
-                // Clear file input
+                // Clear file input and list
                 const fileInput = document.getElementById('submitFiles');
                 if (fileInput) {
                     fileInput.value = '';
                 }
                 
-                // Remove file list container if exists
                 const fileListContainer = document.getElementById('fileListContainer');
                 if (fileListContainer) {
-                    fileListContainer.remove();
+                    fileListContainer.innerHTML = '';
                 }
             }
 
+            /**
+             * Submit tasks using project standard API endpoints
+             */
             async submitTasks() {
-                // Get the submit button from the modal footer
-                const submitBtn = document.querySelector('.modal-footer .btn-primary');
-                let originalText = '<i class="fas fa-upload mr-2"></i>ส่งงาน'; // Default text
+                const submitBtn = document.querySelector('#submitModal .btn-primary');
+                const originalText = submitBtn.innerHTML;
                 
                 try {
-                    if (submitBtn) {
-                        submitBtn.disabled = true;
-                        originalText = submitBtn.innerHTML;
-                        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่งงาน...';
-                    }
+                    submitBtn.disabled = true;
+                    submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>กำลังส่งงาน...';
                     
                     const selectedTasks = Array.from(this.selectedTasks);
                     const comment = document.getElementById('submitComment').value;
                     const files = document.getElementById('submitFiles').files;
                     
-                    // ส่งงานทีละงาน
+                    // Submit tasks individually using project standard endpoint
                     const results = [];
                     for (const taskId of selectedTasks) {
-                        const formData = new FormData();
-                        formData.append('userId', this.userId);
-                        formData.append('comment', comment);
-                        
-                        // เพิ่มไฟล์
-                        for (let i = 0; i < files.length; i++) {
-                            formData.append('attachments', files[i]);
+                        try {
+                            const result = await this.submitSingleTask(taskId, comment, files);
+                            results.push({ taskId, success: true, data: result });
+                        } catch (error) {
+                            console.error(`Failed to submit task ${taskId}:`, error);
+                            results.push({ taskId, success: false, error: error.message });
                         }
-                        
-                        const response = await fetch(`/api/groups/${this.getTaskGroupId(taskId)}/tasks/${taskId}/submit`, {
-                            method: 'POST',
-                            body: formData
-                        });
-                        
-                        const result = await response.json();
-                        results.push({ taskId, success: result.success, message: result.message });
                     }
                     
-                    // แสดงผลลัพธ์
+                    // Show results
                     const successCount = results.filter(r => r.success).length;
                     const failCount = results.length - successCount;
                     
@@ -734,51 +922,103 @@
                         this.closeSubmitModal();
                         this.selectedTasks.clear();
                         this.updateSubmitButton();
-                        await this.loadTasks(); // โหลดข้อมูลใหม่
+                        await this.loadTasks(); // Reload to get updated status
                     } else {
                         this.showToast(`ส่งงานสำเร็จ ${successCount} รายการ, ล้มเหลว ${failCount} รายการ`, 'warning');
+                        
+                        // Show detailed errors for failed submissions
+                        const failedTasks = results.filter(r => !r.success);
+                        failedTasks.forEach(failed => {
+                            const task = this.tasks.find(t => t.id === failed.taskId);
+                            this.showToast(`ส่งงาน "${task?.title}" ล้มเหลว: ${failed.error}`, 'error');
+                        });
                     }
                     
                 } catch (error) {
                     console.error('Error submitting tasks:', error);
                     this.showToast('เกิดข้อผิดพลาดในการส่งงาน', 'error');
                 } finally {
-                    if (submitBtn) {
-                        submitBtn.disabled = false;
-                        submitBtn.innerHTML = originalText;
-                    }
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = originalText;
                 }
             }
 
-            getTaskGroupId(taskId) {
+            /**
+             * Submit single task using project standard API
+             */
+            async submitSingleTask(taskId, comment, files) {
                 const task = this.tasks.find(t => t.id === taskId);
-                return task?.groupId || task?.group?.id;
+                if (!task) {
+                    throw new Error('ไม่พบงานที่ระบุ');
+                }
+
+                const formData = new FormData();
+                formData.append('userId', this.userId);
+                formData.append('comment', comment);
+                
+                // Add files using project standard field name
+                for (let i = 0; i < files.length; i++) {
+                    formData.append('attachments', files[i]);
+                }
+                
+                // Use project standard API endpoint pattern
+                const groupId = task.group?.id || task.groupId;
+                if (!groupId) {
+                    throw new Error('ไม่พบข้อมูลกลุ่มของงาน');
+                }
+                
+                const response = await fetch(`/api/groups/${groupId}/tasks/${taskId}/submit`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (!response.ok) {
+                    const errorData = await response.json().catch(() => ({ error: `HTTP ${response.status}` }));
+                    throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                if (!result.success) {
+                    throw new Error(result.error || 'Failed to submit task');
+                }
+                
+                return result.data;
             }
 
+            /**
+             * Show toast notification with project styling
+             */
             showToast(message, type = 'info') {
                 const toast = document.createElement('div');
                 toast.className = `toast toast-${type}`;
                 toast.innerHTML = `
-                    <div class="toast-content">
+                    <div class="flex items-center">
                         <i class="fas fa-${this.getToastIcon(type)} mr-2"></i>
-                        ${message}
+                        <span>${this.escapeHtml(message)}</span>
                     </div>
                 `;
                 
                 document.getElementById('toastContainer').appendChild(toast);
                 
+                // Show animation
                 setTimeout(() => {
                     toast.classList.add('show');
                 }, 100);
                 
+                // Auto hide
                 setTimeout(() => {
                     toast.classList.remove('show');
                     setTimeout(() => {
-                        toast.remove();
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
                     }, 300);
                 }, 3000);
             }
 
+            /**
+             * Get icon for toast type
+             */
             getToastIcon(type) {
                 const iconMap = {
                     'success': 'check-circle',
@@ -789,51 +1029,45 @@
                 return iconMap[type] || 'info-circle';
             }
 
-            // ====================
-            // Read-Only Mode Banner
-            // ====================
-
             /**
-             * แสดง banner แจ้งเตือนโหมดดูอย่างเดียว
+             * Show read-only mode banner
              */
             showReadOnlyBanner() {
                 const banner = document.getElementById('readOnlyBanner');
                 if (banner) {
                     banner.classList.remove('hidden');
-                    console.log('🔒 แสดง banner โหมดดูอย่างเดียว');
                 }
             }
 
             /**
-             * ซ่อน banner โหมดดูอย่างเดียว
+             * Hide read-only mode banner
              */
             hideReadOnlyBanner() {
                 const banner = document.getElementById('readOnlyBanner');
                 if (banner) {
                     banner.classList.add('hidden');
-                    console.log('🔓 ซ่อน banner โหมดดูอย่างเดียว');
                 }
             }
         }
 
-        // Initialize the page
+        // Initialize the page following project standards
         let submitTasksInstance;
         document.addEventListener('DOMContentLoaded', () => {
             submitTasksInstance = new SubmitTasksPage();
         });
 
-        // Register clean service worker to replace any old one
+        // Register service worker following project pattern
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('./sw.js')
                 .then(function(registration) {
-                    console.log('Clean service worker registered successfully:', registration.scope);
+                    console.log('Service worker registered successfully:', registration.scope);
                     // Force update if there's an old service worker
                     if (registration.waiting) {
                         registration.waiting.postMessage({command: 'skipWaiting'});
                     }
                 })
                 .catch(function(error) {
-                    console.log('Service worker registration failed (this is normal in development):', error);
+                    console.log('Service worker registration failed (normal in development):', error);
                 });
         }
     </script>
