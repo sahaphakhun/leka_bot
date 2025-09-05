@@ -2788,22 +2788,61 @@ class ApiController {
       const { userId } = req.params;
       const { status, excludeSubmitted } = req.query;
       
-      // ดึงข้อมูลผู้ใช้จาก Line User ID
-      const user = await this.userService.findByLineUserId(userId);
+      logger.info('🔍 getUserTasks API called', {
+        userId,
+        status,
+        excludeSubmitted,
+        userAgent: req.get('User-Agent'),
+        ip: req.ip
+      });
       
-      if (!user) {
-        res.status(404).json({ success: false, error: 'User not found' });
+      // Validate required parameters
+      if (!userId) {
+        logger.warn('⚠️ Missing userId parameter');
+        res.status(400).json({ 
+          success: false, 
+          error: 'User ID is required',
+          details: 'userId parameter is missing from request' 
+        });
         return;
       }
       
+      // ดึงข้อมูลผู้ใช้จาก Line User ID
+      logger.info('🔍 Finding user by LINE User ID:', userId);
+      const user = await this.userService.findByLineUserId(userId);
+      
+      if (!user) {
+        logger.warn('⚠️ User not found for LINE User ID:', userId);
+        res.status(404).json({ 
+          success: false, 
+          error: 'User not found',
+          details: `No user found with LINE User ID: ${userId}`
+        });
+        return;
+      }
+      
+      logger.info('✅ Found user:', {
+        id: user.id,
+        displayName: user.displayName,
+        lineUserId: user.lineUserId
+      });
+      
       // แยก status เป็น array
-      const statusArray = status ? (status as string).split(',') : ['pending', 'in_progress', 'overdue'];
+      const statusArray = status ? (status as string).split(',').map(s => s.trim()) : ['pending', 'in_progress', 'overdue'];
+      
+      logger.info('📊 Status array parsed:', statusArray);
       
       // ดึงงานของผู้ใช้
+      logger.info('🔍 Fetching user tasks...');
       let tasks = await this.taskService.getUserTasks(user.id, statusArray);
+      
+      logger.info(`📊 Found ${tasks.length} tasks before filtering`);
       
       // ถ้าต้องการกรองงานที่ส่งแล้วออก (สำหรับหน้า submit-tasks)
       if (excludeSubmitted === 'true') {
+        logger.info('🔍 Filtering out submitted tasks...');
+        
+        const originalTaskCount = tasks.length;
         tasks = tasks.filter(task => {
           // ตรวจสอบว่าผู้ใช้นี้ได้ส่งงานแล้วหรือไม่
           if (task.workflow && Array.isArray((task.workflow as any).submissions)) {
@@ -2814,6 +2853,8 @@ class ApiController {
           }
           return true; // แสดงถ้าไม่มีข้อมูล workflow
         });
+        
+        logger.info(`📊 After excludeSubmitted filter: ${tasks.length}/${originalTaskCount} tasks remaining`);
       }
       
       // เพิ่มข้อมูลกลุ่มให้กับแต่ละงาน - ใช้ relations ที่มีอยู่แล้วจาก getUserTasks
@@ -2825,10 +2866,58 @@ class ApiController {
         } : null
       }));
       
-      res.json({ success: true, data: tasksWithGroups });
+      logger.info(`✅ getUserTasks completed successfully. Returning ${tasksWithGroups.length} tasks`);
+      
+      res.json({ 
+        success: true, 
+        data: tasksWithGroups,
+        metadata: {
+          userId: user.id,
+          lineUserId: userId,
+          statusFilter: statusArray,
+          excludeSubmitted: excludeSubmitted === 'true',
+          count: tasksWithGroups.length
+        }
+      });
     } catch (error) {
-      logger.error('❌ getUserTasks error:', error);
-      res.status(500).json({ success: false, error: 'Failed to get user tasks' });
+      logger.error('❌ getUserTasks error:', {
+        userId: req.params.userId,
+        status: req.query.status,
+        excludeSubmitted: req.query.excludeSubmitted,
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error
+      });
+      
+      // Provide more specific error messages
+      let errorMessage = 'Failed to get user tasks';
+      let statusCode = 500;
+      
+      if (error instanceof Error) {
+        if (error.message.includes('User ID is required')) {
+          errorMessage = error.message;
+          statusCode = 400;
+        } else if (error.message.includes('User not found')) {
+          errorMessage = error.message;
+          statusCode = 404;
+        } else if (error.message.includes('syntax error') || error.message.includes('relation') || error.message.includes('column')) {
+          errorMessage = 'Database query error';
+          logger.error('Database-related error detected:', error.message);
+        } else {
+          errorMessage = `Internal server error: ${error.message}`;
+        }
+      }
+      
+      res.status(statusCode).json({ 
+        success: false, 
+        error: errorMessage,
+        details: process.env.NODE_ENV === 'development' ? {
+          originalError: error instanceof Error ? error.message : String(error),
+          stack: error instanceof Error ? error.stack : undefined
+        } : undefined
+      });
     }
   }
 

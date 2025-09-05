@@ -1079,15 +1079,137 @@ export class TaskService {
    */
   public async getUserTasks(userId: string, statuses: string[] = ['pending', 'in_progress']): Promise<Task[]> {
     try {
-      return await this.taskRepository.createQueryBuilder('task')
-        .leftJoinAndSelect('task.assignedUsers', 'assignee')
-        .leftJoinAndSelect('task.group', 'group')
-        .where('assignee.id = :userId', { userId })
-        .andWhere('task.status IN (:...statuses)', { statuses })
-        .orderBy('task.dueTime', 'ASC')
-        .getMany();
+      console.log('🔍 getUserTasks called with:', { userId, statuses });
+      
+      // Validate input parameters
+      if (!userId) {
+        throw new Error('User ID is required');
+      }
+      
+      if (!statuses || statuses.length === 0) {
+        console.warn('⚠️ No statuses provided, using default: ["pending", "in_progress"]');
+        statuses = ['pending', 'in_progress'];
+      }
+      
+      // Validate statuses against known enum values
+      const validStatuses = ['pending', 'in_progress', 'submitted', 'reviewed', 'approved', 'completed', 'rejected', 'cancelled', 'overdue'];
+      const invalidStatuses = statuses.filter(status => !validStatuses.includes(status));
+      if (invalidStatuses.length > 0) {
+        console.warn(`⚠️ Invalid statuses found: ${invalidStatuses.join(', ')}. Filtering them out.`);
+        statuses = statuses.filter(status => validStatuses.includes(status));
+      }
+      
+      if (statuses.length === 0) {
+        console.warn('⚠️ No valid statuses remaining, returning empty array');
+        return [];
+      }
+      
+      console.log('📊 Executing query with validated parameters:', { userId, statuses });
+      
+      // Try a more defensive approach with error handling for each step
+      try {
+        // First, verify the user exists in our records
+        const userExists = await this.userRepository.findOneBy({ id: userId });
+        if (!userExists) {
+          console.warn(`⚠️ User ${userId} not found in database`);
+          return [];
+        }
+        console.log('✅ User verification passed');
+        
+        // Try a simpler query first to isolate the issue
+        console.log('🔍 Attempting simple task count query...');
+        const taskCount = await this.taskRepository
+          .createQueryBuilder('task')
+          .leftJoin('task.assignedUsers', 'assignee')
+          .where('assignee.id = :userId', { userId })
+          .getCount();
+        
+        console.log(`📊 Found ${taskCount} total tasks assigned to user`);
+        
+        if (taskCount === 0) {
+          console.log('ℹ️ No tasks assigned to user, returning empty array');
+          return [];
+        }
+        
+        // Now try the full query with relations
+        console.log('🔍 Attempting full query with relations...');
+        const queryBuilder = this.taskRepository.createQueryBuilder('task')
+          .leftJoinAndSelect('task.assignedUsers', 'assignee')
+          .leftJoinAndSelect('task.group', 'group')
+          .where('assignee.id = :userId', { userId })
+          .andWhere('task.status IN (:...statuses)', { statuses })
+          .orderBy('task.dueTime', 'ASC');
+          
+        // Log the generated SQL for debugging
+        console.log('📝 Generated SQL:', queryBuilder.getSql());
+        console.log('📋 Query parameters:', queryBuilder.getParameters());
+        
+        const tasks = await queryBuilder.getMany();
+        
+        console.log(`✅ getUserTasks completed successfully. Found ${tasks.length} tasks`);
+        
+        return tasks;
+        
+      } catch (queryError) {
+        console.error('❌ Query execution error:', queryError);
+        
+        // Try an even simpler fallback query using raw SQL
+        console.log('🔄 Attempting fallback raw SQL query...');
+        try {
+          const rawTasks = await this.taskRepository.query(`
+            SELECT 
+              t.id,
+              t.title,
+              t.status,
+              t."dueTime",
+              t."groupId"
+            FROM tasks t
+            INNER JOIN task_assignees ta ON t.id = ta."taskId"
+            WHERE ta."userId" = $1
+              AND t.status = ANY($2::text[])
+            ORDER BY t."dueTime" ASC
+          `, [userId, statuses]);
+          
+          console.log(`✅ Fallback query returned ${rawTasks.length} tasks`);
+          
+          // Convert raw results to Task entities (simplified)
+          return rawTasks.map((row: any) => ({
+            id: row.id,
+            title: row.title,
+            status: row.status,
+            dueTime: row.dueTime,
+            groupId: row.groupId,
+            // Add minimal required fields
+            description: null,
+            priority: 'medium',
+            tags: [],
+            requireAttachment: false,
+            createdBy: '',
+            remindersSent: [],
+            workflow: {},
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            assignedUsers: [],
+            attachedFiles: [],
+            group: null
+          } as Task));
+          
+        } catch (fallbackError) {
+          console.error('❌ Fallback query also failed:', fallbackError);
+          throw queryError; // Throw the original error
+        }
+      }
+      
     } catch (error) {
-      console.error('❌ Error getting user tasks:', error);
+      console.error('❌ Error getting user tasks:', {
+        userId,
+        statuses,
+        error: error instanceof Error ? {
+          message: error.message,
+          stack: error.stack,
+          name: error.name
+        } : error
+      });
       throw error;
     }
   }
