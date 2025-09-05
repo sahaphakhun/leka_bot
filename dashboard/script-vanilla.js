@@ -6424,12 +6424,12 @@ class DashboardApp {
       
       // ตรวจสอบข้อมูลที่จำเป็น
       if (!recurringTaskData.title) {
-        this.showAlert('กรุณากรอกชื่องาน', 'error');
+        this.showToast('กรุณากรอกชื่องาน', 'error');
         return;
       }
       
       if (!assignees.length) {
-        this.showAlert('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน', 'error');
+        this.showToast('กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน', 'error');
         return;
       }
       
@@ -6442,7 +6442,7 @@ class DashboardApp {
       });
       
       if (response.success) {
-        this.showAlert('สร้างงานประจำสำเร็จ', 'success');
+        this.showToast('สร้างงานประจำสำเร็จ', 'success');
         this.closeModal('addTaskModal');
         
         // รีเซ็ตฟอร์ม
@@ -6457,7 +6457,7 @@ class DashboardApp {
       
     } catch (error) {
       console.error('❌ Error creating recurring task:', error);
-      this.showAlert('เกิดข้อผิดพลาดในการสร้างงานประจำ: ' + error.message, 'error');
+      this.showToast('เกิดข้อผิดพลาดในการสร้างงานประจำ: ' + error.message, 'error');
     }
   }
   
