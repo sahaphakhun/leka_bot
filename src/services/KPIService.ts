@@ -1605,8 +1605,11 @@ export class KPIService {
             }
           } else if (task.status === 'overdue' || 
                      (task.dueTime && moment(task.dueTime).isBefore(now))) {
-            // งานเกินกำหนด - บันทึก overdue KPI
+            // งานเกินกำหนด - บันทึก overdue KPI สำหรับผู้รับผิดชอบทุกคน
             throttledLogger.log('info', `⏰ Processing overdue task: ${task.title} (due: ${moment(task.dueTime).format('DD/MM/YYYY HH:mm')})`, 'process_overdue_task');
+            
+            // บันทึก KPI สำหรับผู้รับผิดชอบทุกคน
+            for (const assignee of task.assignedUsers) {
               const points = config.app.kpiScoring.overdue; // 0 คะแนน
               const eventDate = new Date();
               
@@ -1627,8 +1630,8 @@ export class KPIService {
 
               await this.kpiRepository.save(kpiRecord);
               processedUsers.add(assignee.id);
-              overdueTasks++;
             }
+            overdueTasks++;
           } else {
             // งานที่ยังไม่ถึงกำหนดส่ง - ไม่ต้องทำอะไร
             if (task.dueTime && moment(task.dueTime).isAfter(now)) {
