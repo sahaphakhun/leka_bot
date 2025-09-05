@@ -235,12 +235,19 @@ class Server {
         const needsMigration = await autoMigration.checkMigrationNeeded();
         if (needsMigration) {
           logger.info('🔄 ตรวจพบว่าจำเป็นต้องรัน migration...');
+          
+          // Run comprehensive migration during startup
           await autoMigration.runAutoMigration();
+          logger.info('✅ Auto-migration completed during startup');
         } else {
           logger.info('✅ Database schema ครบถ้วน ไม่ต้องรัน migration');
         }
       } catch (error) {
         logger.warn('⚠️ Auto-migration ล้มเหลว แต่ server จะยังคงทำงานต่อ:', error);
+        // Don't fail startup due to migration errors in development
+        if (config.nodeEnv === 'production') {
+          logger.error('❌ Production migration failed - this may cause issues');
+        }
       }
 
       // Initialize LINE service และ Cron jobs (เฉพาะเมื่อเปิดใช้ LINE integration)

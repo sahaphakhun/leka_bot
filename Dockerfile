@@ -42,6 +42,7 @@ COPY --from=base /app/node_modules ./node_modules
 COPY --from=base /app/dist ./dist
 COPY --from=base /app/register-paths.js ./
 COPY --from=base /app/dashboard ./dashboard
+COPY --from=base /app/scripts ./scripts
 COPY --from=base /app/package.json ./
 
 # Expose port
