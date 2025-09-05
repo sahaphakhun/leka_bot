@@ -122,8 +122,34 @@ export class GoogleDriveService {
       return null;
     }
 
-    // แปลง\n ใน private key ให้เป็น line break จริง
-    const privateKey = serviceAccountPrivateKey.replace(/\\n/g, '\n');
+    // แปลง\n ใน private key ให้เป็น line break จริง และจัดการกับ Railway's environment variable formatting
+    let privateKey = serviceAccountPrivateKey;
+    
+    // ถ้า private key มาจาก environment variable ที่มี \n ต้องแปลงเป็น line break จริง
+    if (privateKey.includes('\\n')) {
+      privateKey = privateKey.replace(/\\n/g, '\n');
+    }
+    
+    // ตรวจสอบว่ามี header และ footer ของ private key
+    if (!privateKey.includes('-----BEGIN PRIVATE KEY-----')) {
+      logger.error('❌ Invalid private key format: missing BEGIN header');
+      return null;
+    }
+    
+    if (!privateKey.includes('-----END PRIVATE KEY-----')) {
+      logger.error('❌ Invalid private key format: missing END footer');
+      return null;
+    }
+    
+    // ดีบักข้อมูล private key (ไม่แสดงเนื้อหาเต็ม)
+    logger.info('✅ Google Service Account credentials built from environment variables', {
+      type: serviceAccountType,
+      project_id: serviceAccountProjectId,
+      client_email: serviceAccountClientEmail,
+      private_key_preview: `${privateKey.substring(0, 50)}...${privateKey.substring(privateKey.length - 50)}`,
+      private_key_length: privateKey.length,
+      has_newlines: privateKey.includes('\n')
+    });
 
     return {
       type: serviceAccountType,
