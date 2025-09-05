@@ -311,6 +311,8 @@ class DashboardApp {
       // ตรวจสอบ action parameter และเปิด modal ทันทีถ้าเป็น new-task
       if (this.currentAction === 'new-task') {
         this.openAddTaskModalFast();
+      } else if (this.currentAction === 'new-recurring-task') {
+        this.openAddRecurringTaskModal();
       }
       
       // โหลดข้อมูลแบบ parallel
@@ -1667,6 +1669,13 @@ class DashboardApp {
       case 'tasks':
         this.loadTasks();
         break;
+      case 'recurring':
+        // Redirect to recurring tasks management page
+        const urlParams = new URLSearchParams();
+        if (this.currentGroupId) urlParams.set('groupId', this.currentGroupId);
+        if (this.currentUserId) urlParams.set('userId', this.currentUserId);
+        window.location.href = `/dashboard/recurring-tasks.html?${urlParams.toString()}`;
+        break;
       case 'files':
         // Call the actual file loading function (defined later in the file)
         this.loadFilesData();
@@ -2355,6 +2364,30 @@ class DashboardApp {
         
         // Setup file upload
         this.setupFileUpload();
+      });
+    }
+  }
+
+  openAddRecurringTaskModal() {
+    // เปิด modal เพิ่มงานและสลับไปแท็บงานประจำ
+    const modal = document.getElementById('addTaskModal');
+    const overlay = document.getElementById('modalOverlay');
+    if (modal && overlay) {
+      // โหลดรายชื่อสมาชิกก่อนเปิด modal
+      this.loadGroupMembers().then(() => {
+        // ย้าย modal ไปยัง overlay
+        overlay.innerHTML = '';
+        overlay.appendChild(modal);
+        modal.classList.remove('hidden');
+        overlay.classList.remove('hidden');
+        
+        // สลับไปแท็บงานประจำ
+        this.switchTaskTab('recurring');
+        
+        // Setup file upload
+        this.setupFileUpload();
+        
+        console.log('🚀 เปิด modal งานประจำ');
       });
     }
   }

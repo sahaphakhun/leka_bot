@@ -11,7 +11,7 @@ import { FlexMessageDesignSystem } from './FlexMessageDesignSystem';
 import { FileBackupService } from './FileBackupService';
 import { RecurringTaskService } from './RecurringTaskService';
 import { AppDataSource } from '@/utils/database';
-import { RecurringTask } from '@/models';
+import { RecurringTask, Task } from '@/models';
 
 export class CronService {
   private taskService: TaskService;
@@ -688,7 +688,7 @@ export class CronService {
           });
           
           // อัปเดตข้อมูลในงานที่สร้างให้เชื่อมโยงกับแม่แบบ
-          await AppDataSource.getRepository('tasks')
+          await AppDataSource.getRepository(Task)
             .createQueryBuilder()
             .update()
             .set({ 
@@ -697,6 +697,8 @@ export class CronService {
             })
             .where('id = :taskId', { taskId: newTask.id })
             .execute();
+            
+          console.log(`🔗 Linked task ${newTask.id} to recurring template ${template.id} (instance #${(template.totalInstances || 0) + 1});`);
           
           // อัปเดตแม่แบบ: เพิ่มจำนวนครั้งและคำนวณเวลาถัดไป
           const nextRunAt = this.recurringTaskService.calculateNextRunAt({
