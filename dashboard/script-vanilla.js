@@ -3450,7 +3450,7 @@ class DashboardApp {
               <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
             </div>
           </div>
-          <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="dashboard.removeSubmitFile(${index})">
+          <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="window.dashboardApp.removeSubmitFile(${index})">
             <i class="fas fa-times"></i>
           </button>
         </div>
