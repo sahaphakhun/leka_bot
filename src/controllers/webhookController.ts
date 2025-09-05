@@ -1401,7 +1401,7 @@ class WebhookController {
           console.log(`✅ สร้างผู้ใช้ใหม่สำหรับแชทส่วนตัว: ${profile.displayName}`);
         } catch (error: any) {
           if (error.status === 403) {
-            console.warn('⚠️ ไม่สามารถดึงข้อมูล profile ได้ ใช้ชื่อพื้นฐานแทน');
+            console.warn('🚫 บอทไม่มีสิทธิ์เข้าถึง profile ผู้ใช้ (ใช้ชื่อพื้นฐานแทน)');
             user = await this.userService.createUser({
               lineUserId: userId,
               displayName: `User ${userId.substring(0, 8)}`

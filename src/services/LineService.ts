@@ -473,9 +473,9 @@ export class LineService {
       const result = await this.client.getGroupMemberIds(groupId);
       return result;
     } catch (error: any) {
-      // Reduce logging for known 403 errors to prevent rate limiting
+      // Clearer permission error message
       if (error.status === 403) {
-        console.warn(`⚠️ LINE API 403: Bot doesn't have permission to access group ${groupId} member list`);
+        console.warn('🚫 บอทไม่มีสิทธิ์เข้าถึงรายชื่อสมาชิกกลุ่ม (ต้องการสิทธิ์ "Get member user IDs")');
       } else {
         console.error('❌ Failed to get group member user IDs:', error);
       }
@@ -575,7 +575,7 @@ export class LineService {
         
       } catch (accessError: any) {
         if (accessError.status === 403) {
-          console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลกลุ่ม');
+          console.log('🚫 บอทไม่มีสิทธิ์เข้าถึงข้อมูลกลุ่ม (ต้องเพิ่มสิทธิ์ในการตั้งค่า LINE Bot)');
         } else {
           console.log('❌ ไม่สามารถเข้าถึงกลุ่มได้:', accessError?.message || accessError);
         }
@@ -630,7 +630,7 @@ export class LineService {
           };
         } catch (error: any) {
           if (error.status === 403) {
-            console.log('🚫 LINE API 403: ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+            console.log('🚫 บอทไม่มีสิทธิ์เข้าถึง profile ผู้ใช้ (ใช้ข้อมูลพื้นฐานแทน)');
             return {
               userId,
               displayName: 'User ' + userId,
@@ -645,7 +645,7 @@ export class LineService {
       return members;
     } catch (error: any) {
       if (error.status === 403) {
-        console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม');
+        console.log('🚫 บอทไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ต้องเพิ่มสิทธิ์ "Get group member profile")');
       } else {
         console.error('❌ Failed to get all group members:', error);
       }
@@ -726,7 +726,7 @@ export class LineService {
     } catch (error: any) {
       // Reduce verbose logging for known issues to prevent Railway rate limiting
       if (error.status === 403) {
-        console.warn(`⚠️ LINE API 403: Bot lacks permission for group ${groupId}`);
+        console.warn('🚫 บอทไม่มีสิทธิ์เข้าถึงข้อมูลกลุ่ม (ต้องเพิ่มสิทธิ์ในการตั้งค่า LINE Bot)');
       } else {
         console.warn(`⚠️ LINE API error for group ${groupId}: ${error.status || 'unknown'}`);
       }
@@ -776,7 +776,7 @@ export class LineService {
           lineMembers = await this.getAllGroupMembers(groupId);
         } catch (error: any) {
           if (error.status === 403) {
-            console.log('🚫 LINE API 403: Bot ไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม');
+            console.log('🚫 บอทไม่มีสิทธิ์เข้าถึงข้อมูลสมาชิกกลุ่ม (ต้องเพิ่มสิทธิ์ในการตั้งค่า LINE Bot)');
             console.log('⏭️ ข้ามการ sync จาก LINE API');
             return {
               success: false,
@@ -1025,7 +1025,7 @@ export class LineService {
           
         } catch (error: any) {
           if (error.status === 403) {
-            console.log('🚫 LINE API 403: ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+            console.log('🚫 บอทไม่มีสิทธิ์เข้าถึง profile ผู้ใช้ (ใช้ข้อมูลพื้นฐานแทน)');
             
             const basicMember = {
               userId,
@@ -1136,7 +1136,7 @@ export class LineService {
         
       } catch (error: any) {
         if (error.status === 403) {
-          console.log('🚫 LINE API 403: ไม่สามารถดึงข้อมูล profile ได้ ใช้ข้อมูลพื้นฐานแทน');
+          console.log('🚫 บอทไม่มีสิทธิ์เข้าถึง profile ผู้ใช้ (ใช้ข้อมูลพื้นฐานแทน)');
           
           // บันทึกข้อมูลพื้นฐาน
           const basicMember = {

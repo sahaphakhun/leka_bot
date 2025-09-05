@@ -82,7 +82,7 @@ class ThrottledLogger {
     // Extract meaningful parts to group similar messages
     
     // LINE API errors
-    if (message.includes('LINE API 403')) {
+    if (message.includes('LINE API 403') || message.includes('บอทไม่มีสิทธิ์เข้าถึง')) {
       return 'line_api_403';
     }
     if (message.includes('LINE API error')) {
