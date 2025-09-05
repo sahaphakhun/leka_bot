@@ -2295,7 +2295,7 @@ class DashboardApp {
         this.currentCalendarMonth = thaiTime.getMonth();
         this.currentCalendarYear = thaiTime.getFullYear();
         
-        console.log(`✅ Calendar initialized to Thailand timezone: ${currentMonthName} ${currentYear}`);
+        console.log(`✅ Calendar initialized to Thailand timezone: ${currentMonthName} ${thaiTime.getFullYear() + 543}`);
       } catch (error) {
         console.error('❌ Error initializing calendar with Thailand timezone:', error);
         // Fallback to basic initialization
@@ -3521,12 +3521,17 @@ class DashboardApp {
       
       const formData = new FormData();
       
+      // Add userId for authentication
+      if (this.currentUserId) {
+        formData.append('userId', this.currentUserId);
+      }
+      
       // เพิ่มไฟล์ลงใน FormData
       files.forEach((file, index) => {
         formData.append(`files`, file);
       });
       
-      const response = await fetch(`/api/dashboard/tasks/${taskId}/submit`, {
+      const response = await fetch(`/api/tasks/${taskId}/submit`, {
         method: 'POST',
         body: formData
       });
@@ -3656,6 +3661,11 @@ class DashboardApp {
       const submitFormData = new FormData();
       if (comment) submitFormData.append('comment', comment);
       
+      // Add userId for authentication
+      if (this.currentUserId) {
+        submitFormData.append('userId', this.currentUserId);
+      }
+      
       // เพิ่มไฟล์แนบ
       files.forEach(file => {
         if (file.size > 0) {
@@ -3663,7 +3673,7 @@ class DashboardApp {
         }
       });
       
-      const response = await fetch(`/api/dashboard/tasks/${taskId}/submit`, {
+      const response = await fetch(`/api/tasks/${taskId}/submit`, {
         method: 'POST',
         body: submitFormData
       });
@@ -6436,7 +6446,7 @@ class DashboardApp {
       console.log('📝 Creating recurring task:', recurringTaskData);
       
       // เรียก API สร้างงานประจำ
-      const response = await this.apiRequest(`/groups/${this.currentGroupId}/recurring`, {
+      const response = await this.apiRequest(`/api/groups/${this.currentGroupId}/recurring`, {
         method: 'POST',
         body: JSON.stringify(recurringTaskData)
       });
