@@ -29,6 +29,8 @@
     "db:migrate-comprehensive": "tsx -r tsconfig-paths/register src/utils/comprehensiveMigration.ts",
     "db:migrate-duration-days": "tsx src/scripts/addDurationDaysToRecurringTasks.ts",
     "db:ensure-duration-days": "tsx src/scripts/ensureDurationDaysColumn.ts",
+    "db:test-duration-days": "tsx src/scripts/testDurationDaysMigration.ts",
+    "db:verify-duration-days": "tsx src/scripts/verifyDurationDaysColumn.ts",
     "test:rules": "tsx src/scripts/testProjectRules.ts",
     "test:leaderboard": "tsx src/scripts/testLeaderboard.ts",
     "test": "jest",

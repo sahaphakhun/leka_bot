@@ -2801,6 +2801,32 @@ class ApiController {
   }
 
   /**
+   * Endpoint to manually trigger duration days column migration
+   */
+  this.router.post('/admin/migrate-duration-days', authenticate, async (req: Request, res: Response) => {
+    try {
+      logger.info('🔄 Manually triggering duration days column migration...');
+      
+      // Import and run the migration
+      const { ensureDurationDaysColumn } = await import('@/scripts/ensureDurationDaysColumn');
+      await ensureDurationDaysColumn();
+      
+      res.json({
+        status: 'OK',
+        message: 'Duration days column migration completed successfully',
+        timestamp: getCurrentTime()
+      });
+    } catch (error) {
+      logger.error('❌ Duration days column migration failed:', error);
+      res.status(500).json({
+        status: 'ERROR',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: getCurrentTime()
+      });
+    }
+  });
+
+  /**
    * ตั้งค่า Google Calendar สำหรับกลุ่ม
    */
   public async setupGroupCalendar(req: Request, res: Response): Promise<void> {

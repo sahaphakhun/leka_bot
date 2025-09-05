@@ -88,6 +88,25 @@ POST /api/admin/migrate
 tsx src/scripts/runComprehensiveMigration.ts
 ```
 
+### Specific Migration for Duration Days Column
+
+If you're experiencing issues with the `durationDays` column in the `recurring_tasks` table, you can use these specific commands:
+
+#### Ensure Duration Days Column Exists
+```bash
+npm run db:ensure-duration-days
+```
+
+#### Test Duration Days Column
+```bash
+npm run db:test-duration-days
+```
+
+#### Verify Duration Days Column
+```bash
+npm run db:verify-duration-days
+```
+
 ### Check Migration Status
 
 #### API Endpoint
@@ -198,7 +217,6 @@ npm start  # Migration runs automatically on startup
 npm run deploy:backup
 
 # Solution 3: Manual migration via API
-POST /api/admin/migrate
 ```
 
 ### Common Issues
@@ -220,6 +238,19 @@ If automatic migration fails, you can run individual legacy scripts:
 npm run db:migrate-all         # Run all legacy migrations
 npm run db:check-schema        # Check database schema
 npm run db:fix-kpi-foreign-key # Fix KPI foreign keys
+```
+
+#### Duration Days Column Issues
+If you're having issues specifically with the `durationDays` column:
+```bash
+# Ensure the column exists
+npm run db:ensure-duration-days
+
+# Verify the column exists
+npm run db:verify-duration-days
+
+# Test the column functionality
+npm run db:test-duration-days
 ```
 
 ### Debugging
