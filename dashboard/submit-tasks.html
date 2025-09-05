@@ -51,6 +51,76 @@
         .file-upload-content {
             pointer-events: none;
         }
+        
+        /* Button styles */
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            border-radius: 0.375rem;
+            font-weight: 500;
+            text-decoration: none;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        
+        .btn-primary:disabled {
+            background-color: #9ca3af;
+            cursor: not-allowed;
+        }
+        
+        .btn-outline {
+            background-color: white;
+            color: #374151;
+            border: 1px solid #d1d5db;
+        }
+        
+        .btn-outline:hover {
+            background-color: #f9fafb;
+            border-color: #9ca3af;
+        }
+        
+        .btn-lg {
+            padding: 0.75rem 1.5rem;
+            font-size: 1.125rem;
+        }
+        
+        /* Form styles */
+        .form-group {
+            margin-bottom: 1.5rem;
+        }
+        
+        .form-label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-weight: 500;
+            color: #374151;
+        }
+        
+        .form-textarea {
+            width: 100%;
+            padding: 0.75rem;
+            border: 1px solid #d1d5db;
+            border-radius: 0.375rem;
+            resize: vertical;
+            font-family: inherit;
+        }
+        
+        .form-textarea:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -132,7 +202,7 @@
     </main>
 
     <!-- Submit Modal -->
-    <div class="modal-overlay" id="submitModal">
+    <div class="modal-overlay hidden" id="submitModal">
         <div class="modal modal-lg">
             <div class="modal-header">
                 <h3 class="modal-title">ยืนยันการส่งงาน</h3>
@@ -587,6 +657,7 @@
                 
                 // Use the correct modal show approach
                 const modal = document.getElementById('submitModal');
+                modal.classList.remove('hidden');
                 modal.classList.add('show');
                 
                 // ตั้งค่า file upload functionality หลังจากแสดง modal
@@ -599,6 +670,7 @@
                 // Use the correct modal hide approach
                 const modal = document.getElementById('submitModal');
                 modal.classList.remove('show');
+                modal.classList.add('hidden');
                 
                 // Reset form when closing
                 document.getElementById('submitForm').reset();
@@ -641,7 +713,7 @@
                         
                         // เพิ่มไฟล์
                         for (let i = 0; i < files.length; i++) {
-                            formData.append('files', files[i]);
+                            formData.append('attachments', files[i]);
                         }
                         
                         const response = await fetch(`/api/groups/${this.getTaskGroupId(taskId)}/tasks/${taskId}/submit`, {
