@@ -43,24 +43,17 @@ export class GoogleDriveService {
    */
   private async initializeAuth(): Promise<void> {
     try {
-      if (!config.google.serviceAccountJson && !config.google.serviceAccountKey) {
-        // ยังไม่มีค่า JSON ใน env ให้ลองพาธไฟล์
-        const envKeyFile = config.google.credentialsPath || process.env.GOOGLE_APPLICATION_CREDENTIALS;
-        const localFile = path.resolve(process.cwd(), 'google-service-account.json');
-        if (!envKeyFile && !fs.existsSync(localFile)) {
-          logger.warn('⚠️ Google Service Account not configured - set GOOGLE_SERVICE_ACCOUNT_JSON or GOOGLE_APPLICATION_CREDENTIALS');
-          return;
-        }
-      }
-
       let credentials: any;
       let keyFile: string | undefined;
       
-      if (config.google.serviceAccountJson) {
+      // ลำดับการตรวจสอบ credentials
+      credentials = this.tryBuildCredentialsFromEnvVars();
+      
+      if (!credentials && config.google.serviceAccountJson) {
         credentials = JSON.parse(config.google.serviceAccountJson);
-      } else if (config.google.serviceAccountKey) {
+      } else if (!credentials && config.google.serviceAccountKey) {
         credentials = JSON.parse(config.google.serviceAccountKey);
-      } else {
+      } else if (!credentials) {
         // ใช้ไฟล์จาก GOOGLE_APPLICATION_CREDENTIALS หรือไฟล์ในโปรเจกต์
         keyFile = (config.google.credentialsPath || process.env.GOOGLE_APPLICATION_CREDENTIALS) as string;
         if (!keyFile) {
@@ -70,7 +63,7 @@ export class GoogleDriveService {
       }
 
       if (!credentials && !keyFile) {
-        logger.warn('⚠️ Invalid Google Service Account credentials');
+        logger.warn('⚠️ Google Service Account not configured - set individual env vars or GOOGLE_SERVICE_ACCOUNT_JSON');
         return;
       }
 
@@ -80,8 +73,14 @@ export class GoogleDriveService {
           'https://www.googleapis.com/auth/drive.file'
         ]
       };
-      if (credentials) authOpts.credentials = credentials;
-      if (keyFile) authOpts.keyFile = keyFile;
+      if (credentials) {
+        authOpts.credentials = credentials;
+        logger.info('✅ Using Google Service Account from environment variables');
+      }
+      if (keyFile) {
+        authOpts.keyFile = keyFile;
+        logger.info('✅ Using Google Service Account from file');
+      }
 
       this.auth = new google.auth.GoogleAuth(authOpts);
 
@@ -98,6 +97,47 @@ export class GoogleDriveService {
       logger.error('❌ Failed to initialize Google Drive Service:', error);
       this.isInitialized = false;
     }
+  }
+
+  /**
+   * พยายามสร้าง credentials จาก environment variables แยก
+   */
+  private tryBuildCredentialsFromEnvVars(): any {
+    const {
+      serviceAccountType,
+      serviceAccountProjectId,
+      serviceAccountPrivateKeyId,
+      serviceAccountPrivateKey,
+      serviceAccountClientEmail,
+      serviceAccountClientId,
+      serviceAccountAuthUri,
+      serviceAccountTokenUri,
+      serviceAccountAuthProviderX509CertUrl,
+      serviceAccountClientX509CertUrl,
+      serviceAccountUniverseDomain
+    } = config.google;
+
+    // ตรวจสอบว่ามี environment variables ที่จำเป็นหรือไม่
+    if (!serviceAccountType || !serviceAccountProjectId || !serviceAccountPrivateKey || !serviceAccountClientEmail) {
+      return null;
+    }
+
+    // แปลง\n ใน private key ให้เป็น line break จริง
+    const privateKey = serviceAccountPrivateKey.replace(/\\n/g, '\n');
+
+    return {
+      type: serviceAccountType,
+      project_id: serviceAccountProjectId,
+      private_key_id: serviceAccountPrivateKeyId,
+      private_key: privateKey,
+      client_email: serviceAccountClientEmail,
+      client_id: serviceAccountClientId,
+      auth_uri: serviceAccountAuthUri || 'https://accounts.google.com/o/oauth2/auth',
+      token_uri: serviceAccountTokenUri || 'https://oauth2.googleapis.com/token',
+      auth_provider_x509_cert_url: serviceAccountAuthProviderX509CertUrl || 'https://www.googleapis.com/oauth2/v1/certs',
+      client_x509_cert_url: serviceAccountClientX509CertUrl,
+      universe_domain: serviceAccountUniverseDomain || 'googleapis.com'
+    };
   }
 
   /**

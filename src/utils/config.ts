@@ -39,6 +39,19 @@ export const config = {
     serviceAccountJson: process.env.GOOGLE_SERVICE_ACCOUNT_JSON, // สำหรับ Railway
     driveSharedFolderId: process.env.GOOGLE_DRIVE_SHARED_FOLDER_ID, // โฟลเดอร์ใน Shared Drive
     credentialsPath: process.env.GOOGLE_APPLICATION_CREDENTIALS, // พาธไฟล์ JSON ทางเลือก
+    
+    // Service Account แยกเป็นหลาย environment variables (สำหรับ Railway)
+    serviceAccountType: process.env.GOOGLE_SA_TYPE,
+    serviceAccountProjectId: process.env.GOOGLE_SA_PROJECT_ID,
+    serviceAccountPrivateKeyId: process.env.GOOGLE_SA_PRIVATE_KEY_ID,
+    serviceAccountPrivateKey: process.env.GOOGLE_SA_PRIVATE_KEY,
+    serviceAccountClientEmail: process.env.GOOGLE_SA_CLIENT_EMAIL,
+    serviceAccountClientId: process.env.GOOGLE_SA_CLIENT_ID,
+    serviceAccountAuthUri: process.env.GOOGLE_SA_AUTH_URI,
+    serviceAccountTokenUri: process.env.GOOGLE_SA_TOKEN_URI,
+    serviceAccountAuthProviderX509CertUrl: process.env.GOOGLE_SA_AUTH_PROVIDER_X509_CERT_URL,
+    serviceAccountClientX509CertUrl: process.env.GOOGLE_SA_CLIENT_X509_CERT_URL,
+    serviceAccountUniverseDomain: process.env.GOOGLE_SA_UNIVERSE_DOMAIN,
   },
   
   // Email Configuration
