@@ -1,58 +1,36 @@
-# syntax=docker/dockerfile:1
+# Use Node.js 18 Alpine for smaller image size
+FROM node:18-alpine
 
-# --- Base build stage ---
-FROM node:20-slim AS base
+# Set working directory
 WORKDIR /app
+
+# Set environment variables
 ENV NODE_ENV=production
+ENV PORT=3000
 
-# Install OS deps for building packages where needed
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    ca-certificates \
-    git \
-    openssl \
-    python3 \
-    build-essential \
-  && rm -rf /var/lib/apt/lists/*
+# Copy package files
+COPY package*.json ./
 
-# Copy manifests
-COPY package.json package-lock.json* ./
+# Install dependencies
+RUN npm ci --only=production
 
-# Install deps (include dev for build)
-RUN npm ci --include=dev
-
-# Copy source
+# Copy source code
 COPY . .
 
-# Build: Tailwind + TypeScript and copy dashboard assets
-RUN npm run build
-
-# Prune devDependencies for runtime
-RUN npm prune --omit=dev
-
-# --- Runtime stage ---
-FROM node:20-slim AS runner
-WORKDIR /app
-ENV NODE_ENV=production
-
 # Create non-root user
-RUN useradd -m nodeuser
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nextjs -u 1001
 
-# Copy only runtime app from base
-COPY --from=base /app/node_modules ./node_modules
-COPY --from=base /app/dist ./dist
-COPY --from=base /app/register-paths.js ./
-COPY --from=base /app/dashboard ./dashboard
-COPY --from=base /app/scripts ./scripts
-COPY --from=base /app/package.json ./
-COPY --from=base /app/tsconfig.json ./
+# Change ownership of the app directory
+RUN chown -R nextjs:nodejs /app
+USER nextjs
 
 # Expose port
 EXPOSE 3000
 
-USER nodeuser
+# Health check
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD node -e "require('http').get('http://localhost:3000/health', (res) => { process.exit(res.statusCode === 200 ? 0 : 1) })"
 
-# Healthcheck hits /health
-HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:'+(process.env.PORT||3000)+'/health',res=>{if(res.statusCode!==200)process.exit(1)}).on('error',()=>process.exit(1))"
-
-CMD ["npm","run","deploy"]
+# Start the application
+CMD ["npm", "start"]

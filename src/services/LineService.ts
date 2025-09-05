@@ -242,6 +242,12 @@ export class LineService {
         }
 
         if (message.type === 'flex') {
+          // ตรวจสอบ Flex Message size (LINE limit: 50KB)
+          const messageSize = JSON.stringify(message).length;
+          if (messageSize > 50000) {
+            console.warn(`⚠️ Flex Message too large: ${messageSize} bytes (limit: 50KB)`);
+            return false;
+          }
           return !!(message.altText && message.contents);
         }
       }
@@ -251,6 +257,19 @@ export class LineService {
       console.error('❌ Message validation failed:', error);
       return false;
     }
+  }
+
+  /**
+   * ตรวจสอบรูปแบบ LINE ID
+   */
+  private isValidLineId(id: string): boolean {
+    if (!id || typeof id !== 'string') return false;
+    
+    // LINE User ID: เริ่มด้วย U + 32 ตัวอักษร
+    // LINE Group ID: เริ่มด้วย C + 32 ตัวอักษร  
+    // LINE Room ID: เริ่มด้วย R + 32 ตัวอักษร
+    const lineIdPattern = /^[UCR][a-f0-9]{32}$/i;
+    return lineIdPattern.test(id);
   }
 
   /**
@@ -347,6 +366,12 @@ export class LineService {
         throw new Error('Invalid groupId');
       }
 
+      // ตรวจสอบรูปแบบ LINE ID
+      if (!this.isValidLineId(groupId)) {
+        console.error('❌ Invalid LINE ID format:', groupId);
+        throw new Error('Invalid LINE ID format');
+      }
+
       // ตรวจสอบ message
       if (!this.validateMessage(message)) {
         console.error('❌ Invalid message:', message);
@@ -359,15 +384,39 @@ export class LineService {
 
       await this.client.pushMessage(groupId, messageObj);
       console.log('✅ Push message sent successfully to group:', groupId.substring(0, 10) + '...');
-    } catch (error) {
+    } catch (error: any) {
       console.error('❌ Failed to push message:', error);
       
       // เพิ่มการ log ข้อมูลเพิ่มเติมเพื่อ debug
       console.error('❌ Debug info:', {
         groupId: groupId?.substring(0, 10) + '...',
         messageType: typeof message,
-        messageLength: typeof message === 'string' ? message.length : 'N/A'
+        messageLength: typeof message === 'string' ? message.length : 'N/A',
+        errorStatus: error?.statusCode || error?.status,
+        errorMessage: error?.message
       });
+
+      // จัดการ error 400 อย่างเฉพาะเจาะจง
+      if (error?.statusCode === 400 || error?.status === 400) {
+        console.error('❌ LINE API 400 Error - Possible causes:');
+        console.error('  - Invalid message format');
+        console.error('  - Message too large');
+        console.error('  - Invalid LINE ID');
+        console.error('  - Bot not in group or user blocked bot');
+        
+        // ลองส่งข้อความธรรมดาแทน Flex Message
+        if (typeof message === 'object' && message.type === 'flex') {
+          console.log('🔄 Attempting to send simple text message instead...');
+          try {
+            const simpleMessage = `📋 ${message.altText || 'การแจ้งเตือน'}`;
+            await this.client.pushMessage(groupId, { type: 'text', text: simpleMessage });
+            console.log('✅ Fallback text message sent successfully');
+            return;
+          } catch (fallbackError) {
+            console.error('❌ Fallback message also failed:', fallbackError);
+          }
+        }
+      }
       
       throw error;
     }

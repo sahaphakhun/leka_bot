@@ -674,12 +674,19 @@ export class CronService {
           const dueTime = new Date();
           dueTime.setDate(dueTime.getDate() + (template.durationDays || 7));
           
+          // ตรวจสอบและใช้ LINE User ID ที่ถูกต้อง
+          const createdByLineUserId = template.createdByLineUserId || template.assigneeLineUserIds?.[0];
+          if (!createdByLineUserId) {
+            console.warn(`⚠️ Skipping recurring task ${template.title}: no valid creator LINE User ID`);
+            continue;
+          }
+
           const newTask = await this.taskService.createTask({
             groupId: template.lineGroupId,
             title: template.title,
             description: template.description,
             assigneeIds: template.assigneeLineUserIds,
-            createdBy: template.createdByLineUserId,
+            createdBy: createdByLineUserId,
             dueTime: dueTime,
             priority: template.priority,
             tags: template.tags,

@@ -108,9 +108,21 @@ export class TaskService {
       }
 
       // ค้นหา Creator User entity จาก LINE User ID
-      const creator = await this.userRepository.findOneBy({ lineUserId: data.createdBy });
+      let creator = await this.userRepository.findOneBy({ lineUserId: data.createdBy });
       if (!creator) {
-        throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
+        console.error(`❌ Creator user not found for LINE ID: ${data.createdBy}`);
+        // ลองใช้ assignee แรกแทน
+        if (data.assigneeIds && data.assigneeIds.length > 0) {
+          creator = await this.userRepository.findOneBy({ lineUserId: data.assigneeIds[0] });
+          if (creator) {
+            console.log(`✅ Using fallback creator: ${creator.displayName} (${data.assigneeIds[0]})`);
+            data.createdBy = data.assigneeIds[0];
+          } else {
+            throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
+          }
+        } else {
+          throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
+        }
       }
 
       // ตรวจสอบงานซ้ำในระยะเวลา 2 นาทีที่ผ่านมา (ลดเวลาลงเพื่อป้องกันการสร้างซ้ำ)

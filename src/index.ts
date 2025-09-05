@@ -102,6 +102,16 @@ class Server {
       });
     });
 
+    // Simple root endpoint
+    this.app.get('/', (req: Request, res: Response) => {
+      res.json({
+        message: 'Leka Bot API is running',
+        status: 'ok',
+        timestamp: getCurrentTime(),
+        environment: config.nodeEnv
+      });
+    });
+
     // Migration status check
     this.app.get('/migration-status', async (req: Request, res: Response) => {
       try {
@@ -230,7 +240,7 @@ class Server {
       await initializeDatabase();
       logger.info('Database connected');
 
-      // Run auto-migration if needed
+      // Run auto-migration if needed (non-blocking)
       try {
         const needsMigration = await autoMigration.checkMigrationNeeded();
         if (needsMigration) {
@@ -244,20 +254,22 @@ class Server {
         }
       } catch (error) {
         logger.warn('⚠️ Auto-migration ล้มเหลว แต่ server จะยังคงทำงานต่อ:', error);
-        // Don't fail startup due to migration errors in development
-        if (config.nodeEnv === 'production') {
-          logger.error('❌ Production migration failed - this may cause issues');
-        }
+        // Don't fail startup due to migration errors
+        logger.warn('Server will continue without migration');
       }
 
       // Initialize LINE service และ Cron jobs (เฉพาะเมื่อเปิดใช้ LINE integration)
-      if (features.lineEnabled) {
-        await this.lineService.initialize();
-        logger.info('LINE service initialized');
-        this.cronService.start();
-        logger.info('Cron jobs started');
-      } else {
-        logger.info('Starting in Dashboard-only mode (LINE integration disabled)');
+      try {
+        if (features.lineEnabled) {
+          await this.lineService.initialize();
+          logger.info('LINE service initialized');
+          this.cronService.start();
+          logger.info('Cron jobs started');
+        } else {
+          logger.info('Starting in Dashboard-only mode (LINE integration disabled)');
+        }
+      } catch (error) {
+        logger.warn('⚠️ LINE service initialization failed, continuing in dashboard-only mode:', error);
       }
 
       // Start server

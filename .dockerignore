@@ -1,38 +1,69 @@
-# Exclude unnecessary files from Docker build context
-node_modules/
-.dist/
-dist/
-.tmp/
-.temp/
-.cache/
-coverage/
-.logs/
-*.log
+# Dependencies
+node_modules
+npm-debug.log*
 
-# VCS
-.git/
+# Build artifacts
+dist
+build
+
+# Development files
+src
+*.ts
+tsconfig.json
+tsconfig.test.json
+jest.config.js
+
+# Test files
+test
+tests
+*.test.js
+*.test.ts
+*.spec.js
+*.spec.ts
+
+# Documentation
+*.md
+docs
+README.md
+CHANGELOG.md
+
+# Git
+.git
 .gitignore
 
-# Local env and secrets
-.env
-.env.*
+# IDE
+.vscode
+.idea
+*.swp
+*.swo
 
-# OS files
+# OS
 .DS_Store
 Thumbs.db
 
-# Uploads and generated assets
-uploads/
+# Logs
+logs
+*.log
 
-# Editor/IDE
-.vscode/
-.idea/
+# Environment files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
 
-# Tests and local scripts not needed in production
-**/*.test.*
-**/__tests__/
+# Temporary files
+tmp
+temp
+uploads
 
-# Misc
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+# Railway specific
+.railwayignore
+railway.json
+
+# Docker
+Dockerfile
+.dockerignore
+
+# Scripts
+scripts

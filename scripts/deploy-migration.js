@@ -63,7 +63,7 @@ async function runCommand(command, description) {
     logInfo(`${description}...`);
     logInfo(`Executing: ${command}`);
     
-    const process = exec(command, { 
+    const childProcess = exec(command, { 
       timeout: MIGRATION_TIMEOUT,
       env: { ...process.env, NODE_ENV }
     });
@@ -71,18 +71,18 @@ async function runCommand(command, description) {
     let stdout = '';
     let stderr = '';
     
-    process.stdout.on('data', (data) => {
+    childProcess.stdout.on('data', (data) => {
       stdout += data;
       // Real-time output for debugging
       console.log(data.toString().trim());
     });
     
-    process.stderr.on('data', (data) => {
+    childProcess.stderr.on('data', (data) => {
       stderr += data;
       console.error(data.toString().trim());
     });
     
-    process.on('close', (code) => {
+    childProcess.on('close', (code) => {
       if (code === 0) {
         logSuccess(`${description} completed successfully`);
         resolve({ stdout, stderr, code });
@@ -92,7 +92,7 @@ async function runCommand(command, description) {
       }
     });
     
-    process.on('error', (error) => {
+    childProcess.on('error', (error) => {
       logError(`Failed to execute command: ${error.message}`);
       reject(error);
     });
@@ -152,20 +152,44 @@ async function buildApplication() {
   logInfo('Building application...');
   
   try {
-    // Try to build with TypeScript, but don't fail if it has minor type issues
-    try {
-      await runCommand('npm run build', 'TypeScript compilation');
-      logSuccess('Application built successfully');
-    } catch (buildError) {
-      logWarning('TypeScript build had issues, attempting alternative build...');
+    // In production, skip CSS build if file already exists to avoid permission issues
+    if (NODE_ENV === 'production') {
+      const fs = require('fs');
+      const path = require('path');
+      const cssPath = path.join(__dirname, '..', 'dashboard', 'tailwind.css');
       
-      // Try alternative build approaches
+      if (fs.existsSync(cssPath)) {
+        logInfo('CSS file already exists, skipping CSS build to avoid permission issues');
+        // Only run TypeScript build
+        try {
+          await runCommand('npm run build:no-css', 'TypeScript compilation only');
+          logSuccess('Application built successfully (CSS skipped)');
+        } catch (buildError) {
+          logWarning('TypeScript build failed, continuing with existing dist files');
+        }
+      } else {
+        // CSS file doesn't exist, try full build
+        try {
+          await runCommand('npm run build', 'Full build');
+          logSuccess('Application built successfully');
+        } catch (buildError) {
+          logWarning('Full build failed, continuing with existing files');
+        }
+      }
+    } else {
+      // Development mode - try full build
       try {
-        // Just build CSS and copy files without full TypeScript compilation
-        await runCommand('npm run css:build', 'CSS build');
-        logWarning('Built CSS only - TypeScript compilation skipped due to type issues');
-      } catch (cssError) {
-        logWarning('CSS build also failed - continuing without build');
+        await runCommand('npm run build', 'TypeScript compilation');
+        logSuccess('Application built successfully');
+      } catch (buildError) {
+        logWarning('TypeScript build had issues, attempting alternative build...');
+        
+        try {
+          await runCommand('npm run css:build', 'CSS build');
+          logWarning('Built CSS only - TypeScript compilation skipped due to type issues');
+        } catch (cssError) {
+          logWarning('CSS build also failed - continuing without build');
+        }
       }
     }
   } catch (error) {
@@ -183,13 +207,8 @@ async function runMigration() {
   logInfo('Starting comprehensive database migration...');
   
   try {
-    // First, try to ensure the durationDays column exists (specific fix)
-    try {
-      await runCommand('npm run db:ensure-duration-days', 'Ensuring durationDays column exists');
-      logSuccess('Duration days column check completed');
-    } catch (error) {
-      logWarning('Duration days column check failed, continuing with comprehensive migration...');
-    }
+    // Skip individual migration scripts as they have been removed
+    logInfo('Skipping individual migration scripts - using comprehensive migration only');
     
     // Try to run migration - prefer compiled JavaScript in production
     let migrationCommand;

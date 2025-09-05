@@ -130,33 +130,90 @@ export class NotificationService {
       const group = task.group;
       const creator = task.createdByUser;
 
-      if (!group || assignees.length === 0) return;
+      if (!group || assignees.length === 0) {
+        console.log(`⚠️ Cannot send notification: missing group or assignees for task: ${task.id}`);
+        return;
+      }
+
+      // ตรวจสอบ LINE Group ID
+      if (!group.lineGroupId) {
+        console.log(`⚠️ Cannot send notification: missing lineGroupId for group: ${group.id}`);
+        return;
+      }
 
       const dueDate = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
       
       // ส่งการ์ดงานใหม่ (Flex) ไปยังกลุ่มแทนข้อความธรรมดา
-      const groupFlexMessage = this.createTaskCreatedFlexMessage(task, group, creator, dueDate);
-      await this.lineService.pushMessage(group.lineGroupId, groupFlexMessage);
+      try {
+        const groupFlexMessage = this.createTaskCreatedFlexMessage(task, group, creator, dueDate);
+        await this.lineService.pushMessage(group.lineGroupId, groupFlexMessage);
+        console.log(`✅ Sent group task created notification for task: ${task.id}`);
+      } catch (err: any) {
+        console.error('❌ Failed to send group task created notification:', err);
+        
+        // ถ้าเป็น error 400 ให้ลองส่งข้อความธรรมดา
+        if (err?.statusCode === 400 || err?.status === 400) {
+          try {
+            const simpleMessage = `🆕 งานใหม่: ${task.title}\n📅 กำหนดส่ง: ${dueDate}\n👥 ผู้รับผิดชอบ: ${assignees.map(a => a.displayName).join(', ')}`;
+            await this.lineService.pushMessage(group.lineGroupId, simpleMessage);
+            console.log(`✅ Sent simple group notification for task: ${task.id}`);
+          } catch (simpleErr) {
+            console.error('❌ Failed to send simple group notification:', simpleErr);
+            // ไม่ throw error เพื่อให้ระบบทำงานต่อได้
+          }
+        } else {
+          // สำหรับ error อื่น ๆ ให้ throw ต่อ
+          throw err;
+        }
+      }
 
       // ส่งการ์ดงานต่างๆ ของแต่ละงานเข้าไลน์ส่วนตัว
       for (const assignee of assignees) {
         try {
+          // ตรวจสอบ LINE User ID
+          if (!assignee.lineUserId || assignee.lineUserId === 'unknown') {
+            console.warn(`⚠️ Skipping notification for assignee ${assignee.displayName}: invalid lineUserId`);
+            continue;
+          }
+
           const personalFlexMessage = this.createPersonalTaskCreatedFlexMessage(task, group, assignee, creator, dueDate);
           await this.lineService.pushMessage(assignee.lineUserId, personalFlexMessage);
           console.log(`✅ Sent personal task created notification to: ${assignee.displayName}`);
-        } catch (err) {
+        } catch (err: any) {
           console.warn('⚠️ Failed to send personal task created notification:', assignee.lineUserId, err);
+          
+          // ถ้าเป็น error 400 ให้ลองส่งข้อความธรรมดา
+          if (err?.statusCode === 400 || err?.status === 400) {
+            try {
+              const simpleMessage = `📋 งานใหม่: ${task.title}\n📅 กำหนดส่ง: ${dueDate}\n👤 ผู้สร้าง: ${creator?.displayName || 'ไม่ระบุ'}`;
+              await this.lineService.pushMessage(assignee.lineUserId, simpleMessage);
+              console.log(`✅ Sent simple personal notification to: ${assignee.displayName}`);
+            } catch (simpleErr) {
+              console.warn('⚠️ Failed to send simple personal notification:', assignee.lineUserId, simpleErr);
+            }
+          }
         }
       }
 
       // ส่งการ์ดส่วนตัวไปยังผู้สร้างงานด้วย
-      if (creator && creator.lineUserId) {
+      if (creator && creator.lineUserId && creator.lineUserId !== 'unknown') {
         try {
           const creatorFlexMessage = this.createCreatorTaskCreatedFlexMessage(task, group, creator, dueDate);
           await this.lineService.pushMessage(creator.lineUserId, creatorFlexMessage);
           console.log(`✅ Sent creator task created notification to: ${creator.displayName}`);
-        } catch (err) {
+        } catch (err: any) {
           console.warn('⚠️ Failed to send creator task created notification:', creator.lineUserId, err);
+          
+          // ถ้าเป็น error 400 ให้ลองส่งข้อความธรรมดา
+          if (err?.statusCode === 400 || err?.status === 400) {
+            try {
+              const simpleMessage = `✅ สร้างงานสำเร็จ: ${task.title}\n📅 กำหนดส่ง: ${dueDate}\n👥 ผู้รับผิดชอบ: ${assignees.map(a => a.displayName).join(', ')}`;
+              await this.lineService.pushMessage(creator.lineUserId, simpleMessage);
+              console.log(`✅ Sent simple creator notification to: ${creator.displayName}`);
+            } catch (simpleErr) {
+              console.warn('⚠️ Failed to send simple creator notification:', creator.lineUserId, simpleErr);
+            }
+          }
         }
       }
 

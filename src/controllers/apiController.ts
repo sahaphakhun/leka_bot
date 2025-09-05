@@ -2567,13 +2567,11 @@ class ApiController {
     try {
       console.log('🔄 Starting KPI Enum migration...');
       
-      const { migrateOverdueKPIType } = await import('@/scripts/migrateOverdueKPIType');
-      await migrateOverdueKPIType();
-      
+      // Migration script has been removed - this endpoint is deprecated
       res.json({
-        success: true,
-        message: 'KPI Enum migration completed successfully',
-        details: 'Added "overdue" to kpi_records_type_enum'
+        success: false,
+        message: 'KPI Enum migration script has been removed. Please use comprehensive migration instead.',
+        deprecated: true
       });
     } catch (error) {
       logger.error('❌ KPI Enum migration error:', error);
@@ -2592,8 +2590,14 @@ class ApiController {
     try {
       console.log('🔍 Checking database connection...');
       
-      const { checkDatabaseConnection } = await import('@/scripts/checkDatabaseConnection');
-      await checkDatabaseConnection();
+      // Check database connection directly
+      const { AppDataSource } = await import('@/utils/database');
+      if (!AppDataSource.isInitialized) {
+        await AppDataSource.initialize();
+      }
+      
+      // Simple query to test connection
+      await AppDataSource.query('SELECT 1');
       
       res.json({
         success: true,
@@ -2861,9 +2865,9 @@ class ApiController {
 
       logger.info('🔄 Manually triggering duration days column migration...');
       
-      // Import and run the migration
-      const { ensureDurationDaysColumn } = await import('@/scripts/ensureDurationDaysColumn');
-      await ensureDurationDaysColumn();
+      // Use comprehensive migration instead
+      const { comprehensiveMigration } = await import('@/utils/comprehensiveMigration');
+      await comprehensiveMigration.runComprehensiveMigration();
       
       res.json({
         status: 'OK',

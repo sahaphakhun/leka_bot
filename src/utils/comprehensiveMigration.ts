@@ -35,10 +35,16 @@ export class ComprehensiveMigration {
       logger.info('🚀 Starting Comprehensive Auto-Migration...');
       logger.info('==========================================');
       
-      // Check database connection
+      // Initialize database connection if not already initialized
       if (!AppDataSource.isInitialized) {
-        logger.warn('⏳ Database not initialized yet, skipping migration');
-        return;
+        logger.info('⏳ Database not initialized yet, initializing...');
+        try {
+          await AppDataSource.initialize();
+          logger.info('✅ Database initialized successfully');
+        } catch (error) {
+          logger.error('❌ Failed to initialize database:', error);
+          throw error;
+        }
       }
 
       // Migration steps in order of execution
@@ -203,7 +209,8 @@ export class ComprehensiveMigration {
       // Recurring tasks table missing columns
       const recurringTaskColumns = await this.getTableColumns(queryRunner, 'recurring_tasks');
       const requiredRecurringTaskColumns = [
-        { name: 'durationDays', type: 'INTEGER', nullable: false, default: '7' }
+        { name: 'durationDays', type: 'INTEGER', nullable: false, default: '7' },
+        { name: 'totalInstances', type: 'INTEGER', nullable: false, default: '0' }
       ];
 
       await this.addMissingColumnsToTable(queryRunner, 'recurring_tasks', recurringTaskColumns, requiredRecurringTaskColumns);
@@ -712,6 +719,7 @@ export class ComprehensiveMigration {
 
         const recurringTaskColumns = await this.getTableColumns(queryRunner, 'recurring_tasks');
         const recurringTasksMissingDurationDays = !recurringTaskColumns.includes('durationDays');
+        const recurringTasksMissingTotalInstances = !recurringTaskColumns.includes('totalInstances');
 
         // Check for orphaned data
         const orphanedAssignments = await queryRunner.query(`
@@ -733,7 +741,7 @@ export class ComprehensiveMigration {
 
         const hasTasksWithoutWorkflow = parseInt(tasksWithoutWorkflow[0].count) > 0;
 
-        const migrationNeeded = tasksMissingColumns || filesMissingAttachmentType || recurringTasksMissingDurationDays || hasOrphanedData || hasTasksWithoutWorkflow;
+        const migrationNeeded = tasksMissingColumns || filesMissingAttachmentType || recurringTasksMissingDurationDays || recurringTasksMissingTotalInstances || hasOrphanedData || hasTasksWithoutWorkflow;
         
         if (migrationNeeded) {
           logger.info('📋 Migration needed due to missing columns or data issues');

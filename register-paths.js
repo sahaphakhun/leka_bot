@@ -3,8 +3,20 @@ const moduleAlias = require('module-alias');
 const path = require('path');
 
 // Determine if we're in development or production
-const isDevelopment = process.env.NODE_ENV === 'development';
-const baseDir = isDevelopment ? 'src' : 'dist';
+// Use try-catch to handle cases where process.env is not yet available
+let isDevelopment = false;
+let baseDir = 'dist'; // Default to production
+
+try {
+  // Always use dist for compiled builds
+  isDevelopment = false;
+  baseDir = 'dist';
+} catch (error) {
+  // If anything fails, default to production mode
+  console.warn('Warning: Could not determine environment, defaulting to production mode');
+  isDevelopment = false;
+  baseDir = 'dist';
+}
 
 // Register path aliases
 moduleAlias.addAliases({
@@ -17,4 +29,7 @@ moduleAlias.addAliases({
   '@/utils': path.join(__dirname, baseDir, 'utils')
 });
 
-console.log(`✅ Path aliases registered for ${isDevelopment ? 'development' : 'production'} mode`);
+// Only log if we're not in a migration context to avoid noise
+if (typeof process !== 'undefined' && process.argv && !process.argv.some(arg => arg.includes('migration'))) {
+  console.log(`✅ Path aliases registered for ${isDevelopment ? 'development' : 'production'} mode`);
+}
