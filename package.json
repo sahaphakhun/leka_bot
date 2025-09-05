@@ -27,6 +27,7 @@
     "db:migrate-all": "tsx src/scripts/runFullMigration.ts",
     "db:migrate-overdue-kpi": "tsx src/scripts/migrateOverdueKPIType.ts",
     "db:migrate-comprehensive": "tsx -r tsconfig-paths/register src/utils/comprehensiveMigration.ts",
+    "db:migrate-duration-days": "tsx src/scripts/addDurationDaysToRecurringTasks.ts",
     "test:rules": "tsx src/scripts/testProjectRules.ts",
     "test:leaderboard": "tsx src/scripts/testLeaderboard.ts",
     "test": "jest",
