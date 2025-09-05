@@ -940,6 +940,7 @@ class DashboardApp {
     const diff = due - now;
     const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
 
+    // Use Thai locale formatting which will automatically handle Buddhist year correctly
     const dateStr = due.toLocaleDateString('th-TH', {
       day: '2-digit',
       month: '2-digit',
@@ -1945,7 +1946,14 @@ class DashboardApp {
         return;
       }
       
-      const dateStr = `${day}/${month}/${year + 543}`;
+      // Use Thai locale to get the correct Buddhist year format
+      const thaiDate = new Date(year, month - 1, day);
+      const dateStr = thaiDate.toLocaleDateString('th-TH', {
+        day: 'numeric',
+        month: 'numeric',
+        year: 'numeric'
+      });
+      
       contentContainer.innerHTML = `
         <h5 class="font-semibold text-gray-800 mb-3">งานวันที่ ${dateStr} (รวม ${dayTasks.length} งาน)</h5>
         <div class="space-y-2 max-h-60 overflow-y-auto">
@@ -2243,9 +2251,11 @@ class DashboardApp {
         const months = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 
                        'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
         const currentMonthName = months[thaiTime.getMonth()];
-        const currentYear = thaiTime.getFullYear() + 543; // Convert to Thai Buddhist year
         
-        currentMonth.textContent = `${currentMonthName} ${currentYear}`;
+        // Use toLocaleDateString to get the correct Buddhist year
+        const thaiYear = thaiTime.toLocaleDateString('th-TH', { year: 'numeric' }).replace(/,/g, '');
+        
+        currentMonth.textContent = `${currentMonthName} ${thaiYear}`;
         
         // Store current month and year for navigation (in Gregorian calendar for calculation)
         this.currentCalendarMonth = thaiTime.getMonth();
@@ -2295,6 +2305,9 @@ class DashboardApp {
         
         // เรียกใช้ setupFileUpload เมื่อเปิด modal
         this.setupFileUpload();
+        
+        // โหลดสมาชิกใน checkbox group
+        this.populateAssigneeCheckboxes();
       });
     }
   }
@@ -2507,7 +2520,10 @@ class DashboardApp {
         
         const monthName = months[this.currentCalendarMonth];
         const monthNameEng = monthsEng[this.currentCalendarMonth];
-        const thaiYear = this.currentCalendarYear + 543; // Convert to Thai Buddhist year
+        
+        // Use Thai locale to get the correct Buddhist year
+        const gregorianDate = new Date(this.currentCalendarYear, this.currentCalendarMonth, 1);
+        const thaiYear = gregorianDate.toLocaleDateString('th-TH', { year: 'numeric' }).replace(/,/g, '');
         
         currentMonth.textContent = `${monthName} ${thaiYear}`;
         
@@ -2896,11 +2912,29 @@ class DashboardApp {
             </div>
           `;
         } else {
-          reviewerEl.innerHTML = `<div class="text-gray-500">ผู้ตรวจ: ${task.reviewerUserId}</div>`;
+          // Fallback: แสดง ID และพยายามหาข้อมูลจาก API
+          reviewerEl.innerHTML = `
+            <div class="flex items-center">
+              <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm mr-3">
+                <i class="fas fa-user"></i>
+              </div>
+              <div>
+                <div class="font-medium text-gray-600">ผู้ตรวจ: ${task.reviewerUserId}</div>
+                <div class="text-sm text-gray-500">ไม่พบข้อมูลในกลุ่ม</div>
+              </div>
+            </div>
+          `;
         }
       }
     } else {
-      reviewerEl.innerHTML = '<div class="text-gray-500">ไม่ระบุผู้ตรวจ</div>';
+      reviewerEl.innerHTML = `
+        <div class="flex items-center text-gray-500">
+          <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-500 text-sm mr-3">
+            <i class="fas fa-user-slash"></i>
+          </div>
+          <div class="font-medium">ไม่ระบุผู้ตรวจ</div>
+        </div>
+      `;
     }
 
     // Tags
@@ -5419,7 +5453,97 @@ class DashboardApp {
         console.warn('ไม่มี currentGroupId');
         return;
       }
+      
+      console.log('🔄 เริ่มดึงข้อมูลสมาชิกกลุ่ม...');
+      
+      // ใช้ฟังก์ชัน hybrid ที่ใช้ทั้ง LINE API และฐานข้อมูล
+      try {
+        const lineResponse = await this.apiRequest(`/api/line/members/${this.currentGroupId}`);
+        if (lineResponse && lineResponse.data && lineResponse.data.length > 0) {
+          console.log(`✅ ดึงข้อมูลจาก LINE API สำเร็จ: ${lineResponse.data.length} คน`);
+          
+          // แปลงข้อมูลจาก LINE API ให้เข้ากับ format เดิม
+          const formattedMembers = lineResponse.data.map(member => ({
+            id: member.userId,
+            lineUserId: member.userId,
+            displayName: member.displayName,
+            pictureUrl: member.pictureUrl,
+            source: member.source || 'line_api',
+            lastUpdated: member.lastUpdated
+          }));
+          
+          this.groupMembers = formattedMembers;
+          this.updateMembersList(formattedMembers);
+          
+          return formattedMembers;
+        }
+      } catch (error) {
+        console.warn('⚠️ LINE API ไม่สามารถใช้งานได้:', error.message);
+      }
+      
+      // Fallback: ใช้ข้อมูลจากฐานข้อมูล
+      try {
+        const dbResponse = await this.apiRequest(`/api/groups/${this.currentGroupId}/members`);
+        if (dbResponse && dbResponse.data && dbResponse.data.length > 0) {
+          console.log(`✅ ดึงข้อมูลจากฐานข้อมูลสำเร็จ: ${dbResponse.data.length} คน`);
+          
+          this.groupMembers = dbResponse.data;
+          this.updateMembersList(dbResponse.data);
+          
+          return dbResponse.data;
+        }
+      } catch (error) {
+        console.warn('⚠️ ไม่สามารถดึงข้อมูลจากฐานข้อมูลได้:', error.message);
+      }
+      
+      console.warn('⚠️ ไม่สามารถดึงข้อมูลสมาชิกได้จากทุกแหล่ง');
+      return [];
+      
+    } catch (error) {
+      console.error('❌ เกิดข้อผิดพลาดในการโหลดสมาชิกกลุ่ม:', error);
+      return [];
+    }
+  }
+  
+  updateMembersList(members) {
+    const select = document.getElementById('taskAssignees');
+    const reviewerSelect = document.getElementById('reviewerSelect');
+    const reportUserSelect = document.getElementById('reportUserSelect');
+    
+    if (select) {
+      // แสดงเป็น checkbox list เพื่อเลือกหลายคนได้ง่าย
+      select.innerHTML = members.map(member => 
+        `<label class="checkbox-item"><input type="checkbox" class="assignee-checkbox" value="${member.lineUserId || member.id}"><span>${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</span></label>`
+      ).join('');
+    }
+    
+    if (reviewerSelect) {
+      reviewerSelect.innerHTML = '<option value="">(ไม่ระบุ)</option>' +
+        members.map(member => `<option value="${member.lineUserId || member.id}">${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</option>`).join('');
 
+      // ตั้งค่า default ผู้ตรวจงาน = ผู้สร้างงาน (current user)
+      if (this.currentUserId) {
+        const hasCurrent = Array.from(reviewerSelect.options).some(opt => opt.value === this.currentUserId);
+        if (hasCurrent) {
+          reviewerSelect.value = this.currentUserId;
+        }
+      }
+    }
+
+    // เติม dropdown ผู้ใช้ในหน้า Reports
+    if (reportUserSelect) {
+      const currentValue = reportUserSelect.value;
+      reportUserSelect.innerHTML = '<option value="">ทุกคนในกลุ่ม</option>' +
+        members.map(member => `<option value="${member.lineUserId || member.id}">${member.displayName || member.realName || member.name || 'ไม่ระบุชื่อ'}</option>`).join('');
+      // คงค่าที่เลือกไว้ถ้ามีอยู่เดิม
+      if (currentValue && Array.from(reportUserSelect.options).some(opt => opt.value === currentValue)) {
+        reportUserSelect.value = currentValue;
+      }
+    }
+  }
+
+  async loadMembersFromDatabase() {
+    try {
       const response = await fetch(`/api/groups/${this.currentGroupId}/members`);
       if (response.ok) {
         const result = await response.json();
