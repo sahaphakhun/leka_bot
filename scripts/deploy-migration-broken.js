@@ -102,33 +102,17 @@ async function runCommand(command, description) {
 async function checkPrerequisites() {
   logInfo('Checking deployment prerequisites...');
   
-  // Check if required files exist - adjust based on environment
-  let requiredFiles = [
+  // Check if required files exist
+  const requiredFiles = [
     'package.json',
+    'tsconfig.json',
     'src/index.ts',
     'src/utils/comprehensiveMigration.ts'
   ];
   
-  // In production, we should have compiled files
-  if (NODE_ENV === 'production') {
-    // Check for compiled files instead
-    requiredFiles = [
-      'package.json',
-      'dist/index.js',
-      'dist/utils/comprehensiveMigration.js'
-    ];
-  }
-  
-  // Only require tsconfig.json in development environment for ts-node
-  if (NODE_ENV === 'development') {
-    requiredFiles.push('tsconfig.json');
-  }
-  
   for (const file of requiredFiles) {
-    // Use path.resolve to get absolute path from project root
-    const fullPath = path.resolve(__dirname, '..', file);
-    if (!fs.existsSync(fullPath)) {
-      throw new Error(`Required file not found: ${file} (looking for ${fullPath})`);
+    if (!fs.existsSync(path.join(__dirname, '..', file))) {
+      throw new Error(`Required file not found: ${file}`);
     }
   }
   
@@ -191,43 +175,14 @@ async function runMigration() {
       logWarning('Duration days column check failed, continuing with comprehensive migration...');
     }
     
-    // Try to run migration - prefer compiled JavaScript in production
+    // Try to run migration via compiled JavaScript first
     let migrationCommand;
     
-    // Check what files we have available using absolute paths
-    const projectRoot = path.resolve(__dirname, '..');
-    const hasDistFiles = fs.existsSync(path.join(projectRoot, 'dist/utils/comprehensiveMigration.js'));
-    const hasSourceFiles = fs.existsSync(path.join(projectRoot, 'src/utils/comprehensiveMigration.ts'));
-    
-    logInfo(`File availability - dist: ${hasDistFiles}, src: ${hasSourceFiles}`);
-    
-    // In production, always use compiled files if available
-    if (NODE_ENV === 'production' && hasDistFiles) {
-      logInfo('Using compiled JavaScript files for production');
+    if (fs.existsSync('dist/utils/comprehensiveMigration.js')) {
       migrationCommand = 'node -r ./register-paths.js -e "require(\'./dist/utils/comprehensiveMigration\').comprehensiveMigration.runComprehensiveMigration().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
-    } 
-    // In development, prefer source files with ts-node if possible
-    else if (NODE_ENV === 'development' && hasSourceFiles) {
-      logInfo('Using TypeScript source files for development');
-      // Check if we have tsconfig.json for ts-node using absolute path
-      const tsconfigPath = path.resolve(projectRoot, 'tsconfig.json');
-      if (fs.existsSync(tsconfigPath)) {
-        migrationCommand = 'npx ts-node -r tsconfig-paths/register -e "import(\'./src/utils/comprehensiveMigration\').then(m => m.comprehensiveMigration.runComprehensiveMigration()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
-      } else {
-        throw new Error('tsconfig.json required for development mode with ts-node');
-      }
-    }
-    // Fallback to compiled files if available
-    else if (hasDistFiles) {
-      logInfo('Falling back to compiled JavaScript files');
-      migrationCommand = 'node -r ./register-paths.js -e "require(\'./dist/utils/comprehensiveMigration\').comprehensiveMigration.runComprehensiveMigration().then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
-    }
-    // Last resort: try source files without ts-node (may not work)
-    else if (hasSourceFiles) {
-      logWarning('No compiled files available, trying to run source files directly (may fail)');
-      migrationCommand = 'node -r ./register-paths.js -e "require(\'./src/utils/comprehensiveMigration\').then(m => m.comprehensiveMigration.runComprehensiveMigration()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
     } else {
-      throw new Error('No migration files found (neither dist nor src available)');
+      // Fallback to ts-node if dist doesn't exist
+      migrationCommand = 'npx ts-node -r tsconfig-paths/register -e "import(\'./src/utils/comprehensiveMigration\').then(m => m.comprehensiveMigration.runComprehensiveMigration()).then(() => process.exit(0)).catch(e => { console.error(e); process.exit(1); })"';
     }
     
     await runCommand(migrationCommand, 'Database migration');

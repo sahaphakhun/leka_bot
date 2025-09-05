@@ -44,6 +44,7 @@ COPY --from=base /app/register-paths.js ./
 COPY --from=base /app/dashboard ./dashboard
 COPY --from=base /app/scripts ./scripts
 COPY --from=base /app/package.json ./
+COPY --from=base /app/tsconfig.json ./
 
 # Expose port
 EXPOSE 3000
