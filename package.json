@@ -11,6 +11,8 @@
     "start": "node -r ./register-paths.js dist/index.js",
     "deploy": "npm run deploy:migrate && npm run start",
     "deploy:migrate": "node scripts/deploy-migration.js",
+    "deploy:backup": "npm run deploy:migrate-backup && npm run start",
+    "deploy:migrate-backup": "node -r ./register-paths.js dist/scripts/deployMigrationBackup.js",
     "deploy:no-build": "SKIP_BUILD=true npm run deploy:migrate && npm run start",
     "db:init": "tsx src/scripts/initDatabase.ts",
     "db:sync": "npm run build && node -r ./register-paths.js dist/scripts/initDatabase.js",
