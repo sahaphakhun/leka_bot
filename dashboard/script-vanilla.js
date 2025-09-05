@@ -3418,6 +3418,64 @@ class DashboardApp {
     });
   }
 
+  // Display selected files for submit task modal
+  displaySelectedFiles(files, fileInput) {
+    const fileList = document.getElementById('submitFileList');
+    if (!fileList) {
+      console.warn('submitFileList element not found');
+      return;
+    }
+
+    // Store files in the instance variable
+    this.submitFiles = Array.from(files);
+
+    if (files.length === 0) {
+      fileList.innerHTML = '';
+      fileList.classList.add('hidden');
+      return;
+    }
+
+    fileList.classList.remove('hidden');
+    fileList.innerHTML = `
+      <div class="text-sm font-medium text-gray-700 mb-2">
+        <i class="fas fa-paperclip mr-1"></i>
+        ไฟล์ที่เลือก (${files.length})
+      </div>
+      ${files.map((file, index) => `
+        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border mb-2">
+          <div class="flex items-center">
+            <i class="fas ${this.getFileIcon(file.type)} text-blue-500 mr-2"></i>
+            <div>
+              <div class="text-sm font-medium text-gray-900">${this.escapeHtml(file.name)}</div>
+              <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
+            </div>
+          </div>
+          <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="dashboard.removeSubmitFile(${index})">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `).join('')}
+    `;
+  }
+
+  // Remove file from submit files list
+  removeSubmitFile(index) {
+    if (this.submitFiles && index >= 0 && index < this.submitFiles.length) {
+      this.submitFiles.splice(index, 1);
+      
+      // Update the display
+      this.displaySelectedFiles(this.submitFiles, document.getElementById('submitTaskFiles'));
+      
+      // Clear the file input if no files left
+      if (this.submitFiles.length === 0) {
+        const fileInput = document.getElementById('submitTaskFiles');
+        if (fileInput) {
+          fileInput.value = '';
+        }
+      }
+    }
+  }
+
   async confirmSubmitTask() {
     if (!this.currentTaskId) {
       this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
