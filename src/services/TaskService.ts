@@ -1509,13 +1509,12 @@ export class TaskService {
   public async getGroupRecurringStats(groupId: string): Promise<any> {
     try {
       // ดึงงานที่มาจากงานประจำในกลุ่ม
-      const tasks = await this.taskRepository.find({
-        where: {
-          groupId: groupId,
-          recurringTaskId: Not(null)
-        },
-        relations: ['group']
-      });
+      const tasks = await this.taskRepository
+        .createQueryBuilder('task')
+        .where('task.groupId = :groupId', { groupId })
+        .andWhere('task.recurringTaskId IS NOT NULL')
+        .leftJoinAndSelect('task.group', 'group')
+        .getMany();
       
       const stats = {
         totalRecurringTasks: new Set(tasks.map(t => t.recurringTaskId)).size,
