@@ -894,7 +894,8 @@ export class TaskService {
         await this.notificationService.sendReviewRequest(saved as any, reviewer.lineUserId, {
           submitterDisplayName: submitter.displayName,
           fileCount: fileIds.length,
-          links: (links && links.length > 0) ? links : fileLinks
+          links: (links && links.length > 0) ? links : fileLinks,
+          comment: comment || ''
         } as any);
 
         console.log(`📤 Review request sent to reviewer: ${reviewer.displayName}`);
@@ -915,7 +916,8 @@ export class TaskService {
           { ...saved, group: task.group } as any,
           submitter.displayName,
           fileIds.length,
-          links && links.length > 0 ? links : fileLinks
+          links && links.length > 0 ? links : fileLinks,
+          comment
         );
 
         console.log(`✅ Task submitted notification sent to group`);

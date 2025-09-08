@@ -246,6 +246,15 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createSeparator('small'),
       FlexMessageDesignSystem.createText(`👤 ผู้ส่ง: ${details.submitterDisplayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      ...(details.comment ? [
+        FlexMessageDesignSystem.createText(
+          `📝 ข้อความจากผู้ส่ง: ${details.comment.length > 200 ? details.comment.substring(0, 200) + '...' : details.comment}`,
+          'sm',
+          FlexMessageDesignSystem.colors.textSecondary,
+          undefined,
+          true
+        )
+      ] : []),
       ...(details.fileCount > 0 ? [
         FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${details.fileCount} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary)
       ] : []),

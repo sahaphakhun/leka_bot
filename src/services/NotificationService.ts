@@ -368,7 +368,8 @@ export class NotificationService {
     task: any,
     submitterDisplayName: string,
     fileCount: number,
-    links: string[]
+    links: string[],
+    comment?: string
   ): Promise<void> {
     try {
       // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
@@ -382,7 +383,7 @@ export class NotificationService {
       if (!group?.lineGroupId) return;
 
       // สร้าง Flex Message สำหรับการแจ้งเตือนการส่งงาน
-      const flexMessage = await this.createTaskSubmittedFlexMessage(task, group, submitterDisplayName, fileCount, links);
+      const flexMessage = await this.createTaskSubmittedFlexMessage(task, group, submitterDisplayName, fileCount, links, comment);
       
       // ส่งการแจ้งเตือนในกลุ่ม
       await this.lineService.pushMessage(group.lineGroupId, flexMessage);
@@ -420,7 +421,7 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับการแจ้งเตือนการส่งงาน
    */
-  private async createTaskSubmittedFlexMessage(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[]): Promise<FlexMessage> {
+  private async createTaskSubmittedFlexMessage(task: any, group: any, submitterDisplayName: string, fileCount: number, links: string[], comment?: string): Promise<FlexMessage> {
     // ดึงข้อมูลไฟล์แนบเพื่อแสดงตัวอย่าง
     let files: any[] = [];
     if (fileCount > 0) {
@@ -436,6 +437,15 @@ export class NotificationService {
       FlexMessageDesignSystem.createText(`📋 ${task.title}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       FlexMessageDesignSystem.createSeparator('small'),
       FlexMessageDesignSystem.createText(`👤 ผู้ส่ง: ${submitterDisplayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+      ...(comment ? [
+        FlexMessageDesignSystem.createText(
+          `📝 ข้อความจากผู้ส่ง: ${comment.length > 200 ? comment.substring(0, 200) + '...' : comment}`,
+          'sm',
+          FlexMessageDesignSystem.colors.textSecondary,
+          undefined,
+          true
+        )
+      ] : []),
       ...(fileCount > 0 ? [
         FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} รายการ`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold'),
         ...(files.length > 2 ? [

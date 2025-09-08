@@ -1183,7 +1183,8 @@ export class FileService {
       // แก้ mojibake ไทยที่ถูกตีความเป็น Latin-1
       if (filename && !/[\u0E00-\u0E7F]/.test(filename) && /[àÃ]/.test(filename)) {
         try {
-          const bytes = Uint8Array.from(Array.from(filename).map(ch => ch.charCodeAt(0) & 0xFF));
+          // Ensure correct typing for characters to avoid TS18046 (unknown)
+          const bytes = Uint8Array.from(Array.from<string>(filename).map((ch) => ch.charCodeAt(0) & 0xFF));
           const decoded = new TextDecoder('utf-8').decode(bytes);
           if (decoded && /[\u0E00-\u0E7F]/.test(decoded)) filename = decoded;
         } catch {}
