@@ -1456,6 +1456,23 @@ class ApiController {
   }
 
   /**
+   * POST /api/admin/files/fix-filenames - ซ่อมแซมชื่อไฟล์เก่า (mojibake/ไม่มีนามสกุล)
+   * query:
+   *  - apply=true เพื่อบันทึกจริง (ค่า default จะเป็น dry-run)
+   */
+  public async fixOldFilenames(req: Request, res: Response): Promise<void> {
+    try {
+      const apply = (req.query.apply === 'true' || req.query.apply === '1');
+
+      const result = await this.fileService.repairFilenamesInDb(apply);
+      res.json({ success: true, data: { apply, ...result } });
+    } catch (error) {
+      logger.error('❌ Error fixing old filenames:', error);
+      res.status(500).json({ success: false, error: 'Failed to fix filenames' });
+    }
+  }
+
+  /**
    * DELETE /api/files/:fileId - ลบไฟล์
    */
   public async deleteFile(req: Request, res: Response): Promise<void> {
@@ -3075,9 +3092,11 @@ class ApiController {
   public async getUser(req: Request, res: Response): Promise<void> {
     try {
       const { userId } = req.params;
-      
-      // ดึงข้อมูลผู้ใช้จาก Line User ID
-      const user = await this.userService.findByLineUserId(userId);
+      // รองรับทั้ง Internal UUID และ LINE User ID
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(userId);
+      const user = isUuid 
+        ? await this.userService.findById(userId)
+        : await this.userService.findByLineUserId(userId);
       
       if (!user) {
         res.status(404).json({ success: false, error: 'User not found' });
@@ -3265,8 +3284,10 @@ apiRouter.post('/groups/:groupId/tasks/:taskId/approve-extension', authenticate,
 
 // File-specific routes (public access)
 apiRouter.get('/files/:fileId/download', apiController.downloadFile.bind(apiController));
-apiRouter.get('/files/:fileId/preview', apiController.previewFile.bind(apiController));
-apiRouter.post('/files/:fileId/tags', apiController.addFileTags.bind(apiController));
+  apiRouter.get('/files/:fileId/preview', apiController.previewFile.bind(apiController));
+  apiRouter.post('/files/:fileId/tags', apiController.addFileTags.bind(apiController));
+  // Admin maintenance routes
+  apiRouter.post('/admin/files/fix-filenames', apiController.fixOldFilenames.bind(apiController));
 
 // Group-specific file routes (public access for dashboard)
 apiRouter.get('/groups/:groupId/files/:fileId/download', apiController.downloadFile.bind(apiController));

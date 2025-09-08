@@ -1176,6 +1176,18 @@ export class FileService {
     try {
       // เริ่มจาก originalName → fileName → file.id
       let filename = ((file as any).originalName as string) || (file as any).fileName || `file_${file.id}`;
+      // ถอด percent-encoding ถ้ามี (ชื่อจากบางแหล่งมาเป็น %XX)
+      if (/%[0-9A-Fa-f]{2}/.test(filename)) {
+        try { filename = decodeURIComponent(filename); } catch {}
+      }
+      // แก้ mojibake ไทยที่ถูกตีความเป็น Latin-1
+      if (filename && !/[\u0E00-\u0E7F]/.test(filename) && /[àÃ]/.test(filename)) {
+        try {
+          const bytes = Uint8Array.from(Array.from(filename).map(ch => ch.charCodeAt(0) & 0xFF));
+          const decoded = new TextDecoder('utf-8').decode(bytes);
+          if (decoded && /[\u0E00-\u0E7F]/.test(decoded)) filename = decoded;
+        } catch {}
+      }
       // ลองเติมนามสกุล
       if (!filename.includes('.')) {
         let ext = this.inferFormatFromMime((file as any).mimeType);
@@ -1195,6 +1207,57 @@ export class FileService {
     } catch {
       return (file as any).originalName || (file as any).fileName || `file_${file.id}`;
     }
+  }
+
+  /**
+   * ซ่อมแซมชื่อไฟล์เก่าในฐานข้อมูล: แก้ percent-encoding/mojibake และเติมนามสกุลที่หายไป
+   * @param apply ถ้า true จะบันทึกการเปลี่ยนแปลงลงฐานข้อมูล (default: false → dry-run)
+   */
+  public async repairFilenamesInDb(apply: boolean = false): Promise<{
+    scanned: number;
+    updated: number;
+    samples: Array<{ id: string; beforeOriginalName?: string; afterOriginalName?: string; beforeFileName?: string; afterFileName?: string }>;
+  }> {
+    const files = await this.fileRepository.find();
+    let updated = 0;
+    const samples: Array<{ id: string; beforeOriginalName?: string; afterOriginalName?: string; beforeFileName?: string; afterFileName?: string }> = [];
+
+    for (const f of files) {
+      let change = false;
+      const before = { on: f.originalName, fn: f.fileName };
+
+      // แก้ชื่อไฟล์หลัก
+      const fixedOriginal = this.normalizeIncomingFilename(f.originalName, f.mimeType);
+      if (fixedOriginal !== f.originalName) {
+        (f as any).originalName = fixedOriginal;
+        change = true;
+      }
+
+      // แก้ fileName ให้มีนามสกุลถ้าหาย
+      if (f.fileName && !f.fileName.includes('.')) {
+        const extWithDot = this.getFileExtension(f.mimeType, f.fileName);
+        if (extWithDot) {
+          (f as any).fileName = `${f.fileName}${extWithDot}`;
+          change = true;
+        }
+      }
+
+      if (change) {
+        updated++;
+        samples.push({
+          id: f.id,
+          beforeOriginalName: before.on,
+          afterOriginalName: (f as any).originalName,
+          beforeFileName: before.fn,
+          afterFileName: (f as any).fileName,
+        });
+        if (apply) {
+          await this.fileRepository.save(f);
+        }
+      }
+    }
+
+    return { scanned: files.length, updated, samples: samples.slice(0, 25) };
   }
 
   /**

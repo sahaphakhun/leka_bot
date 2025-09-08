@@ -2991,18 +2991,51 @@ class DashboardApp {
             </div>
           `;
         } else {
-          // Fallback: แสดง ID และพยายามหาข้อมูลจาก API
+          // Fallback: พยายามดึงข้อมูลผู้ตรวจจาก API (รองรับ UUID/LINE ID)
           reviewerEl.innerHTML = `
-            <div class="flex items-center">
-              <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm mr-3">
+            <div class="flex items-center text-gray-500">
+              <div class="w-8 h-8 bg-gray-300 rounded-full flex items-center justify-center text-gray-500 text-sm mr-3">
                 <i class="fas fa-user"></i>
               </div>
-              <div>
-                <div class="font-medium text-gray-600">ผู้ตรวจ: ${task.reviewerUserId}</div>
-                <div class="text-sm text-gray-500">ไม่พบข้อมูลในกลุ่ม</div>
-              </div>
+              <div>กำลังดึงข้อมูลผู้ตรวจ...</div>
             </div>
           `;
+          try {
+            const resp = await fetch(`/api/users/${encodeURIComponent(task.reviewerUserId)}`);
+            if (resp.ok) {
+              const payload = await resp.json();
+              const user = payload?.data || payload;
+              if (user && (user.displayName || user.realName || user.name)) {
+                reviewerEl.innerHTML = `
+                  <div class="flex items-center">
+                    <div class="w-8 h-8 bg-purple-500 rounded-full flex items-center justify-center text-white text-sm mr-3">
+                      ${(user.displayName || user.realName || user.name || 'R')[0].toUpperCase()}
+                    </div>
+                    <div>
+                      <div class="font-medium">${this.escapeHtml(user.displayName || user.realName || user.name)}</div>
+                      <div class="text-sm text-gray-600">${user.email || ''}</div>
+                    </div>
+                  </div>
+                `;
+              } else {
+                throw new Error('User not found');
+              }
+            } else {
+              throw new Error('User not found');
+            }
+          } catch (e) {
+            reviewerEl.innerHTML = `
+              <div class="flex items-center">
+                <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm mr-3">
+                  <i class="fas fa-user"></i>
+                </div>
+                <div>
+                  <div class="font-medium text-gray-600">ผู้ตรวจ: ${this.escapeHtml(task.reviewerUserId || '')}</div>
+                  <div class="text-sm text-gray-500">ไม่พบข้อมูลผู้ใช้</div>
+                </div>
+              </div>
+            `;
+          }
         }
       }
     } else {
