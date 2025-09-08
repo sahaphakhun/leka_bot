@@ -1375,77 +1375,25 @@ class ApiController {
         return;
       }
 
-      // ตั้งค่า header ให้รองรับ UTF-8 และมีนามสกุลแน่นอน
+      // ถ้าเป็นไฟล์ remote (Cloudinary/URL) และสร้าง direct URL ได้ ให้ redirect ไปยัง res.cloudinary.com เพื่อลดภาระ proxy
+      const path = (file as any).path as string | undefined;
+      const isRemote = !!(path && /^https?:\/\//i.test(path));
+      if (isRemote) {
+        const directUrl = this.fileService.getDirectDownloadUrl(file as any);
+        if (directUrl) {
+          return res.redirect(302, directUrl);
+        }
+        // ถ้าสร้าง direct URL ไม่ได้ จะสตรีมแบบ buffered ด้านล่าง
+      }
+
+      // โลคอลหรือ fallback → ส่งเป็น buffer
+      const fileContent = await this.fileService.getFileContent(fileId);
+      // ตั้งค่า header ให้รองรับ UTF-8 และมีนามสกุลแน่นอน (เฉพาะกรณีส่งไฟล์เอง)
       const downloadName = this.fileService.getSafeDownloadFilename(file as any);
       const safeName = sanitize(downloadName);
       const encodedName = encodeURIComponent(safeName);
       res.setHeader('Content-Type', file.mimeType);
       res.setHeader('Content-Disposition', `attachment; filename="${safeName}"; filename*=UTF-8''${encodedName}`);
-
-      // ถ้าเป็นไฟล์ remote → stream จาก upstream เพื่อลดโอกาส timeout (ไม่ redirect)
-      const path = (file as any).path as string | undefined;
-      const isRemote = !!(path && /^https?:\/\//i.test(path));
-      if (isRemote) {
-        try {
-          const url = this.fileService.resolveFileUrl(file as any);
-          const urlObj = new URL(url);
-          const lib = urlObj.protocol === 'https:' ? https : http;
-
-          const proxyReq = lib.request(urlObj, { method: 'GET', headers: { 'User-Agent': 'LekaBot/1.0', Accept: '*/*', Connection: 'close' } }, (upstream) => {
-            if (upstream.statusCode && upstream.statusCode >= 300 && upstream.statusCode < 400 && upstream.headers.location) {
-              try {
-                const nextUrl = new URL(upstream.headers.location, `${urlObj.protocol}//${urlObj.host}`);
-                const lib2 = nextUrl.protocol === 'https:' ? https : http;
-                const req2 = lib2.request(nextUrl, { method: 'GET', headers: { 'User-Agent': 'LekaBot/1.0', Accept: '*/*', Connection: 'close' } }, (up2) => {
-                  if ((up2.statusCode || 500) >= 400) {
-                    res.status(502).json({ success: false, error: `Upstream error ${up2.statusCode}` });
-                  } else {
-                    up2.on('error', (e) => {
-                      logger.error('❌ Upstream stream error (redirect):', e);
-                      try { res.destroy(e as any); } catch {}
-                    });
-                    up2.pipe(res);
-                  }
-                });
-                req2.on('error', (e) => {
-                  logger.error('❌ Error following upstream redirect:', e);
-                  this.fallbackToFileDownload(fileId, res, file.mimeType, safeName);
-                });
-                req2.end();
-              } catch (e) {
-                logger.error('❌ Invalid upstream redirect URL:', e);
-                this.fallbackToFileDownload(fileId, res, file.mimeType, safeName);
-              }
-              return;
-            }
-            if ((upstream.statusCode || 500) >= 400) {
-              logger.error('❌ Upstream responded with error status', { status: upstream.statusCode, url });
-              this.fallbackToFileDownload(fileId, res, file.mimeType, safeName);
-              return;
-            }
-            upstream.on('error', (e) => {
-              logger.error('❌ Upstream stream error:', e);
-              try { res.destroy(e as any); } catch {}
-            });
-            upstream.pipe(res);
-          });
-          proxyReq.on('error', (e) => {
-            logger.error('❌ Error requesting upstream file:', e);
-            this.fallbackToFileDownload(fileId, res, file.mimeType, safeName);
-          });
-          proxyReq.setTimeout(45000, () => {
-            try { proxyReq.destroy(new Error('Upstream request timeout')); } catch {}
-          });
-          proxyReq.end();
-          return;
-        } catch (err) {
-          logger.error('❌ Remote stream failed, fallback to buffered download', err);
-          // ตกลงมาที่ fallback ด้านล่าง
-        }
-      }
-
-      // โลคอลหรือ fallback → ส่งเป็น buffer
-      const fileContent = await this.fileService.getFileContent(fileId);
       res.setHeader('Content-Length', fileContent.content.length);
       res.send(fileContent.content);
 
