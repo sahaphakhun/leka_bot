@@ -96,6 +96,9 @@ export class FileService {
       let fileRecord;
       const useCloudinary = !!(config.cloudinary.cloudName && config.cloudinary.apiKey && config.cloudinary.apiSecret);
 
+      // เตรียมชื่อไฟล์ให้เป็น UTF-8 และเติมนามสกุลหากหายไป
+      const normalizedOriginalName = this.normalizeIncomingFilename(data.originalName, data.mimeType);
+
       if (useCloudinary) {
         // อัปโหลดจาก buffer ผ่าน data URI (base64)
         const base64 = data.content.toString('base64');
@@ -117,7 +120,7 @@ export class FileService {
 
         fileRecord = this.fileRepository.create({
           groupId: internalGroupId,
-          originalName: data.originalName || `file_${data.messageId}${ext}`,
+          originalName: normalizedOriginalName || `file_${data.messageId}${ext}`,
           fileName: `${publicIdBase}${ext}`,
           mimeType: data.mimeType,
           size: (uploadRes as any).bytes || data.content.length,
@@ -144,7 +147,7 @@ export class FileService {
 
         fileRecord = this.fileRepository.create({
           groupId: internalGroupId,
-          originalName: data.originalName || `file_${data.messageId}${extension}`,
+          originalName: normalizedOriginalName || `file_${data.messageId}${extension}`,
           fileName,
           mimeType: data.mimeType,
           size: data.content.length,
@@ -923,6 +926,36 @@ export class FileService {
       'text/plain': 'txt',
     };
     return map[mime];
+  }
+
+  /**
+   * ปรับชื่อไฟล์ขาเข้าให้เป็น UTF-8 และเติมนามสกุลให้เหมาะสม
+   */
+  private normalizeIncomingFilename(name: string | undefined, mimeType: string): string {
+    let filename = (name || '').trim();
+    // decode percent-encoding ถ้ามี
+    if (/%[0-9A-Fa-f]{2}/.test(filename)) {
+      try { filename = decodeURIComponent(filename); } catch {}
+    }
+    // แก้ไขกรณี mojibake เบื้องต้น (ไทยถูกตีความเป็น Latin-1)
+    if (filename && !/[\u0E00-\u0E7F]/.test(filename) && /[àÃ]/.test(filename)) {
+      try {
+        const bytes = Uint8Array.from(Array.from(filename).map(ch => ch.charCodeAt(0) & 0xFF));
+        const decoded = new TextDecoder('utf-8').decode(bytes);
+        if (decoded && /[\u0E00-\u0E7F]/.test(decoded)) filename = decoded;
+      } catch {}
+    }
+    // เติมนามสกุลถ้าหาย
+    if (!filename || !filename.includes('.')) {
+      const ext = this.getFileExtension(mimeType, filename);
+      if (!filename) {
+        const base = `file_${Date.now()}`;
+        filename = `${base}${ext || ''}`;
+      } else if (ext) {
+        filename = `${filename}${ext}`;
+      }
+    }
+    return filename;
   }
 
   /**

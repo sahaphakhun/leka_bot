@@ -6041,14 +6041,31 @@ class DashboardApp {
             };
           });
           
-          this.groupMembers = formattedMembers;
+          // ดึงข้อมูลจากฐานข้อมูลมา merge เพื่อเติม internal UUID ให้สมาชิก
+          try {
+            const dbResponseForMerge = await this.apiRequest(`/api/groups/${this.currentGroupId}/members`);
+            if (dbResponseForMerge && dbResponseForMerge.data && dbResponseForMerge.data.length > 0) {
+              const dbByLineId = new Map(dbResponseForMerge.data.map(u => [u.lineUserId, u]));
+              this.groupMembers = formattedMembers.map(m => {
+                const db = dbByLineId.get(m.lineUserId);
+                return db
+                  ? { ...db, lineUserId: db.lineUserId || m.lineUserId, displayName: db.displayName || m.displayName, pictureUrl: m.pictureUrl, source: m.source, lastUpdated: m.lastUpdated }
+                  : m;
+              });
+            } else {
+              this.groupMembers = formattedMembers;
+            }
+          } catch (mergeErr) {
+            this.groupMembers = formattedMembers;
+          }
+
           console.log('📋 อัปเดต this.groupMembers:', this.groupMembers);
           
-          this.updateMembersList(formattedMembers);
+          this.updateMembersList(this.groupMembers);
           
           console.log('✅ โหลดสมาชิกกลุ่มเสร็จแล้ว！');
           
-          return formattedMembers;
+          return this.groupMembers;
         } else {
           console.warn('⚠️ API ไม่ส่งข้อมูลสมาชิกกลับมา');
         }
