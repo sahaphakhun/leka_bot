@@ -59,6 +59,11 @@ class Server {
             "'self'",
             "https://res.cloudinary.com"
           ],
+          // อนุญาต Worker สำหรับ PDF.js
+          workerSrc: [
+            "'self'",
+            "blob:"
+          ],
           fontSrc: [
             "'self'"
           ],
@@ -89,6 +94,16 @@ class Server {
     
     // Dashboard static assets (CSS, JS, images)  
     this.app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
+
+    // Serve PDF.js from node_modules under same-origin to satisfy CSP
+    try {
+      // Resolve the directory containing pdf.min.js
+      const pdfjsBuildDir = path.dirname(require.resolve('pdfjs-dist/build/pdf.min.js'));
+      this.app.use('/static/pdfjs', express.static(pdfjsBuildDir));
+      logger.info('✅ Serving PDF.js assets at /static/pdfjs');
+    } catch (e) {
+      logger.warn('⚠️ pdfjs-dist not found; PDF viewer may fallback to native iframe', e);
+    }
   }
 
   private configureRoutes(): void {

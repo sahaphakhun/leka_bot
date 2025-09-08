@@ -135,6 +135,11 @@ body {
   font-size: 1.25rem;
   font-weight: 600;
   color: #1f2937;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  /* leave room for the close button */
+  max-width: calc(100% - 48px);
 }
 
 .modal-body {
@@ -155,6 +160,11 @@ body {
 .modal-close:hover {
   background-color: #f3f4f6;
   color: #374151;
+}
+
+/* Preserve line breaks in task detail description */
+#taskDetailDescription {
+  white-space: pre-wrap;
 }
 
 /* Forms */

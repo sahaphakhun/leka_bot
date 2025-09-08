@@ -973,16 +973,15 @@
             <div class="modal-body">
                 <!-- Task Header -->
                 <div class="mb-6">
-                    <div class="flex items-start justify-between mb-4">
+                    <div class="flex items-start justify-between mb-4 flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                         <div class="flex-1">
-                            <h2 id="taskDetailName" class="text-2xl font-bold text-gray-900 mb-2">ชื่องาน</h2>
                             <div class="flex items-center gap-4 text-sm text-gray-600">
                                 <span id="taskDetailId" class="font-mono bg-gray-100 px-2 py-1 rounded">#ID</span>
                                 <span id="taskDetailCreated">สร้างเมื่อ: -</span>
                                 <span id="taskDetailUpdated">แก้ไขล่าสุด: -</span>
                             </div>
                         </div>
-                        <div class="flex gap-2">
+                        <div class="flex gap-2 sm:flex-shrink-0">
                             <button id="editTaskBtn" class="btn btn-outline btn-sm">
                                 <i class="fas fa-edit mr-1"></i>
                                 แก้ไข
@@ -1555,4 +1554,3 @@
     <script src="./script-vanilla.js?v=1736127200"></script>
 </body>
 </html>
-

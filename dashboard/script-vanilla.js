@@ -23,24 +23,22 @@ class DashboardApp {
   // โหลด PDF.js แบบ on-demand เฉพาะตอนพรีวิว PDF
   async ensurePdfJsLoaded() {
     if (window.pdfjsLib) {
-      // ตั้ง workerSrc ถ้ายังไม่ได้ตั้ง
       try {
         if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
-          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/pdfjs/pdf.worker.min.js';
         }
       } catch {}
       return;
     }
-
-    // เพิ่มสคริปต์ PDF.js จาก CDN
+    // โหลดสคริปต์ PDF.js จากโดเมนเดียวกัน (สอดคล้องกับ CSP)
     await new Promise((resolve, reject) => {
       const script = document.createElement('script');
-      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.src = '/static/pdfjs/pdf.min.js';
       script.async = true;
       script.onload = () => {
         try {
           if (window.pdfjsLib) {
-            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = '/static/pdfjs/pdf.worker.min.js';
           }
         } catch {}
         resolve(true);
@@ -3162,7 +3160,8 @@ class DashboardApp {
   populateTaskDetailModal(task) {
     // Header Information
     document.getElementById('taskDetailTitle').textContent = `รายละเอียดงาน: ${task.title}`;
-    document.getElementById('taskDetailName').textContent = task.title;
+    const nameEl = document.getElementById('taskDetailName');
+    if (nameEl) nameEl.textContent = task.title;
     document.getElementById('taskDetailId').textContent = `#${task.id}`;
     
     // Dates
