@@ -114,9 +114,9 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
-    // ตรวจสอบงานที่ครบกำหนดตรวจและอนุมัติอัตโนมัติทุก 6 ชั่วโมง
-    const autoApproveJob = cron.schedule('0 */6 * * *', async () => {
-      await this.processAutoApproveTasks();
+    // เตือนผู้ตรวจให้ตรวจงานทุกวันเวลา 9:00 น.
+    const reviewReminderJob = cron.schedule('0 9 * * *', async () => {
+      await this.sendDailyReviewReminders();
     }, {
       scheduled: false,
       timezone: config.app.defaultTimezone
@@ -132,7 +132,7 @@ export class CronService {
     this.jobs.set('kpiUpdate', kpiUpdateJob);
     this.jobs.set('fileBackup', fileBackupJob);
     this.jobs.set('recurring', recurringJob);
-    this.jobs.set('autoApprove', autoApproveJob);
+    this.jobs.set('reviewReminder', reviewReminderJob);
 
     // เริ่มงานทั้งหมด
     this.jobs.forEach((job, name) => {
@@ -792,6 +792,32 @@ export class CronService {
       await this.notificationService.sendDailyOverdueSummary();
     } catch (error) {
       console.error('❌ Error in daily overdue summary job:', error);
+    }
+  }
+
+  /**
+   * ส่งการเตือนผู้ตรวจสำหรับงานรอตรวจทุกวันเวลา 9:00 น.
+   */
+  private async sendDailyReviewReminders(): Promise<void> {
+    try {
+      console.log('📝 Sending daily review reminders...');
+
+      const pendingReviewTasks = await this.taskService.getTasksPendingReview();
+      console.log(`📋 Found ${pendingReviewTasks.length} tasks pending review`);
+
+      for (const task of pendingReviewTasks) {
+        try {
+          const reviewerUserId = (task as any)?.workflow?.review?.reviewerUserId || (task as any)?.createdBy;
+          if (!reviewerUserId) continue;
+
+          await this.notificationService.sendReviewRequest(task as any, reviewerUserId, {});
+          console.log(`✅ Sent review reminder for task: ${task.id}`);
+        } catch (err) {
+          console.warn('⚠️ Failed to send review reminder for task:', (task as any)?.id, err);
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error sending daily review reminders:', error);
     }
   }
 

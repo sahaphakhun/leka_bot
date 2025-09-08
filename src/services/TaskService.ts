@@ -969,6 +969,25 @@ export class TaskService {
     }
   }
 
+  /** ดึงงานที่อยู่ในสถานะรอตรวจ (review.status === 'pending') */
+  public async getTasksPendingReview(): Promise<Task[]> {
+    try {
+      const candidates = await this.taskRepository.createQueryBuilder('task')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress'] })
+        .orderBy('task.updatedAt', 'DESC')
+        .getMany();
+
+      return candidates.filter(t => {
+        const rv: any = (t as any).workflow?.review;
+        return !!rv && rv.status === 'pending';
+      });
+    } catch (error) {
+      console.error('❌ Error getting tasks pending review:', error);
+      return [];
+    }
+  }
+
   /** ทำเครื่องหมายตรวจล่าช้า */
   public async markLateReview(taskId: string): Promise<void> {
     try {
