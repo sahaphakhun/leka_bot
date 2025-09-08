@@ -3000,11 +3000,13 @@ class DashboardApp {
               <div>กำลังดึงข้อมูลผู้ตรวจ...</div>
             </div>
           `;
-          try {
-            const resp = await fetch(`/api/users/${encodeURIComponent(task.reviewerUserId)}`);
-            if (resp.ok) {
-              const payload = await resp.json();
-              const user = payload?.data || payload;
+          fetch(`/api/users/${encodeURIComponent(task.reviewerUserId)}`)
+            .then(resp => {
+              if (!resp.ok) throw new Error('User not found');
+              return resp.json();
+            })
+            .then(payload => {
+              const user = (payload && typeof payload === 'object' && 'data' in payload) ? payload.data : payload;
               if (user && (user.displayName || user.realName || user.name)) {
                 reviewerEl.innerHTML = `
                   <div class="flex items-center">
@@ -3020,22 +3022,20 @@ class DashboardApp {
               } else {
                 throw new Error('User not found');
               }
-            } else {
-              throw new Error('User not found');
-            }
-          } catch (e) {
-            reviewerEl.innerHTML = `
-              <div class="flex items-center">
-                <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm mr-3">
-                  <i class="fas fa-user"></i>
+            })
+            .catch(() => {
+              reviewerEl.innerHTML = `
+                <div class="flex items-center">
+                  <div class="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center text-white text-sm mr-3">
+                    <i class="fas fa-user"></i>
+                  </div>
+                  <div>
+                    <div class="font-medium text-gray-600">ผู้ตรวจ: ${this.escapeHtml(task.reviewerUserId || '')}</div>
+                    <div class="text-sm text-gray-500">ไม่พบข้อมูลผู้ใช้</div>
+                  </div>
                 </div>
-                <div>
-                  <div class="font-medium text-gray-600">ผู้ตรวจ: ${this.escapeHtml(task.reviewerUserId || '')}</div>
-                  <div class="text-sm text-gray-500">ไม่พบข้อมูลผู้ใช้</div>
-                </div>
-              </div>
-            `;
-          }
+              `;
+            });
         }
       }
     } else {
