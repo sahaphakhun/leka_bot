@@ -3980,6 +3980,14 @@ class DashboardApp {
       if (/%[0-9A-Fa-f]{2}/.test(display)) {
         try { display = decodeURIComponent(display); } catch {}
       }
+      // Attempt to fix UTF-8 mojibake (e.g., shows as à¸ instead of Thai)
+      if (/^[\s\S]*[àÃ]/.test(display) && !/[\u0E00-\u0E7F]/.test(display)) {
+        try {
+          const bytes = Uint8Array.from(Array.from(display).map(ch => ch.charCodeAt(0) & 0xFF));
+          const decoded = new TextDecoder('utf-8').decode(bytes);
+          if (decoded && /[\u0E00-\u0E7F]/.test(decoded)) display = decoded;
+        } catch {}
+      }
       // Ensure extension exists when mimeType suggests one
       if (display && !display.includes('.') && (clone.mimeType || '').includes('/')) {
         const ext = this.getExtensionFromMime(clone.mimeType);
@@ -5437,14 +5445,16 @@ class DashboardApp {
       
       if (response.ok) {
         const blob = await response.blob();
-        console.log('[Download] Response OK', { contentDisposition: response.headers.get('Content-Disposition') || null, size: blob.size });
+        const respMime = response.headers.get('Content-Type') || '';
+        const cdHeader = response.headers.get('Content-Disposition') || '';
+        console.log('[Download] Response OK', { contentDisposition: cdHeader || null, size: blob.size });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
         
         // Try to get filename from Content-Disposition header
         let filename = 'download';
-        const contentDisposition = response.headers.get('Content-Disposition');
+        const contentDisposition = cdHeader;
         if (contentDisposition) {
           // Try to extract from filename*=UTF-8'' first (RFC 5987)
           const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
@@ -5459,8 +5469,9 @@ class DashboardApp {
           }
         }
 
-        // If no Content-Disposition or couldn't extract filename
-        if (filename === 'download') {
+        // If no usable filename or missing extension, try to fix from API/UI/mime
+        const hasExt = filename && filename.includes('.') && !filename.endsWith('.');
+        if (filename === 'download' || !hasExt) {
           try {
             // Try to get file info from API to get originalName
             const infoRes = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
@@ -5469,8 +5480,14 @@ class DashboardApp {
               if (fileData && typeof fileData === 'object' && 'data' in fileData) {
                 fileData = fileData.data;
               }
-              if (fileData && fileData.originalName) {
-                filename = fileData.originalName;
+              if (fileData) {
+                const prefer = fileData.originalName || fileData.fileName || fileData.name;
+                if (prefer) filename = prefer;
+                // Ensure extension based on server mime if still missing
+                if (!filename.includes('.') && (fileData.mimeType || respMime)) {
+                  const ext = this.getExtensionFromMime(fileData.mimeType || respMime);
+                  if (ext) filename = `${filename}.${ext}`;
+                }
               }
             }
           } catch (err) {
@@ -5481,6 +5498,14 @@ class DashboardApp {
           if (filename === 'download') {
             const nameFromUI = document.querySelector(`[data-file-id="${fileId}"] .file-name`)?.textContent?.trim();
             if (nameFromUI) filename = nameFromUI;
+          }
+          // Decode mojibake if present (common Thai UTF-8 mis-decoding)
+          if (/^[\s\S]*[àÃ]/.test(filename)) {
+            try {
+              const bytes = Uint8Array.from(Array.from(filename).map(ch => ch.charCodeAt(0) & 0xFF));
+              const decoded = new TextDecoder('utf-8').decode(bytes);
+              if (decoded && /[\u0E00-\u0E7F]/.test(decoded)) filename = decoded;
+            } catch {}
           }
         }
         
