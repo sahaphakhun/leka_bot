@@ -21,6 +21,8 @@ class DashboardApp {
   }
 
   init() {
+    // Ensure Thai locale in the UI
+    this.ensureThaiLocaleUI();
     this.setupEventListeners();
     this.parseURLParams();
     this.loadUserData();
@@ -30,6 +32,27 @@ class DashboardApp {
     
     // Initialize calendar to show current month immediately when page loads
     this.initializeCalendar();
+  }
+
+  ensureThaiLocaleUI() {
+    try {
+      // Set document language to Thai for better rendering and accessibility
+      if (document && document.documentElement) {
+        document.documentElement.lang = 'th';
+      }
+      // Try to set moment locale to Thai if available
+      if (typeof window !== 'undefined' && window.moment && typeof window.moment.locale === 'function') {
+        try { window.moment.locale('th'); } catch {}
+      }
+      // Inject a font stack that supports Thai glyphs
+      const style = document.createElement('style');
+      style.textContent = `
+        body, button, input, select, textarea, .file-name, .font-medium, .text-gray-900 {
+          font-family: "Sarabun", "Noto Sans Thai", "Noto Sans Thai UI", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, Tahoma, sans-serif;
+        }
+      `;
+      document.head.appendChild(style);
+    } catch {}
   }
 
   setupEventListeners() {
@@ -3824,7 +3847,7 @@ class DashboardApp {
       
       const result = await response.json();
       if (result.success) {
-        this.files = result.data || [];
+        this.files = (result.data || []).map(f => this.normalizeFileRecord(f));
         console.log('API group files loaded:', this.files);
         
         // If no group-level files found, check task-level files
@@ -3901,7 +3924,7 @@ class DashboardApp {
             if (result.success && result.data && result.data.length > 0) {
               console.log(`Found ${result.data.length} files in task: ${task.title}`);
               // Add task info to each file for better organization
-              const taskFiles = result.data.map(file => ({
+              const taskFiles = result.data.map(file => this.normalizeFileRecord({
                 ...file,
                 linkedTasks: file.linkedTasks || [task.id],
                 taskTitle: task.title
@@ -3945,6 +3968,36 @@ class DashboardApp {
       console.error('Error loading task files:', error);
       throw error;
     }
+  }
+
+  // Normalize a file record for consistent display of Thai names and extensions
+  normalizeFileRecord(file) {
+    try {
+      const clone = { ...file };
+      // Prefer originalName, else fileName, else name
+      let display = clone.originalName || clone.fileName || clone.name || '';
+      // Decode percent-encoded names if any
+      if (/%[0-9A-Fa-f]{2}/.test(display)) {
+        try { display = decodeURIComponent(display); } catch {}
+      }
+      // Ensure extension exists when mimeType suggests one
+      if (display && !display.includes('.') && (clone.mimeType || '').includes('/')) {
+        const ext = this.getExtensionFromMime(clone.mimeType);
+        if (ext) display = `${display}.${ext}`;
+      }
+      clone.name = display || 'ไฟล์ไม่มีชื่อ';
+      return clone;
+    } catch {
+      return file;
+    }
+  }
+
+  getExtensionFromMime(mime) {
+    const map = {
+      'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
+      'video/mp4': 'mp4', 'audio/mpeg': 'mp3', 'application/pdf': 'pdf', 'application/json': 'json', 'text/plain': 'txt'
+    };
+    return map[mime] || '';
   }
 
   filterFiles(searchTerm) {

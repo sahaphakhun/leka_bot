@@ -1386,18 +1386,7 @@ class ApiController {
       const fileContent = await this.fileService.getFileContent(fileId);
 
       // สร้างชื่อไฟล์ที่ปลอดภัยและมีนามสกุล
-      let downloadName = (file as any).originalName as string;
-      if (!downloadName || !downloadName.includes('.')) {
-        const tryName = (file as any).fileName || `file_${file.id}`;
-        // พยายามเดานามสกุลจาก mimeType เบื้องต้น
-        const mime = (file as any).mimeType as string;
-        const map: Record<string, string> = {
-          'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/gif': 'gif', 'image/webp': 'webp',
-          'video/mp4': 'mp4', 'audio/mpeg': 'mp3', 'application/pdf': 'pdf', 'application/json': 'json', 'text/plain': 'txt'
-        };
-        const ext = map[mime] || '';
-        downloadName = ext ? `${tryName}.${ext}` : tryName;
-      }
+      let downloadName = this.fileService.getSafeDownloadFilename(file as any);
       const safeName = sanitize(downloadName);
       const encodedName = encodeURIComponent(safeName);
 

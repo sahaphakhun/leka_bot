@@ -1137,6 +1137,34 @@ export class FileService {
   }
 
   /**
+   * คืนชื่อไฟล์สำหรับดาวน์โหลดที่ปลอดภัยและมีนามสกุลเสมอ (ไม่ใส่ path)
+   */
+  public getSafeDownloadFilename(file: File): string {
+    try {
+      // เริ่มจาก originalName → fileName → file.id
+      let filename = ((file as any).originalName as string) || (file as any).fileName || `file_${file.id}`;
+      // ลองเติมนามสกุล
+      if (!filename.includes('.')) {
+        let ext = this.inferFormatFromMime((file as any).mimeType);
+        if (!ext && (file as any).path) {
+          try {
+            const urlPath = ((file as any).path as string).split('?')[0];
+            const lastSeg = urlPath.substring(urlPath.lastIndexOf('/') + 1);
+            const dot = lastSeg.lastIndexOf('.');
+            if (dot > 0 && dot < lastSeg.length - 1) {
+              ext = lastSeg.substring(dot + 1);
+            }
+          } catch {}
+        }
+        if (ext) filename = `${filename}.${ext}`;
+      }
+      return filename;
+    } catch {
+      return (file as any).originalName || (file as any).fileName || `file_${file.id}`;
+    }
+  }
+
+  /**
    * สร้าง URL สำหรับแสดงตัวอย่างไฟล์
    */
   public generatePreviewUrl(groupId: string, fileId: string): string {
