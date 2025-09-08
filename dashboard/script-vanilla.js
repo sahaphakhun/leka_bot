@@ -20,6 +20,220 @@ class DashboardApp {
     this.init();
   }
 
+  // โหลด PDF.js แบบ on-demand เฉพาะตอนพรีวิว PDF
+  async ensurePdfJsLoaded() {
+    if (window.pdfjsLib) {
+      // ตั้ง workerSrc ถ้ายังไม่ได้ตั้ง
+      try {
+        if (!window.pdfjsLib.GlobalWorkerOptions.workerSrc) {
+          window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+        }
+      } catch {}
+      return;
+    }
+
+    // เพิ่มสคริปต์ PDF.js จาก CDN
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      script.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+      script.async = true;
+      script.onload = () => {
+        try {
+          if (window.pdfjsLib) {
+            window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          }
+        } catch {}
+        resolve(true);
+      };
+      script.onerror = reject;
+      document.head.appendChild(script);
+    });
+  }
+
+  // เรนเดอร์ PDF แบบเลื่อนต่อเนื่อง พร้อมทูลบาร์สำหรับมือถือ
+  async renderPdfWithPdfJs(file) {
+    const loading = document.getElementById('filePreviewLoading');
+    const content = document.getElementById('filePreviewContent');
+    if (!content) return;
+
+    try {
+      await this.ensurePdfJsLoaded();
+    } catch (e) {
+      console.error('Failed to load PDF.js', e);
+      const pdfUrl = this.getFilePreviewUrl(file);
+      content.innerHTML = `
+        <div class="text-center py-12" style="background: #f8f9fa; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
+          <i class="fas fa-file-pdf text-6xl text-red-400 mb-6"></i>
+          <h3 class="text-xl font-semibold text-gray-900 mb-4">ไม่สามารถโหลดตัวแสดง PDF ได้</h3>
+          <a href="${pdfUrl}" target="_blank" class="btn btn-primary"><i class="fas fa-external-link-alt mr-2"></i>เปิดในแท็บใหม่</a>
+        </div>
+      `;
+      if (loading) loading.style.display = 'none';
+      return;
+    }
+
+    const pdfUrl = this.getFilePreviewUrl(file);
+
+    // สร้าง UI ทูลบาร์และคอนเทนเนอร์หน้า
+    content.innerHTML = `
+      <div id="pdfViewer" style="display:flex; flex-direction:column; height: 80vh; min-height: 500px;">
+        <div id="pdfToolbar" style="display:flex; align-items:center; gap:8px; padding:8px; border-bottom:1px solid #e5e7eb; background:#fff; position:sticky; top:0; z-index:1;">
+          <button id="pdfPrev" class="btn btn-sm btn-outline"><i class="fas fa-chevron-left"></i></button>
+          <span id="pdfPageInfo" class="text-sm text-gray-700">-
+          </span>
+          <button id="pdfNext" class="btn btn-sm btn-outline"><i class="fas fa-chevron-right"></i></button>
+          <div style="flex:1"></div>
+          <button id="pdfZoomOut" class="btn btn-sm btn-outline"><i class="fas fa-search-minus"></i></button>
+          <span id="pdfZoom" class="text-sm text-gray-700" style="min-width:48px; text-align:center;">100%</span>
+          <button id="pdfZoomIn" class="btn btn-sm btn-outline"><i class="fas fa-search-plus"></i></button>
+        </div>
+        <div id="pdfPages" style="flex:1; overflow:auto; background:#f8f9fa; padding:8px;">
+        </div>
+      </div>
+    `;
+
+    const pagesContainer = content.querySelector('#pdfPages');
+    const pageInfo = content.querySelector('#pdfPageInfo');
+    const zoomEl = content.querySelector('#pdfZoom');
+    const prevBtn = content.querySelector('#pdfPrev');
+    const nextBtn = content.querySelector('#pdfNext');
+    const zoomInBtn = content.querySelector('#pdfZoomIn');
+    const zoomOutBtn = content.querySelector('#pdfZoomOut');
+
+    let scale = 1.0;
+    const minScale = 0.5;
+    const maxScale = 3.0;
+    let currentPage = 1;
+    let numPages = 1;
+    const pageCanvases = [];
+
+    const updateToolbar = () => {
+      if (pageInfo) pageInfo.textContent = `${currentPage} / ${numPages}`;
+      if (zoomEl) zoomEl.textContent = `${Math.round(scale * 100)}%`;
+    };
+
+    const renderPage = async (pdf, pageNumber) => {
+      const page = await pdf.getPage(pageNumber);
+      const viewport = page.getViewport({ scale });
+
+      let canvas = pageCanvases[pageNumber];
+      if (!canvas) {
+        canvas = document.createElement('canvas');
+        canvas.style.display = 'block';
+        canvas.style.margin = '8px auto';
+        canvas.style.background = '#fff';
+        canvas.style.boxShadow = '0 1px 2px rgba(0,0,0,0.06)';
+        pageCanvases[pageNumber] = canvas;
+        pagesContainer.appendChild(canvas);
+      }
+      const context = canvas.getContext('2d');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: context, viewport }).promise;
+    };
+
+    const rerenderAll = async (pdf) => {
+      // ลบรันเดอร์เดิม
+      pagesContainer.innerHTML = '';
+      pageCanvases.length = 0;
+      for (let i = 1; i <= numPages; i++) {
+        // เรนเดอร์ทีละหน้า เพื่อลด peak memory
+        // ใช้ await เพื่อให้ UI responsive ในมือถือ
+        // eslint-disable-next-line no-await-in-loop
+        await renderPage(pdf, i);
+      }
+    };
+
+    try {
+      const loadingTask = window.pdfjsLib.getDocument({ url: pdfUrl });
+      const pdf = await loadingTask.promise;
+      numPages = pdf.numPages || 1;
+      updateToolbar();
+
+      // เรนเดอร์หน้าแรกก่อน
+      await renderPage(pdf, 1);
+
+      // Lazy render ที่เหลือแบบค่อย ๆ เติม (เพื่อให้หน้าแรกแสดงทันที)
+      setTimeout(async () => {
+        for (let i = 2; i <= numPages; i++) {
+          // eslint-disable-next-line no-await-in-loop
+          await renderPage(pdf, i);
+        }
+      }, 0);
+
+      // ปุ่มควบคุม
+      prevBtn?.addEventListener('click', () => {
+        if (currentPage > 1) {
+          currentPage -= 1;
+          updateToolbar();
+          // เลื่อน scroll ให้เห็นหน้า
+          const target = pageCanvases[currentPage];
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+      nextBtn?.addEventListener('click', () => {
+        if (currentPage < numPages) {
+          currentPage += 1;
+          updateToolbar();
+          const target = pageCanvases[currentPage];
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+
+      pagesContainer.addEventListener('scroll', () => {
+        // คำนวณหน้าปัจจุบันจากตำแหน่ง scroll คร่าว ๆ
+        let bestIndex = 1;
+        let bestTop = Infinity;
+        for (let i = 1; i <= numPages; i++) {
+          const el = pageCanvases[i];
+          if (!el) continue;
+          const rect = el.getBoundingClientRect();
+          const containerRect = pagesContainer.getBoundingClientRect();
+          const top = Math.abs(rect.top - containerRect.top);
+          if (top < bestTop) { bestTop = top; bestIndex = i; }
+        }
+        if (bestIndex !== currentPage) {
+          currentPage = bestIndex;
+          updateToolbar();
+        }
+      });
+
+      const applyZoom = async (newScale) => {
+        scale = Math.max(minScale, Math.min(maxScale, newScale));
+        updateToolbar();
+        await rerenderAll(pdf);
+        const target = pageCanvases[currentPage];
+        if (target) target.scrollIntoView({ behavior: 'instant', block: 'start' });
+      };
+
+      zoomInBtn?.addEventListener('click', () => applyZoom(scale + 0.1));
+      zoomOutBtn?.addEventListener('click', () => applyZoom(scale - 0.1));
+
+      // Double-tap zoom (มือถือ)
+      let lastTap = 0;
+      pagesContainer.addEventListener('click', async (e) => {
+        const now = Date.now();
+        if (now - lastTap < 300) {
+          // double tap
+          await applyZoom(scale < 1.5 ? scale + 0.5 : 1.0);
+        }
+        lastTap = now;
+      });
+
+    } catch (err) {
+      console.error('Error rendering PDF:', err);
+      const pdfUrl = this.getFilePreviewUrl(file);
+      content.innerHTML = `
+        <div class="text-center py-12" style="background: #f8f9fa; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
+          <i class="fas fa-file-pdf text-6xl text-red-400 mb-6"></i>
+          <h3 class="text-xl font-semibold text-gray-900 mb-4">ไม่สามารถแสดง PDF ได้</h3>
+          <a href="${pdfUrl}" target="_blank" class="btn btn-primary"><i class="fas fa-external-link-alt mr-2"></i>เปิดในแท็บใหม่</a>
+        </div>`;
+    } finally {
+      if (loading) loading.style.display = 'none';
+    }
+  }
+
   init() {
     // Ensure Thai locale in the UI
     this.ensureThaiLocaleUI();
@@ -4808,18 +5022,9 @@ class DashboardApp {
           </div>
         `;
       } else if (mimeType === 'application/pdf') {
-        // แสดง PDF
-        const pdfUrl = this.getFilePreviewUrl(file);
-        fileContent = `
-          <div style="width: 100%; height: 80vh; min-height: 500px;">
-            <iframe src="${pdfUrl}" 
-                    style="width: 100%; height: 100%; border: none; border-radius: 8px;" 
-                    title="PDF Viewer"
-                    onload="console.log('PDF loaded successfully')" 
-                    onerror="this.parentElement.innerHTML='<div class=\'text-center py-8\'><i class=\'fas fa-file-pdf text-4xl text-red-400 mb-4\'></i><p class=\'text-gray-600\'>ไม่สามารถแสดง PDF ได้</p><a href=\"${pdfUrl}\" target=\"_blank\" class=\"btn btn-primary mt-4\"><i class=\"fas fa-external-link-alt mr-2\"></i>เปิดในแท็บใหม่</a></div>'">
-            </iframe>
-          </div>
-        `;
+        // แสดง PDF ด้วย PDF.js (mobile-friendly) แทน iframe
+        await this.renderPdfWithPdfJs(file);
+        return; // จัดการภายในฟังก์ชันแล้ว
       } else if (mimeType.startsWith('video/')) {
         // แสดงวิดีโอ
         const videoUrl = this.getFilePreviewUrl(file);
