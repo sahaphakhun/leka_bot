@@ -307,10 +307,19 @@ class DashboardApp {
       this.updateUserInfo();
       
       // ตรวจสอบ action parameter และเปิด modal ทันทีถ้าเป็น new-task
+      // บล็อกเมื่อไม่มี userId (โหมดดูอย่างเดียว)
       if (this.currentAction === 'new-task') {
-        this.openAddTaskModalFast();
+        if (!this.currentUserId) {
+          this.showToast('โหมดดูอย่างเดียว: กรุณาเข้าจากลิงก์ที่มี userId', 'warning');
+        } else {
+          this.openAddTaskModalFast();
+        }
       } else if (this.currentAction === 'new-recurring-task') {
-        this.openAddRecurringTaskModal();
+        if (!this.currentUserId) {
+          this.showToast('โหมดดูอย่างเดียว: กรุณาเข้าจากลิงก์ที่มี userId', 'warning');
+        } else {
+          this.openAddRecurringTaskModal();
+        }
       }
       
       // โหลดข้อมูลแบบ parallel
@@ -2291,6 +2300,10 @@ class DashboardApp {
   }
 
   openAddTaskModalFast() {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถเพิ่มงานได้', 'warning');
+      return;
+    }
     // เปิด modal ทันทีโดยไม่รอโหลดข้อมูลสมาชิก
     const modal = document.getElementById('addTaskModal');
     const overlay = document.getElementById('modalOverlay');
@@ -2316,6 +2329,10 @@ class DashboardApp {
   }
 
   openAddTaskModal() {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถเพิ่มงานได้', 'warning');
+      return;
+    }
     console.log('🚀 กำลังเปิด modal เพิ่มงาน...');
     
     const modal = document.getElementById('addTaskModal');
@@ -2354,6 +2371,10 @@ class DashboardApp {
   }
 
   openAddRecurringTaskModal() {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถเพิ่มงานได้', 'warning');
+      return;
+    }
     // เปิด modal เพิ่มงานและสลับไปแท็บงานประจำ
     const modal = document.getElementById('addTaskModal');
     const overlay = document.getElementById('modalOverlay');
@@ -2623,6 +2644,10 @@ class DashboardApp {
 
   async handleAddTask(e) {
     e.preventDefault();
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ต้องมี userId เพื่อเพิ่มงาน', 'error');
+      return false;
+    }
     this.showToast('กำลังเพิ่มงาน...', 'info');
     
     const form = e.target;
@@ -2724,6 +2749,10 @@ class DashboardApp {
 
   async handleEditTask(e) {
     e.preventDefault();
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ต้องมี userId เพื่อแก้ไขงาน', 'error');
+      return false;
+    }
     this.showToast('กำลังแก้ไขงาน...', 'info');
     
     const form = e.target;
@@ -2789,6 +2818,10 @@ class DashboardApp {
   }
 
   openSubmitTaskModal(taskId) {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถส่งงานได้', 'warning');
+      return;
+    }
     const task = this.tasks.find(t => t.id === taskId);
     if (!task) {
       this.showToast('ไม่พบงานที่ระบุ', 'error');
@@ -3568,6 +3601,10 @@ class DashboardApp {
    * อนุมัติงาน
    */
   async approveTask(taskId) {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถอนุมัติงานได้', 'warning');
+      return;
+    }
     if (!taskId) {
       this.showToast('ไม่พบงานที่ต้องการอนุมัติ', 'error');
       return;
@@ -3809,6 +3846,10 @@ class DashboardApp {
   }
 
   uploadFile() {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถอัปโหลดไฟล์ได้', 'warning');
+      return;
+    }
     this.showToast('เปิดหน้าต่างอัปโหลดไฟล์', 'info');
     // สร้าง input file element
     const input = document.createElement('input');
@@ -3825,6 +3866,10 @@ class DashboardApp {
   }
 
   async handleFileUpload(files) {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถอัปโหลดไฟล์ได้', 'error');
+      return;
+    }
     try {
       this.showToast(`กำลังอัปโหลด ${files.length} ไฟล์...`, 'info');
       
@@ -4473,6 +4518,10 @@ class DashboardApp {
   }
 
   async deleteFile(fileId) {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถลบไฟล์ได้', 'warning');
+      return;
+    }
     if (!confirm('คุณแน่ใจหรือไม่ที่จะลบไฟล์นี้?')) {
       return;
     }
@@ -5038,6 +5087,10 @@ class DashboardApp {
   }
 
   openEditTaskModal(taskId) {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถแก้ไขงานได้', 'warning');
+      return;
+    }
     if (!taskId) {
       this.showToast('ไม่พบงานที่ต้องการแก้ไข', 'error');
       return;
@@ -5170,6 +5223,10 @@ class DashboardApp {
   }
 
   deleteTask(taskId) {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถลบงานได้', 'warning');
+      return;
+    }
     if (confirm('คุณแน่ใจหรือไม่ที่จะลบงานนี้?')) {
       this.tasks = this.tasks.filter(t => t.id !== taskId);
       this.renderTasks();
@@ -5615,6 +5672,10 @@ class DashboardApp {
   }
 
   inviteMember(email = '', role = 'member', message = '') {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถเชิญสมาชิกได้', 'warning');
+      return;
+    }
     if (!email) {
       // เปิด modal เชิญสมาชิก
       this.openModal('inviteMemberModal');
@@ -5828,6 +5889,10 @@ class DashboardApp {
   }
 
   applyMemberChanges(memberId) {
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถแก้ไขข้อมูลสมาชิกได้', 'warning');
+      return;
+    }
     const member = this.groupMembers.find(m => m.id === memberId);
     if (member) {
       const newRole = document.getElementById('changeRole')?.value;
@@ -5853,7 +5918,11 @@ class DashboardApp {
   }
 
   removeMember(memberId) {
-    const member = this.groupMembers.find(m => m.id === memberId);
+    if (!this.currentUserId) {
+      this.showToast('โหมดดูอย่างเดียว: ไม่สามารถลบสมาชิกได้', 'warning');
+      return;
+    }
+  const member = this.groupMembers.find(m => m.id === memberId);
     if (member) {
       if (confirm(`คุณแน่ใจหรือไม่ที่จะลบสมาชิก "${member.displayName}" ออกจากกลุ่ม?`)) {
         this.groupMembers = this.groupMembers.filter(m => m.id !== memberId);
@@ -6594,6 +6663,14 @@ class DashboardApp {
       addTaskBtn.classList.add('opacity-50', 'cursor-not-allowed');
       addTaskBtn.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
     }
+
+    // ปุ่มส่งงานที่เลือก
+    const submitSelectedBtn = document.getElementById('submitSelectedTasksBtn');
+    if (submitSelectedBtn) {
+      submitSelectedBtn.style.display = 'none';
+      submitSelectedBtn.disabled = true;
+      submitSelectedBtn.title = 'โปรดเข้าผ่านลิงก์จากบอทเพื่อระบุตัวตน (userId)';
+    }
     
     console.log('🔒 ปิดปุ่มดำเนินการสำหรับโหมดดูอย่างเดียว');
   }
@@ -6616,6 +6693,14 @@ class DashboardApp {
       addTaskBtn.disabled = false;
       addTaskBtn.classList.remove('opacity-50', 'cursor-not-allowed');
       addTaskBtn.title = 'เพิ่มงานใหม่';
+    }
+
+    // ปุ่มส่งงานที่เลือก
+    const submitSelectedBtn = document.getElementById('submitSelectedTasksBtn');
+    if (submitSelectedBtn) {
+      submitSelectedBtn.disabled = false;
+      // ไม่บังคับแสดง: ให้แสดงตามจำนวนที่เลือกใน updateSubmitButton()
+      submitSelectedBtn.title = 'ส่งงานที่เลือก';
     }
     
     console.log('🔓 เปิดปุ่มดำเนินการสำหรับโหมดปกติ');
