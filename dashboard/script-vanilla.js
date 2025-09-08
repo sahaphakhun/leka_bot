@@ -103,9 +103,11 @@ class DashboardApp {
     const zoomInBtn = content.querySelector('#pdfZoomIn');
     const zoomOutBtn = content.querySelector('#pdfZoomOut');
 
-    let scale = 1.0;
+    // Zoom state: render at devicePixelRatio for sharpness
+    let scale = 1.0; // logical zoom factor
     const minScale = 0.5;
-    const maxScale = 3.0;
+    const maxScale = 4.0;
+    let initialScaleSet = false;
     let currentPage = 1;
     let numPages = 1;
     const pageCanvases = [];
@@ -117,6 +119,17 @@ class DashboardApp {
 
     const renderPage = async (pdf, pageNumber) => {
       const page = await pdf.getPage(pageNumber);
+      // Fit-to-width initial scale
+      if (!initialScaleSet) {
+        try {
+          const unscaled = page.getViewport({ scale: 1 });
+          const containerWidth = pagesContainer.clientWidth || content.clientWidth || unscaled.width;
+          const padding = 16; // approximate padding for the container
+          const fit = Math.max(minScale, Math.min(maxScale, (containerWidth - padding) / unscaled.width));
+          scale = fit;
+        } catch {}
+        initialScaleSet = true;
+      }
       const viewport = page.getViewport({ scale });
 
       let canvas = pageCanvases[pageNumber];
@@ -130,9 +143,14 @@ class DashboardApp {
         pagesContainer.appendChild(canvas);
       }
       const context = canvas.getContext('2d');
-      canvas.width = viewport.width;
-      canvas.height = viewport.height;
-      await page.render({ canvasContext: context, viewport }).promise;
+      // Render at device pixel ratio to avoid blur on HiDPI
+      const outputScale = Math.max(1, window.devicePixelRatio || 1);
+      canvas.width = Math.floor(viewport.width * outputScale);
+      canvas.height = Math.floor(viewport.height * outputScale);
+      canvas.style.width = `${Math.floor(viewport.width)}px`;
+      canvas.style.height = `${Math.floor(viewport.height)}px`;
+      const transform = outputScale !== 1 ? [outputScale, 0, 0, outputScale, 0, 0] : null;
+      await page.render({ canvasContext: context, viewport, transform }).promise;
     };
 
     const rerenderAll = async (pdf) => {

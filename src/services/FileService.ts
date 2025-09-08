@@ -586,7 +586,7 @@ export class FileService {
     originalName: string;
   }> {
     const maxRetries = 3;
-    const requestTimeoutMs = 45000; // 45 วินาที
+    const requestTimeoutMs = 120000; // 120 วินาที (เพิ่มเวลาเพื่อรองรับไฟล์ใหญ่/เครือข่ายช้า)
 
     const fetchWithHttp = (targetUrl: string): Promise<Buffer> => {
       return new Promise((resolve, reject) => {
@@ -595,6 +595,7 @@ export class FileService {
           timedOut = true;
           const timeoutErr: any = new Error('Request timeout');
           timeoutErr.url = targetUrl;
+          timeoutErr.statusCode = 504; // Gateway timeout semantics for downstream
           logger.error('❌ Remote file request timeout', { url: targetUrl });
           reject(timeoutErr);
         }, requestTimeoutMs);
@@ -618,6 +619,7 @@ export class FileService {
                 clearTimeout(controller);
                 const redirectErr: any = new Error('Too many redirects');
                 redirectErr.url = urlToGet;
+                redirectErr.statusCode = 502;
                 logger.error('❌ Too many redirects fetching remote file', { url: urlToGet });
                 reject(redirectErr);
                 return;
@@ -654,10 +656,12 @@ export class FileService {
             });
           });
 
-          req.on('error', (err) => {
+          req.on('error', (err: any) => {
             if (timedOut) return;
             clearTimeout(controller);
-            (err as any).url = urlToGet;
+            err.url = urlToGet;
+            // Normalize to a 502 for network layer errors
+            if (!err.statusCode) err.statusCode = 502;
             logger.error('❌ Remote file request error', { url: urlToGet, error: err });
             reject(err);
           });
@@ -708,6 +712,7 @@ export class FileService {
     }
 
     const finalErr: any = new Error(`Failed to fetch remote file after ${maxRetries} attempts: ${lastErr instanceof Error ? lastErr.message : 'unknown error'}`);
+    finalErr.statusCode = 502;
     if ((lastErr as any)?.url) finalErr.url = (lastErr as any).url;
     throw finalErr;
   }
