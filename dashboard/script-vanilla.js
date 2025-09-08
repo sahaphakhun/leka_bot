@@ -244,10 +244,13 @@ class DashboardApp {
     } catch (err) {
       console.error('Error rendering PDF:', err);
       const pdfUrl = this.getFilePreviewUrl(file);
+      // Fallback อัตโนมัติ: เปิดแท็บใหม่ให้ผู้ใช้ทันทีเมื่อพรีวิวล้มเหลว (เช่น 4xx/5xx)
+      try { window.open(pdfUrl, '_blank'); } catch {}
       content.innerHTML = `
         <div class="text-center py-12" style="background: #f8f9fa; min-height: 400px; display: flex; flex-direction: column; justify-content: center;">
           <i class="fas fa-file-pdf text-6xl text-red-400 mb-6"></i>
-          <h3 class="text-xl font-semibold text-gray-900 mb-4">ไม่สามารถแสดง PDF ได้</h3>
+          <h3 class="text-xl font-semibold text-gray-900 mb-2">พรีวิวไม่สำเร็จ — เปิดในแท็บใหม่ให้แล้ว</h3>
+          <p class="text-gray-600 mb-4">หากแท็บไม่เปิดอัตโนมัติ กรุณาคลิกปุ่มด้านล่าง</p>
           <a href="${pdfUrl}" target="_blank" class="btn btn-primary"><i class="fas fa-external-link-alt mr-2"></i>เปิดในแท็บใหม่</a>
         </div>`;
     } finally {

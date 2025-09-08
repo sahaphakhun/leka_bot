@@ -1016,48 +1016,51 @@ class ApiController {
 
       // ถ้ามี groupId ให้ตรวจสอบว่าไฟล์เป็นของกลุ่มนั้นจริง
       if (groupId) {
-        // ตรวจสอบว่าไฟล์อยู่ในกลุ่มที่ระบุหรือไม่ผ่าน FileService
         const isAuthorized = await this.fileService.isFileInGroup(fileId, groupId);
         if (!isAuthorized) {
-          res.status(403).json({ 
-            success: false, 
-            error: 'Access denied to file' 
-          });
+          res.status(403).json({ success: false, error: 'Access denied to file' });
           return;
         }
       }
 
       const file = await this.fileService.getFileInfo(fileId);
       if (!file) {
-        res.status(404).json({
-          success: false,
-          error: 'File not found'
-        });
+        res.status(404).json({ success: false, error: 'File not found' });
         return;
       }
-      fileUrl = this.fileService.resolveFileUrl(file);
 
-      // Debug: log ข้อมูลไฟล์
-      logger.info(`🔍 Preview file: ${fileId}, path: ${fileUrl}, mimeType: ${file.mimeType}`);
+      // หากเป็น HEAD: ตอบกลับอย่างรวดเร็วโดยไม่ดึงไฟล์จริง ลดโอกาส error
+      if (req.method === 'HEAD') {
+        res.setHeader('Content-Type', (file as any).mimeType || 'application/octet-stream');
+        res.status(200).end();
+        return;
+      }
 
-      // ดึงเนื้อไฟล์ผ่าน service เพื่อสตรีมกลับให้ผู้ใช้
+      // กรณี GET: เปลี่ยนเป็น redirect ไปยัง URL ต้นทาง (ลงลายเซ็นถ้าจำเป็น)
+      const path = (file as any).path as string | undefined;
+      const isRemote = !!(path && /^https?:\/\//i.test(path));
+
+      if (isRemote || (file as any).storageProvider === 'cloudinary') {
+        // ใช้ URL สำหรับพรีวิว (ไม่บังคับ attachment)
+        const directUrl = this.fileService.resolveFileUrl(file);
+        fileUrl = directUrl;
+        logger.info('🔁 Redirecting preview to direct URL', { fileId, directUrl });
+        res.redirect(302, directUrl);
+        return;
+      }
+
+      // โลคอลหรือไม่สามารถสร้าง direct URL ได้ → ส่งไฟล์แบบ inline (เดิม)
       const { content, mimeType, originalName } = await this.fileService.getFileContent(fileId);
 
-      // รองรับเฉพาะไฟล์ที่ดูตัวอย่างได้
       const previewableMimes = [
         'image/jpeg', 'image/png', 'image/gif', 'image/webp',
         'application/pdf', 'text/plain'
       ];
-
       if (!previewableMimes.includes(mimeType)) {
-        res.status(400).json({
-          success: false,
-          error: 'File type not previewable'
-        });
+        res.status(400).json({ success: false, error: 'File type not previewable' });
         return;
       }
 
-      // ตรวจสอบและสร้างชื่อไฟล์สำหรับ header
       let previewName = originalName && originalName.trim() !== '' ? originalName : `file_${fileId}`;
       const ext = (this.fileService as any).getFileExtension
         ? (this.fileService as any).getFileExtension(mimeType, previewName)
@@ -1073,7 +1076,6 @@ class ApiController {
         'Content-Length': content.length.toString(),
         'Content-Disposition': `inline; filename="${previewName}"; filename*=UTF-8''${encodedName}`
       });
-
       res.send(content);
 
     } catch (error) {
