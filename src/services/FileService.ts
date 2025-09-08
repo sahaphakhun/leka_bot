@@ -1086,12 +1086,29 @@ export class FileService {
       const path = (file as any).path as string | undefined;
 
       // Cloudinary storage → ใช้ลิงก์แบบ signed/private หากทำได้
-      if (file.storageProvider === 'cloudinary' || (path && path.includes('res.cloudinary.com'))) {
+      if (file.storageProvider === 'cloudinary' || (path && (path.includes('res.cloudinary.com') || path.includes('cloudinary.com')))) {
+        // พยายามใช้ลิงก์บน res.cloudinary.com ที่ลงลายเซ็นและแนบ fl_attachment เพื่อหลีกเลี่ยง CSP กับ api.cloudinary.com
         try {
-          const privateUrl = this.getCloudinaryPrivateDownloadUrl(file as any);
-          if (privateUrl) return privateUrl;
-        } catch {}
-        // ถ้าสร้าง private ไม่ได้ ใช้ลิงก์ที่ลงลายเซ็นทั่วไป
+          // ใช้ข้อมูลจาก path เพื่อสร้าง publicId และพารามิเตอร์ให้ครบ
+          const info = this.buildCloudinaryInfo(file as any);
+          const options: any = {
+            resource_type: info.resourceType,
+            type: info.deliveryType,
+            sign_url: true,
+            secure: true,
+            flags: 'attachment', // เพิ่ม fl_attachment ให้ดาวน์โหลดเป็นไฟล์
+          };
+          if (file.originalName) {
+            // แนบชื่อไฟล์สำหรับ Content-Disposition
+            options.attachment = file.originalName;
+          }
+          if ((file as any).version) options.version = (file as any).version;
+          const signedAttachmentUrl = cloudinary.url(info.publicId + (info.format ? '.' + info.format : ''), options);
+          if (signedAttachmentUrl) return signedAttachmentUrl;
+        } catch (err) {
+          logger.warn('⚠️ Failed to build signed attachment URL for Cloudinary, falling back', err);
+        }
+        // ถ้าสร้างแบบแนบไม่ได้ ให้ใช้ URL ที่ลงลายเซ็นทั่วไป (res.cloudinary.com)
         return this.resolveFileUrl(file as any);
       }
 
