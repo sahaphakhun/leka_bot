@@ -17,52 +17,7 @@ class DashboardApp {
     this.isLoading = false;
     this.selectedTaskFiles = []; // Store selected files for task creation
     
-    // Initialize with some default mock tasks for statistics
-    this.initializeMockData();
-    
     this.init();
-  }
-
-  initializeMockData() {
-    // Default mock tasks to ensure statistics display properly
-    // Generate valid UUIDs for mock data
-    const generateUUID = () => {
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        const r = Math.random() * 16 | 0;
-        const v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-      });
-    };
-    
-    this.tasks = [
-      {
-        id: generateUUID(),
-        title: 'งานทดสอบ 1',
-        description: 'รายละเอียดงานทดสอบ',
-        status: 'pending',
-        priority: 'medium',
-        dueTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: generateUUID(), name: 'กลุ่มทดสอบ' }
-      },
-      {
-        id: generateUUID(), 
-        title: 'งานทดสอบ 2',
-        description: 'รายละเอียดงานทดสอบ 2',
-        status: 'completed',
-        priority: 'high',
-        dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-        group: { id: generateUUID(), name: 'กลุ่มทดสอบ 2' }
-      },
-      {
-        id: generateUUID(), 
-        title: 'งานทดสอบ 3',
-        description: 'รายละเอียดงานทดสอบ 3',
-        status: 'overdue',
-        priority: 'low',
-        dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        group: { id: generateUUID(), name: 'กลุ่มทดสอบ' }
-      }
-    ];
   }
 
   init() {
@@ -385,11 +340,8 @@ class DashboardApp {
   async loadTasks() {
     try {
       if (!this.currentGroupId) {
-        console.warn('No group ID available for loading tasks, using mock data');
-        // Use the mock data from initializeMockData if no tasks exist
-        if (!this.tasks || this.tasks.length === 0) {
-          this.initializeMockData();
-        }
+        console.warn('No group ID available for loading tasks');
+        this.tasks = [];
         this.renderTasks();
         this.updateUpcomingTasks();
         return;
@@ -412,42 +364,7 @@ class DashboardApp {
     } catch (error) {
       console.error('Error loading tasks:', error);
       this.showToast('เกิดข้อผิดพลาดในการโหลดงาน', 'error');
-      
-      // Fallback to mock data for development
-      const generateMockUUID = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
-        const r = Math.random() * 16 | 0;
-        return (c == 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-      });
-      
-      this.tasks = [
-        {
-          id: generateMockUUID(),
-          title: 'งานทดสอบ 1',
-          description: 'รายละเอียดงานทดสอบ',
-          status: 'pending',
-          priority: 'medium',
-          dueTime: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
-          group: { id: generateMockUUID(), name: 'กลุ่มทดสอบ' }
-        },
-        {
-          id: generateMockUUID(), 
-          title: 'งานทดสอบ 2',
-          description: 'รายละเอียดงานทดสอบ 2',
-          status: 'completed',
-          priority: 'high',
-          dueTime: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
-          group: { id: generateMockUUID(), name: 'กลุ่มทดสอบ 2' }
-        },
-        {
-          id: generateMockUUID(), 
-          title: 'งานทดสอบ 3',
-          description: 'รายละเอียดงานทดสอบ 3',
-          status: 'overdue',
-          priority: 'low',
-          dueTime: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-          group: { id: generateMockUUID(), name: 'กลุ่มทดสอบ' }
-        }
-      ];
+      this.tasks = [];
       this.renderTasks();
       this.updateUpcomingTasks();
     }
@@ -3891,11 +3808,11 @@ class DashboardApp {
       console.log('Current groupId:', this.currentGroupId);
       
       if (!this.currentGroupId) {
-        // Fallback to mock data
-        console.log('No groupId, using mock files');
-        this.files = this.getMockFiles();
-        console.log('Mock files loaded:', this.files);
+        console.log('No groupId, skip loading files');
+        this.files = [];
+        this.organizedFiles = this.organizeFilesByTask(this.files);
         this.renderFiles();
+        this.populateTaskFilter();
         return;
       }
 
@@ -3913,16 +3830,18 @@ class DashboardApp {
         // If no group-level files found, check task-level files
         if (this.files.length === 0) {
           console.log('No group files found, checking task files...');
+          // Ensure tasks are loaded before checking task files
+          if (!this.tasks || this.tasks.length === 0) {
+            try {
+              await this.loadTasks();
+            } catch (e) {
+              console.warn('Failed to load tasks before checking task files:', e?.message || e);
+            }
+          }
           await this.loadTaskFiles();
         }
         
-        // If still no files, use mock data
-        if (this.files.length === 0) {
-          console.log('No files found in group or tasks, using mock data instead');
-          this.files = this.getMockFiles();
-          console.log('Using mock files:', this.files);
-        }
-        
+        // If still no files, keep empty (no mocks)
         this.organizedFiles = this.organizeFilesByTask(this.files);
         this.renderFiles();
         this.populateTaskFilter();
@@ -3937,15 +3856,10 @@ class DashboardApp {
       console.log('Error fallback, checking task files...');
       try {
         await this.loadTaskFiles();
-        if (this.files.length === 0) {
-          console.log('No task files found, using mock files');
-          this.files = this.getMockFiles();
-          console.log('Fallback files loaded:', this.files);
-        }
+        // If still empty, keep as empty
       } catch (taskError) {
-        console.log('Task files also failed, using mock files');
-        this.files = this.getMockFiles();
-        console.log('Final fallback files loaded:', this.files);
+        console.log('Task files also failed');
+        this.files = [];
       }
       this.organizedFiles = this.organizeFilesByTask(this.files);
       this.renderFiles();
@@ -3966,13 +3880,20 @@ class DashboardApp {
         return;
       }
 
-      console.log('Checking files from', this.tasks.length, 'tasks in group');
+      // Filter tasks strictly to current group and valid IDs
+      const tasksToCheck = (this.tasks || []).filter(t => t && t.id && (
+        (t.groupId && t.groupId === this.currentGroupId) ||
+        (t.group && t.group.id === this.currentGroupId) ||
+        (!t.groupId && !t.group) // allow when API already scoped by group
+      ));
+
+      console.log('Checking files from', tasksToCheck.length, 'tasks in group');
       const allTaskFiles = [];
       let errorCount = 0;
       let successCount = 0;
       
       // Check each task for files
-      for (const task of this.tasks) {
+      for (const task of tasksToCheck) {
         try {
           const response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${task.id}/files`);
           if (response.ok) {
@@ -3988,6 +3909,10 @@ class DashboardApp {
               allTaskFiles.push(...taskFiles);
             }
             successCount++;
+          } else if (response.status === 404) {
+            // Treat 404 Task not found as no files for this task (skip noise)
+            console.log(`Task ${task.id} not found (404) while fetching files, skipping.`);
+            // no counters updated for expected absence
           } else {
             errorCount++;
             console.log(`Failed to load files for task ${task.id}: ${response.status} ${response.statusText}`);
@@ -4637,63 +4562,7 @@ class DashboardApp {
     this.renderFiles();
   }
 
-  // Mock files data for development
-  getMockFiles() {
-    return [
-      {
-        id: 'file1',
-        originalName: 'project-mockup.jpg',
-        name: 'project-mockup.jpg',
-        mimeType: 'image/jpeg',
-        size: 2048576,
-        path: 'data:image/svg+xml;base64,' + btoa('<svg width="400" height="300" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#3b82f6"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Project Mockup</text></svg>'),
-        linkedTasks: [generateUUID()],
-        tags: ['design', 'mockup'],
-        uploadedAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'file2',
-        originalName: 'requirements.pdf',
-        name: 'requirements.pdf',
-        mimeType: 'application/pdf',
-        size: 1024000,
-        linkedTasks: [generateUUID()],
-        tags: ['documentation'],
-        uploadedAt: new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'file3',
-        originalName: 'screenshot.png',
-        name: 'screenshot.png',
-        mimeType: 'image/png',
-        size: 512000,
-        path: 'data:image/svg+xml;base64,' + btoa('<svg width="600" height="400" xmlns="http://www.w3.org/2000/svg"><rect width="100%" height="100%" fill="#10b981"/><text x="50%" y="50%" font-family="Arial" font-size="24" fill="white" text-anchor="middle" dy=".3em">Screenshot</text></svg>'),
-        linkedTasks: [generateUUID()],
-        tags: ['screenshot', 'testing'],
-        uploadedAt: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'file4',
-        originalName: 'notes.txt',
-        name: 'notes.txt',
-        mimeType: 'text/plain',
-        size: 8192,
-        linkedTasks: [],
-        tags: ['notes'],
-        uploadedAt: new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
-      },
-      {
-        id: 'file5',
-        originalName: 'presentation.pptx',
-        name: 'presentation.pptx',
-        mimeType: 'application/vnd.openxmlformats-officedocument.presentationml.presentation',
-        size: 5242880,
-        linkedTasks: [generateUUID()],
-        tags: ['presentation', 'meeting'],
-        uploadedAt: new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
-      }
-    ];
-  }
+  // Removed mock files provider; real data only
 
   // File action functions
   previewFile(fileId) {
