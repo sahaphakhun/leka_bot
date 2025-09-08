@@ -517,6 +517,126 @@ class ApiController {
   }
 
   /**
+   * PUT /api/dashboard/groups/:groupId/tasks/:taskId
+   * อัปเดตงานจากหน้า Dashboard โดยใช้ userId (LINE) เพื่อยืนยันสิทธิ์ แทน JWT
+   * การอนุญาต: ต้องเป็นผู้สร้างงาน และเป็นสมาชิกของกลุ่ม
+   */
+  public async updateTaskFromDashboard(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId, taskId } = req.params as { groupId: string; taskId: string };
+      const body = (req.body || {}) as any;
+
+      // Require userId in payload
+      const userId = (body.userId || '').trim(); // LINE User ID expected (starts with 'U')
+      if (!userId) {
+        res.status(400).json({ success: false, error: 'userId is required in payload' });
+        return;
+      }
+
+      // Load task with relations
+      const task = await this.taskService.getTaskById(taskId);
+      if (!task) {
+        res.status(404).json({ success: false, error: 'Task not found' });
+        return;
+      }
+
+      // Resolve groupId (accept internal UUID or LINE group ID)
+      let groupInternal = null as any;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      if (isUuid) {
+        groupInternal = await this.userService.findGroupById(groupId);
+      } else {
+        groupInternal = await this.userService.findGroupByLineId(groupId);
+      }
+      if (!groupInternal) {
+        res.status(404).json({ success: false, error: 'Group not found' });
+        return;
+      }
+
+      // Ensure task belongs to the specified group
+      if (task.groupId !== groupInternal.id) {
+        res.status(400).json({ success: false, error: 'Task does not belong to the specified group' });
+        return;
+      }
+
+      // Resolve user by LINE ID and verify group membership
+      const user = await this.userService.findByLineUserId(userId);
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found for provided userId' });
+        return;
+      }
+
+      const membership = await this.userService.findGroupMembership(user.id, groupInternal.id);
+      if (!membership) {
+        res.status(403).json({ success: false, error: 'Group membership required' });
+        return;
+      }
+
+      // Only task creator can edit
+      const isCreator = (task.createdBy === user.id) || (task.createdByUser?.id === user.id) || (task.createdByUser?.lineUserId === user.lineUserId);
+      if (!isCreator) {
+        res.status(403).json({ success: false, error: 'Only the task creator can edit this task' });
+        return;
+      }
+
+      // Build safe updates (allow-listed keys only)
+      const allowedKeys = new Set([
+        'title',
+        'description',
+        'dueTime',
+        'startTime',
+        'priority',
+        'assigneeIds',
+        'tags',
+        'requireAttachment',
+        'reviewAction',
+        'reviewerUserId',
+        'reviewerComment',
+        'status'
+      ]);
+      const updates: any = {};
+      for (const [k, v] of Object.entries(body)) {
+        if (k === 'userId') continue; // skip auth field
+        if (allowedKeys.has(k)) {
+          updates[k] = v;
+        }
+      }
+
+      // Cast date strings
+      if (typeof updates.dueTime === 'string') {
+        updates.dueTime = new Date(updates.dueTime);
+      }
+      if (typeof updates.startTime === 'string') {
+        updates.startTime = new Date(updates.startTime);
+      }
+
+      // No updates provided
+      if (Object.keys(updates).length === 0) {
+        res.status(400).json({ success: false, error: 'No valid fields to update' });
+        return;
+      }
+
+      // Perform update
+      const updatedTask = await this.taskService.updateTask(taskId, updates);
+
+      logger.info('✅ Dashboard task updated (no-auth endpoint)', {
+        taskId,
+        groupId: groupInternal.id,
+        byLineUserId: user.lineUserId,
+        updates: Object.keys(updates)
+      });
+
+      res.json({
+        success: true,
+        data: taskEntityToInterface(updatedTask),
+        message: 'Task updated successfully (dashboard)'
+      });
+    } catch (error) {
+      logger.error('❌ updateTaskFromDashboard error:', error);
+      res.status(500).json({ success: false, error: 'Failed to update task from dashboard' });
+    }
+  }
+  /**
    * PUT /api/tasks/:taskId - อัปเดตงาน
    */
   public async updateTask(req: Request, res: Response): Promise<void> {
@@ -3231,10 +3351,15 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
     apiController.submitTask.bind(apiController)
   );
 
-  // Dashboard task submission (no authentication required - uses userId directly)
+// Dashboard task submission (no authentication required - uses userId directly)
   apiRouter.post('/dashboard/tasks/:taskId/submit',
     upload.array('attachments', 10),
     apiController.submitTaskFromDashboard.bind(apiController)
+  );
+
+  // Dashboard task update (no authentication required - uses userId directly)
+  apiRouter.put('/dashboard/groups/:groupId/tasks/:taskId',
+    apiController.updateTaskFromDashboard.bind(apiController)
   );
 
   // Direct file upload to group vault

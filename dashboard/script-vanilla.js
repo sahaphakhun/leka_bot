@@ -4,6 +4,7 @@ class DashboardApp {
   constructor() {
     this.timezone = 'Asia/Bangkok';
     this.currentUser = null;
+    this.accessToken = null;
     this.tasks = [];
     this.groups = [];
     this.files = [];
@@ -274,6 +275,13 @@ class DashboardApp {
     this.currentTaskId = urlParams.get('taskId');
     this.currentAction = urlParams.get('action');
     this.currentUserId = urlParams.get('userId'); // เพิ่มการตรวจสอบ userId
+    // Optional JWT access token for protected endpoints
+    const tokenFromUrl = urlParams.get('token');
+    const tokenFromStorage = localStorage.getItem('accessToken');
+    this.accessToken = tokenFromUrl || tokenFromStorage || null;
+    if (tokenFromUrl) {
+      try { localStorage.setItem('accessToken', tokenFromUrl); } catch (_) {}
+    }
     
     // ตรวจสอบ URL hash
     const hash = window.location.hash.substring(1);
@@ -2803,10 +2811,11 @@ class DashboardApp {
         assigneeIds: selectedAssignees
       };
       
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      // เรียกผ่านเส้นทางปกติพร้อม query userId (เลิกใช้ JWT)
+      const response = await fetch(`/api/tasks/${taskId}?userId=${encodeURIComponent(this.currentUserId || '')}`, {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(requestData)
       });
@@ -3548,8 +3557,9 @@ class DashboardApp {
         formData.append(`files`, file);
       });
       
-      const response = await fetch(`/api/tasks/${taskId}/submit`, {
+      const response = await fetch(`/api/tasks/${taskId}/submit?userId=${encodeURIComponent(this.currentUserId || '')}`, {
         method: 'POST',
+        headers: {},
         body: formData
       });
       
@@ -3597,10 +3607,10 @@ class DashboardApp {
     try {
       this.showToast('กำลังอนุมัติงาน...', 'info');
       
-      const response = await fetch(`/api/tasks/${taskId}/approve`, {
+      const response = await fetch(`/api/tasks/${taskId}/approve?userId=${encodeURIComponent(this.currentUserId || '')}`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify({
           userId: this.currentUserId
@@ -3690,8 +3700,9 @@ class DashboardApp {
         }
       });
       
-      const response = await fetch(`/api/tasks/${taskId}/submit`, {
+      const response = await fetch(`/api/tasks/${taskId}/submit?userId=${encodeURIComponent(this.currentUserId || '')}`, {
         method: 'POST',
+        headers: {},
         body: submitFormData
       });
       
@@ -3730,9 +3741,10 @@ class DashboardApp {
   // Task Action Functions
   async completeTask(taskId) {
     try {
-      const response = await fetch(`/api/tasks/${taskId}/complete`, {
+      const response = await fetch(`/api/tasks/${taskId}/complete?userId=${encodeURIComponent(this.currentUserId || '')}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' }
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: this.currentUserId })
       });
       
       if (response.ok) {
@@ -3755,7 +3767,7 @@ class DashboardApp {
 
   async reopenTask(taskId) {
     try {
-      const response = await fetch(`/api/tasks/${taskId}`, {
+      const response = await fetch(`/api/tasks/${taskId}?userId=${encodeURIComponent(this.currentUserId || '')}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ status: 'in_progress' })

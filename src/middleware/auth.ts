@@ -1,4 +1,4 @@
-// Authentication Middleware
+// Authentication Middleware (UserID-based, no JWT)
 
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
@@ -23,35 +23,30 @@ export class AuthMiddleware {
   }
 
   /**
-   * JWT Authentication Middleware
+   * UserID-based Authentication Middleware (no JWT)
+   * ตรวจสอบ userId จาก URL query (?userId=LINE_USER_ID) แล้วผูกเป็น req.user
    */
   public authenticate = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const token = this.extractToken(req);
-      
-      if (!token) {
-        res.status(401).json({ 
-          success: false, 
-          error: 'Access token required' 
+      const userIdFromQuery = (req.query.userId as string | undefined)?.trim();
+
+      if (!userIdFromQuery) {
+        res.status(401).json({
+          success: false,
+          error: 'Authentication required: userId query parameter is missing'
         });
         return;
       }
 
-      // ตรวจสอบ JWT token
-      const decoded = jwt.verify(token, config.app.jwtSecret) as any;
-      
-      // ดึงข้อมูลผู้ใช้
-      const user = await this.userService.findByLineUserId(decoded.lineUserId);
-      
+      const user = await this.userService.findByLineUserId(userIdFromQuery);
       if (!user) {
-        res.status(401).json({ 
-          success: false, 
-          error: 'Invalid token: user not found' 
+        res.status(401).json({
+          success: false,
+          error: 'Authentication failed: user not found'
         });
         return;
       }
 
-      // เพิ่มข้อมูลผู้ใช้เข้า request
       req.user = {
         id: user.id,
         lineUserId: user.lineUserId,
@@ -61,21 +56,9 @@ export class AuthMiddleware {
       };
 
       next();
-
     } catch (error) {
       console.error('❌ Auth middleware error:', error);
-      
-      if (error instanceof jwt.JsonWebTokenError) {
-        res.status(401).json({ 
-          success: false, 
-          error: 'Invalid token' 
-        });
-      } else {
-        res.status(500).json({ 
-          success: false, 
-          error: 'Authentication error' 
-        });
-      }
+      res.status(500).json({ success: false, error: 'Authentication error' });
     }
   };
 
@@ -84,12 +67,9 @@ export class AuthMiddleware {
    */
   public optionalAuth = async (req: AuthRequest, res: Response, next: NextFunction): Promise<void> => {
     try {
-      const token = this.extractToken(req);
-      
-      if (token) {
-        const decoded = jwt.verify(token, config.app.jwtSecret) as any;
-        const user = await this.userService.findByLineUserId(decoded.lineUserId);
-        
+      const userIdFromQuery = (req.query.userId as string | undefined)?.trim();
+      if (userIdFromQuery) {
+        const user = await this.userService.findByLineUserId(userIdFromQuery);
         if (user) {
           req.user = {
             id: user.id,
@@ -100,11 +80,8 @@ export class AuthMiddleware {
           };
         }
       }
-
       next();
-
     } catch (error) {
-      // ถ้า optional auth ล้มเหลว ไม่ต้องหยุด request
       console.warn('⚠️ Optional auth failed:', error);
       next();
     }
@@ -199,19 +176,8 @@ export class AuthMiddleware {
   /**
    * แยก token จาก request
    */
-  private extractToken(req: Request): string | null {
-    const authHeader = req.headers.authorization;
-    
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      return authHeader.substring(7);
-    }
-    
-    // ตรวจสอบจาก query parameter
-    const queryToken = req.query.token as string;
-    if (queryToken) {
-      return queryToken;
-    }
-    
+  private extractToken(_req: Request): string | null {
+    // JWT ถูกยกเลิกในการยืนยันตัวตนแบบใหม่
     return null;
   }
 }
