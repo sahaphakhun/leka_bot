@@ -1098,10 +1098,8 @@ export class FileService {
             secure: true,
             flags: 'attachment', // เพิ่ม fl_attachment ให้ดาวน์โหลดเป็นไฟล์
           };
-          if (file.originalName) {
-            // แนบชื่อไฟล์สำหรับ Content-Disposition
-            options.attachment = file.originalName;
-          }
+          // แนบชื่อไฟล์สำหรับ Content-Disposition (ให้มีนามสกุล)
+          options.attachment = this.ensureFilenameWithExtension(file as any);
           if ((file as any).version) options.version = (file as any).version;
           const signedAttachmentUrl = cloudinary.url(info.publicId + (info.format ? '.' + info.format : ''), options);
           if (signedAttachmentUrl) return signedAttachmentUrl;
@@ -1123,6 +1121,19 @@ export class FileService {
       logger.warn('⚠️ Failed to build direct download URL', err);
       return '';
     }
+  }
+
+  /**
+   * สร้างชื่อไฟล์สำหรับดาวน์โหลดให้มีนามสกุลเสมอ
+   */
+  private ensureFilenameWithExtension(file: File): string {
+    const name = (file as any).originalName as string | undefined;
+    let filename = name && name.trim() !== '' ? name : ((file as any).fileName || `file_${file.id}`);
+    if (!filename.includes('.')) {
+      const ext = this.inferFormatFromMime((file as any).mimeType);
+      if (ext) filename = `${filename}.${ext}`;
+    }
+    return filename;
   }
 
   /**
