@@ -5439,7 +5439,8 @@ class DashboardApp {
         this.showToast('เริ่มดาวน์โหลดไฟล์เรียบร้อย', 'success');
         
       } else {
-        let bodyText: string | null = null;
+        // Note: vanilla JS file; avoid TypeScript annotations
+        let bodyText = null;
         try { bodyText = await response.text(); } catch {}
         console.warn('[Download] HTTP error', { status: response.status, statusText: response.statusText, body: bodyText ? bodyText.slice(0, 300) : null });
         // Handle different error types with specific messages
