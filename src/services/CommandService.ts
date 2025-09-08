@@ -242,7 +242,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.colors.primary,
         content,
         buttons,
-        'compact'
+        'extraLarge'
       );
 
       return flexMessage;
@@ -309,7 +309,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.colors.success,
         content,
         buttons,
-        'compact'
+        'extraLarge'
       );
 
       return flexMessage;
@@ -501,7 +501,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.colors.success,
         content,
         buttons,
-        'compact'
+        'extraLarge'
       );
 
       return flexMessage;
@@ -595,7 +595,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.colors.info,
         content,
         buttons,
-        'compact'
+        'extraLarge'
       );
 
       return flexMessage;

@@ -504,7 +504,7 @@ export class CronService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -577,7 +577,7 @@ export class CronService {
       FlexMessageDesignSystem.colors.neutral,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -627,7 +627,7 @@ export class CronService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -851,7 +851,7 @@ export class CronService {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
 
   }

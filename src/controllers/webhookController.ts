@@ -971,7 +971,7 @@ class WebhookController {
                 ...taskButtons
               ],
               footerButtons,
-              'compact'
+              'extraLarge'
             );
             
             await this.lineService.replyMessage(replyToken, flexMessage as any);
@@ -1645,7 +1645,7 @@ class WebhookController {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 }

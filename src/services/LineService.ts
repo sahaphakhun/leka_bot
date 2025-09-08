@@ -737,7 +737,7 @@ export class LineService {
       FlexMessageDesignSystem.colors.lightGray,
       content,
       buttons,
-      'default'
+      'extraLarge'
     );
   }
 

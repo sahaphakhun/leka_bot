@@ -471,7 +471,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -509,7 +509,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -566,7 +566,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -607,7 +607,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -651,7 +651,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.danger,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -714,7 +714,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.primary,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 
@@ -751,7 +751,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.primary,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 
@@ -1154,7 +1154,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.primary,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 
@@ -1204,7 +1204,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 
@@ -1282,7 +1282,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 
@@ -1320,7 +1320,7 @@ export class NotificationService {
       FlexMessageDesignSystem.colors.neutral,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 

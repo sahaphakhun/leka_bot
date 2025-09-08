@@ -188,7 +188,7 @@ export class NotificationCardService {
       this.getPriorityColor(notificationCard.priority),
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 

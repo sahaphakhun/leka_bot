@@ -45,7 +45,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.primary,
       content,
       buttons,
-      'large' // เปลี่ยนกลับเป็น 'large' ตามที่ต้องการ
+      'extraLarge'
     );
   }
 
@@ -80,7 +80,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.danger,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -127,7 +127,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -171,7 +171,7 @@ export class FlexMessageTemplateService {
       headerColor,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -201,7 +201,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.neutral,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -233,7 +233,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -270,7 +270,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -302,7 +302,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -335,7 +335,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.danger,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -368,7 +368,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -401,7 +401,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.danger,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -704,7 +704,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -742,7 +742,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -771,7 +771,7 @@ export class FlexMessageTemplateService {
         [
           FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
         ],
-        'large'
+        'extraLarge'
       );
     }
 
@@ -841,7 +841,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -863,7 +863,7 @@ export class FlexMessageTemplateService {
         [
           FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
         ],
-        'large'
+        'extraLarge'
       );
     }
 
@@ -907,7 +907,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -943,7 +943,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -1071,7 +1071,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -1126,7 +1126,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -1306,7 +1306,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.info,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -1363,7 +1363,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.warning,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -1403,7 +1403,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.success,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 
@@ -1442,7 +1442,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.colors.primary,
       content,
       buttons,
-      'large'
+      'extraLarge'
     );
   }
 }

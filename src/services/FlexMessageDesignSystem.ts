@@ -284,7 +284,7 @@ export class FlexMessageDesignSystem {
     color: string,
     content: any[], // รับได้ทั้ง text, separator, และ box components
     buttons: any[],
-    size: keyof typeof FlexMessageDesignSystem.sizes = 'default'
+    size: keyof typeof FlexMessageDesignSystem.sizes = 'extraLarge'
   ): FlexMessage {
     return {
       type: 'flex',
@@ -478,7 +478,7 @@ export class FlexMessageDesignSystem {
       typeConfig.color,
       content,
       buttons,
-      'compact'
+      'extraLarge'
     );
   }
 
