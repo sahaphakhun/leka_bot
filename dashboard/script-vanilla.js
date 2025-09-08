@@ -5357,16 +5357,34 @@ class DashboardApp {
     const retryDelay = 1000; // 1 second
     
     try {
+      console.log('[Download] Start', { fileId, groupId: this.currentGroupId, attempt: retryAttempt + 1 });
+
+      // Preflight: fetch file info once on first attempt to aid debugging
+      if (retryAttempt === 0) {
+        try {
+          const infoProbe = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
+          let infoJson: any = null;
+          try { infoJson = await infoProbe.json(); } catch {}
+          const fileMeta = infoJson && typeof infoJson === 'object' && 'data' in infoJson ? infoJson.data : infoJson;
+          console.log('[Download] File info probe', { status: infoProbe.status, ok: infoProbe.ok, file: fileMeta });
+        } catch (probeErr) {
+          console.warn('[Download] File info probe failed', probeErr);
+        }
+      }
+
       // Show loading indicator for retries
       if (retryAttempt > 0) {
         this.showToast(`กำลังลองดาวน์โหลดอีกครั้ง... (ครั้งที่ ${retryAttempt + 1})`, 'info');
       }
       
       // Use correct API endpoint with groupId
-      const response = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}/download`);
+      const downloadUrl = `/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+      console.log('[Download] Fetching', { url: downloadUrl });
+      const response = await fetch(downloadUrl);
       
       if (response.ok) {
         const blob = await response.blob();
+        console.log('[Download] Response OK', { contentDisposition: response.headers.get('Content-Disposition') || null, size: blob.size });
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
@@ -5421,6 +5439,9 @@ class DashboardApp {
         this.showToast('เริ่มดาวน์โหลดไฟล์เรียบร้อย', 'success');
         
       } else {
+        let bodyText: string | null = null;
+        try { bodyText = await response.text(); } catch {}
+        console.warn('[Download] HTTP error', { status: response.status, statusText: response.statusText, body: bodyText ? bodyText.slice(0, 300) : null });
         // Handle different error types with specific messages
         let errorMessage = `HTTP ${response.status}`;
         let shouldRetry = false;
@@ -5449,7 +5470,7 @@ class DashboardApp {
         
         // Retry logic for server errors
         if (shouldRetry && retryAttempt < maxRetries) {
-          console.warn(`Download failed with ${response.status}, retrying... (attempt ${retryAttempt + 1}/${maxRetries})`);
+          console.warn(`[Download] Retry due to ${response.status} (${response.statusText})`, { attempt: retryAttempt + 1, maxRetries });
           await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
           return this.downloadFile(fileId, retryAttempt + 1);
         }
@@ -5457,14 +5478,14 @@ class DashboardApp {
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('Error downloading file:', error);
+      console.error('[Download] Error', { name: (error as any)?.name, message: (error as any)?.message, attempt: retryAttempt + 1, fileId, groupId: this.currentGroupId });
       
       // Check if this is a network error that should be retried
       const isNetworkError = error.name === 'TypeError' || error.message.includes('Failed to fetch');
       const isServerError = error.message.includes('502') || error.message.includes('503') || error.message.includes('504');
       
       if ((isNetworkError || isServerError) && retryAttempt < maxRetries) {
-        console.warn(`Network error, retrying... (attempt ${retryAttempt + 1}/${maxRetries})`);
+        console.warn('[Download] Network/server error -> retry', { attempt: retryAttempt + 1, maxRetries, isNetworkError, isServerError });
         await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
         return this.downloadFile(fileId, retryAttempt + 1);
       }
