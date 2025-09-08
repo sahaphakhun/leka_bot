@@ -736,28 +736,9 @@ export class CronService {
     }
   }
 
-  /**
-   * ตรวจสอบงานที่ครบกำหนดตรวจและอนุมัติอัตโนมัติทุก 6 ชั่วโมง
-   */
-  private async processAutoApproveTasks(): Promise<void> {
-    try {
-      console.log('🔄 Processing auto-approved tasks...');
-
-      const tasks = await this.taskService.getTasksLateForReview();
-
-      for (const task of tasks) {
-        try {
-          await this.taskService.autoApproveTaskAfterDeadline(task.id);
-          console.log(`✅ Auto-approved task: ${task.title}`);
-        } catch (error) {
-          console.error(`❌ Failed to auto-approve task ${task.id}:`, error);
-        }
-      }
-
-    } catch (error) {
-      console.error('❌ Error processing auto-approved tasks:', error);
-    }
-  }
+  // หมายเหตุ: ปิดการอนุมัติอัตโนมัติแล้ว
+  // เดิมเคยมี processAutoApproveTasks() ที่จะอนุมัติเองหลังครบกำหนดตรวจ 2 วัน
+  // ตามนโยบายใหม่ ให้ส่งการ์ดเตือนผู้ตรวจทุกวัน 09:00 แทน (ดู sendDailyReviewReminders)
 
   /**
    * แปลงช่วงเวลาการเตือนเป็นหน่วยและจำนวน

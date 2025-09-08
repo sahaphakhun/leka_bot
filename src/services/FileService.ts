@@ -1075,6 +1075,40 @@ export class FileService {
   }
 
   /**
+   * สร้าง URL ดาวน์โหลดโดยตรงสำหรับผู้ให้บริการภายนอก (เช่น Cloudinary)
+   * - หากเป็น Cloudinary จะพยายามสร้างลิงก์แบบ private download (แนบ header attachment)
+   * - หากมี path เป็น URL ปกติ จะคืน URL นั้น
+   * - หากเป็นไฟล์โลคอล จะคืนค่าว่างเพื่อให้ controller ตัดสินใจสตรีมเอง
+   */
+  public getDirectDownloadUrl(file: File): string {
+    try {
+      if (!file) return '';
+      const path = (file as any).path as string | undefined;
+
+      // Cloudinary storage → ใช้ลิงก์แบบ signed/private หากทำได้
+      if (file.storageProvider === 'cloudinary' || (path && path.includes('res.cloudinary.com'))) {
+        try {
+          const privateUrl = this.getCloudinaryPrivateDownloadUrl(file as any);
+          if (privateUrl) return privateUrl;
+        } catch {}
+        // ถ้าสร้าง private ไม่ได้ ใช้ลิงก์ที่ลงลายเซ็นทั่วไป
+        return this.resolveFileUrl(file as any);
+      }
+
+      // อื่นๆ ที่เป็น URL ตรง
+      if (path && /^https?:\/\//i.test(path)) {
+        return path;
+      }
+
+      // โลคอล: ให้ controller จัดการสตรีม
+      return '';
+    } catch (err) {
+      logger.warn('⚠️ Failed to build direct download URL', err);
+      return '';
+    }
+  }
+
+  /**
    * สร้าง URL สำหรับแสดงตัวอย่างไฟล์
    */
   public generatePreviewUrl(groupId: string, fileId: string): string {

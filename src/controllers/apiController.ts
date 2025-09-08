@@ -1375,13 +1375,18 @@ class ApiController {
         return;
       }
 
-      // ดาวน์โหลดไฟล์
+      // หากเป็นไฟล์ที่อยู่บนผู้ให้บริการภายนอก (เช่น Cloudinary) ให้ redirect 302 ไปยัง URL โดยตรง
+      const directUrl = this.fileService.getDirectDownloadUrl(file as any);
+      if (directUrl && /^https?:\/\//i.test(directUrl)) {
+        // ใช้ 302 เพื่อให้เบราว์เซอร์ไปดาวน์โหลดจากต้นทาง ลดโอกาส timeout บนเซิร์ฟเวอร์
+        return res.redirect(302, directUrl);
+      }
+
+      // กรณีเป็นไฟล์โลคอล ให้สตรีมไฟล์กลับตามเดิม
       const fileContent = await this.fileService.getFileContent(fileId);
-      
       res.setHeader('Content-Type', file.mimeType);
       res.setHeader('Content-Disposition', `attachment; filename="${file.originalName}"`);
       res.setHeader('Content-Length', fileContent.content.length);
-      
       res.send(fileContent.content);
 
     } catch (error) {
