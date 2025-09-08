@@ -321,6 +321,11 @@ class DashboardApp {
           this.openAddRecurringTaskModal();
         }
       }
+
+      // ถ้าเข้ามาพร้อม action=view และมี taskId ให้เปิด modal รายละเอียดทันที
+      if (this.currentAction === 'view' && this.currentTaskId) {
+        this.openTaskDetail(this.currentTaskId);
+      }
       
       // โหลดข้อมูลแบบ parallel
       const dataPromises = [
@@ -341,11 +346,6 @@ class DashboardApp {
       if (this.currentAction === 'edit' && this.currentTaskId) {
         // เปิด modal แก้ไขงาน
         this.openEditTaskModal(this.currentTaskId);
-      } else if (this.currentAction === 'view' && this.currentTaskId) {
-        // เปิด modal รายละเอียดงานอัตโนมัติ
-        setTimeout(() => {
-          this.openTaskDetail(this.currentTaskId);
-        }, 500); // ลดเวลารอ
       }
       
       // อัปเดตข้อมูลเริ่มต้น
@@ -2900,37 +2900,45 @@ class DashboardApp {
   // Task Detail Modal Functions
   async openTaskDetail(taskId) {
     try {
-      const task = this.tasks.find(t => t.id === taskId);
-      if (!task) {
-        this.showToast('ไม่พบงานที่ระบุ', 'error');
-        return;
+      // ใช้ข้อมูลจาก cache ถ้ามี เพื่อให้ modal แสดงทันที
+      let cachedTask = this.tasks.find(t => t.id === taskId);
+
+      // ถ้าไม่พบใน cache ให้สร้าง placeholder เพื่อแสดงผลเบื้องต้นทันที
+      if (!cachedTask) {
+        cachedTask = {
+          id: taskId,
+          title: 'กำลังโหลด...',
+          description: '',
+          status: 'pending',
+          priority: 'medium',
+          dueTime: null,
+          assignedUsers: []
+        };
       }
 
-      // โหลดข้อมูลเพิ่มเติมจาก API
-      let detailedTask = task;
-      console.log('Original task data:', task);
-      
+      // แสดง modal ทันทีด้วยข้อมูลที่มี (cached/placeholder)
+      this.populateTaskDetailModal(cachedTask);
+      this.openModal('taskDetailModal');
+
+      // จากนั้นโหลดรายละเอียดเชิงลึกแบบ background แล้วอัปเดต UI เมื่อได้ข้อมูล
       try {
-        // Try the group-specific endpoint first
+        // พยายามดึงจาก endpoint ตาม group ก่อน หากล้มเหลว fallback เป็นทั่วไป
         let response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${taskId}`);
         if (!response.ok) {
-          // Fallback to general task endpoint
           response = await fetch(`/api/task/${taskId}`);
         }
-        
+
         if (response.ok) {
           const result = await response.json();
           if (result.success && result.data) {
-            detailedTask = result.data;
+            const detailedTask = result.data;
             console.log('Detailed task data from API:', detailedTask);
+            this.populateTaskDetailModal(detailedTask);
           }
         }
       } catch (error) {
-        console.warn('Could not load detailed task info, using cached data:', error);
+        console.warn('Could not load detailed task info, keeping current view:', error);
       }
-
-      this.populateTaskDetailModal(detailedTask);
-      this.openModal('taskDetailModal');
     } catch (error) {
       console.error('Error opening task detail:', error);
       this.showToast('เกิดข้อผิดพลาดในการโหลดรายละเอียดงาน', 'error');
@@ -4637,16 +4645,16 @@ class DashboardApp {
     return 'other';
   }
 
-  // Get file preview URL for images
+  // Get file preview URL (via API for reliability)
   getFilePreviewUrl(file) {
-    // In a real implementation, this would return the actual file URL
-    // For now, return a placeholder or construct URL based on file path
-    if (file.path) {
+    if (file && file.id && this.currentGroupId) {
+      return `/api/groups/${this.currentGroupId}/files/${file.id}/preview`;
+    }
+    if (file && file.path) {
       return file.path;
     }
-    
     // Fallback to a placeholder image service
-    const fileName = file.originalName || file.name || 'file';
+    const fileName = (file && (file.originalName || file.name)) || 'file';
     const cleanName = encodeURIComponent(fileName.split('.')[0]);
     return `https://via.placeholder.com/200x200/e5e7eb/6b7280?text=${cleanName}`;
   }
@@ -4749,11 +4757,41 @@ class DashboardApp {
     }, 100);
   }
 
-  loadFilePreview(file) {
+  async loadFilePreview(file) {
     const loading = document.getElementById('filePreviewLoading');
     const content = document.getElementById('filePreviewContent');
     
     if (!content) return;
+
+    // จำกัดขนาดไฟล์พรีวิวสูงสุด 10MB
+    const MAX_PREVIEW_SIZE = 10 * 1024 * 1024; // 10MB
+    try {
+      let fileSize = file.size;
+      if (!fileSize) {
+        // พยายาม HEAD เพื่อดู Content-Length
+        const headRes = await fetch(this.getFilePreviewUrl(file), { method: 'HEAD' });
+        const len = headRes.headers.get('content-length');
+        if (len) fileSize = parseInt(len, 10);
+      }
+      if (fileSize && fileSize > MAX_PREVIEW_SIZE) {
+        const sizeStr = this.formatFileSize(fileSize);
+        const limitStr = this.formatFileSize(MAX_PREVIEW_SIZE);
+        content.innerHTML = `
+          <div class="text-center py-12" style="background: #f8f9fa; min-height: 300px; display: flex; flex-direction: column; justify-content: center;">
+            <i class="fas fa-file text-6xl text-gray-400 mb-6"></i>
+            <h3 class="text-xl font-semibold text-gray-900 mb-2">ไฟล์มีขนาดใหญ่เกินไป</h3>
+            <p class="text-gray-600 mb-4">ไฟล์นี้มีขนาด ${sizeStr} เกินขีดจำกัดการพรีวิว (${limitStr})</p>
+            <button class="btn btn-primary" onclick="window.dashboardApp.downloadFile('${file.id}')">
+              <i class="fas fa-download mr-2"></i>ดาวน์โหลดไฟล์
+            </button>
+          </div>
+        `;
+        if (loading) loading.style.display = 'none';
+        return;
+      }
+    } catch (e) {
+      // ถ้า HEAD ล้มเหลว ให้ข้ามการตรวจสอบขนาดและพยายามพรีวิวตามปกติ
+    }
 
     const mimeType = file.mimeType || this.getMimeTypeFromName(file.originalName || file.name);
     let fileContent = '';
@@ -4889,6 +4927,8 @@ class DashboardApp {
     
     return mimeTypes[ext] || 'application/octet-stream';
   }
+
+  
 
   downloadFile(fileId) {
     const file = this.files.find(f => f.id === fileId);
