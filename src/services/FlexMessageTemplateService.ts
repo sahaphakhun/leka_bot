@@ -248,7 +248,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText(`👤 ผู้ส่ง: ${details.submitterDisplayName || 'ไม่ระบุ'}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
       ...(details.comment ? [
         FlexMessageDesignSystem.createText(
-          `📝 ข้อความจากผู้ส่ง: ${details.comment.length > 200 ? details.comment.substring(0, 200) + '...' : details.comment}`,
+          `📝 ข้อความ: ${details.comment.length > 200 ? details.comment.substring(0, 200) + '...' : details.comment}`,
           'sm',
           FlexMessageDesignSystem.colors.textSecondary,
           undefined,

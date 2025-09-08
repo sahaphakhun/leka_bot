@@ -76,14 +76,19 @@ class DashboardApp {
     content.innerHTML = `
       <div id="pdfViewer" style="display:flex; flex-direction:column; height: 80vh; min-height: 500px;">
         <div id="pdfToolbar" style="display:flex; align-items:center; gap:8px; padding:8px; border-bottom:1px solid #e5e7eb; background:#fff; position:sticky; top:0; z-index:1;">
-          <button id="pdfPrev" class="btn btn-sm btn-outline"><i class="fas fa-chevron-left"></i></button>
-          <span id="pdfPageInfo" class="text-sm text-gray-700">-
-          </span>
-          <button id="pdfNext" class="btn btn-sm btn-outline"><i class="fas fa-chevron-right"></i></button>
+          <button id="pdfPrev" class="btn btn-sm btn-outline" title="หน้าก่อนหน้า"><i class="fas fa-chevron-left"></i></button>
+          <span id="pdfPageInfo" class="text-sm text-gray-700">-</span>
+          <button id="pdfNext" class="btn btn-sm btn-outline" title="หน้าถัดไป"><i class="fas fa-chevron-right"></i></button>
           <div style="flex:1"></div>
-          <button id="pdfZoomOut" class="btn btn-sm btn-outline"><i class="fas fa-search-minus"></i></button>
+          <button id="pdfZoomOut" class="btn btn-sm btn-outline" title="ซูมออก" aria-label="ซูมออก" style="display:inline-flex; align-items:center; gap:6px;">
+            <span style="font-size:16px; line-height:1;">−</span>
+            <i class="fas fa-search-minus"></i>
+          </button>
           <span id="pdfZoom" class="text-sm text-gray-700" style="min-width:48px; text-align:center;">100%</span>
-          <button id="pdfZoomIn" class="btn btn-sm btn-outline"><i class="fas fa-search-plus"></i></button>
+          <button id="pdfZoomIn" class="btn btn-sm btn-outline" title="ซูมเข้า" aria-label="ซูมเข้า" style="display:inline-flex; align-items:center; gap:6px;">
+            <span style="font-size:16px; line-height:1;">+</span>
+            <i class="fas fa-search-plus"></i>
+          </button>
         </div>
         <div id="pdfPages" style="flex:1; overflow:auto; background:#f8f9fa; padding:8px;">
         </div>
@@ -3460,9 +3465,14 @@ class DashboardApp {
               <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${this.formatDate(file.uploadedAt || file.createdAt)}</div>
             </div>
           </div>
-          <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}')">
-            <i class="fas fa-download"></i>
-          </button>
+          <div class="flex gap-2">
+            <button class="btn btn-sm btn-outline" title="ดูไฟล์" onclick="window.dashboardApp.previewFile('${file.id}')">
+              <i class="fas fa-eye"></i>
+            </button>
+            <button class="btn btn-sm btn-outline" title="ดาวน์โหลด" onclick="window.dashboardApp.downloadFile('${file.id}')">
+              <i class="fas fa-download"></i>
+            </button>
+          </div>
         </div>
       `).join('');
     } else {
@@ -4929,8 +4939,20 @@ class DashboardApp {
   // Removed mock files provider; real data only
 
   // File action functions
-  previewFile(fileId) {
-    const file = this.files.find(f => f.id === fileId);
+  async previewFile(fileId) {
+    let file = this.files.find(f => f.id === fileId);
+    if (!file) {
+      // Fallback: fetch file info from API (used by task detail modal)
+      try {
+        const res = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
+        if (res.ok) {
+          const payload = await res.json();
+          if (payload && payload.success && payload.data) {
+            file = payload.data;
+          }
+        }
+      } catch {}
+    }
     if (!file) {
       this.showToast('ไม่พบไฟล์ที่ต้องการ', 'error');
       return;
