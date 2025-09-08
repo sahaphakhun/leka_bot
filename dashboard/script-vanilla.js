@@ -5363,7 +5363,7 @@ class DashboardApp {
       if (retryAttempt === 0) {
         try {
           const infoProbe = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
-          let infoJson: any = null;
+          let infoJson = null;
           try { infoJson = await infoProbe.json(); } catch {}
           const fileMeta = infoJson && typeof infoJson === 'object' && 'data' in infoJson ? infoJson.data : infoJson;
           console.log('[Download] File info probe', { status: infoProbe.status, ok: infoProbe.ok, file: fileMeta });
@@ -5478,7 +5478,7 @@ class DashboardApp {
         throw new Error(errorMessage);
       }
     } catch (error) {
-      console.error('[Download] Error', { name: (error as any)?.name, message: (error as any)?.message, attempt: retryAttempt + 1, fileId, groupId: this.currentGroupId });
+      console.error('[Download] Error', { name: (error && error.name) || undefined, message: (error && error.message) || undefined, attempt: retryAttempt + 1, fileId, groupId: this.currentGroupId });
       
       // Check if this is a network error that should be retried
       const isNetworkError = error.name === 'TypeError' || error.message.includes('Failed to fetch');
