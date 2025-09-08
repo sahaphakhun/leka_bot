@@ -2,16 +2,18 @@
 node_modules
 npm-debug.log*
 
-# Build artifacts
-dist
-build
+# Build artifacts (allow dist to be created inside container)
+# Keep these included so Docker build can run compilation if needed
+# dist
+# build
 
-# Development files
-src
-*.ts
-tsconfig.json
-tsconfig.test.json
-jest.config.js
+# Development files (keep source so we can build inside the image)
+# Do not exclude src or ts files; they are needed for container build
+# src
+# *.ts
+# tsconfig.json
+# tsconfig.test.json
+# jest.config.js
 
 # Test files
 test
@@ -65,5 +67,5 @@ railway.json
 Dockerfile
 .dockerignore
 
-# Scripts
-scripts
+# Scripts (required for deploy-migration and helpers)
+# scripts

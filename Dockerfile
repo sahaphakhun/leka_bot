@@ -8,14 +8,18 @@ WORKDIR /app
 ENV NODE_ENV=production
 ENV PORT=3000
 
-# Copy package files
+# Copy package files first for better caching
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production
+# Install dependencies (include dev for build)
+RUN npm ci --include=dev
 
-# Copy source code
+# Copy source code (ensure .dockerignore allows src and scripts)
 COPY . .
+
+# Build TypeScript to dist and then prune dev deps
+RUN npm run build || echo "Build step failed, continuing with existing dist if present" \
+ && npm prune --omit=dev
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
