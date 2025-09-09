@@ -530,19 +530,42 @@ class DashboardApp {
         
         // โหลดข้อมูลผู้ใช้จริงจาก backend
         try {
-          // สามารถเพิ่ม API call เพื่อโหลดข้อมูลผู้ใช้จริงได้ที่นี่
+          const res = await fetch(`/api/users/${encodeURIComponent(this.currentUserId)}`);
+          if (res.ok) {
+            const result = await res.json();
+            if (result && result.success && result.data) {
+              this.currentUser = result.data;
+            } else {
+              // fallback แบบเบา ๆ หาก API ไม่คืน user
+              this.currentUser = {
+                id: this.currentUserId,
+                lineUserId: this.currentUserId,
+                displayName: 'ผู้ใช้',
+                email: ''
+              };
+            }
+          } else {
+            console.warn('โหลดผู้ใช้ไม่สำเร็จ:', res.status, res.statusText);
+            this.currentUser = {
+              id: this.currentUserId,
+              lineUserId: this.currentUserId,
+              displayName: 'ผู้ใช้',
+              email: ''
+            };
+          }
+        } catch (userError) {
+          console.warn('ไม่สามารถโหลดข้อมูลผู้ใช้ได้:', userError);
           this.currentUser = {
             id: this.currentUserId,
             lineUserId: this.currentUserId,
             displayName: 'ผู้ใช้',
             email: ''
           };
-        } catch (userError) {
-          console.warn('ไม่สามารถโหลดข้อมูลผู้ใช้ได้:', userError);
         }
       }
       
       this.updateUserInfo();
+      this.updateUserBadge();
       
       // ตรวจสอบ action parameter และเปิด modal ทันทีถ้าเป็น new-task
       // บล็อกเมื่อไม่มี userId (โหมดดูอย่างเดียว)
@@ -597,6 +620,28 @@ class DashboardApp {
     } finally {
       this.hideLoading();
     }
+  }
+
+  // แสดงชื่อผู้ใช้ (LINE) มุมขวาบนเมื่อมี userId
+  updateUserBadge() {
+    try {
+      const badge = document.getElementById('currentUserBadge');
+      const nameEl = document.getElementById('currentUserDisplayName');
+      const avatarEl = document.getElementById('currentUserAvatar');
+      if (!badge || !nameEl || !avatarEl) return;
+
+      if (!this.currentUserId) {
+        badge.classList.add('hidden');
+        return;
+      }
+
+      const name = this.currentUser?.displayName || this.currentUser?.realName || this.currentUser?.name || this.currentUserId;
+      nameEl.textContent = name;
+
+      const initial = (name || 'U').trim().charAt(0).toUpperCase();
+      avatarEl.textContent = initial || 'U';
+      badge.classList.remove('hidden');
+    } catch {}
   }
 
   updateUserInfo() {
@@ -664,9 +709,9 @@ class DashboardApp {
         // Fallback to mock data - calculate from current tasks
         const stats = {
           totalTasks: this.tasks.length,
-          pendingTasks: this.tasks.filter(t => t.status === 'pending').length,
-          completedTasks: this.tasks.filter(t => t.status === 'completed').length,
-          overdueTasks: this.tasks.filter(t => t.status === 'overdue').length
+          pendingTasks: this.tasks.filter(t => this.getEffectiveStatus(t) === 'pending').length,
+          completedTasks: this.tasks.filter(t => this.getEffectiveStatus(t) === 'completed').length,
+          overdueTasks: this.tasks.filter(t => this.getEffectiveStatus(t) === 'overdue').length
         };
         console.log('Calculated stats from tasks:', stats);
         this.updateStats(stats, period);
@@ -693,9 +738,9 @@ class DashboardApp {
       // Fallback to mock data - calculate from current tasks
       const stats = {
         totalTasks: this.tasks.length,
-        pendingTasks: this.tasks.filter(t => t.status === 'pending').length,
-        completedTasks: this.tasks.filter(t => t.status === 'completed').length,
-        overdueTasks: this.tasks.filter(t => t.status === 'overdue').length
+        pendingTasks: this.tasks.filter(t => this.getEffectiveStatus(t) === 'pending').length,
+        completedTasks: this.tasks.filter(t => this.getEffectiveStatus(t) === 'completed').length,
+        overdueTasks: this.tasks.filter(t => this.getEffectiveStatus(t) === 'overdue').length
       };
       console.log('Fallback stats calculated:', stats);
       this.updateStats(stats, period);
@@ -843,7 +888,10 @@ class DashboardApp {
     if (!container) return;
 
     const upcomingTasks = this.tasks
-      .filter(task => ['pending', 'overdue', 'in_progress'].includes(task.status))
+      .filter(task => {
+        const st = this.getEffectiveStatus(task);
+        return ['pending', 'overdue', 'in_progress'].includes(st);
+      })
       .sort((a, b) => new Date(a.dueTime) - new Date(b.dueTime))
       .slice(0, 5);
 
@@ -906,10 +954,11 @@ class DashboardApp {
   }
 
   renderTaskCard(task) {
-    const statusInfo = this.getStatusInfo(task.status);
+    const effectiveStatus = this.getEffectiveStatus(task);
+    const statusInfo = this.getStatusInfo(effectiveStatus);
     const priorityInfo = this.getPriorityInfo(task.priority);
     const assignees = this.getTaskAssignees(task);
-    const dueInfo = this.getDueInfo(task.dueTime);
+    const dueInfo = this.getDueInfo(task.dueTime, task);
     
     // ตรวจสอบสิทธิ์ตามบทบาทของผู้ใช้
     const canSubmit = this.canSubmitTask(task);
@@ -1096,6 +1145,25 @@ class DashboardApp {
   }
 
   // Helper functions for rendering
+  // แปลงสถานะจริงจาก backend + เวิร์กโฟลว์ ให้เป็นสถานะที่ผู้ใช้เข้าใจ
+  getEffectiveStatus(task) {
+    if (!task) return 'pending';
+    // หากปิดงานแล้ว ให้ถือเป็นเสร็จแล้วเสมอ
+    if (task.status === 'completed') return 'completed';
+    // ถ้าอยู่ในสถานะเกินกำหนด ให้แสดงเกินกำหนด เว้นแต่จะเสร็จแล้ว
+    if (task.status === 'overdue') return 'overdue';
+    // ถ้ามีการส่งงานแล้ว และอยู่ในขั้นตอนรอตรวจ ให้แสดงเป็นส่งแล้ว/รอตรวจ
+    const reviewStatus = task?.workflow?.review?.status;
+    const hasSubmissions = Array.isArray(task?.workflow?.submissions) && task.workflow.submissions.length > 0;
+    if (reviewStatus === 'pending' || hasSubmissions) return 'submitted';
+    // ถ้าผ่านการตรวจแล้วแต่ยังไม่ completed ให้แสดงเป็น reviewed (ตรวจแล้ว)
+    if (reviewStatus === 'approved' && task.status !== 'completed') return 'reviewed';
+    // ถ้าถูกตีกลับ ให้กลับไปเป็น pending (ต้องแก้ไข)
+    if (reviewStatus === 'rejected') return 'pending';
+    // สถานะปกติจาก backend
+    return task.status || 'pending';
+  }
+
   getStatusInfo(status) {
     const statusMap = {
       'pending': { 
@@ -1119,9 +1187,14 @@ class DashboardApp {
         icon: 'fas fa-exclamation-triangle' 
       },
       'submitted': { 
-        text: 'ส่งแล้ว', 
+        text: 'ส่งแล้ว/รอตรวจ', 
         class: 'bg-purple-100 text-purple-800', 
         icon: 'fas fa-upload' 
+      },
+      'reviewed': {
+        text: 'ตรวจแล้ว',
+        class: 'bg-teal-100 text-teal-800',
+        icon: 'fas fa-clipboard-check'
       }
     };
     return statusMap[status] || statusMap['pending'];
@@ -1165,7 +1238,7 @@ class DashboardApp {
     return names.join(', ');
   }
 
-  getDueInfo(dueTime) {
+  getDueInfo(dueTime, task = null) {
     if (!dueTime) {
       return { 
         date: 'ไม่กำหนด', 
@@ -1195,8 +1268,20 @@ class DashboardApp {
     let className = 'text-gray-500';
 
     if (diff < 0) {
-      remaining = `เกิน ${Math.abs(days)} วัน`;
-      className = 'text-red-600';
+      // ถ้ามีการส่งแล้ว/ตรวจแล้ว/เสร็จแล้ว ไม่ต้องขึ้นเตือนเกินกำหนด
+      if (task) {
+        const st = this.getEffectiveStatus(task);
+        if (st === 'submitted' || st === 'reviewed' || st === 'completed') {
+          remaining = '';
+          className = 'text-gray-500';
+        } else {
+          remaining = `เกิน ${Math.abs(days)} วัน`;
+          className = 'text-red-600';
+        }
+      } else {
+        remaining = `เกิน ${Math.abs(days)} วัน`;
+        className = 'text-red-600';
+      }
     } else if (days === 0) {
       remaining = 'วันนี้';
       className = 'text-orange-600';
@@ -1268,8 +1353,14 @@ class DashboardApp {
     if (!task) return false;
     
     // ตรวจสอบสถานะงาน - สามารถส่งงานได้หากสถานะยังไม่เสร็จ
+    const effective = this.getEffectiveStatus(task);
     const validStatuses = ['pending', 'in_progress', 'overdue'];
-    const isValidStatus = validStatuses.includes(task.status);
+    const isValidStatus = validStatuses.includes(effective);
+    
+    // ถ้ามีการส่งแล้วและอยู่ระหว่างรอตรวจ ไม่ให้ส่งซ้ำ
+    const reviewStatus = task?.workflow?.review?.status;
+    const hasSubmissions = Array.isArray(task?.workflow?.submissions) && task.workflow.submissions.length > 0;
+    if (reviewStatus === 'pending' || hasSubmissions) return false;
     
     // ตรวจสอบว่าผู้ใช้เป็นผู้รับผิดชอบงานหรือไม่
     const isAssignee = this.isUserAssignee(task);
@@ -1423,7 +1514,9 @@ class DashboardApp {
       case 'week':
         return dueDate >= today && dueDate <= weekEnd;
       case 'overdue':
-        return dueDate < today && task.status !== 'completed';
+        // ถือว่าเกินกำหนดเฉพาะงานที่ยังไม่ส่ง/ไม่ตรวจ/ไม่เสร็จ
+        const st = this.getEffectiveStatus(task);
+        return dueDate < today && !['submitted','reviewed','completed'].includes(st);
       default:
         return true;
     }
@@ -1443,9 +1536,9 @@ class DashboardApp {
   updateTaskStats(filteredTasks) {
     const stats = {
       filtered: filteredTasks.length,
-      pending: filteredTasks.filter(t => t.status === 'pending').length,
-      completed: filteredTasks.filter(t => t.status === 'completed').length,
-      overdue: filteredTasks.filter(t => t.status === 'overdue').length
+      pending: filteredTasks.filter(t => this.getEffectiveStatus(t) === 'pending').length,
+      completed: filteredTasks.filter(t => this.getEffectiveStatus(t) === 'completed').length,
+      overdue: filteredTasks.filter(t => this.getEffectiveStatus(t) === 'overdue').length
     };
 
     const filteredTasksElement = document.getElementById('filteredTasksCount');
@@ -1652,9 +1745,10 @@ class DashboardApp {
   // }
 
   renderTaskCard(task) {
-    const isOverdue = task.status === 'overdue';
-    const statusText = this.getStatusText(task.status);
-    const statusColor = this.getStatusColor(task.status);
+    const effectiveStatus = this.getEffectiveStatus(task);
+    const isOverdue = effectiveStatus === 'overdue';
+    const statusText = this.getStatusText(effectiveStatus);
+    const statusColor = this.getStatusColor(effectiveStatus);
     const dueDate = this.formatDate(task.dueTime || task.dueDate);
     const groupName = task.group?.name || 'ไม่ระบุกลุ่ม';
     const priorityText = this.getPriorityText(task.priority);
@@ -1668,7 +1762,7 @@ class DashboardApp {
     const canEdit = this.canEditTask(task);
     const canDelete = this.canDeleteTask(task);
     const canApprove = this.canApproveTask(task);
-    const isSubmitted = task.status === 'submitted' || task.status === 'completed';
+    const isSubmitted = effectiveStatus === 'submitted' || effectiveStatus === 'completed' || effectiveStatus === 'reviewed';
 
     return `
       <div class="bg-white rounded-lg shadow-sm border hover:shadow-md transition-shadow">
@@ -1783,6 +1877,8 @@ class DashboardApp {
       'pending': 'รอดำเนินการ',
       'in_progress': 'กำลังดำเนินการ', 
       'overdue': 'เกินกำหนด',
+      'submitted': 'ส่งแล้ว/รอตรวจ',
+      'reviewed': 'ตรวจแล้ว',
       'completed': 'เสร็จสิ้น'
     };
     return statusMap[status] || status;
@@ -1793,6 +1889,8 @@ class DashboardApp {
       'pending': 'bg-yellow-100 text-yellow-800',
       'in_progress': 'bg-blue-100 text-blue-800',
       'overdue': 'bg-red-100 text-red-800',
+      'submitted': 'bg-purple-100 text-purple-800',
+      'reviewed': 'bg-teal-100 text-teal-800',
       'completed': 'bg-green-100 text-green-800'
     };
     return colorMap[status] || 'bg-gray-100 text-gray-800';
@@ -2018,7 +2116,10 @@ class DashboardApp {
         const now = new Date();
         return (task.status === 'pending' || task.status === 'in_progress') && dueDate < now;
       });
-      const completedTasks = dayTasks.filter(task => task.status === 'completed' || task.status === 'submitted');
+      const completedTasks = dayTasks.filter(task => {
+        const st = this.getEffectiveStatus(task);
+        return st === 'completed' || st === 'submitted' || st === 'reviewed';
+      });
       
       const isToday = day === todayDate;
       const isPast = new Date(year, month, day) < new Date().setHours(0, 0, 0, 0);
@@ -2271,10 +2372,11 @@ class DashboardApp {
       const now = new Date();
       const sevenDaysLater = new Date(now.getTime() + (7 * 24 * 60 * 60 * 1000));
       
-      // Filter upcoming tasks (due within 7 days, not completed)
+      // Filter upcoming tasks (due within 7 days, not completed/submitted)
       const upcomingTasks = allTasks.filter(task => {
         if (!task.dueTime) return false;
-        if (task.status === 'completed' || task.status === 'submitted') return false;
+        const st = this.getEffectiveStatus(task);
+        if (st === 'completed' || st === 'submitted' || st === 'reviewed') return false;
         
         const dueDate = new Date(task.dueTime);
         return dueDate >= now && dueDate <= sevenDaysLater;
@@ -2324,7 +2426,7 @@ class DashboardApp {
   renderUpcomingTaskItem(task) {
     const statusInfo = this.getStatusInfo(task.status);
     const priorityInfo = this.getPriorityInfo(task.priority);
-    const dueInfo = this.getDueInfo(task.dueTime);
+    const dueInfo = this.getDueInfo(task.dueTime, task);
     const assignees = this.getTaskAssignees(task);
     
     return `
@@ -2385,7 +2487,8 @@ class DashboardApp {
       // Filter overdue tasks (past due date, not completed/submitted)
       const overdueTasks = allTasks.filter(task => {
         if (!task.dueTime) return false;
-        if (task.status === 'completed' || task.status === 'submitted') return false;
+        const st = this.getEffectiveStatus(task);
+        if (st === 'completed' || st === 'submitted' || st === 'reviewed') return false;
         
         const dueDate = new Date(task.dueTime);
         return dueDate < now;
@@ -2435,7 +2538,7 @@ class DashboardApp {
   renderOverdueTaskItem(task) {
     const statusInfo = this.getStatusInfo(task.status);
     const priorityInfo = this.getPriorityInfo(task.priority);
-    const dueInfo = this.getDueInfo(task.dueTime);
+    const dueInfo = this.getDueInfo(task.dueTime, task);
     const assignees = this.getTaskAssignees(task);
     
     // Calculate overdue days
@@ -3074,7 +3177,7 @@ class DashboardApp {
     document.getElementById('submitTaskId').value = taskId;
     document.getElementById('submitTaskTitle').textContent = task.title;
     
-    const dueInfo = this.getDueInfo(task.dueTime);
+    const dueInfo = this.getDueInfo(task.dueTime, task);
     document.getElementById('submitTaskDue').textContent = `กำหนดส่ง: ${dueInfo.date}`;
 
     // Check if file attachment is required and show warning
@@ -3340,7 +3443,7 @@ class DashboardApp {
     }
 
     // Due Date
-    const dueInfo = this.getDueInfo(task.dueTime);
+    const dueInfo = this.getDueInfo(task.dueTime, task);
     document.getElementById('taskDetailDueDate').textContent = dueInfo.date;
     document.getElementById('taskDetailDueTime').textContent = dueInfo.remaining;
     document.getElementById('taskDetailTimeRemaining').className = `text-sm mt-1 ${dueInfo.class}`;
@@ -5253,7 +5356,7 @@ class DashboardApp {
       return;
     }
     
-    const filteredTasks = this.tasks.filter(task => task.status === status);
+    const filteredTasks = this.tasks.filter(task => this.getEffectiveStatus(task) === status);
     
     // แสดงผลงานที่กรองแล้ว
     const tasksContainer = document.getElementById('tasksContainer');
