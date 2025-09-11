@@ -3041,6 +3041,76 @@ class ApiController {
   }
 
   /**
+   * POST /api/users/:userId/calendar-invite - เชิญผู้ใช้เข้าปฏิทินของทุกกลุ่มที่สังกัด
+   */
+  public async sendCalendarInvitesForUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params; // LINE User ID หรือ internal UUID
+
+      const { UserService } = await import('@/services/UserService');
+      const { GoogleService } = await import('@/services/GoogleService');
+      const userService = new UserService();
+      const googleService = new GoogleService();
+
+      // แปลง LINE ID -> internal user
+      const user = userId.startsWith('U')
+        ? await userService.findByLineUserId(userId)
+        : await userService.findById(userId);
+
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
+      }
+
+      // ดึงกลุ่มทั้งหมดที่ผู้ใช้อยู่
+      const groups = await userService.getUserGroups(user.id);
+      if (!groups || groups.length === 0) {
+        res.json({ success: true, data: { invitedGroups: 0, createdCalendars: 0 } });
+        return;
+      }
+
+      let invitedGroups = 0;
+      let createdCalendars = 0;
+      const errors: Array<{ groupId: string; error: string }> = [];
+
+      for (const group of groups) {
+        try {
+          // หากยังไม่มี Calendar ให้สร้างอัตโนมัติ
+          if (!group.settings?.googleCalendarId) {
+            try {
+              const calendarId = await googleService.setupGroupCalendar(
+                group.id,
+                group.name || group.lineGroupId || 'Group',
+                (group as any).timezone || (await import('@/utils/config')).config.app.defaultTimezone
+              );
+              group.settings = { ...(group.settings || {}), googleCalendarId: calendarId } as any;
+              await userService.updateGroupSettings(group.id, { googleCalendarId: calendarId } as any);
+              createdCalendars++;
+            } catch (calendarErr: any) {
+              errors.push({ groupId: group.id, error: calendarErr?.message || 'Failed to create calendar' });
+              continue;
+            }
+          }
+
+          // แชร์ Calendar ให้ผู้ใช้คนนี้เท่านั้น
+          await googleService.shareCalendarWithMembers(group.id, [user.id]);
+          invitedGroups++;
+        } catch (err: any) {
+          errors.push({ groupId: group.id, error: err?.message || 'Unknown error' });
+        }
+      }
+
+      res.json({
+        success: true,
+        data: { invitedGroups, createdCalendars, errors }
+      });
+    } catch (error) {
+      logger.error('❌ Error sending calendar invites for user:', error);
+      res.status(500).json({ success: false, error: 'Failed to send calendar invites' });
+    }
+  }
+
+  /**
    * ตรวจสอบการเป็นสมาชิกของ Bot ในกลุ่มและลบข้อมูลงาน (สำหรับการทดสอบ)
    */
   public async checkBotMembershipAndCleanup(req: Request, res: Response): Promise<void> {
@@ -3627,3 +3697,4 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   
   // User management routes
   apiRouter.put('/users/:userId', apiController.updateUser.bind(apiController));
+  apiRouter.post('/users/:userId/calendar-invite', apiController.sendCalendarInvitesForUser.bind(apiController));
