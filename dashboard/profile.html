@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>โปรไฟล์ - Leka Bot</title>
+    <link rel="stylesheet" href="tailwind.css">
+    <link rel="stylesheet" href="font-awesome.min.css">
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="modal-fix.css">
+    <link rel="stylesheet" href="z-index-fix.css">
+    <link rel="stylesheet" href="input.css">
+    <style>
+        .profile-container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .profile-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        .profile-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 24px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #e5e7eb;
+        }
+        .profile-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 32px;
+            font-weight: bold;
+            margin-right: 20px;
+        }
+        .profile-info h1 {
+            font-size: 24px;
+            font-weight: 600;
+            color: #1f2937;
+            margin: 0 0 8px 0;
+        }
+        .profile-info p {
+            color: #6b7280;
+            margin: 0;
+        }
+        .form-group {
+            margin-bottom: 20px;
+        }
+        .form-label {
+            display: block;
+            font-weight: 500;
+            color: #374151;
+            margin-bottom: 8px;
+        }
+        .form-input {
+            width: 100%;
+            padding: 12px 16px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            font-size: 16px;
+            transition: border-color 0.2s;
+        }
+        .form-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+        }
+        .form-input:disabled {
+            background-color: #f9fafb;
+            color: #6b7280;
+        }
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 500;
+            text-decoration: none;
+            transition: all 0.2s;
+            border: none;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        .btn-primary {
+            background-color: #3b82f6;
+            color: white;
+        }
+        .btn-primary:hover {
+            background-color: #2563eb;
+        }
+        .btn-secondary {
+            background-color: #6b7280;
+            color: white;
+        }
+        .btn-secondary:hover {
+            background-color: #4b5563;
+        }
+        .btn-success {
+            background-color: #10b981;
+            color: white;
+        }
+        .btn-success:hover {
+            background-color: #059669;
+        }
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            padding: 4px 12px;
+            border-radius: 20px;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        .status-verified {
+            background-color: #d1fae5;
+            color: #065f46;
+        }
+        .status-unverified {
+            background-color: #fee2e2;
+            color: #991b1b;
+        }
+        .calendar-info {
+            background-color: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 8px;
+            padding: 16px;
+            margin-top: 16px;
+        }
+        .calendar-info h3 {
+            color: #0369a1;
+            margin: 0 0 8px 0;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        .calendar-info p {
+            color: #0c4a6e;
+            margin: 0;
+            font-size: 14px;
+        }
+        .toast {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 16px 24px;
+            border-radius: 8px;
+            color: white;
+            font-weight: 500;
+            z-index: 1000;
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+        }
+        .toast.show {
+            transform: translateX(0);
+        }
+        .toast.success {
+            background-color: #10b981;
+        }
+        .toast.error {
+            background-color: #ef4444;
+        }
+        .toast.warning {
+            background-color: #f59e0b;
+        }
+        .toast.info {
+            background-color: #3b82f6;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="bg-white shadow-sm border-b">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center">
+                    <a href="index.html" class="flex items-center">
+                        <i class="fas fa-robot text-2xl text-blue-600 mr-3"></i>
+                        <span class="text-xl font-bold text-gray-900">Leka Bot</span>
+                    </a>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <span id="currentUserDisplayName" class="text-sm text-gray-600"></span>
+                    <a href="index.html" class="text-gray-600 hover:text-gray-900">
+                        <i class="fas fa-home"></i>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="profile-container">
+        <!-- Profile Header -->
+        <div class="profile-card">
+            <div class="profile-header">
+                <div class="profile-avatar" id="profileAvatar">
+                    <i class="fas fa-user"></i>
+                </div>
+                <div class="profile-info">
+                    <h1 id="profileName">ผู้ใช้</h1>
+                    <p id="profileLineId">LINE ID: ไม่ระบุ</p>
+                </div>
+            </div>
+
+            <!-- Email Settings -->
+            <div class="form-group">
+                <label class="form-label" for="userEmail">
+                    <i class="fas fa-envelope mr-2"></i>
+                    อีเมล
+                </label>
+                <div class="flex items-center space-x-3">
+                    <input 
+                        type="email" 
+                        id="userEmail" 
+                        class="form-input flex-1" 
+                        placeholder="กรอกอีเมลของคุณ"
+                        value=""
+                    >
+                    <button id="saveEmailBtn" class="btn btn-primary">
+                        <i class="fas fa-save mr-2"></i>
+                        บันทึก
+                    </button>
+                </div>
+                <div id="emailStatus" class="mt-2"></div>
+            </div>
+
+            <!-- Calendar Integration Info -->
+            <div class="calendar-info">
+                <h3><i class="fas fa-calendar-alt mr-2"></i>การเชื่อมต่อ Google Calendar</h3>
+                <p id="calendarStatus">
+                    เมื่อคุณตั้งค่าอีเมลแล้ว ระบบจะสามารถเพิ่มงานเข้า Google Calendar ของกลุ่มอัตโนมัติได้
+                </p>
+            </div>
+        </div>
+
+        <!-- User Groups -->
+        <div class="profile-card">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">
+                <i class="fas fa-users mr-2"></i>
+                กลุ่มที่เข้าร่วม
+            </h2>
+            <div id="userGroups" class="space-y-3">
+                <!-- Groups will be loaded here -->
+            </div>
+        </div>
+
+        <!-- Settings -->
+        <div class="profile-card">
+            <h2 class="text-xl font-semibold text-gray-900 mb-4">
+                <i class="fas fa-cog mr-2"></i>
+                การตั้งค่า
+            </h2>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="font-medium text-gray-900">การแจ้งเตือนทางอีเมล</h3>
+                        <p class="text-sm text-gray-600">รับการแจ้งเตือนเมื่อมีงานใหม่</p>
+                    </div>
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" id="emailNotifications" class="sr-only peer">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                    </label>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer"></div>
+
+    <script src="moment.min.js"></script>
+    <script src="moment-timezone-with-data.min.js"></script>
+    <script>
+        class ProfileApp {
+            constructor() {
+                this.currentUser = null;
+                this.currentUserId = this.getUserIdFromUrl();
+                this.init();
+            }
+
+            getUserIdFromUrl() {
+                const urlParams = new URLSearchParams(window.location.search);
+                return urlParams.get('userId') || localStorage.getItem('currentUserId');
+            }
+
+            async init() {
+                if (!this.currentUserId) {
+                    this.showToast('ไม่พบ User ID', 'error');
+                    return;
+                }
+
+                await this.loadUserProfile();
+                this.setupEventListeners();
+            }
+
+            async loadUserProfile() {
+                try {
+                    // Load user info
+                    const response = await fetch(`/api/users/${this.currentUserId}`);
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            this.currentUser = result.data;
+                            this.updateProfileDisplay();
+                        }
+                    } else {
+                        // Fallback: create basic user info
+                        this.currentUser = {
+                            id: this.currentUserId,
+                            lineUserId: this.currentUserId,
+                            displayName: 'ผู้ใช้',
+                            email: ''
+                        };
+                        this.updateProfileDisplay();
+                    }
+                } catch (error) {
+                    console.error('Error loading user profile:', error);
+                    this.currentUser = {
+                        id: this.currentUserId,
+                        lineUserId: this.currentUserId,
+                        displayName: 'ผู้ใช้',
+                        email: ''
+                    };
+                    this.updateProfileDisplay();
+                }
+
+                await this.loadUserGroups();
+            }
+
+            updateProfileDisplay() {
+                // Update profile header
+                const profileName = document.getElementById('profileName');
+                const profileLineId = document.getElementById('profileLineId');
+                const profileAvatar = document.getElementById('profileAvatar');
+                const userEmail = document.getElementById('userEmail');
+                const currentUserDisplayName = document.getElementById('currentUserDisplayName');
+
+                if (profileName) {
+                    profileName.textContent = this.currentUser?.displayName || 'ผู้ใช้';
+                }
+                if (profileLineId) {
+                    profileLineId.textContent = `LINE ID: ${this.currentUser?.lineUserId || 'ไม่ระบุ'}`;
+                }
+                if (profileAvatar) {
+                    const initial = (this.currentUser?.displayName || 'U').charAt(0).toUpperCase();
+                    profileAvatar.textContent = initial;
+                }
+                if (userEmail) {
+                    userEmail.value = this.currentUser?.email || '';
+                }
+                if (currentUserDisplayName) {
+                    currentUserDisplayName.textContent = this.currentUser?.displayName || 'ผู้ใช้';
+                }
+
+                this.updateEmailStatus();
+            }
+
+            updateEmailStatus() {
+                const emailStatus = document.getElementById('emailStatus');
+                const calendarStatus = document.getElementById('calendarStatus');
+                
+                if (this.currentUser?.email) {
+                    if (this.currentUser.isVerified) {
+                        emailStatus.innerHTML = '<span class="status-badge status-verified"><i class="fas fa-check mr-1"></i>ยืนยันแล้ว</span>';
+                        calendarStatus.textContent = 'อีเมลของคุณได้รับการยืนยันแล้ว ระบบสามารถเพิ่มงานเข้า Google Calendar ได้';
+                    } else {
+                        emailStatus.innerHTML = '<span class="status-badge status-unverified"><i class="fas fa-clock mr-1"></i>รอยืนยัน</span>';
+                        calendarStatus.textContent = 'กรุณายืนยันอีเมลของคุณเพื่อให้ระบบสามารถเพิ่มงานเข้า Google Calendar ได้';
+                    }
+                } else {
+                    emailStatus.innerHTML = '<span class="status-badge status-unverified"><i class="fas fa-exclamation-triangle mr-1"></i>ยังไม่ได้ตั้งค่า</span>';
+                    calendarStatus.textContent = 'กรุณาตั้งค่าอีเมลเพื่อให้ระบบสามารถเพิ่มงานเข้า Google Calendar ได้';
+                }
+            }
+
+            async loadUserGroups() {
+                try {
+                    const response = await fetch('/api/groups');
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            this.displayUserGroups(result.data);
+                        }
+                    }
+                } catch (error) {
+                    console.error('Error loading user groups:', error);
+                }
+            }
+
+            displayUserGroups(groups) {
+                const userGroups = document.getElementById('userGroups');
+                if (!userGroups) return;
+
+                if (groups.length === 0) {
+                    userGroups.innerHTML = '<p class="text-gray-500 text-center py-4">ยังไม่ได้เข้าร่วมกลุ่มใด</p>';
+                    return;
+                }
+
+                userGroups.innerHTML = groups.map(group => `
+                    <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                        <div>
+                            <h3 class="font-medium text-gray-900">${group.name || 'ไม่ระบุชื่อ'}</h3>
+                            <p class="text-sm text-gray-600">${group.lineGroupId}</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <span class="status-badge status-verified">
+                                <i class="fas fa-calendar-check mr-1"></i>
+                                Calendar
+                            </span>
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            setupEventListeners() {
+                const saveEmailBtn = document.getElementById('saveEmailBtn');
+                const userEmail = document.getElementById('userEmail');
+
+                if (saveEmailBtn) {
+                    saveEmailBtn.addEventListener('click', () => this.saveEmail());
+                }
+
+                if (userEmail) {
+                    userEmail.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter') {
+                            this.saveEmail();
+                        }
+                    });
+                }
+            }
+
+            async saveEmail() {
+                const userEmail = document.getElementById('userEmail');
+                const saveEmailBtn = document.getElementById('saveEmailBtn');
+                
+                if (!userEmail || !saveEmailBtn) return;
+
+                const email = userEmail.value.trim();
+                if (!email) {
+                    this.showToast('กรุณากรอกอีเมล', 'warning');
+                    return;
+                }
+
+                if (!this.isValidEmail(email)) {
+                    this.showToast('รูปแบบอีเมลไม่ถูกต้อง', 'error');
+                    return;
+                }
+
+                try {
+                    saveEmailBtn.disabled = true;
+                    saveEmailBtn.innerHTML = '<i class="fas fa-spinner fa-spin mr-2"></i>กำลังบันทึก...';
+
+                    const response = await fetch(`/api/users/${this.currentUserId}`, {
+                        method: 'PUT',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            email: email,
+                            isVerified: true
+                        })
+                    });
+
+                    if (response.ok) {
+                        const result = await response.json();
+                        if (result.success) {
+                            this.currentUser.email = email;
+                            this.currentUser.isVerified = true;
+                            this.updateEmailStatus();
+                            this.showToast('บันทึกอีเมลเรียบร้อย', 'success');
+                        } else {
+                            this.showToast(result.error || 'เกิดข้อผิดพลาด', 'error');
+                        }
+                    } else {
+                        this.showToast('เกิดข้อผิดพลาดในการบันทึก', 'error');
+                    }
+                } catch (error) {
+                    console.error('Error saving email:', error);
+                    this.showToast('เกิดข้อผิดพลาดในการเชื่อมต่อ', 'error');
+                } finally {
+                    saveEmailBtn.disabled = false;
+                    saveEmailBtn.innerHTML = '<i class="fas fa-save mr-2"></i>บันทึก';
+                }
+            }
+
+            isValidEmail(email) {
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                return emailRegex.test(email);
+            }
+
+            showToast(message, type = 'info') {
+                const toastContainer = document.getElementById('toastContainer');
+                if (!toastContainer) return;
+
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+
+                toastContainer.appendChild(toast);
+
+                // Show toast
+                setTimeout(() => toast.classList.add('show'), 100);
+
+                // Hide toast after 3 seconds
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                    setTimeout(() => {
+                        if (toast.parentNode) {
+                            toast.parentNode.removeChild(toast);
+                        }
+                    }, 300);
+                }, 3000);
+            }
+        }
+
+        // Initialize app when DOM is loaded
+        document.addEventListener('DOMContentLoaded', () => {
+            new ProfileApp();
+        });
+    </script>
+</body>
+</html>

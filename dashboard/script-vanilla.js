@@ -637,6 +637,7 @@ class DashboardApp {
 
       const name = this.currentUser?.displayName || this.currentUser?.realName || this.currentUser?.name || this.currentUserId;
       nameEl.textContent = name;
+      nameEl.href = `profile.html?userId=${this.currentUserId}`;
 
       const initial = (name || 'U').trim().charAt(0).toUpperCase();
       avatarEl.textContent = initial || 'U';

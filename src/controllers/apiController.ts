@@ -3001,6 +3001,46 @@ class ApiController {
   }
 
   /**
+   * อัปเดตข้อมูลผู้ใช้
+   */
+  public async updateUser(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const updates = req.body;
+
+      logger.info(`Updating user: ${userId}`, updates);
+
+      // ตรวจสอบว่าผู้ใช้มีอยู่จริง
+      const user = await this.userService.findByLineUserId(userId);
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: 'User not found'
+        });
+        return;
+      }
+
+      // อัปเดตข้อมูลผู้ใช้
+      const updatedUser = await this.userService.updateUser(user.id, updates);
+
+      const response: ApiResponse<any> = {
+        success: true,
+        data: updatedUser,
+        message: 'User updated successfully'
+      };
+
+      res.json(response);
+
+    } catch (error) {
+      logger.error('❌ Error updating user:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  }
+
+  /**
    * ตรวจสอบการเป็นสมาชิกของ Bot ในกลุ่มและลบข้อมูลงาน (สำหรับการทดสอบ)
    */
   public async checkBotMembershipAndCleanup(req: Request, res: Response): Promise<void> {
@@ -3584,3 +3624,6 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   
   // Manual bot membership check and cleanup trigger
   apiRouter.post('/admin/check-bot-membership', apiController.checkBotMembershipAndCleanup.bind(apiController));
+  
+  // User management routes
+  apiRouter.put('/users/:userId', apiController.updateUser.bind(apiController));

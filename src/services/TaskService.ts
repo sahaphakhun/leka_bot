@@ -555,6 +555,16 @@ export class TaskService {
         console.warn('⚠️ Failed to send task rejected notification:', err);
       }
 
+      // อัปเดต Google Calendar ถ้ามีการเปลี่ยนแปลง
+      try {
+        if (updatedTask.googleEventId && task.group?.settings?.googleCalendarId) {
+          await this.googleService.updateTaskInCalendar(updatedTask, updates);
+          console.log(`✅ Updated task in Google Calendar: ${updatedTask.id}`);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to update task in Google Calendar:', err);
+      }
+
       // แจ้งในกลุ่มเมื่อมีการแก้งาน/อัปเดตข้อมูล (ยกเว้นกรณีตีกลับ ซึ่งมีแจ้งเฉพาะแล้ว)
       try {
         const anyUpdates2: any = updates as any;
@@ -635,7 +645,19 @@ export class TaskService {
         }
       }
 
-      return await this.taskRepository.save(task);
+      const updatedTask = await this.taskRepository.save(task);
+
+      // อัปเดต Google Calendar ถ้ามีการเปลี่ยนแปลงสถานะ
+      try {
+        if (updatedTask.googleEventId && task.group?.settings?.googleCalendarId) {
+          await this.googleService.updateTaskInCalendar(updatedTask, { status });
+          console.log(`✅ Updated task status in Google Calendar: ${updatedTask.id}`);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to update task status in Google Calendar:', err);
+      }
+
+      return updatedTask;
 
     } catch (error) {
       console.error('❌ Error updating task status:', error);
