@@ -637,7 +637,23 @@ class DashboardApp {
 
       const name = this.currentUser?.displayName || this.currentUser?.realName || this.currentUser?.name || this.currentUserId;
       nameEl.textContent = name;
-      nameEl.href = `profile.html?userId=${this.currentUserId}`;
+      const profileHref = `profile.html?userId=${this.currentUserId}`;
+      nameEl.href = profileHref;
+
+      // ทำให้คลิกได้แน่นอนทั้งชื่อและ badge (กันกรณีมี element อื่นบัง)
+      badge.style.pointerEvents = 'auto';
+      badge.style.cursor = 'pointer';
+      nameEl.style.pointerEvents = 'auto';
+      nameEl.style.cursor = 'pointer';
+
+      // ผูกคลิกทั้งชื่อและ badge ให้นำทางไปหน้าโปรไฟล์
+      const goProfile = (e) => {
+        try { e && e.preventDefault && e.preventDefault(); } catch {}
+        window.location.href = profileHref;
+      };
+      nameEl.onclick = goProfile;
+      avatarEl.onclick = goProfile;
+      badge.onclick = goProfile;
 
       const initial = (name || 'U').trim().charAt(0).toUpperCase();
       avatarEl.textContent = initial || 'U';
