@@ -2040,6 +2040,174 @@ export class TaskService {
   }
 
   /**
+   * ตรวจสอบว่า Bot ยังอยู่ในกลุ่มหรือไม่
+   */
+  public async checkBotMembershipInGroup(groupId: string): Promise<boolean> {
+    try {
+      // ใช้ LineService เพื่อตรวจสอบการเป็นสมาชิก
+      const lineService = new (await import('./LineService')).LineService();
+      
+      // พยายามดึงรายชื่อสมาชิกในกลุ่ม
+      await lineService.getGroupMemberUserIds(groupId);
+      
+      // หากสำเร็จ แสดงว่า Bot ยังอยู่ในกลุ่ม
+      console.log(`✅ Bot ยังอยู่ในกลุ่ม: ${groupId}`);
+      return true;
+      
+    } catch (error: any) {
+      if (error.status === 403) {
+        console.log(`🚫 Bot ไม่อยู่ในกลุ่มหรือไม่มีสิทธิ์เข้าถึง: ${groupId}`);
+        return false;
+      } else if (error.status === 404) {
+        console.log(`❌ กลุ่มไม่มีอยู่จริง: ${groupId}`);
+        return false;
+      } else {
+        console.error(`❌ Error checking bot membership for group ${groupId}:`, error);
+        // ในกรณีที่ไม่แน่ใจ ให้ถือว่า Bot ยังอยู่ในกลุ่ม
+        return true;
+      }
+    }
+  }
+
+  /**
+   * ลบงานทั้งหมดในกลุ่ม (สำหรับกรณีที่ Bot ไม่อยู่ในกลุ่มแล้ว)
+   */
+  public async deleteAllTasksInGroup(groupId: string): Promise<{
+    success: boolean;
+    deletedCount: number;
+    errors: string[];
+  }> {
+    try {
+      console.log(`🗑️ เริ่มลบงานทั้งหมดในกลุ่ม: ${groupId}`);
+      
+      // ดึงงานทั้งหมดในกลุ่ม
+      const { tasks } = await this.getGroupTasks(groupId);
+      
+      if (tasks.length === 0) {
+        console.log(`📋 ไม่มีงานในกลุ่ม ${groupId} ให้ลบ`);
+        return {
+          success: true,
+          deletedCount: 0,
+          errors: []
+        };
+      }
+
+      console.log(`📊 พบงาน ${tasks.length} รายการในกลุ่ม ${groupId}`);
+
+      let deletedCount = 0;
+      const errors: string[] = [];
+
+      // ลบงานทีละรายการ
+      for (const task of tasks) {
+        try {
+          await this.deleteTask(task.id);
+          deletedCount++;
+          console.log(`✅ ลบงาน ${task.id} สำเร็จ`);
+        } catch (error) {
+          const errorMsg = `Failed to delete task ${task.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          errors.push(errorMsg);
+          console.error(`❌ ${errorMsg}`);
+        }
+      }
+
+      console.log(`📊 สรุปการลบงานในกลุ่ม ${groupId}:`);
+      console.log(`   ✅ ลบสำเร็จ: ${deletedCount} รายการ`);
+      console.log(`   ❌ ลบไม่สำเร็จ: ${errors.length} รายการ`);
+
+      return {
+        success: errors.length === 0,
+        deletedCount,
+        errors
+      };
+
+    } catch (error) {
+      console.error(`❌ Error deleting all tasks in group ${groupId}:`, error);
+      return {
+        success: false,
+        deletedCount: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      };
+    }
+  }
+
+  /**
+   * ตรวจสอบและลบข้อมูลงานของกลุ่มที่ Bot ไม่อยู่แล้ว
+   */
+  public async checkAndCleanupInactiveGroups(): Promise<{
+    checkedGroups: number;
+    cleanedGroups: number;
+    totalDeletedTasks: number;
+    errors: string[];
+  }> {
+    try {
+      console.log('🔍 เริ่มตรวจสอบกลุ่มที่ Bot ไม่อยู่แล้ว...');
+      
+      // ดึงรายการกลุ่มทั้งหมดจากฐานข้อมูล
+      const groups = await this.groupRepository.find();
+      console.log(`📊 พบกลุ่ม ${groups.length} กลุ่มในฐานข้อมูล`);
+
+      let checkedGroups = 0;
+      let cleanedGroups = 0;
+      let totalDeletedTasks = 0;
+      const errors: string[] = [];
+
+      for (const group of groups) {
+        try {
+          checkedGroups++;
+          console.log(`🔍 ตรวจสอบกลุ่ม ${checkedGroups}/${groups.length}: ${group.lineGroupId || group.id}`);
+
+          // ตรวจสอบว่า Bot ยังอยู่ในกลุ่มหรือไม่
+          const isBotInGroup = await this.checkBotMembershipInGroup(group.lineGroupId || group.id);
+          
+          if (!isBotInGroup) {
+            console.log(`🧹 Bot ไม่อยู่ในกลุ่ม ${group.lineGroupId || group.id} เริ่มลบข้อมูลงาน...`);
+            
+            // ลบงานทั้งหมดในกลุ่ม
+            const deleteResult = await this.deleteAllTasksInGroup(group.lineGroupId || group.id);
+            
+            if (deleteResult.success) {
+              cleanedGroups++;
+              totalDeletedTasks += deleteResult.deletedCount;
+              console.log(`✅ ลบข้อมูลงานในกลุ่ม ${group.lineGroupId || group.id} สำเร็จ (${deleteResult.deletedCount} รายการ)`);
+            } else {
+              errors.push(`Failed to clean up group ${group.lineGroupId || group.id}: ${deleteResult.errors.join(', ')}`);
+            }
+          } else {
+            console.log(`✅ Bot ยังอยู่ในกลุ่ม ${group.lineGroupId || group.id}`);
+          }
+
+        } catch (error) {
+          const errorMsg = `Error processing group ${group.lineGroupId || group.id}: ${error instanceof Error ? error.message : 'Unknown error'}`;
+          errors.push(errorMsg);
+          console.error(`❌ ${errorMsg}`);
+        }
+      }
+
+      console.log('📊 สรุปการตรวจสอบและทำความสะอาดกลุ่ม:');
+      console.log(`   🔍 ตรวจสอบกลุ่ม: ${checkedGroups} กลุ่ม`);
+      console.log(`   🧹 ทำความสะอาดกลุ่ม: ${cleanedGroups} กลุ่ม`);
+      console.log(`   🗑️ ลบงานทั้งหมด: ${totalDeletedTasks} รายการ`);
+      console.log(`   ❌ ข้อผิดพลาด: ${errors.length} รายการ`);
+
+      return {
+        checkedGroups,
+        cleanedGroups,
+        totalDeletedTasks,
+        errors
+      };
+
+    } catch (error) {
+      console.error('❌ Error in checkAndCleanupInactiveGroups:', error);
+      return {
+        checkedGroups: 0,
+        cleanedGroups: 0,
+        totalDeletedTasks: 0,
+        errors: [error instanceof Error ? error.message : 'Unknown error']
+      };
+    }
+  }
+
+  /**
    * อนุมัติงานอัตโนมัติหลังจากครบกำหนดตรวจ 2 วัน
    */
   public async autoApproveTaskAfterDeadline(taskId: string): Promise<Task> {

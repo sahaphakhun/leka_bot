@@ -122,6 +122,14 @@ export class CronService {
       timezone: config.app.defaultTimezone
     });
 
+    // ตรวจสอบการเป็นสมาชิกของ Bot ในกลุ่มและลบข้อมูลงานทุกวันเวลา 10:00 น.
+    const botMembershipCheckJob = cron.schedule('0 10 * * *', async () => {
+      await this.checkBotMembershipAndCleanup();
+    }, {
+      scheduled: false,
+      timezone: config.app.defaultTimezone
+    });
+
     // เก็บ jobs ไว้สำหรับ shutdown
     this.jobs.set('reminderOneDay', reminderOneDayJob);
     this.jobs.set('overdue', overdueJob);
@@ -133,6 +141,7 @@ export class CronService {
     this.jobs.set('fileBackup', fileBackupJob);
     this.jobs.set('recurring', recurringJob);
     this.jobs.set('reviewReminder', reviewReminderJob);
+    this.jobs.set('botMembershipCheck', botMembershipCheckJob);
 
     // เริ่มงานทั้งหมด
     this.jobs.forEach((job, name) => {
@@ -799,6 +808,71 @@ export class CronService {
       }
     } catch (error) {
       console.error('❌ Error sending daily review reminders:', error);
+    }
+  }
+
+  /**
+   * ตรวจสอบการเป็นสมาชิกของ Bot ในกลุ่มและลบข้อมูลงานทุกวันเวลา 10:00 น.
+   */
+  private async checkBotMembershipAndCleanup(): Promise<void> {
+    try {
+      console.log('🤖 Starting daily bot membership check and cleanup...');
+      
+      // เรียกใช้ฟังก์ชันตรวจสอบและทำความสะอาดจาก TaskService
+      const result = await this.taskService.checkAndCleanupInactiveGroups();
+      
+      console.log('📊 Bot membership check and cleanup completed:');
+      console.log(`   🔍 ตรวจสอบกลุ่ม: ${result.checkedGroups} กลุ่ม`);
+      console.log(`   🧹 ทำความสะอาดกลุ่ม: ${result.cleanedGroups} กลุ่ม`);
+      console.log(`   🗑️ ลบงานทั้งหมด: ${result.totalDeletedTasks} รายการ`);
+      
+      if (result.errors.length > 0) {
+        console.log(`   ❌ ข้อผิดพลาด: ${result.errors.length} รายการ`);
+        result.errors.forEach((error, index) => {
+          console.log(`      ${index + 1}. ${error}`);
+        });
+      }
+      
+      // ส่งการแจ้งเตือนให้ admin หากมีการทำความสะอาด
+      if (result.cleanedGroups > 0) {
+        await this.sendCleanupNotification(result);
+      }
+      
+    } catch (error) {
+      console.error('❌ Error in bot membership check and cleanup:', error);
+    }
+  }
+
+  /**
+   * ส่งการแจ้งเตือนการทำความสะอาดให้ admin
+   */
+  private async sendCleanupNotification(result: {
+    checkedGroups: number;
+    cleanedGroups: number;
+    totalDeletedTasks: number;
+    errors: string[];
+  }): Promise<void> {
+    try {
+      console.log('📢 Sending cleanup notification to admins...');
+      
+      // สร้างข้อความแจ้งเตือน
+      const message = `🤖 รายงานการทำความสะอาดข้อมูล Bot
+
+📊 สรุปผลการตรวจสอบ:
+• ตรวจสอบกลุ่ม: ${result.checkedGroups} กลุ่ม
+• ทำความสะอาดกลุ่ม: ${result.cleanedGroups} กลุ่ม
+• ลบงานทั้งหมด: ${result.totalDeletedTasks} รายการ
+
+${result.errors.length > 0 ? `⚠️ ข้อผิดพลาด: ${result.errors.length} รายการ` : '✅ ไม่มีข้อผิดพลาด'}
+
+💡 หมายเหตุ: ระบบตรวจสอบการเป็นสมาชิกของ Bot ในกลุ่มทุกวันเวลา 10:00 น. และลบข้อมูลงานของกลุ่มที่ Bot ไม่อยู่แล้ว`;
+
+      // ส่งการแจ้งเตือนให้ admin ทุกคน (ในอนาคตอาจจะส่งให้ admin เฉพาะ)
+      // สำหรับตอนนี้ให้ log ไว้ก่อน
+      console.log('📢 Cleanup notification:', message);
+      
+    } catch (error) {
+      console.error('❌ Error sending cleanup notification:', error);
     }
   }
 

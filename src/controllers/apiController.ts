@@ -3001,6 +3001,46 @@ class ApiController {
   }
 
   /**
+   * ตรวจสอบการเป็นสมาชิกของ Bot ในกลุ่มและลบข้อมูลงาน (สำหรับการทดสอบ)
+   */
+  public async checkBotMembershipAndCleanup(req: Request, res: Response): Promise<void> {
+    try {
+      logger.info('🤖 Manual trigger: Starting bot membership check and cleanup...');
+      
+      // Import TaskService dynamically
+      const { TaskService } = await import('@/services/TaskService');
+      const taskService = new TaskService();
+      
+      // เรียกใช้ฟังก์ชันตรวจสอบและทำความสะอาด
+      const result = await taskService.checkAndCleanupInactiveGroups();
+      
+      logger.info('📊 Bot membership check and cleanup completed:', result);
+      
+      const response: ApiResponse<any> = {
+        success: true,
+        data: {
+          message: 'Bot membership check and cleanup completed',
+          result: {
+            checkedGroups: result.checkedGroups,
+            cleanedGroups: result.cleanedGroups,
+            totalDeletedTasks: result.totalDeletedTasks,
+            errors: result.errors
+          }
+        }
+      };
+      
+      res.json(response);
+      
+    } catch (error) {
+      logger.error('❌ Error in manual bot membership check:', error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error occurred'
+      });
+    }
+  }
+
+  /**
    * บังคับส่งการ์ดประจำวันของตอนเช้า
    */
   public async triggerDailySummary(req: Request, res: Response): Promise<void> {
@@ -3538,5 +3578,9 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   apiRouter.post('/admin/test-google-calendar', apiController.testGoogleCalendar.bind(apiController));
   apiRouter.post('/admin/setup-group-calendar/:groupId', apiController.setupGroupCalendar.bind(apiController));
   
+
   // Manual daily summary trigger
   apiRouter.post('/admin/trigger-daily-summary', apiController.triggerDailySummary.bind(apiController));
+  
+  // Manual bot membership check and cleanup trigger
+  apiRouter.post('/admin/check-bot-membership', apiController.checkBotMembershipAndCleanup.bind(apiController));
