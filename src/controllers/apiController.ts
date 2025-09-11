@@ -3111,6 +3111,35 @@ class ApiController {
   }
 
   /**
+   * GET /api/users/:userId/groups - ดึงกลุ่มที่ผู้ใช้อยู่ (ใช้ชื่อกลุ่มจริง)
+   */
+  public async getUserGroups(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params; // LINE User ID หรือ internal UUID
+
+      const { UserService } = await import('@/services/UserService');
+      const userService = new UserService();
+
+      // แปลง LINE ID -> internal user
+      const user = userId.startsWith('U')
+        ? await userService.findByLineUserId(userId)
+        : await userService.findById(userId);
+
+      if (!user) {
+        res.status(404).json({ success: false, error: 'User not found' });
+        return;
+      }
+
+      const groups = await userService.getUserGroups(user.id);
+
+      res.json({ success: true, data: groups });
+    } catch (error) {
+      logger.error('❌ Error getting user groups:', error);
+      res.status(500).json({ success: false, error: 'Failed to get user groups' });
+    }
+  }
+
+  /**
    * ตรวจสอบการเป็นสมาชิกของ Bot ในกลุ่มและลบข้อมูลงาน (สำหรับการทดสอบ)
    */
   public async checkBotMembershipAndCleanup(req: Request, res: Response): Promise<void> {
@@ -3698,3 +3727,4 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   // User management routes
   apiRouter.put('/users/:userId', apiController.updateUser.bind(apiController));
   apiRouter.post('/users/:userId/calendar-invite', apiController.sendCalendarInvitesForUser.bind(apiController));
+  apiRouter.get('/users/:userId/groups', apiController.getUserGroups.bind(apiController));

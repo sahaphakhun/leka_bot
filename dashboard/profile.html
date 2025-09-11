@@ -372,15 +372,20 @@
 
             async loadUserGroups() {
                 try {
-                    const response = await fetch('/api/groups');
+                    const response = await fetch(`/api/users/${encodeURIComponent(this.currentUserId)}/groups`);
                     if (response.ok) {
                         const result = await response.json();
                         if (result.success) {
-                            this.displayUserGroups(result.data);
+                            this.displayUserGroups(result.data || []);
+                        } else {
+                            this.displayUserGroups([]);
                         }
+                    } else {
+                        this.displayUserGroups([]);
                     }
                 } catch (error) {
                     console.error('Error loading user groups:', error);
+                    this.displayUserGroups([]);
                 }
             }
 
@@ -396,8 +401,8 @@
                 userGroups.innerHTML = groups.map(group => `
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div>
-                            <h3 class="font-medium text-gray-900">${group.name || 'ไม่ระบุชื่อ'}</h3>
-                            <p class="text-sm text-gray-600">${group.lineGroupId}</p>
+                            <h3 class="font-medium text-gray-900">${(group.name && group.name.trim()) ? group.name : (group.lineGroupId || 'ไม่ระบุชื่อ')}</h3>
+                            <p class="text-sm text-gray-600">${group.lineGroupId || ''}</p>
                         </div>
                         <div class="flex items-center space-x-2">
                             <span class="status-badge status-verified">
