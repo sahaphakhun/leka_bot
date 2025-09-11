@@ -689,8 +689,8 @@ export class FlexMessageTemplateService {
     );
 
     const buttons = [
-      FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}${assignee.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
-      FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมดของฉัน', 'uri', `${config.baseUrl}/dashboard?groupId=${assignee.groupId}${assignee.lineUserId ? `&userId=${assignee.lineUserId}` : ''}#my-tasks`, 'secondary')
+      FlexMessageDesignSystem.createButton('📊 ดู Dashboard', 'uri', `${config.baseUrl}/dashboard?groupId=${group?.id || assignee.groupId}${assignee.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
+      FlexMessageDesignSystem.createButton('📋 ดูงานทั้งหมดของฉัน', 'uri', `${config.baseUrl}/dashboard/submit-tasks?userId=${assignee.lineUserId}`, 'secondary')
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
