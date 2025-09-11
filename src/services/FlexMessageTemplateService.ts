@@ -423,12 +423,23 @@ export class FlexMessageTemplateService {
     const tomorrow = now.clone().add(1, 'day').startOf('day');
     
     // งานที่กำลังดำเนินการ = ทุกงานที่ยังไม่เสร็จและยังไม่ถูกยกเลิก
-    const inProgressTasks = tasks.filter(t => 
-      t.status === 'in_progress' || 
-      t.status === 'pending' || 
-      t.status === 'submitted' ||
-      t.status === 'overdue'
-    );
+    // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
+    const inProgressTasks = tasks.filter(t => {
+      // ตรวจสอบสถานะพื้นฐาน
+      const hasValidStatus = t.status === 'in_progress' || 
+                            t.status === 'pending' || 
+                            t.status === 'submitted' ||
+                            t.status === 'overdue';
+      
+      if (!hasValidStatus) return false;
+      
+      // ตรวจสอบว่ามีการส่งงานแล้วหรือไม่
+      const workflow = t.workflow as any;
+      if (!workflow || !workflow.submissions) return true;
+      
+      // ถ้ามี submissions แสดงว่าส่งแล้ว ให้กรองออก
+      return !Array.isArray(workflow.submissions) || workflow.submissions.length === 0;
+    });
     
     // งานที่เสร็จแล้ววันนี้ = งานที่มี status เป็น completed และ completedAt อยู่ในวันนี้
     const completedTodayTasks = tasks.filter(t => {
@@ -557,9 +568,18 @@ export class FlexMessageTemplateService {
    * สร้างการ์ดรายงานส่วนบุคคล
    */
   static createPersonalReportCard(assignee: any, tasks: any[], timezone: string, group?: any): FlexMessage {
-    const overdueTasks = tasks.filter(t => t.status === 'overdue');
-    const inProgressTasks = tasks.filter(t => t.status === 'in_progress');
-    const pendingTasks = tasks.filter(t => t.status === 'pending');
+    // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
+    const filterSubmittedTasks = (taskList: any[]) => {
+      return taskList.filter(t => {
+        const workflow = t.workflow as any;
+        if (!workflow || !workflow.submissions) return true;
+        return !Array.isArray(workflow.submissions) || workflow.submissions.length === 0;
+      });
+    };
+    
+    const overdueTasks = filterSubmittedTasks(tasks.filter(t => t.status === 'overdue'));
+    const inProgressTasks = filterSubmittedTasks(tasks.filter(t => t.status === 'in_progress'));
+    const pendingTasks = filterSubmittedTasks(tasks.filter(t => t.status === 'pending'));
     const date = moment().tz(timezone).format('DD/MM/YYYY');
     
     // สร้างรายการงานย่อ
@@ -778,7 +798,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText('ไม่มีไฟล์แนบ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
         ],
         [
-          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}#files`, 'secondary')
         ],
         'extraLarge'
       );
@@ -870,7 +890,7 @@ export class FlexMessageTemplateService {
           FlexMessageDesignSystem.createText('ไม่มีไฟล์แนบ', 'sm', FlexMessageDesignSystem.colors.textSecondary)
         ],
         [
-          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view#files`, 'secondary')
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}#files`, 'secondary')
         ],
         'extraLarge'
       );
@@ -1193,9 +1213,18 @@ export class FlexMessageTemplateService {
    * สร้างการ์ดงานส่วนตัวทั้งหมด (รวมงานที่เกินกำหนด) - มาตรฐานใหม่
    */
   static createAllPersonalTasksCard(tasks: any[], files: any[], user: any, overdueTasks: any[] = []): FlexMessage {
+    // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
+    const filterSubmittedTasks = (taskList: any[]) => {
+      return taskList.filter(t => {
+        const workflow = t.workflow as any;
+        if (!workflow || !workflow.submissions) return true;
+        return !Array.isArray(workflow.submissions) || workflow.submissions.length === 0;
+      });
+    };
+    
     // แยกงานตามสถานะ
-    const pendingTasks = tasks.filter(task => task.status === 'pending');
-    const inProgressTasks = tasks.filter(task => task.status === 'in_progress');
+    const pendingTasks = filterSubmittedTasks(tasks.filter(task => task.status === 'pending'));
+    const inProgressTasks = filterSubmittedTasks(tasks.filter(task => task.status === 'in_progress'));
     
     const content = [
       FlexMessageDesignSystem.createText('📋 งานทั้งหมดที่ต้องส่ง', 'md', FlexMessageDesignSystem.colors.textPrimary, 'bold'),

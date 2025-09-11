@@ -1378,13 +1378,28 @@ export class TaskService {
       if (!group) {
         throw new Error(`Group not found for LINE ID: ${lineGroupId}`);
       }
-      return await this.taskRepository.createQueryBuilder('task')
+      
+      // ดึงงานทั้งหมดที่ยังไม่เสร็จ
+      const allTasks = await this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.group', 'group')
         .where('task.groupId = :gid', { gid: group.id })
         .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue'] })
         .orderBy('task.dueTime', 'ASC')
         .getMany();
+      
+      // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
+      const incompleteTasks = allTasks.filter(task => {
+        const workflow = task.workflow as any;
+        if (!workflow || !workflow.submissions) return true;
+        
+        // ถ้ามี submissions แสดงว่าส่งแล้ว ให้กรองออก
+        return !Array.isArray(workflow.submissions) || workflow.submissions.length === 0;
+      });
+      
+      console.log(`📊 Filtered incomplete tasks: ${allTasks.length} → ${incompleteTasks.length} (removed ${allTasks.length - incompleteTasks.length} submitted tasks)`);
+      
+      return incompleteTasks;
     } catch (error) {
       console.error('❌ Error getting incomplete tasks of group:', error);
       throw error;

@@ -488,8 +488,8 @@ export class NotificationService {
   /**
    * สร้าง Flex Message สำหรับงานรอตรวจ
    */
-  private createReviewRequestFlexMessage(task: any, group: any, details: any, dueText: string): FlexMessage {
-    return FlexMessageTemplateService.createReviewRequestCard(task, group, details, dueText);
+  private createReviewRequestFlexMessage(task: any, group: any, details: any, dueText: string, viewerLineUserId?: string): FlexMessage {
+    return FlexMessageTemplateService.createReviewRequestCard(task, group, details, dueText, viewerLineUserId);
   }
 
   /**
@@ -954,7 +954,8 @@ export class NotificationService {
       if (!reviewer?.lineUserId) return;
 
       const dueText = moment(task.dueTime).tz(config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
-      const flexMessage = this.createReviewRequestFlexMessage(task, group, details, dueText);
+      // แนบ userId ของผู้รับ (reviewer) เข้าไปในลิงก์ไปแดชบอร์ด
+      const flexMessage = this.createReviewRequestFlexMessage(task, group, details, dueText, reviewer.lineUserId);
       
       await this.lineService.pushMessage(reviewer.lineUserId, flexMessage);
       console.log(`✅ Sent review request to: ${reviewer.displayName}`);

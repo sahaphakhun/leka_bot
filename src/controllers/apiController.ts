@@ -3001,6 +3001,105 @@ class ApiController {
   }
 
   /**
+   * บังคับส่งการ์ดประจำวันของตอนเช้า
+   */
+  public async triggerDailySummary(req: Request, res: Response): Promise<void> {
+    try {
+      logger.info('🔄 Manual trigger: Starting daily summary...');
+      
+      // Import services dynamically
+      const { TaskService } = await import('@/services/TaskService');
+      const { NotificationService } = await import('@/services/NotificationService');
+      const { FlexMessageTemplateService } = await import('@/services/FlexMessageTemplateService');
+      const { LineService } = await import('@/services/LineService');
+      
+      const taskService = new TaskService();
+      const notificationService = new NotificationService();
+      const lineService = new LineService();
+      
+      // ดึงกลุ่มทั้งหมด
+      const groups = await taskService.getAllActiveGroups();
+      let totalGroups = 0;
+      let totalTasks = 0;
+      
+      for (const group of groups) {
+        try {
+          // ดึงงานค้างของกลุ่มนี้
+          const tasks = await taskService.getIncompleteTasksOfGroup(group.lineGroupId);
+          if (tasks.length === 0) continue;
+          
+          totalGroups++;
+          totalTasks += tasks.length;
+
+          // สร้าง Flex Message สำหรับสรุปงานประจำวัน
+          const tz = group.timezone || 'Asia/Bangkok';
+          const summaryFlexMessage = FlexMessageTemplateService.createDailySummaryCard(group, tasks, tz);
+
+          // ส่งสรุปลงกลุ่ม
+          try {
+            await lineService.pushMessage(group.lineGroupId, summaryFlexMessage);
+            logger.info(`✅ Sent daily summary to group: ${group.name} (${tasks.length} tasks)`);
+          } catch (err) {
+            logger.warn(`⚠️ Failed to send daily summary to group: ${group.lineGroupId}`, err);
+          }
+
+          // ส่งการ์ดแยกรายบุคคลให้แต่ละคน
+          const tasksByAssignee = new Map<string, any[]>();
+          for (const task of tasks) {
+            const assignees = (task as any).assignedUsers || [];
+            if (assignees.length === 0) continue;
+
+            for (const assignee of assignees) {
+              const userTasks = tasksByAssignee.get(assignee.lineUserId) || [];
+              userTasks.push(task);
+              tasksByAssignee.set(assignee.lineUserId, userTasks);
+            }
+          }
+
+          for (const [assigneeId, userTasks] of tasksByAssignee.entries()) {
+            try {
+              const assignee = (userTasks[0] as any).assignedUsers?.find((u: any) => u.lineUserId === assigneeId);
+              if (!assignee) continue;
+
+              // สร้างการ์ดงานต่างๆ ของแต่ละงาน (Flex Message) แทนข้อความธรรมดา
+              const flexMessage = FlexMessageTemplateService.createPersonalReportCard(assignee, userTasks, tz, group);
+              
+              // ส่งการ์ดให้แต่ละคนทางส่วนตัว
+              await lineService.pushMessage(assigneeId, flexMessage);
+              
+              logger.info(`✅ Sent personal daily report to: ${assignee.displayName}`);
+            } catch (err) {
+              logger.warn(`⚠️ Failed to send personal daily report: ${assigneeId}`, err);
+            }
+          }
+        } catch (err) {
+          logger.warn(`⚠️ Failed to process group for daily summary: ${group.id}`, err);
+        }
+      }
+      
+      logger.info(`✅ Manual trigger: Daily summary completed - ${totalGroups} groups, ${totalTasks} tasks`);
+      
+      res.json({ 
+        success: true, 
+        message: 'Daily summary sent successfully',
+        data: {
+          groupsProcessed: totalGroups,
+          totalTasks: totalTasks,
+          timestamp: new Date().toISOString()
+        }
+      });
+    } catch (error) {
+      logger.error('❌ Error triggering daily summary:', error);
+      res.status(500).json({ 
+        success: false, 
+        error: 'Failed to trigger daily summary',
+        details: error instanceof Error ? error.message : 'Unknown error',
+        timestamp: new Date().toISOString()
+      });
+    }
+  }
+
+  /**
    * Endpoint to manually trigger duration days column migration
    */
   public async migrateDurationDays(req: Request, res: Response): Promise<void> {
@@ -3438,3 +3537,6 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   apiRouter.post('/notifications/cards/quick', apiController.sendQuickNotification.bind(apiController));
   apiRouter.post('/admin/test-google-calendar', apiController.testGoogleCalendar.bind(apiController));
   apiRouter.post('/admin/setup-group-calendar/:groupId', apiController.setupGroupCalendar.bind(apiController));
+  
+  // Manual daily summary trigger
+  apiRouter.post('/admin/trigger-daily-summary', apiController.triggerDailySummary.bind(apiController));
