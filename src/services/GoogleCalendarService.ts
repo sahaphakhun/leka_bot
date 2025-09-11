@@ -47,6 +47,32 @@ export class GoogleCalendarService {
         console.error('❌ Service Account JSON parsing failed:', error);
         this.setupOAuth();
       }
+    } else if (config.google.serviceAccountClientEmail && config.google.serviceAccountPrivateKey) {
+      // รองรับรูปแบบตัวแปรแยก (CLIENT_EMAIL + PRIVATE_KEY)
+      try {
+        const clientEmail = config.google.serviceAccountClientEmail as string;
+        const privateKeyRaw = config.google.serviceAccountPrivateKey as string;
+        const privateKey = privateKeyRaw.includes('\n') ? privateKeyRaw.replace(/\\n/g, '\n') : privateKeyRaw;
+        const projectId = config.google.serviceAccountProjectId || undefined;
+
+        const credentials = {
+          client_email: clientEmail,
+          private_key: privateKey,
+          project_id: projectId
+        } as any;
+
+        this.auth = new google.auth.GoogleAuth({
+          credentials,
+          scopes: [
+            'https://www.googleapis.com/auth/calendar',
+            'https://www.googleapis.com/auth/calendar.events'
+          ]
+        });
+        console.log('✅ Using Google Service Account from separate env vars (client_email/private_key)');
+      } catch (error) {
+        console.error('❌ Service Account (separate vars) setup failed:', error);
+        this.setupOAuth();
+      }
     } else if (config.google.serviceAccountKey) {
       // ใช้ Service Account จากไฟล์ (สำหรับ local development)
       try {
