@@ -23,6 +23,14 @@ export class GoogleCalendarService {
    * ตั้งค่า Google Authentication
    */
   private initializeAuth(): void {
+    // TEMP DEBUG: ตรวจว่า ENV ถูกอ่านจริง
+    try {
+      const envJsonLen = (process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '').length;
+      const envPkLen = (process.env.GOOGLE_SA_PRIVATE_KEY || '').length;
+      console.log(`🔎 GOOGLE_SERVICE_ACCOUNT_JSON length: ${envJsonLen}`);
+      console.log(`🔎 GOOGLE_SA_PRIVATE_KEY length: ${envPkLen}`);
+    } catch {}
+
     if (config.google.serviceAccountJson) {
       // ใช้ Service Account JSON จาก Environment Variable (สำหรับ Railway)
       try {
