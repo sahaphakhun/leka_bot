@@ -62,6 +62,19 @@ export interface TaskCardData {
 }
 
 export class FlexMessageDesignSystem {
+  // ทำความสะอาดข้อความ (ลบ control characters ที่อาจทำให้ LINE ปฏิเสธข้อความ)
+  private static sanitizeText(text: string): string {
+    try {
+      if (typeof text !== 'string') return '';
+      let sanitized = text
+        .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
+        .replace(/\uFFFE|\uFFFF/g, '')
+        .trim();
+      return sanitized;
+    } catch {
+      return '';
+    }
+  }
   // สีมาตรฐานตามประเภทการ์ด
   static colors = {
     // สีหลัก
@@ -240,7 +253,7 @@ export class FlexMessageDesignSystem {
   ) {
     return {
       type: 'text' as const,
-      text,
+      text: this.sanitizeText(text),
       size: this.textSizes[size],
       color,
       ...(weight && { weight }),
@@ -288,7 +301,7 @@ export class FlexMessageDesignSystem {
   ): FlexMessage {
     return {
       type: 'flex',
-      altText: title,
+      altText: this.sanitizeText(title),
       contents: {
         type: 'bubble',
         ...(size !== 'default' && { size: this.sizes[size] as 'nano' | 'micro' | 'kilo' | 'mega' | 'giga' }),

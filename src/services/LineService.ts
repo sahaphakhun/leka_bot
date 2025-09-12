@@ -393,7 +393,8 @@ export class LineService {
         messageType: typeof message,
         messageLength: typeof message === 'string' ? message.length : 'N/A',
         errorStatus: error?.statusCode || error?.status,
-        errorMessage: error?.message
+        errorMessage: error?.message,
+        responseData: error?.originalError?.response?.data || error?.response?.data || null
       });
 
       // จัดการ error 400 อย่างเฉพาะเจาะจง
@@ -414,6 +415,7 @@ export class LineService {
             return;
           } catch (fallbackError) {
             console.error('❌ Fallback message also failed:', fallbackError);
+            console.error('❌ Fallback response data:', (fallbackError as any)?.originalError?.response?.data || (fallbackError as any)?.response?.data || null);
           }
         }
       }
