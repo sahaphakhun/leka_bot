@@ -533,6 +533,19 @@ export class LineService {
   }
 
   /**
+   * ดึงรายการกลุ่มทั้งหมดที่บอทเป็นสมาชิก
+   */
+  public async getGroupIds(): Promise<string[]> {
+    try {
+      const result = await this.client.getGroupIds();
+      return result;
+    } catch (error: any) {
+      console.error('❌ Failed to get group IDs:', error);
+      throw error;
+    }
+  }
+
+  /**
    * ดึงข้อมูลกลุ่มจาก LINE API
    * ลองใช้วิธีต่างๆ เพื่อดึงชื่อกลุ่มที่แท้จริง
    */

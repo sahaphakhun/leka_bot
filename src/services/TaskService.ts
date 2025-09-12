@@ -2069,25 +2069,24 @@ export class TaskService {
       // ใช้ LineService เพื่อตรวจสอบการเป็นสมาชิก
       const lineService = new (await import('./LineService')).LineService();
       
-      // พยายามดึงรายชื่อสมาชิกในกลุ่ม
-      await lineService.getGroupMemberUserIds(groupId);
+      // ดึงรายการกลุ่มทั้งหมดที่บอทเป็นสมาชิก
+      const botGroupIds = await lineService.getGroupIds();
       
-      // หากสำเร็จ แสดงว่า Bot ยังอยู่ในกลุ่ม
-      console.log(`✅ Bot ยังอยู่ในกลุ่ม: ${groupId}`);
-      return true;
+      // ตรวจสอบว่า groupId อยู่ในรายการหรือไม่
+      const isInGroup = botGroupIds.includes(groupId);
+      
+      if (isInGroup) {
+        console.log(`✅ Bot ยังอยู่ในกลุ่ม: ${groupId}`);
+        return true;
+      } else {
+        console.log(`🚫 Bot ไม่อยู่ในกลุ่ม: ${groupId}`);
+        return false;
+      }
       
     } catch (error: any) {
-      if (error.status === 403) {
-        console.log(`🚫 Bot ไม่อยู่ในกลุ่มหรือไม่มีสิทธิ์เข้าถึง: ${groupId}`);
-        return false;
-      } else if (error.status === 404) {
-        console.log(`❌ กลุ่มไม่มีอยู่จริง: ${groupId}`);
-        return false;
-      } else {
-        console.error(`❌ Error checking bot membership for group ${groupId}:`, error);
-        // ในกรณีที่ไม่แน่ใจ ให้ถือว่า Bot ยังอยู่ในกลุ่ม
-        return true;
-      }
+      console.error(`❌ Error checking bot membership for group ${groupId}:`, error);
+      // ถ้าเกิดข้อผิดพลาด ให้ถือว่า Bot ยังอยู่ในกลุ่ม (เพื่อความปลอดภัย)
+      return true;
     }
   }
 
