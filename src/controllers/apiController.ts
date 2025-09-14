@@ -11,6 +11,7 @@ import { RecurringTaskService } from '@/services/RecurringTaskService';
 import { LineService } from '@/services/LineService';
 import { NotificationCardService } from '@/services/NotificationCardService';
 import { AppDataSource } from '@/utils/database';
+import { KPIRecord, RecurringTask, Group as GroupEntity, File as FileEntity } from '@/models';
 
 import multer from 'multer';
 import { logger } from '@/utils/logger';
@@ -52,6 +53,189 @@ class ApiController {
   }
 
   // Task Endpoints
+  /**
+   * POST /api/maintenance/cleanup-inactive-groups
+   * ตรวจสอบทุกกลุ่มด้วย LINE API (GET /v2/bot/group/{groupId}/summary)
+   * และลบกลุ่มที่บอทไม่ได้อยู่แล้ว พร้อมข้อมูลงาน, ไฟล์, KPI, recurring (ยกเว้นผู้ใช้)
+   *
+   * Query params:
+   * - dryRun=true|false (default: true) → true = แค่รายงาน ไม่ลบจริง
+   */
+  public async cleanupInactiveGroups(req: Request, res: Response): Promise<void> {
+    const dryRun = String(req.query.dryRun ?? 'true').toLowerCase() !== 'false' ? true : false;
+    try {
+      const groupRepo = AppDataSource.getRepository(GroupEntity);
+      const fileRepo = AppDataSource.getRepository(FileEntity);
+      const kpiRepo = AppDataSource.getRepository(KPIRecord);
+      const recurringRepo = AppDataSource.getRepository(RecurringTask);
+
+      const groups = await groupRepo.find();
+      const results: any[] = [];
+      let toDeleteCount = 0;
+      let deletedGroups = 0;
+      let deletedTasks = 0;
+      let deletedFiles = 0;
+      let deletedKPIs = 0;
+      let deletedRecurring = 0;
+      const errors: string[] = [];
+
+      for (const group of groups) {
+        try {
+          const { inGroup, status, reason } = await this.lineService.isBotInGroupViaSummary(group.lineGroupId || group.id);
+          if (inGroup) {
+            results.push({ groupId: group.id, lineGroupId: group.lineGroupId, name: group.name, status: 'kept', reason });
+            continue;
+          }
+
+          // not in group → mark for deletion
+          toDeleteCount++;
+          if (dryRun) {
+            results.push({ groupId: group.id, lineGroupId: group.lineGroupId, name: group.name, status: 'would_delete', httpStatus: status });
+            continue;
+          }
+
+          // delete tasks
+          const taskDeleteSummary = await this.taskService.deleteAllTasksInGroup(group.id);
+          deletedTasks += taskDeleteSummary.deletedCount;
+
+          // delete files via FileService
+          const files = await fileRepo.find({ where: { groupId: group.id } });
+          for (const f of files) {
+            try { await this.fileService.deleteFile(f.id); deletedFiles++; } catch (e) {
+              console.warn('⚠️ Failed to delete file', f.id, e);
+            }
+          }
+
+          // delete KPI for group
+          const kDel = await kpiRepo.delete({ groupId: group.id });
+          deletedKPIs += (kDel.affected || 0);
+
+          // delete recurring for this LINE group
+          const rDel = await recurringRepo.delete({ lineGroupId: group.lineGroupId });
+          deletedRecurring += (rDel.affected || 0);
+
+          // delete group (cascades members/relations left)
+          await groupRepo.delete({ id: group.id });
+          deletedGroups++;
+          results.push({ groupId: group.id, lineGroupId: group.lineGroupId, name: group.name, status: 'deleted' });
+        } catch (err: any) {
+          const msg = `Group ${group.id} cleanup error: ${err?.message || err}`;
+          errors.push(msg);
+          results.push({ groupId: group.id, lineGroupId: group.lineGroupId, name: group.name, status: 'error', error: msg });
+        }
+      }
+
+      res.json({
+        success: true,
+        dryRun,
+        summary: {
+          totalGroups: groups.length,
+          toDelete: toDeleteCount,
+          deletedGroups,
+          deletedTasks,
+          deletedFiles,
+          deletedKPIs,
+          deletedRecurring,
+          errors: errors.length
+        },
+        results
+      });
+    } catch (error) {
+      logger.error('❌ Error cleaning up inactive groups:', error);
+      res.status(500).json({ success: false, error: 'Failed to cleanup inactive groups' });
+    }
+  }
+  /**
+   * DELETE /api/admin/groups/:groupId - ลบกลุ่มและข้อมูลที่เกี่ยวข้องทั้งหมดอย่างปลอดภัย (ไม่ลบผู้ใช้)
+   * ต้องใส่ admin token: Header X-Admin-Token หรือ query ?adminToken=
+   * รองรับทั้ง internal UUID และ LINE Group ID ในพารามิเตอร์ :groupId
+   * ตัวเลือก: force=true เพื่อข้ามการเช็คว่า Bot ยังอยู่ในกลุ่มหรือไม่
+   */
+  public async hardDeleteGroup(req: Request, res: Response): Promise<void> {
+    const { groupId } = req.params;
+    const force = String(req.query.force || '').toLowerCase() === 'true';
+    const adminToken = (req.headers['x-admin-token'] as string) || (req.query.adminToken as string);
+
+    try {
+      if (!adminToken || adminToken !== process.env.ADMIN_TOKEN) {
+        res.status(401).json({ success: false, error: 'Unauthorized: invalid admin token' });
+        return;
+      }
+
+      // แปลง groupId: รองรับทั้ง UUID และ LINE Group ID
+      let group: GroupEntity | null = null;
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const groupRepo = AppDataSource.getRepository(GroupEntity);
+      group = isUuid
+        ? await groupRepo.findOne({ where: { id: groupId } })
+        : await groupRepo.findOne({ where: { lineGroupId: groupId } });
+
+      if (!group) {
+        res.status(404).json({ success: false, error: `Group not found: ${groupId}` });
+        return;
+      }
+
+      // ถ้าไม่ได้ force ให้เช็คก่อนว่า Bot ยังอยู่ในกลุ่มหรือไม่
+      if (!force) {
+        try {
+          const isInGroup = await this.taskService.checkBotMembershipInGroup(group.lineGroupId || group.id);
+          if (isInGroup) {
+            res.status(400).json({ success: false, error: 'Bot is still a member of this group. Use ?force=true to override.' });
+            return;
+          }
+        } catch (err) {
+          // ถ้าเช็คไม่ได้ ให้ปล่อยผ่าน (แต่ log)
+          console.warn('⚠️ Could not verify bot membership, proceeding with deletion:', err);
+        }
+      }
+
+      // เริ่มดำเนินการลบแบบเป็นขั้นตอน พร้อมสรุปผล
+      const fileRepo = AppDataSource.getRepository(FileEntity);
+      const kpiRepo = AppDataSource.getRepository(KPIRecord);
+      const recurringRepo = AppDataSource.getRepository(RecurringTask);
+
+      // 1) ลบงานทั้งหมด (ใช้ service เพื่อจัดการ Calendar/notification และความสัมพันธ์)
+      const taskDeleteSummary = await this.taskService.deleteAllTasksInGroup(group.id);
+
+      // 2) ลบไฟล์ทั้งหมดของกลุ่ม ด้วย FileService (ให้จัดการ storage/cloudinary ให้เรียบร้อย)
+      const files = await fileRepo.find({ where: { groupId: group.id } });
+      let filesDeleted = 0;
+      for (const f of files) {
+        try {
+          await this.fileService.deleteFile(f.id);
+          filesDeleted++;
+        } catch (e) {
+          console.warn('⚠️ Failed to delete file', f.id, e);
+        }
+      }
+
+      // 3) ลบ KPI records ของกลุ่ม (เพื่อป้องกัน FK block)
+      const kpiDeleteResult = await kpiRepo.delete({ groupId: group.id });
+      const kpisDeleted = (kpiDeleteResult.affected || 0);
+
+      // 4) ลบ recurring templates ที่อ้างด้วย LINE Group ID
+      const recurringDeleteResult = await recurringRepo.delete({ lineGroupId: group.lineGroupId });
+      const recurringDeleted = (recurringDeleteResult.affected || 0);
+
+      // 5) ลบตัวกลุ่ม (จะ CASCADE ลบ members, tasks/files ที่เหลือใน DB)
+      await groupRepo.delete({ id: group.id });
+
+      res.json({
+        success: true,
+        message: 'Group and related data have been hard-deleted',
+        data: {
+          group: { id: group.id, lineGroupId: group.lineGroupId, name: group.name },
+          tasks: { deleted: taskDeleteSummary.deletedCount },
+          files: { deleted: filesDeleted },
+          kpiRecords: { deleted: kpisDeleted },
+          recurringTemplates: { deleted: recurringDeleted }
+        }
+      });
+    } catch (error) {
+      logger.error('❌ Error hard-deleting group:', error);
+      res.status(500).json({ success: false, error: 'Failed to hard-delete group' });
+    }
+  }
 
   /**
    * GET /api/tasks - ดึงรายการงาน
@@ -3701,6 +3885,12 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   
   // KPI Enum migration endpoint
   apiRouter.post('/admin/migrate-kpi-enum', apiController.runKPIEnumMigration.bind(apiController));
+  
+  // Admin: hard delete a group and all related data (except users)
+  apiRouter.delete('/admin/groups/:groupId', apiController.hardDeleteGroup.bind(apiController));
+
+  // Maintenance: cleanup groups that bot is no longer in (no admin token; supports dryRun)
+  apiRouter.post('/maintenance/cleanup-inactive-groups', apiController.cleanupInactiveGroups.bind(apiController));
   apiRouter.get('/admin/check-db', apiController.checkDatabaseConnection.bind(apiController));
 
   // Group name update endpoint

@@ -669,6 +669,34 @@ export class LineService {
   }
 
   /**
+   * ตรวจสอบการอยู่ในกลุ่มของบอทด้วย LINE API: GET /v2/bot/group/{groupId}/summary
+   * - คืนค่า inGroup=true ถ้าดึง summary ได้
+   * - คืนค่า inGroup=false ถ้าได้ 404 (บอทไม่ได้อยู่ในกลุ่ม)
+   * - สำหรับ error อื่นๆ จะไม่สรุปผล เพื่อความปลอดภัย
+   */
+  public async isBotInGroupViaSummary(groupId: string): Promise<{ inGroup: boolean; status?: number; reason?: string }>
+  {
+    try {
+      const clientAny = this.client as any;
+      if (typeof clientAny.getGroupSummary !== 'function') {
+        return { inGroup: true, reason: 'getGroupSummary_not_supported' };
+      }
+      const summary = await clientAny.getGroupSummary(groupId);
+      if (summary && summary.groupId) {
+        return { inGroup: true };
+      }
+      // ถ้าไม่มีข้อมูลใดๆ ให้ถือว่าไม่ชัดเจน → ปลอดภัยไว้ก่อน
+      return { inGroup: true, reason: 'empty_summary' };
+    } catch (err: any) {
+      const status = err?.status || err?.statusCode;
+      if (status === 404) {
+        return { inGroup: false, status };
+      }
+      return { inGroup: true, status, reason: err?.message || 'unknown_error' };
+    }
+  }
+
+  /**
    * ดึงข้อมูลสมาชิกทั้งหมดในกลุ่มพร้อมรายละเอียด
    */
   public async getAllGroupMembers(groupId: string): Promise<Array<{
