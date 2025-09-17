@@ -215,6 +215,15 @@ export class ComprehensiveMigration {
 
       await this.addMissingColumnsToTable(queryRunner, 'recurring_tasks', recurringTaskColumns, requiredRecurringTaskColumns);
 
+      // KPI records table new columns
+      const kpiColumns = await this.getTableColumns(queryRunner, 'kpi_records');
+      const requiredKpiColumns = [
+        { name: 'role', type: 'VARCHAR', nullable: true },
+        { name: 'metadata', type: 'JSONB', nullable: true }
+      ];
+
+      await this.addMissingColumnsToTable(queryRunner, 'kpi_records', kpiColumns, requiredKpiColumns);
+
     } finally {
       await queryRunner.release();
     }
@@ -310,6 +319,43 @@ export class ComprehensiveMigration {
       }
 
       logger.info(`✅ Task status enum validation completed`);
+
+      // Map legacy KPI record typesสู่รูปแบบใหม่และเติม role/metadata
+      const legacyTypeMappings: Array<{ from: string; to: string }> = [
+        { from: 'early', to: 'assignee_early' },
+        { from: 'ontime', to: 'assignee_ontime' },
+        { from: 'late', to: 'assignee_late' },
+        { from: 'overtime', to: 'assignee_late' },
+        { from: 'overdue', to: 'penalty_overdue' },
+        { from: 'approval', to: 'creator_completion' },
+        { from: 'review', to: 'creator_ontime_bonus' }
+      ];
+
+      for (const mapping of legacyTypeMappings) {
+        await queryRunner.query(
+          `UPDATE kpi_records SET type = $1 WHERE type = $2`,
+          [mapping.to, mapping.from]
+        );
+      }
+
+      await queryRunner.query(`
+        UPDATE kpi_records
+        SET role =
+          CASE
+            WHEN type IN ('assignee_early', 'assignee_ontime', 'assignee_late') THEN 'assignee'
+            WHEN type IN ('creator_completion', 'creator_ontime_bonus') THEN 'creator'
+            WHEN type = 'streak_bonus' THEN 'bonus'
+            WHEN type = 'penalty_overdue' THEN 'penalty'
+            ELSE COALESCE(role, 'assignee')
+          END,
+          metadata = CASE
+            WHEN metadata IS NULL THEN '{}'::jsonb
+            ELSE metadata
+          END
+        WHERE role IS NULL OR metadata IS NULL;
+      `);
+      
+      logger.info('✅ KPI record legacy type migration completed');
       
     } finally {
       await queryRunner.release();
@@ -721,6 +767,28 @@ export class ComprehensiveMigration {
         const recurringTasksMissingDurationDays = !recurringTaskColumns.includes('durationDays');
         const recurringTasksMissingTotalInstances = !recurringTaskColumns.includes('totalInstances');
 
+        const kpiColumns = await this.getTableColumns(queryRunner, 'kpi_records');
+        const kpiMissingRoleColumn = !kpiColumns.includes('role');
+        const kpiMissingMetadataColumn = !kpiColumns.includes('metadata');
+
+        let legacyKpiTypesCount = 0;
+        let kpiRowsMissingRole = 0;
+        if (!kpiMissingRoleColumn) {
+          const legacyTypesResult = await queryRunner.query(`
+            SELECT COUNT(*) as count
+            FROM kpi_records
+            WHERE type IN ('early','ontime','late','overtime','overdue','approval','review')
+          `);
+          legacyKpiTypesCount = parseInt(legacyTypesResult[0].count || '0');
+
+          const missingRoleResult = await queryRunner.query(`
+            SELECT COUNT(*) as count
+            FROM kpi_records
+            WHERE role IS NULL
+          `);
+          kpiRowsMissingRole = parseInt(missingRoleResult[0].count || '0');
+        }
+
         // Check for orphaned data
         const orphanedAssignments = await queryRunner.query(`
           SELECT COUNT(*) as count
@@ -741,8 +809,17 @@ export class ComprehensiveMigration {
 
         const hasTasksWithoutWorkflow = parseInt(tasksWithoutWorkflow[0].count) > 0;
 
-        const migrationNeeded = tasksMissingColumns || filesMissingAttachmentType || recurringTasksMissingDurationDays || recurringTasksMissingTotalInstances || hasOrphanedData || hasTasksWithoutWorkflow;
-        
+        const migrationNeeded = tasksMissingColumns
+          || filesMissingAttachmentType
+          || recurringTasksMissingDurationDays
+          || recurringTasksMissingTotalInstances
+          || kpiMissingRoleColumn
+          || kpiMissingMetadataColumn
+          || legacyKpiTypesCount > 0
+          || kpiRowsMissingRole > 0
+          || hasOrphanedData
+          || hasTasksWithoutWorkflow;
+
         if (migrationNeeded) {
           logger.info('📋 Migration needed due to missing columns or data issues');
         } else {

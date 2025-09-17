@@ -769,9 +769,9 @@ class DashboardApp {
       if (!this.currentGroupId) {
         // Fallback to mock data
         const leaderboard = [
-          { displayName: 'ผู้ใช้ 1', weeklyPoints: 85.5, tasksCompleted: 12 },
-          { displayName: 'ผู้ใช้ 2', weeklyPoints: 72.3, tasksCompleted: 10 },
-          { displayName: 'ผู้ใช้ 3', weeklyPoints: 68.1, tasksCompleted: 8 }
+          { displayName: 'ผู้ใช้ 1', totalScore: 88.5, tasksCompleted: 12, onTimeRate: 95, createdCompletedRate: 82, consistencyScore: 5 },
+          { displayName: 'ผู้ใช้ 2', totalScore: 76.3, tasksCompleted: 10, onTimeRate: 84, createdCompletedRate: 70, consistencyScore: 3 },
+          { displayName: 'ผู้ใช้ 3', totalScore: 68.1, tasksCompleted: 8, onTimeRate: 62, createdCompletedRate: 65, consistencyScore: 0 }
         ];
         this.updateLeaderboard(leaderboard);
         this.updateMiniLeaderboard(leaderboard.slice(0, 3));
@@ -795,9 +795,9 @@ class DashboardApp {
       console.error('Error loading leaderboard:', error);
       // Fallback to mock data
       const leaderboard = [
-        { displayName: 'ผู้ใช้ 1', weeklyPoints: 85.5, tasksCompleted: 12 },
-        { displayName: 'ผู้ใช้ 2', weeklyPoints: 72.3, tasksCompleted: 10 },
-        { displayName: 'ผู้ใช้ 3', weeklyPoints: 68.1, tasksCompleted: 8 }
+        { displayName: 'ผู้ใช้ 1', totalScore: 88.5, tasksCompleted: 12, onTimeRate: 95, createdCompletedRate: 82, consistencyScore: 5 },
+        { displayName: 'ผู้ใช้ 2', totalScore: 76.3, tasksCompleted: 10, onTimeRate: 84, createdCompletedRate: 70, consistencyScore: 3 },
+        { displayName: 'ผู้ใช้ 3', totalScore: 68.1, tasksCompleted: 8, onTimeRate: 62, createdCompletedRate: 65, consistencyScore: 0 }
       ];
       this.updateLeaderboard(leaderboard);
       this.updateMiniLeaderboard(leaderboard.slice(0, 3));
@@ -852,16 +852,22 @@ class DashboardApp {
     const html = users.map((user, index) => {
       const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : String(index + 1);
       const rankClass = index < 3 ? ['gold', 'silver', 'bronze'][index] : '';
-      
+      const totalScore = Number(user.totalScore || user.weeklyPoints || user.monthlyPoints || 0).toFixed(1);
+      const onTimeRate = Math.round(user.onTimeRate || 0);
+      const createdRate = Math.round(user.createdCompletedRate || 0);
+      const bonus = Math.round(user.consistencyScore || 0);
+      const penalty = Math.abs(Math.round(user.penaltyPoints || 0));
+
       return `
         <div class="leaderboard-item">
           <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
             <div class="user-name">${user.displayName}</div>
-            <div class="user-score-text">เสร็จ ${user.tasksCompleted} งาน • คะแนนเฉลี่ย ${user.weeklyPoints?.toFixed(1) || 0}</div>
+            <div class="user-score-text">เสร็จ ${user.tasksCompleted || 0} งาน • ตรงเวลา ${onTimeRate}% • ตั้งสำเร็จ ${createdRate}%</div>
           </div>
           <div class="user-stats">
-            <div class="user-score">${user.weeklyPoints?.toFixed(1) || 0}</div>
+            <div class="user-score">${totalScore}</div>
+            <div class="user-substats">โบนัส ${bonus} pts • โทษ ${penalty} pts</div>
           </div>
         </div>
       `;
@@ -882,13 +888,15 @@ class DashboardApp {
     const html = users.map((user, index) => {
       const rankIcon = index === 0 ? '🥇' : index === 1 ? '🥈' : index === 2 ? '🥉' : String(index + 1);
       const rankClass = index < 3 ? ['gold', 'silver', 'bronze'][index] : '';
-      
+      const totalScore = Number(user.totalScore || user.weeklyPoints || user.monthlyPoints || 0).toFixed(1);
+      const onTimeRate = Math.round(user.onTimeRate || 0);
+
       return `
         <div class="leaderboard-item mini">
           <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
             <div class="user-name">${user.displayName}</div>
-            <div class="user-score-text">${user.weeklyPoints?.toFixed(1) || 0} คะแนนเฉลี่ย</div>
+            <div class="user-score-text">${totalScore} คะแนน • ตรงเวลา ${onTimeRate}%</div>
           </div>
           <div class="user-stats">
             <div class="user-score">${user.tasksCompleted || 0} งาน</div>

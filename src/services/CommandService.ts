@@ -437,20 +437,25 @@ ${supervisorNames}
       // สร้าง Flex Message แสดง Leaderboard
       const content: any[] = [
         FlexMessageDesignSystem.createText('🏆 อันดับ KPI สัปดาห์นี้', 'lg', FlexMessageDesignSystem.colors.primary, 'bold'),
-        FlexMessageDesignSystem.createText('คะแนนเฉลี่ยจากการทำงานเสร็จ (0-100)', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+        FlexMessageDesignSystem.createText('คะแนนรวมตามสูตร 60/30/10 (ตรงเวลา / งานปิดสำเร็จ / โบนัส)', 'sm', FlexMessageDesignSystem.colors.textSecondary)
       ];
 
       // แสดงอันดับ 1-3
       const topUsers = leaderboard.slice(0, 3);
       topUsers.forEach((user: any, index: number) => {
         const rank = index === 0 ? '🥇' : index === 1 ? '🥈' : '🥉';
-        const points = user.weeklyPoints || user.totalPoints || 0;
-        const tasks = user.tasksCompleted || 0;
+        const points = user.totalScore || 0;
+        const onTimeRate = Math.round(user.onTimeRate || 0);
+        const createdRate = Math.round(user.createdCompletedRate || 0);
+        const penalty = Math.abs(Math.round(user.penaltyPoints || 0));
         
         content.push(
-          FlexMessageDesignSystem.createBox('horizontal', [
-            FlexMessageDesignSystem.createText(`${rank} ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
-            FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • ${tasks} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          FlexMessageDesignSystem.createBox('vertical', [
+            FlexMessageDesignSystem.createBox('horizontal', [
+              FlexMessageDesignSystem.createText(`${rank} ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
+              FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+            ]),
+            FlexMessageDesignSystem.createText(`ตรงเวลา ${onTimeRate}% • งานปิดสำเร็จ ${createdRate}% • โบนัส ${Math.round(user.consistencyScore || 0)} pts • โทษ ${penalty} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
           ])
         );
       });
@@ -465,13 +470,15 @@ ${supervisorNames}
       
       if (userInLeaderboard) {
         const rank = userInLeaderboard.rank;
-        const points = userInLeaderboard.weeklyPoints || userInLeaderboard.totalPoints || 0;
-        const tasks = userInLeaderboard.tasksCompleted || 0;
+        const points = userInLeaderboard.totalScore || 0;
+        const onTimeRate = Math.round(userInLeaderboard.onTimeRate || 0);
+        const createdRate = Math.round(userInLeaderboard.createdCompletedRate || 0);
+        const penalty = Math.abs(Math.round(userInLeaderboard.penaltyPoints || 0));
         
         content.push(
           FlexMessageDesignSystem.createText('', 'xs', FlexMessageDesignSystem.colors.textSecondary),
           FlexMessageDesignSystem.createText(`👤 อันดับของคุณ: อันดับที่ ${rank}`, 'sm', FlexMessageDesignSystem.colors.primary),
-          FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • เสร็จ ${tasks} งาน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • ตรงเวลา ${onTimeRate}% • งานปิดสำเร็จ ${createdRate}% • โทษ ${penalty} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
         );
       } else {
         content.push(

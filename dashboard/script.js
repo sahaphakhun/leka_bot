@@ -1918,8 +1918,9 @@ class Dashboard {
       
       // ดึงข้อมูลผู้ใช้
       const name = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
-      const score = Number(user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
+      const score = Number(user.totalScore || user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
       const tasks = Number(user.tasksCompleted || user.weeklyTasksCompleted || user.completedTasks || 0);
+      const onTimeRate = Math.round(user.onTimeRate || 0);
       
       console.log(`📝 User ${index + 1} data:`, {
         originalName: user.displayName,
@@ -1952,7 +1953,7 @@ class Dashboard {
           <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
             <div class="user-name">${name}</div>
-            <div class="user-score-text">${score.toFixed(1)} คะแนนเฉลี่ย</div>
+            <div class="user-score-text">${score.toFixed(1)} คะแนนรวม • ตรงเวลา ${onTimeRate}%</div>
           </div>
           <div class="user-stats">
             <div class="user-score">${tasks} งาน</div>
@@ -1990,10 +1991,12 @@ class Dashboard {
       
       // ดึงข้อมูลผู้ใช้
       const name = user.displayName || user.name || user.realName || 'ไม่ทราบชื่อ';
-      const score = Number(user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
+      const score = Number(user.totalScore || user.weeklyPoints || user.monthlyPoints || user.totalPoints || 0);
       const tasks = Number(user.tasksCompleted || user.weeklyTasksCompleted || user.completedTasks || 0);
-      const early = Number(user.tasksEarly || 0);
-      const onTime = Number(user.tasksOnTime || 0);
+      const onTimeRate = Math.round(user.onTimeRate || 0);
+      const createdRate = Math.round(user.createdCompletedRate || 0);
+      const bonus = Math.round(user.consistencyScore || 0);
+      const penalty = Math.abs(Math.round(user.penaltyPoints || 0));
       
       console.log(`📝 User ${index + 1} data:`, {
         originalName: user.displayName,
@@ -2028,11 +2031,11 @@ class Dashboard {
           <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
             <div class="user-name">${name}</div>
-            <div class="user-score-text">เสร็จ ${tasks} งาน • คะแนนเฉลี่ย ${score.toFixed(1)}</div>
+            <div class="user-score-text">เสร็จ ${tasks} งาน • ตรงเวลา ${onTimeRate}% • ตั้งสำเร็จ ${createdRate}%</div>
           </div>
           <div class="user-stats">
             <div class="user-score">${score.toFixed(1)}</div>
-            <div class="user-substats">เร็ว ${early} • ตรงเวลา ${onTime}</div>
+            <div class="user-substats">โบนัส ${bonus} pts • โทษ ${penalty} pts</div>
           </div>
         </div>
       `;

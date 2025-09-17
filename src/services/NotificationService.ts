@@ -1127,13 +1127,20 @@ export class NotificationService {
       const rank = index + 1;
       const medal = medalFor(rank);
       const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
-      
-      return FlexMessageDesignSystem.createBox('horizontal', [
-        { ...FlexMessageDesignSystem.createText(medal, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
-        { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
-        { ...FlexMessageDesignSystem.createText(`${user.weeklyPoints} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
-        { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
-      ], 'small');
+      const totalScore = Number(user.totalScore ?? 0).toFixed(1);
+      const scoreText = `${totalScore} คะแนน`;
+      const onTimeRate = Math.round(user.onTimeRate ?? 0);
+      const createdRate = Math.round(user.createdCompletedRate ?? 0);
+
+      return FlexMessageDesignSystem.createBox('vertical', [
+        FlexMessageDesignSystem.createBox('horizontal', [
+          { ...FlexMessageDesignSystem.createText(medal, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
+          { ...FlexMessageDesignSystem.createText(scoreText, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
+        ], 'xs'),
+        FlexMessageDesignSystem.createText(`ตรงเวลา ${onTimeRate}% • ตั้งสำเร็จ ${createdRate}% • โทษ ${Math.abs(Math.round(user.penaltyPoints ?? 0))} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ], 'xs');
     });
 
     const content = [
@@ -1176,13 +1183,17 @@ export class NotificationService {
     const leaderboardContents = leaderboard.slice(0, 5).map((user, index) => {
       const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
       const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
-      
-      return FlexMessageDesignSystem.createBox('horizontal', [
-        { ...FlexMessageDesignSystem.createText(medal, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
-        { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
-        { ...FlexMessageDesignSystem.createText(`${user.weeklyPoints} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
-        { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
-      ], 'small');
+      const totalScore = Number(user.totalScore ?? 0).toFixed(1);
+
+      return FlexMessageDesignSystem.createBox('vertical', [
+        FlexMessageDesignSystem.createBox('horizontal', [
+          { ...FlexMessageDesignSystem.createText(medal, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
+          { ...FlexMessageDesignSystem.createText(`${totalScore} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+          { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
+        ], 'xs'),
+        FlexMessageDesignSystem.createText(`ตรงเวลา ${Math.round(user.onTimeRate ?? 0)}% • ตั้งสำเร็จ ${Math.round(user.createdCompletedRate ?? 0)}% • โทษ ${Math.abs(Math.round(user.penaltyPoints ?? 0))} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+      ], 'xs');
     });
 
     const content = [

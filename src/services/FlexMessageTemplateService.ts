@@ -88,8 +88,7 @@ export class FlexMessageTemplateService {
    * สร้างการ์ดงานสำเร็จ
    */
   static createCompletedTaskCard(task: any, group: any, completedBy: any): FlexMessage {
-    const completionScore = this.calculateCompletionScore(task);
-    const scoreColor = completionScore >= 90 ? FlexMessageDesignSystem.colors.success : completionScore >= 70 ? FlexMessageDesignSystem.colors.warning : FlexMessageDesignSystem.colors.danger;
+    const completionSummary = this.getCompletionSummary(task);
 
     // ตรวจสอบไฟล์แนบ
     const attachedFiles = task.attachedFiles || [];
@@ -104,12 +103,8 @@ export class FlexMessageTemplateService {
       ...(fileCount > 0 ? [
         FlexMessageDesignSystem.createText(`📎 ไฟล์แนบ: ${fileCount} ไฟล์`, 'sm', FlexMessageDesignSystem.colors.textPrimary, 'bold')
       ] : []),
-      
-      FlexMessageDesignSystem.createText(`${this.getCompletionStatusEmoji(task)} ${this.getCompletionStatusText(task)}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
-      FlexMessageDesignSystem.createBox('horizontal', [
-        FlexMessageDesignSystem.createText('คะแนน:', 'sm', FlexMessageDesignSystem.colors.textSecondary),
-        FlexMessageDesignSystem.createText(`${completionScore}/100`, 'sm', scoreColor, 'bold')
-      ], 'small')
+      FlexMessageDesignSystem.createText(`${completionSummary.emoji} ${completionSummary.text}`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
+      FlexMessageDesignSystem.createText(`🎯 ผู้รับงานได้ +${completionSummary.points} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
     const buttons = [
@@ -976,36 +971,34 @@ export class FlexMessageTemplateService {
     );
   }
 
-  // Helper methods
-  private static calculateCompletionScore(task: any): number {
-    // คำนวณคะแนนตามความสมบูรณ์ของงาน
-    let score = 100;
-    
-    if (task.status === 'completed') {
-      const dueTime = moment(task.dueTime);
-      const completedTime = moment(task.completedAt);
-      
-      if (completedTime.isAfter(dueTime)) {
-        const hoursLate = completedTime.diff(dueTime, 'hours');
-        score = Math.max(60, 100 - (hoursLate * 2)); // ลดคะแนน 2 คะแนนต่อชั่วโมงที่เกิน
-      }
+  private static getCompletionSummary(task: any): { emoji: string; text: string; points: number } {
+    const dueTime = moment(task.dueTime);
+    const completedTime = moment(task.completedAt || new Date());
+    const diffMinutes = completedTime.diff(dueTime, 'minutes');
+    const scoring = config.app.kpiScoring.assignee;
+
+    if (diffMinutes <= -24 * 60) {
+      return {
+        emoji: '🚀',
+        text: 'ส่งก่อนกำหนด 24 ชม. ขึ้นไป',
+        points: scoring.early
+      };
     }
-    
-    return Math.round(score);
-  }
 
-  private static getCompletionStatusEmoji(task: any): string {
-    const score = this.calculateCompletionScore(task);
-    if (score >= 90) return '🏆';
-    if (score >= 70) return '👍';
-    return '⚠️';
-  }
+    if (diffMinutes <= 0) {
+      return {
+        emoji: '⏱️',
+        text: 'ส่งตรงเวลา',
+        points: scoring.ontime
+      };
+    }
 
-  private static getCompletionStatusText(task: any): string {
-    const score = this.calculateCompletionScore(task);
-    if (score >= 90) return 'งานสมบูรณ์แบบ';
-    if (score >= 70) return 'งานเสร็จตามกำหนด';
-    return 'งานเสร็จช้า';
+    const hoursLate = Math.ceil(diffMinutes / 60);
+    return {
+      emoji: '🐢',
+      text: `ส่งล่าช้า ${hoursLate} ชม.`,
+      points: scoring.late
+    };
   }
 
   /**

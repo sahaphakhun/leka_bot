@@ -170,8 +170,17 @@ export interface KPIRecord {
   taskId: string;
   
   // ประเภทการให้คะแนน
-  type: 'early' | 'ontime' | 'late' | 'overtime' | 'overdue' | 'approval' | 'review';
+  type:
+    | 'assignee_early'
+    | 'assignee_ontime'
+    | 'assignee_late'
+    | 'creator_completion'
+    | 'creator_ontime_bonus'
+    | 'streak_bonus'
+    | 'penalty_overdue';
+  role: 'assignee' | 'creator' | 'bonus' | 'penalty';
   points: number;
+  metadata?: Record<string, any>;
   
   // วันเวลาที่เกิดเหตุการณ์
   eventDate: Date;
@@ -193,8 +202,13 @@ export interface Leaderboard {
   tasksEarly: number;
   tasksOnTime: number;
   tasksLate: number;
-  tasksOvertime: number;
   tasksOverdue: number;
+  onTimeRate: number;
+  createdCompletedRate: number;
+  consistencyScore: number;
+  bonusPoints: number;
+  penaltyPoints: number;
+  totalScore: number;
   
   rank: number;
   trend: 'up' | 'down' | 'same';

@@ -237,7 +237,10 @@ export class CronService {
             await this.notificationService.sendOverdueNotification({ task, overdueHours });
             
             // บันทึก overdue KPI (0 คะแนน) ทันที เพื่อป้องกันการเล่นระบบ
-            await this.kpiService.recordOverdueKPI(task);
+            const overdueDays = moment().diff(moment(task.dueTime), 'days');
+            if (overdueDays >= 7 && task.status !== 'cancelled') {
+              await this.kpiService.recordOverdueKPI(task);
+            }
           }
         } catch (err) {
           console.warn('⚠️ Failed to process overdue tasks for group:', group.id, err);
@@ -900,13 +903,19 @@ ${result.errors.length > 0 ? `⚠️ ข้อผิดพลาด: ${result.er
       FlexMessageDesignSystem.createBox('vertical', leaderboard.slice(0, 5).map((user, index) => {
         const medal = ['🥇', '🥈', '🥉', '4️⃣', '5️⃣'][index];
         const trend = user.trend === 'up' ? '📈' : user.trend === 'down' ? '📉' : '➡️';
-        
-        return FlexMessageDesignSystem.createBox('horizontal', [
-          { ...FlexMessageDesignSystem.createText(medal, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
-          { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
-          { ...FlexMessageDesignSystem.createText(`${user.weeklyPoints} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
-          { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
-        ], 'small');
+        const totalScore = Number(user.totalScore ?? 0).toFixed(1);
+        const onTimeRate = Math.round(user.onTimeRate ?? 0);
+        const createdRate = Math.round(user.createdCompletedRate ?? 0);
+
+        return FlexMessageDesignSystem.createBox('vertical', [
+          FlexMessageDesignSystem.createBox('horizontal', [
+            { ...FlexMessageDesignSystem.createText(medal, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+            { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
+            { ...FlexMessageDesignSystem.createText(`${totalScore} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
+            { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
+          ], 'xs'),
+          FlexMessageDesignSystem.createText(`ตรงเวลา ${onTimeRate}% • ตั้งสำเร็จ ${createdRate}% • โทษ ${Math.abs(Math.round(user.penaltyPoints ?? 0))} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+        ], 'xs');
       }), 'small')
     ];
 

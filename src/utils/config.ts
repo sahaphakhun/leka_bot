@@ -85,13 +85,26 @@ export const config = {
     // ปรับตาม requirement: เตือนก่อนถึงกำหนด 1 วัน และ 3 ชั่วโมง
     defaultReminders: ['P1D', 'PT3H'],
     
-    // KPI Scoring (0-100 scale)
+    // KPI Scoring & Weighting ตามสูตรใหม่
     kpiScoring: {
-      early: 100,    // เสร็จก่อนกำหนด ≥ 24 ชม.
-      ontime: 80,    // ตรงเวลา ± 24 ชม.
-      late: 50,      // ล่าช้า 24-48 ชม.
-      overtime: 20,  // ค้างนาน > 48 ชม.
-      overdue: 0,    // เกินเวลา (ให้ 0 คะแนนทันที เพื่อป้องกันการเล่นระบบ)
+      assignee: {
+        early: 12,
+        ontime: 10,
+        late: 5,
+        streakBonus: 5
+      },
+      creator: {
+        completion: 5,
+        ontimeBonus: 3
+      },
+      penalty: {
+        overdue7Days: -5
+      },
+      weights: {
+        onTimeDelivery: 0.6,
+        createdCompleted: 0.3,
+        consistencyBonus: 0.1
+      }
     },
     
     // Working hours (24-hour format)

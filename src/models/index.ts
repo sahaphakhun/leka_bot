@@ -340,14 +340,24 @@ export class KPIRecord {
   @Column({ type: 'uuid' })
   taskId: string;
 
-  @Column({
-    type: 'enum',
-    enum: ['early', 'ontime', 'late', 'overtime', 'overdue']
-  })
-  type: 'early' | 'ontime' | 'late' | 'overtime' | 'overdue';
+  @Column({ type: 'varchar' })
+  type:
+    | 'assignee_early'
+    | 'assignee_ontime'
+    | 'assignee_late'
+    | 'creator_completion'
+    | 'creator_ontime_bonus'
+    | 'streak_bonus'
+    | 'penalty_overdue';
+
+  @Column({ type: 'enum', enum: ['assignee', 'creator', 'bonus', 'penalty'] })
+  role: 'assignee' | 'creator' | 'bonus' | 'penalty';
 
   @Column({ type: 'int' })
   points: number;
+
+  @Column('jsonb', { nullable: true })
+  metadata?: Record<string, any>;
 
   @Column({ type: 'timestamp' })
   eventDate: Date;
