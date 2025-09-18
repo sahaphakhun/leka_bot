@@ -245,6 +245,28 @@
                         ส่งคำเชิญเข้าปฏิทินของทุกกลุ่มที่ฉันอยู่
                     </button>
                 </div>
+                <div class="mt-4" id="calendarLinkSection">
+                    <label class="form-label" for="calendarGroupSelect">
+                        <i class="fas fa-link mr-2"></i>
+                        เพิ่มปฏิทินของกลุ่มด้วยตัวเอง
+                    </label>
+                    <div class="flex flex-col space-y-3 sm:flex-row sm:space-y-0 sm:space-x-3">
+                        <select id="calendarGroupSelect" class="form-input flex-1 min-w-0">
+                            <option value="">กำลังโหลดข้อมูลกลุ่ม...</option>
+                        </select>
+                        <button id="openCalendarLinkBtn" class="btn btn-primary sm:w-auto w-full">
+                            <i class="fas fa-external-link-alt mr-2"></i>
+                            เปิดลิงก์ปฏิทิน
+                        </button>
+                        <button id="copyCalendarLinkBtn" class="btn btn-secondary sm:w-auto w-full">
+                            <i class="fas fa-copy mr-2"></i>
+                            คัดลอกลิงก์
+                        </button>
+                    </div>
+                    <p id="calendarLinkHelper" class="text-sm text-blue-900 mt-2">
+                        เลือกกลุ่มเพื่อรับลิงก์เพิ่มปฏิทิน (ต้องลงชื่อเข้าใช้บัญชี Google ของคุณ)
+                    </p>
+                </div>
             </div>
         </div>
 
@@ -272,6 +294,7 @@
             constructor() {
                 this.currentUser = null;
                 this.currentUserId = this.getUserIdFromUrl();
+                this.userGroups = [];
                 this.init();
             }
 
@@ -391,14 +414,16 @@
 
             displayUserGroups(groups) {
                 const userGroups = document.getElementById('userGroups');
+                this.userGroups = Array.isArray(groups) ? groups : [];
+                this.updateCalendarLinkUI();
                 if (!userGroups) return;
 
-                if (groups.length === 0) {
+                if (this.userGroups.length === 0) {
                     userGroups.innerHTML = '<p class="text-gray-500 text-center py-4">ยังไม่ได้เข้าร่วมกลุ่มใด</p>';
                     return;
                 }
 
-                userGroups.innerHTML = groups.map(group => `
+                userGroups.innerHTML = this.userGroups.map(group => `
                     <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
                         <div>
                             <h3 class="font-medium text-gray-900">${(group.name && group.name.trim()) ? group.name : (group.lineGroupId || 'ไม่ระบุชื่อ')}</h3>
@@ -418,6 +443,9 @@
                 const saveEmailBtn = document.getElementById('saveEmailBtn');
                 const userEmail = document.getElementById('userEmail');
                 const inviteCalendarBtn = document.getElementById('inviteCalendarBtn');
+                const calendarGroupSelect = document.getElementById('calendarGroupSelect');
+                const openCalendarLinkBtn = document.getElementById('openCalendarLinkBtn');
+                const copyCalendarLinkBtn = document.getElementById('copyCalendarLinkBtn');
 
                 if (saveEmailBtn) {
                     saveEmailBtn.addEventListener('click', () => this.saveEmail());
@@ -433,6 +461,18 @@
 
                 if (inviteCalendarBtn) {
                     inviteCalendarBtn.addEventListener('click', () => this.sendCalendarInvites());
+                }
+
+                if (calendarGroupSelect) {
+                    calendarGroupSelect.addEventListener('change', () => this.updateCalendarLinkHelper());
+                }
+
+                if (openCalendarLinkBtn) {
+                    openCalendarLinkBtn.addEventListener('click', () => this.openSelectedCalendarLink());
+                }
+
+                if (copyCalendarLinkBtn) {
+                    copyCalendarLinkBtn.addEventListener('click', () => this.copySelectedCalendarLink());
                 }
             }
 
@@ -525,6 +565,145 @@
                         btn.disabled = false;
                         btn.innerHTML = '<i class="fas fa-paper-plane mr-2"></i>ส่งคำเชิญเข้าปฏิทินของทุกกลุ่มที่ฉันอยู่';
                     }
+                }
+            }
+
+            updateCalendarLinkUI() {
+                const select = document.getElementById('calendarGroupSelect');
+                const openBtn = document.getElementById('openCalendarLinkBtn');
+                const copyBtn = document.getElementById('copyCalendarLinkBtn');
+                const helper = document.getElementById('calendarLinkHelper');
+
+                if (!select) {
+                    return;
+                }
+
+                const groupsWithCalendar = this.userGroups.filter(group => {
+                    return group?.settings && group.settings.googleCalendarId;
+                });
+
+                select.innerHTML = '';
+
+                if (groupsWithCalendar.length === 0) {
+                    const option = document.createElement('option');
+                    option.value = '';
+                    option.textContent = 'ยังไม่มีกลุ่มที่เชื่อม Google Calendar';
+                    select.appendChild(option);
+                    select.disabled = true;
+                    if (openBtn) openBtn.disabled = true;
+                    if (copyBtn) copyBtn.disabled = true;
+                    if (helper) {
+                        helper.textContent = 'กลุ่มของคุณยังไม่มีการตั้งค่า Google Calendar หรือยังไม่ได้เชิญคุณเข้าร่วม';
+                    }
+                    return;
+                }
+
+                select.disabled = false;
+                if (openBtn) openBtn.disabled = false;
+                if (copyBtn) copyBtn.disabled = false;
+
+                const placeholder = document.createElement('option');
+                placeholder.value = '';
+                placeholder.textContent = 'เลือกกลุ่มที่ต้องการเพิ่มปฏิทิน';
+                select.appendChild(placeholder);
+
+                const previousValue = select.dataset.previousValue || '';
+                let valueToSelect = previousValue;
+
+                for (const group of groupsWithCalendar) {
+                    const option = document.createElement('option');
+                    option.value = group.settings.googleCalendarId;
+                    option.dataset.groupName = (group.name && group.name.trim()) ? group.name.trim() : (group.lineGroupId || 'ไม่ระบุชื่อ');
+                    option.dataset.groupId = group.id;
+                    option.textContent = option.dataset.groupName;
+                    select.appendChild(option);
+                }
+
+                if (valueToSelect && groupsWithCalendar.some(group => group.settings.googleCalendarId === valueToSelect)) {
+                    select.value = valueToSelect;
+                } else {
+                    select.value = '';
+                }
+
+                this.updateCalendarLinkHelper();
+            }
+
+            updateCalendarLinkHelper() {
+                const select = document.getElementById('calendarGroupSelect');
+                const helper = document.getElementById('calendarLinkHelper');
+
+                if (!select || !helper) {
+                    return;
+                }
+
+                select.dataset.previousValue = select.value || '';
+
+                if (select.disabled) {
+                    helper.textContent = 'กลุ่มของคุณยังไม่มีการตั้งค่า Google Calendar หรือยังไม่ได้เชิญคุณเข้าร่วม';
+                    return;
+                }
+
+                if (!select.value) {
+                    helper.textContent = 'เลือกกลุ่มแล้วกด “เปิดลิงก์” เพื่อเพิ่มปฏิทิน หรือ “คัดลอกลิงก์” เพื่อแชร์ให้เพื่อนร่วมทีม';
+                    return;
+                }
+
+                const selectedOption = select.selectedOptions[0];
+                const groupName = selectedOption?.dataset.groupName || selectedOption?.textContent || 'กลุ่มนี้';
+                helper.textContent = `พร้อมเพิ่มปฏิทินของกลุ่ม ${groupName} แล้ว กด “เปิดลิงก์” เพื่อไปที่ Google Calendar หรือ “คัดลอกลิงก์” เพื่อนำไปส่งต่อ`;
+            }
+
+            getSelectedCalendarInfo() {
+                const select = document.getElementById('calendarGroupSelect');
+                if (!select || select.disabled || !select.value) {
+                    this.showToast('กรุณาเลือกกลุ่มที่ต้องการก่อน', 'warning');
+                    return null;
+                }
+
+                const selectedOption = select.selectedOptions[0];
+                return {
+                    calendarId: select.value,
+                    groupName: selectedOption?.dataset.groupName || selectedOption?.textContent || 'กลุ่มนี้'
+                };
+            }
+
+            buildCalendarSubscribeLink(calendarId) {
+                return `https://calendar.google.com/calendar/u/0?cid=${encodeURIComponent(calendarId)}`;
+            }
+
+            openSelectedCalendarLink() {
+                const info = this.getSelectedCalendarInfo();
+                if (!info) {
+                    return;
+                }
+
+                const url = this.buildCalendarSubscribeLink(info.calendarId);
+                window.open(url, '_blank', 'noopener');
+            }
+
+            async copySelectedCalendarLink() {
+                const info = this.getSelectedCalendarInfo();
+                if (!info) {
+                    return;
+                }
+
+                const link = this.buildCalendarSubscribeLink(info.calendarId);
+
+                try {
+                    if (navigator.clipboard && navigator.clipboard.writeText) {
+                        await navigator.clipboard.writeText(link);
+                    } else {
+                        const tempInput = document.createElement('input');
+                        tempInput.value = link;
+                        document.body.appendChild(tempInput);
+                        tempInput.select();
+                        document.execCommand('copy');
+                        document.body.removeChild(tempInput);
+                    }
+                    this.showToast(`คัดลอกลิงก์ปฏิทินของกลุ่ม ${info.groupName} แล้ว`, 'success');
+                } catch (error) {
+                    console.error('Failed to copy calendar link:', error);
+                    this.showToast('ไม่สามารถคัดลอกลิงก์ได้ กรุณาลองอีกครั้ง', 'error');
                 }
             }
 
