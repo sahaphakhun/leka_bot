@@ -416,25 +416,35 @@ export class FlexMessageTemplateService {
     const now = moment().tz(timezone);
     const today = now.clone().startOf('day');
     const tomorrow = now.clone().add(1, 'day').startOf('day');
+
+    const hasSubmission = (task: any): boolean => {
+      const submissions = task?.workflow?.submissions;
+      if (Array.isArray(submissions)) {
+        return submissions.length > 0;
+      }
+      if (submissions && typeof submissions === 'object') {
+        return Object.keys(submissions).length > 0;
+      }
+      return false;
+    };
+
+    const isActionableTask = (task: any): boolean => {
+      if (!task) return false;
+      const terminalStatuses = ['submitted', 'reviewed', 'approved', 'completed', 'cancelled'];
+      if (terminalStatuses.includes(task.status)) {
+        return false;
+      }
+      if (task.submittedAt) {
+        return false;
+      }
+      return !hasSubmission(task);
+    };
+
+    const actionableTasks = tasks.filter(isActionableTask);
     
     // งานที่กำลังดำเนินการ = ทุกงานที่ยังไม่เสร็จและยังไม่ถูกยกเลิก
     // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
-    const inProgressTasks = tasks.filter(t => {
-      // ตรวจสอบสถานะพื้นฐาน
-      const hasValidStatus = t.status === 'in_progress' || 
-                            t.status === 'pending' || 
-                            t.status === 'submitted' ||
-                            t.status === 'overdue';
-      
-      if (!hasValidStatus) return false;
-      
-      // ตรวจสอบว่ามีการส่งงานแล้วหรือไม่
-      const workflow = t.workflow as any;
-      if (!workflow || !workflow.submissions) return true;
-      
-      // ถ้ามี submissions แสดงว่าส่งแล้ว ให้กรองออก
-      return !Array.isArray(workflow.submissions) || workflow.submissions.length === 0;
-    });
+    const inProgressTasks = actionableTasks.filter(t => ['in_progress', 'pending', 'overdue'].includes(t.status));
     
     // งานที่เสร็จแล้ววันนี้ = งานที่มี status เป็น completed และ completedAt อยู่ในวันนี้
     const completedTodayTasks = tasks.filter(t => {
@@ -494,7 +504,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createBox('horizontal', [
         { ...FlexMessageDesignSystem.createBox('vertical', [
           FlexMessageDesignSystem.createText('📊 รวม', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(tasks.length.toString(), 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
+          FlexMessageDesignSystem.createText(actionableTasks.length.toString(), 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
         ]), flex: 1 },
         { ...FlexMessageDesignSystem.createBox('vertical', [
           FlexMessageDesignSystem.createText('⏳ กำลังดำเนินการ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
@@ -514,11 +524,11 @@ export class FlexMessageTemplateService {
         ]), flex: 1 },
         { ...FlexMessageDesignSystem.createBox('vertical', [
           FlexMessageDesignSystem.createText('⚠️ เกินกำหนด', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(tasks.filter(t => t.status === 'overdue').length.toString(), 'sm', FlexMessageDesignSystem.colors.danger)
+          FlexMessageDesignSystem.createText(actionableTasks.filter(t => t.status === 'overdue').length.toString(), 'sm', FlexMessageDesignSystem.colors.danger)
         ]), flex: 1 },
         { ...FlexMessageDesignSystem.createBox('vertical', [
           FlexMessageDesignSystem.createText('📝 รอตรวจ', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(tasks.filter(t => t.status === 'in_progress').length.toString(), 'sm', FlexMessageDesignSystem.colors.info)
+          FlexMessageDesignSystem.createText(actionableTasks.filter(t => t.status === 'in_progress').length.toString(), 'sm', FlexMessageDesignSystem.colors.info)
         ]), flex: 1 }
       ], 'medium'),
       
@@ -540,7 +550,7 @@ export class FlexMessageTemplateService {
     // เพิ่ม Footer
     contentItems.push(
       FlexMessageDesignSystem.createSeparator('medium'),
-      FlexMessageDesignSystem.createText(`�� งานที่กำลังดำเนินการ ${inProgressTasks.length} งาน`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
+      FlexMessageDesignSystem.createText(`⏳ งานที่กำลังดำเนินการ ${inProgressTasks.length} งาน`, 'sm', FlexMessageDesignSystem.colors.textSecondary, 'bold'),
       FlexMessageDesignSystem.createText('💡 คลิกปุ่มด้านล่างเพื่อดูรายละเอียดเพิ่มเติม', 'sm', FlexMessageDesignSystem.colors.textSecondary)
     );
 
@@ -563,15 +573,34 @@ export class FlexMessageTemplateService {
    * สร้างการ์ดรายงานส่วนบุคคล
    */
   static createPersonalReportCard(assignee: any, tasks: any[], timezone: string, group?: any): FlexMessage {
+    const hasSubmission = (task: any): boolean => {
+      const submissions = task?.workflow?.submissions;
+      if (Array.isArray(submissions)) {
+        return submissions.length > 0;
+      }
+      if (submissions && typeof submissions === 'object') {
+        return Object.keys(submissions).length > 0;
+      }
+      return false;
+    };
+
+    const shouldIncludeTask = (task: any): boolean => {
+      const terminalStatuses = ['submitted', 'reviewed', 'approved', 'completed', 'cancelled'];
+      if (terminalStatuses.includes(task.status)) {
+        return false;
+      }
+      if (task.submittedAt) {
+        return false;
+      }
+      return !hasSubmission(task);
+    };
+
     // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
     const filterSubmittedTasks = (taskList: any[]) => {
-      return taskList.filter(t => {
-        const workflow = t.workflow as any;
-        if (!workflow || !workflow.submissions) return true;
-        return !Array.isArray(workflow.submissions) || workflow.submissions.length === 0;
-      });
+      return taskList.filter(shouldIncludeTask);
     };
-    
+
+    const actionableTasks = filterSubmittedTasks(tasks);
     const overdueTasks = filterSubmittedTasks(tasks.filter(t => t.status === 'overdue'));
     const inProgressTasks = filterSubmittedTasks(tasks.filter(t => t.status === 'in_progress'));
     const pendingTasks = filterSubmittedTasks(tasks.filter(t => t.status === 'pending'));
@@ -624,7 +653,7 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createBox('horizontal', [
         { ...FlexMessageDesignSystem.createBox('vertical', [
           FlexMessageDesignSystem.createText('📊 รวม', 'xs', FlexMessageDesignSystem.colors.textSecondary),
-          FlexMessageDesignSystem.createText(tasks.length.toString(), 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
+          FlexMessageDesignSystem.createText(actionableTasks.length.toString(), 'lg', FlexMessageDesignSystem.colors.textPrimary, 'bold')
         ]), flex: 1 },
         { ...FlexMessageDesignSystem.createBox('vertical', [
           FlexMessageDesignSystem.createText('🚨 เกินกำหนด', 'xs', FlexMessageDesignSystem.colors.textSecondary),

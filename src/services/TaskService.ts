@@ -783,6 +783,48 @@ export class TaskService {
     return isAssignee || isCreator || isReviewer;
   }
 
+  /** ตรวจสอบว่างานยังค้างอยู่จริงหรือไม่ (ไม่มีการส่งงาน/ไม่อยู่ในสถานะเสร็จสิ้น) */
+  private isTaskPendingAction(task: Task): boolean {
+    if (!task) {
+      return false;
+    }
+
+    const terminalStatuses: Task['status'][] = ['submitted', 'reviewed', 'approved', 'completed', 'cancelled'];
+    if (terminalStatuses.includes(task.status)) {
+      return false;
+    }
+
+    if (task.submittedAt) {
+      return false;
+    }
+
+    if (this.taskHasSubmission(task)) {
+      return false;
+    }
+
+    return true;
+  }
+
+  /** ตรวจสอบจาก workflow ว่ามีประวัติการส่งงานหรือไม่ */
+  private taskHasSubmission(task: Task): boolean {
+    if (!task || !task.workflow) {
+      return false;
+    }
+
+    const workflow: any = task.workflow;
+    const submissions = workflow.submissions;
+
+    if (Array.isArray(submissions)) {
+      return submissions.length > 0;
+    }
+
+    if (submissions && typeof submissions === 'object') {
+      return Object.keys(submissions).length > 0;
+    }
+
+    return false;
+  }
+
   /**
    * ดึงข้อมูลผู้ตรวจงาน ถ้าไม่มีให้ผู้สร้างเป็นผู้อนุมัติ
    */
@@ -886,9 +928,11 @@ export class TaskService {
         ]
       } as any;
 
-      // สถานะงานเข้าสู่ in_progress
-      if (task.status === 'pending') {
-        task.status = 'in_progress';
+      // บันทึกเวลาส่งงานและอัปเดตสถานะให้สอดคล้องกับ workflow
+      task.submittedAt = now;
+
+      if (!['completed', 'approved'].includes(task.status)) {
+        task.status = 'submitted';
       }
 
       saved = await queryRunner.manager.save(task);
@@ -1378,13 +1422,15 @@ export class TaskService {
 
       // ใช้เฉพาะ enum values ที่มีอยู่จริงในฐานข้อมูล
       // ตรวจสอบจาก enum ที่มีอยู่และใช้เฉพาะที่ปลอดภัย
-      return await this.taskRepository.createQueryBuilder('task')
+      const tasks = await this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.group', 'group')
         .where('assignee.id = :userId', { userId: user.id })
         .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue'] })
         .orderBy('task.dueTime', 'ASC')
         .getMany();
+
+      return tasks.filter(task => this.isTaskPendingAction(task));
     } catch (error) {
       console.error('❌ Error getting user incomplete tasks:', error);
       throw error;
@@ -1411,13 +1457,7 @@ export class TaskService {
         .getMany();
       
       // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
-      const incompleteTasks = allTasks.filter(task => {
-        const workflow = task.workflow as any;
-        if (!workflow || !workflow.submissions) return true;
-        
-        // ถ้ามี submissions แสดงว่าส่งแล้ว ให้กรองออก
-        return !Array.isArray(workflow.submissions) || workflow.submissions.length === 0;
-      });
+      const incompleteTasks = allTasks.filter(task => this.isTaskPendingAction(task));
       
       console.log(`📊 Filtered incomplete tasks: ${allTasks.length} → ${incompleteTasks.length} (removed ${allTasks.length - incompleteTasks.length} submitted tasks)`);
       
