@@ -320,6 +320,40 @@ export class ComprehensiveMigration {
 
       logger.info(`✅ Task status enum validation completed`);
 
+      // Ensure KPI enum has all new scoring types before migrating values
+      const kpiEnumValues = await queryRunner.query(`
+        SELECT enumlabel
+        FROM pg_enum e
+        JOIN pg_type t ON e.enumtypid = t.oid
+        WHERE t.typname = 'kpi_records_type_enum'
+      `);
+
+      if (kpiEnumValues.length > 0) {
+        const existingKpiTypes = kpiEnumValues.map((e: any) => e.enumlabel);
+        const requiredKpiTypes = [
+          'assignee_early',
+          'assignee_ontime',
+          'assignee_late',
+          'creator_completion',
+          'creator_ontime_bonus',
+          'streak_bonus',
+          'penalty_overdue'
+        ];
+
+        for (const kpiType of requiredKpiTypes) {
+          if (!existingKpiTypes.includes(kpiType)) {
+            try {
+              await queryRunner.query(`ALTER TYPE kpi_records_type_enum ADD VALUE '${kpiType}'`);
+              logger.info(`✅ Added KPI enum value: ${kpiType}`);
+            } catch (error) {
+              logger.warn(`⚠️ Failed to add KPI enum value ${kpiType}:`, error);
+            }
+          }
+        }
+      } else {
+        logger.info('ℹ️ KPI record type column is not an enum, skipping enum value adjustments');
+      }
+
       // Map legacy KPI record typesสู่รูปแบบใหม่และเติม role/metadata
       const legacyTypeMappings: Array<{ from: string; to: string }> = [
         { from: 'early', to: 'assignee_early' },
@@ -777,7 +811,7 @@ export class ComprehensiveMigration {
           const legacyTypesResult = await queryRunner.query(`
             SELECT COUNT(*) as count
             FROM kpi_records
-            WHERE type IN ('early','ontime','late','overtime','overdue','approval','review')
+            WHERE type::text IN ('early','ontime','late','overtime','overdue','approval','review')
           `);
           legacyKpiTypesCount = parseInt(legacyTypesResult[0].count || '0');
 
