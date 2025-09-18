@@ -12,6 +12,7 @@ export class GoogleCalendarService {
   private calendar: calendar_v3.Calendar;
   private auth: any;
   private userService: UserService;
+  private authType: 'serviceAccount' | 'oauth2' = 'oauth2';
 
   constructor(userService: UserService = serviceContainer.get<UserService>('UserService')) {
     this.userService = userService;
@@ -42,6 +43,7 @@ export class GoogleCalendarService {
             'https://www.googleapis.com/auth/calendar.events'
           ]
         });
+        this.authType = 'serviceAccount';
         console.log('✅ Using Google Service Account from environment variable');
       } catch (error) {
         console.error('❌ Service Account JSON parsing failed:', error);
@@ -68,6 +70,7 @@ export class GoogleCalendarService {
             'https://www.googleapis.com/auth/calendar.events'
           ]
         });
+        this.authType = 'serviceAccount';
         console.log('✅ Using Google Service Account from separate env vars (client_email/private_key)');
       } catch (error) {
         console.error('❌ Service Account (separate vars) setup failed:', error);
@@ -84,6 +87,7 @@ export class GoogleCalendarService {
             'https://www.googleapis.com/auth/calendar.events'
           ]
         });
+        this.authType = 'serviceAccount';
         console.log('✅ Using Google Service Account from file');
       } catch (error) {
         console.error('❌ Service Account setup failed:', error);
@@ -104,6 +108,7 @@ export class GoogleCalendarService {
       config.google.clientSecret,
       config.google.redirectUri
     );
+    this.authType = 'oauth2';
 
     // TODO: ใช้ refresh token ที่เก็บไว้ในฐานข้อมูล
     // this.auth.setCredentials({
@@ -160,6 +165,11 @@ export class GoogleCalendarService {
       const attendees = attendeeEmails
         ? attendeeEmails.map(email => ({ email }))
         : await this.getTaskAttendees(task);
+      const includeAttendees = attendees.length > 0 && this.authType !== 'serviceAccount';
+
+      if (!includeAttendees && attendees.length > 0 && this.authType === 'serviceAccount') {
+        console.warn('⚠️ Service account cannot invite attendees - skipping attendee list');
+      }
       const event: GoogleCalendarEvent = {
         summary: task.title,
         description: this.formatEventDescription(task),
@@ -173,7 +183,7 @@ export class GoogleCalendarService {
           dateTime: moment(task.dueTime).toISOString(),
           timeZone: config.app.defaultTimezone
         },
-        attendees,
+        attendees: includeAttendees ? attendees : undefined,
         reminders: {
           useDefault: false,
           overrides: this.convertRemindersToCalendar(task.customReminders || ['P1D', 'PT3H'])
@@ -183,7 +193,7 @@ export class GoogleCalendarService {
       const response = await this.calendar.events.insert({
         calendarId,
         requestBody: event,
-        sendUpdates: 'all' // ส่งการแจ้งเตือนให้ attendees
+        sendUpdates: includeAttendees ? 'all' : 'none' // ส่งการแจ้งเตือนเฉพาะเมื่อมีผู้เข้าร่วม
       });
 
       const eventId = response.data.id;
