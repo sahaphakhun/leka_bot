@@ -2109,12 +2109,21 @@ export class TaskService {
       // ใช้ LineService เพื่อตรวจสอบการเป็นสมาชิก
       const lineService = new (await import('./LineService')).LineService();
       
-      // ดึงรายการกลุ่มทั้งหมดที่บอทเป็นสมาชิก
-      const botGroupIds = await lineService.getGroupIds();
-      
-      // ตรวจสอบว่า groupId อยู่ในรายการหรือไม่
-      const isInGroup = botGroupIds.includes(groupId);
-      
+      // ตรวจสอบการเข้าถึงกลุ่มด้วยการลองดึงรายชื่อสมาชิก
+      let isInGroup = true;
+      try {
+        await lineService.getGroupMemberUserIds(groupId);
+        isInGroup = true;
+      } catch (e: any) {
+        // ถ้าถูกปฏิเสธสิทธิ์หรือไม่พบกลุ่ม ให้ถือว่าไม่อยู่ในกลุ่ม
+        if (e?.status === 403 || e?.status === 404) {
+          isInGroup = false;
+        } else {
+          // กรณีอื่นๆ ให้ถือว่าอยู่ เพื่อลดผลกระทบจากข้อผิดพลาดชั่วคราวของ API
+          isInGroup = true;
+        }
+      }
+
       if (isInGroup) {
         console.log(`✅ Bot ยังอยู่ในกลุ่ม: ${groupId}`);
         return true;

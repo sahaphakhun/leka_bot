@@ -913,9 +913,9 @@ ${result.errors.length > 0 ? `⚠️ ข้อผิดพลาด: ${result.er
             { ...FlexMessageDesignSystem.createText(user.displayName, 'sm', FlexMessageDesignSystem.colors.textPrimary), flex: 1 },
             { ...FlexMessageDesignSystem.createText(`${totalScore} คะแนน`, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 },
             { ...FlexMessageDesignSystem.createText(trend, 'sm', FlexMessageDesignSystem.colors.textSecondary), flex: 0 }
-          ], 'xs'),
+          ], 'small'),
           FlexMessageDesignSystem.createText(`ตรงเวลา ${onTimeRate}% • ตั้งสำเร็จ ${createdRate}% • โทษ ${Math.abs(Math.round(user.penaltyPoints ?? 0))} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
-        ], 'xs');
+        ], 'small');
       }), 'small')
     ];
 

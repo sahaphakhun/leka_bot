@@ -538,13 +538,11 @@ export class LineService {
    * ดึงรายการกลุ่มทั้งหมดที่บอทเป็นสมาชิก
    */
   public async getGroupIds(): Promise<string[]> {
-    try {
-      const result = await this.client.getGroupIds();
-      return result;
-    } catch (error: any) {
-      console.error('❌ Failed to get group IDs:', error);
-      throw error;
-    }
+    // LINE Bot SDK ไม่ได้มี API ให้ดึงรายการ group IDs ทั้งหมดโดยตรง
+    // ฟังก์ชันนี้คงไว้เพื่อความเข้ากันได้ แต่จะคืนลิสต์ว่าง
+    // ผู้ใช้ควรใช้การตรวจสอบแบบระบุ groupId แทน (getGroupMemberUserIds)
+    console.warn('ℹ️ getGroupIds() ไม่รองรับโดย LINE API – คืนค่าลิสต์ว่าง');
+    return [];
   }
 
   /**
