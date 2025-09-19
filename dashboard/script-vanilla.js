@@ -863,7 +863,7 @@ class DashboardApp {
           <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
             <div class="user-name">${user.displayName}</div>
-            <div class="user-score-text">เสร็จ ${user.tasksCompleted || 0} งาน • ตรงเวลา ${onTimeRate}% • ตั้งสำเร็จ ${createdRate}%</div>
+            <div class="user-score-text">เสร็จ ${user.tasksCompleted || 0} งาน • ตรงเวลา ${onTimeRate}% • งานที่สั่งสำเร็จ ${createdRate}%</div>
           </div>
           <div class="user-stats">
             <div class="user-score">${totalScore}</div>
@@ -3073,6 +3073,37 @@ class DashboardApp {
         requireAttachment: false,
         _tempId: `temp_${Date.now()}` // ป้องกันการสร้างซ้ำ
       };
+
+      // อัปโหลดไฟล์แนบ (ถ้ามี) ก่อนสร้างงาน แล้วแนบ fileIds ไปกับคำขอสร้างงาน
+      if (this.selectedTaskFiles && this.selectedTaskFiles.length > 0) {
+        try {
+          const uploadFd = new FormData();
+          // ต้องส่ง userId (LINE User ID) ให้ backend ใช้บันทึกไฟล์
+          uploadFd.append('userId', createdByLineUserId);
+          uploadFd.append('attachmentType', 'initial');
+          this.selectedTaskFiles.forEach(f => uploadFd.append('attachments', f));
+
+          const uploadRes = await fetch(`/api/groups/${this.currentGroupId}/files/upload`, {
+            method: 'POST',
+            body: uploadFd
+          });
+          if (!uploadRes.ok) {
+            const err = await uploadRes.json().catch(() => ({}));
+            throw new Error(err.error || `อัปโหลดไฟล์แนบไม่สำเร็จ (HTTP ${uploadRes.status})`);
+          }
+          const uploadJson = await uploadRes.json();
+          // รองรับทั้งรูปแบบ { data: File[] } และ { data: UploadedSummary[] }
+          const uploaded = Array.isArray(uploadJson?.data) ? uploadJson.data : [];
+          const fileIds = uploaded.map(f => f.id).filter(Boolean);
+          if (fileIds.length > 0) {
+            requestData.fileIds = fileIds;
+          }
+        } catch (uploadErr) {
+          console.error('❌ Error uploading attachments for new task:', uploadErr);
+          this.showToast(`เกิดข้อผิดพลาดในการอัปโหลดไฟล์แนบ: ${uploadErr.message || uploadErr}`, 'error');
+          return false; // ยกเลิกการสร้างงานถ้าไฟล์แนบอัปโหลดไม่สำเร็จ
+        }
+      }
       
       const response = await fetch(`/api/groups/${this.currentGroupId}/tasks`, {
         method: 'POST',
@@ -3096,11 +3127,12 @@ class DashboardApp {
         this.renderTasks();
         this.renderRecentTasks();
         this.updateUpcomingTasks();
-        
+         
         // รีเซ็ตฟอร์ม
         this.resetAddTaskForm();
         this.clearAllAssigned(); // ล้างการเลือกผู้รับผิดชอบ
-        
+        this.selectedTaskFiles = []; // ล้างไฟล์ที่เลือกหลังสร้างงานสำเร็จ
+         
         // Log ข้อมูลงานที่สร้าง
         console.log('งานใหม่ที่สร้าง:', result.data);
       } else {

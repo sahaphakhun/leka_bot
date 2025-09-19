@@ -2031,7 +2031,7 @@ class Dashboard {
           <div class="rank ${rankClass}">${rankIcon}</div>
           <div class="user-info">
             <div class="user-name">${name}</div>
-            <div class="user-score-text">เสร็จ ${tasks} งาน • ตรงเวลา ${onTimeRate}% • ตั้งสำเร็จ ${createdRate}%</div>
+            <div class="user-score-text">เสร็จ ${tasks} งาน • ตรงเวลา ${onTimeRate}% • งานที่สั่งสำเร็จ ${createdRate}%</div>
           </div>
           <div class="user-stats">
             <div class="user-score">${score.toFixed(1)}</div>

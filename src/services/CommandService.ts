@@ -437,7 +437,7 @@ ${supervisorNames}
       // สร้าง Flex Message แสดง Leaderboard
       const content: any[] = [
         FlexMessageDesignSystem.createText('🏆 อันดับ KPI สัปดาห์นี้', 'lg', FlexMessageDesignSystem.colors.primary, 'bold'),
-        FlexMessageDesignSystem.createText('คะแนนรวมตามสูตร 60/30/10 (ตรงเวลา / งานปิดสำเร็จ / โบนัส)', 'sm', FlexMessageDesignSystem.colors.textSecondary)
+        FlexMessageDesignSystem.createText('คะแนนรวมตามสูตร 60/30/10 (ตรงเวลา / งานที่สั่งสำเร็จ / โบนัส)', 'sm', FlexMessageDesignSystem.colors.textSecondary)
       ];
 
       // แสดงอันดับ 1-3
@@ -455,7 +455,7 @@ ${supervisorNames}
               FlexMessageDesignSystem.createText(`${rank} ${user.displayName}`, 'sm', FlexMessageDesignSystem.colors.textPrimary),
               FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
             ]),
-            FlexMessageDesignSystem.createText(`ตรงเวลา ${onTimeRate}% • งานปิดสำเร็จ ${createdRate}% • โบนัส ${Math.round(user.consistencyScore || 0)} pts • โทษ ${penalty} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+            FlexMessageDesignSystem.createText(`ตรงเวลา ${onTimeRate}% • งานที่สั่งสำเร็จ ${createdRate}% • โบนัส ${Math.round(user.consistencyScore || 0)} pts • โทษ ${penalty} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
           ])
         );
       });
@@ -478,7 +478,7 @@ ${supervisorNames}
         content.push(
           FlexMessageDesignSystem.createText('', 'xs', FlexMessageDesignSystem.colors.textSecondary),
           FlexMessageDesignSystem.createText(`👤 อันดับของคุณ: อันดับที่ ${rank}`, 'sm', FlexMessageDesignSystem.colors.primary),
-          FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • ตรงเวลา ${onTimeRate}% • งานปิดสำเร็จ ${createdRate}% • โทษ ${penalty} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
+          FlexMessageDesignSystem.createText(`${points.toFixed(1)} คะแนน • ตรงเวลา ${onTimeRate}% • งานที่สั่งสำเร็จ ${createdRate}% • โทษ ${penalty} pts`, 'xs', FlexMessageDesignSystem.colors.textSecondary)
         );
       } else {
         content.push(
