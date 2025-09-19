@@ -711,7 +711,18 @@ export class LineService {
       
       // ดึงข้อมูล profile ของแต่ละคน
       const memberPromises = userIds.map(async (userId) => {
+        const clientAny = this.client as any;
         try {
+          // หาก SDK รองรับ ให้ใช้ getGroupMemberProfile ซึ่งถูกต้องสำหรับบริบทกลุ่ม
+          if (typeof clientAny.getGroupMemberProfile === 'function') {
+            const profile = await clientAny.getGroupMemberProfile(groupId, userId);
+            return {
+              userId,
+              displayName: profile.displayName,
+              pictureUrl: profile.pictureUrl
+            };
+          }
+          // fallback: ใช้ getProfile (อาจใช้ได้เฉพาะแชท 1:1 หรือกรณีที่ผู้ใช้เป็นเพื่อนกับบอท)
           const profile = await this.client.getProfile(userId);
           return {
             userId,
@@ -719,8 +730,17 @@ export class LineService {
             pictureUrl: profile.pictureUrl
           };
         } catch (error: any) {
-          if (error.status === 403) {
+          const status = error?.status || error?.statusCode;
+          if (status === 403) {
             console.log('🚫 บอทไม่มีสิทธิ์เข้าถึง profile ผู้ใช้ (ใช้ข้อมูลพื้นฐานแทน)');
+            return {
+              userId,
+              displayName: 'User ' + userId,
+              pictureUrl: undefined
+            };
+          }
+          if (status === 404) {
+            console.log('🔎 ไม่พบข้อมูล profile ผ่าน endpoint ที่ใช้ ลอง fallback แบบพื้นฐาน');
             return {
               userId,
               displayName: 'User ' + userId,

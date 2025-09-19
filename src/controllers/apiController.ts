@@ -2685,8 +2685,15 @@ class ApiController {
     try {
       const { groupId } = req.params;
 
-      // ใช้ฟังก์ชัน hybrid ที่ใช้ทั้ง LINE API และฐานข้อมูล
-      const members = await this.lineService.getGroupMembersHybrid(groupId);
+      // รองรับการบังคับให้ดึงจาก LINE API โดยตรงด้วย query ?source=line|line_api|live
+      const source = String(req.query.source || '').toLowerCase();
+      let members: any[];
+      if (source === 'line' || source === 'line_api' || source === 'live') {
+        members = await this.lineService.getAllGroupMembers(groupId);
+      } else {
+        // ค่าเริ่มต้น: hybrid (พยายาม LINE ก่อน แล้ว fallback DB)
+        members = await this.lineService.getGroupMembersHybrid(groupId);
+      }
 
       const response: ApiResponse<any> = {
         success: true,
@@ -3725,6 +3732,18 @@ apiRouter.get('/users/:userId/stats',
 apiRouter.get('/export/kpi/:groupId', apiController.exportKPI.bind(apiController));
 apiRouter.post('/kpi/sample/:groupId', apiController.createSampleKPIData.bind(apiController));
 apiRouter.get('/line/members/:groupId', apiController.getLineMembers.bind(apiController));
+// Live-only variant for convenience (force LINE API)
+apiRouter.get('/line/members/:groupId/live', async (req, res) => {
+  try {
+    const { groupId } = req.params;
+    const svc = new LineService();
+    const members = await svc.getAllGroupMembers(groupId);
+    res.json({ success: true, data: members });
+  } catch (error) {
+    logger.error('❌ Error getting LINE members (live):', error);
+    res.status(500).json({ success: false, error: 'Failed to get LINE members (live)' });
+  }
+});
 
 // New helper route: fetch single task detail by ID (for dashboard modal)
 apiRouter.get('/task/:taskId', 
