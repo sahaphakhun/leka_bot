@@ -328,10 +328,15 @@ export class FlexMessageTemplateService {
       FlexMessageDesignSystem.createText('💡 📋 ดูรายละเอียด | 📤 ส่งงานใหม่', 'xs', FlexMessageDesignSystem.colors.textSecondary)
     ];
 
-    const buttons = [
-      FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary'),
-      FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config.baseUrl}/dashboard/submit-tasks?taskId=${task.id}${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'secondary')
-    ];
+    // หากไม่มี viewerLineUserId แปลว่าส่งในกลุ่ม: ตัดปุ่ม "ส่งงาน" ออก
+    const buttons = viewerLineUserId
+      ? [
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view&userId=${viewerLineUserId}`, 'primary'),
+          FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config.baseUrl}/dashboard/submit-tasks?taskId=${task.id}&userId=${viewerLineUserId}`, 'secondary')
+        ]
+      : [
+          FlexMessageDesignSystem.createButton('📋', 'uri', `${config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary')
+        ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
       '❌ งานถูกตีกลับ',

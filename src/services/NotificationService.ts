@@ -853,8 +853,21 @@ export class NotificationService {
       const newDueTime = new Date(task.dueTime.getTime() + parseInt(extensionDays) * 24 * 60 * 60 * 1000);
       const reviewerDisplayName = reviewer?.displayName || 'ไม่ระบุ';
 
-      const flexMessage = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName);
-      await this.lineService.pushMessage(group.lineGroupId, flexMessage);
+      // ส่งการ์ดลงกลุ่ม (ไม่แนบ userId -> ไม่มีปุ่มส่งงานตามเทมเพลต)
+      const groupCard = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName);
+      await this.lineService.pushMessage(group.lineGroupId, groupCard);
+
+      // ส่งการ์ดส่วนตัวให้ผู้รับผิดชอบทุกคน พร้อมแนบ userId เพื่อเปิดหน้าส่งงาน
+      const assignees = task.assignedUsers || [];
+      for (const assignee of assignees) {
+        try {
+          if (!assignee?.lineUserId) continue;
+          const personalCard = this.createTaskRejectedFlexMessage(task, group, newDueTime, reviewerDisplayName, assignee.lineUserId);
+          await this.lineService.pushMessage(assignee.lineUserId, personalCard);
+        } catch (err) {
+          console.warn('⚠️ Failed to send personal rejected card:', assignee?.lineUserId, err);
+        }
+      }
 
       console.log(`✅ Sent task rejected notification for task: ${task.id}`);
     } catch (error) {

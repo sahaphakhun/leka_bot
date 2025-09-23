@@ -3589,21 +3589,25 @@ class ApiController {
       
       // ถ้าต้องการกรองงานที่ส่งแล้วออก (สำหรับหน้า submit-tasks)
       if (excludeSubmitted === 'true') {
-        logger.info('🔍 Filtering out submitted tasks...');
+        logger.info('🔍 Filtering out submitted tasks (but keep rejected ones)...');
         
         const originalTaskCount = tasks.length;
         tasks = tasks.filter(task => {
-          // ตรวจสอบว่าผู้ใช้นี้ได้ส่งงานแล้วหรือไม่
-          if (task.workflow && Array.isArray((task.workflow as any).submissions)) {
-            const userSubmissions = (task.workflow as any).submissions.filter((submission: any) => 
+          const wf: any = task.workflow || {};
+          const isRejected = wf?.review?.status === 'rejected';
+          if (isRejected) return true; // คงงานที่ถูกตีกลับไว้เสมอ
+
+          // ปกติ: กรองงานที่ผู้ใช้นี้ได้ส่งแล้วออก
+          if (Array.isArray(wf.submissions)) {
+            const userSubmissions = wf.submissions.filter((submission: any) => 
               submission.submittedByUserId === user.id
             );
-            return userSubmissions.length === 0; // แสดงเฉพาะงานที่ยังไม่ได้ส่ง
+            return userSubmissions.length === 0;
           }
-          return true; // แสดงถ้าไม่มีข้อมูล workflow
+          return true;
         });
         
-        logger.info(`📊 After excludeSubmitted filter: ${tasks.length}/${originalTaskCount} tasks remaining`);
+        logger.info(`📊 After excludeSubmitted filter (keep rejected): ${tasks.length}/${originalTaskCount} tasks remaining`);
       }
       
       // เพิ่มข้อมูลกลุ่มให้กับแต่ละงาน - ใช้ relations ที่มีอยู่แล้วจาก getUserTasks
