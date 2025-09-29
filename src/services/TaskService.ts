@@ -467,8 +467,13 @@ export class TaskService {
       if (!task) {
         throw new Error('Task not found');
       }
-
-      Object.assign(task, updates);
+      // Prevent accidental overwrite of relations like attachedFiles
+      const safeUpdates: any = { ...updates };
+      if ('attachedFiles' in safeUpdates) {
+        delete safeUpdates.attachedFiles;
+      }
+      // Apply primitive/field updates only
+      Object.assign(task, safeUpdates);
       
       // จัดการผู้รับผิดชอบถ้ามีการอัปเดต
       const assigneeUpdates = updates as any;
@@ -526,6 +531,18 @@ export class TaskService {
         } as any;
         task.status = 'pending';
       }
+      // If caller provides fileIds, link them additively (do not remove existing)
+      const incomingFileIds = (updates as any)?.fileIds as string[] | undefined;
+      if (incomingFileIds && Array.isArray(incomingFileIds) && incomingFileIds.length > 0) {
+        for (const fid of incomingFileIds) {
+          try {
+            await this.fileService.linkFileToTask(fid, task.id);
+          } catch (err) {
+            console.warn('⚠️ Failed to link file during updateTask:', fid, err);
+          }
+        }
+      }
+
       const updatedTask = await this.taskRepository.save(task);
 
       // อัปเดตใน Google Calendar
@@ -799,6 +816,12 @@ export class TaskService {
     }
 
     if (this.taskHasSubmission(task)) {
+      return false;
+    }
+
+    // Additional guard: if review has been requested, treat as not actionable for assignee
+    const review: any = (task as any).workflow?.review;
+    if (review && (review.status === 'pending' || !!review.reviewRequestedAt)) {
       return false;
     }
 

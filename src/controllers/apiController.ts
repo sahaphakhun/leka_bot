@@ -776,7 +776,9 @@ class ApiController {
         'reviewAction',
         'reviewerUserId',
         'reviewerComment',
-        'status'
+        'status',
+        // Allow appending files via fileIds (additive linking handled in service)
+        'fileIds'
       ]);
       const updates: any = {};
       for (const [k, v] of Object.entries(body)) {
@@ -792,6 +794,13 @@ class ApiController {
       }
       if (typeof updates.startTime === 'string') {
         updates.startTime = new Date(updates.startTime);
+      }
+      // Normalize fileIds if provided as a comma-separated string
+      if (typeof (updates as any).fileIds === 'string') {
+        (updates as any).fileIds = String((updates as any).fileIds)
+          .split(',')
+          .map(s => s.trim())
+          .filter(Boolean);
       }
 
       // No updates provided
@@ -826,7 +835,7 @@ class ApiController {
   public async updateTask(req: Request, res: Response): Promise<void> {
     try {
       const { taskId } = req.params;
-      const updates = req.body as any;
+      const updates = { ...(req.body as any) };
 
       // แปลงชนิดวันที่จาก string -> Date เพื่อความเข้ากันได้กับ TypeORM/Service
       if (updates) {
@@ -835,6 +844,17 @@ class ApiController {
         }
         if (typeof updates.startTime === 'string') {
           updates.startTime = new Date(updates.startTime);
+        }
+        // ป้องกันการเขียนทับความสัมพันธ์ไฟล์โดยไม่ตั้งใจ
+        if ('attachedFiles' in updates) {
+          delete (updates as any).attachedFiles;
+        }
+        // รองรับการแนบไฟล์แบบเพิ่ม โดยส่ง fileIds
+        if (typeof (updates as any).fileIds === 'string') {
+          (updates as any).fileIds = String((updates as any).fileIds)
+            .split(',')
+            .map((s: string) => s.trim())
+            .filter(Boolean);
         }
       }
 

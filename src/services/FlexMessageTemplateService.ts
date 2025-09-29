@@ -442,7 +442,14 @@ export class FlexMessageTemplateService {
       if (task.submittedAt) {
         return false;
       }
-      return !hasSubmission(task);
+      if (hasSubmission(task)) {
+        return false;
+      }
+      const rv = task?.workflow?.review;
+      if (rv && (rv.status === 'pending' || !!rv.reviewRequestedAt)) {
+        return false;
+      }
+      return true;
     };
 
     const actionableTasks = tasks.filter(isActionableTask);
@@ -597,7 +604,14 @@ export class FlexMessageTemplateService {
       if (task.submittedAt) {
         return false;
       }
-      return !hasSubmission(task);
+      if (hasSubmission(task)) {
+        return false;
+      }
+      const rv = task?.workflow?.review;
+      if (rv && (rv.status === 'pending' || !!rv.reviewRequestedAt)) {
+        return false;
+      }
+      return true;
     };
 
     // กรองงานที่ส่งแล้วออก (มี workflow.submissions)
