@@ -31,6 +31,12 @@ export class NotificationService {
    */
   public async sendTaskReminder(task: any, reminderType: string): Promise<void> {
     try {
+      // Skip if task is not in an active status
+      const inactiveStatuses = new Set(['completed', 'approved', 'reviewed', 'submitted', 'rejected', 'cancelled']);
+      if (inactiveStatuses.has((task.status || '').toLowerCase())) {
+        console.log(`ℹ️ Skip reminder for inactive task: ${task.id} (status: ${task.status})`);
+        return;
+      }
       // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
       const notificationKey = `task_reminder_${task.id}_${reminderType}`;
       if (this._sentNotifications.has(notificationKey)) {
@@ -77,6 +83,12 @@ export class NotificationService {
   public async sendOverdueNotification(data: { task: any; overdueHours: number }): Promise<void> {
     try {
       const { task, overdueHours } = data;
+      // Skip if task no longer overdue/active
+      const inactiveStatuses = new Set(['completed', 'approved', 'reviewed', 'submitted', 'rejected', 'cancelled']);
+      if (inactiveStatuses.has((task.status || '').toLowerCase())) {
+        console.log(`ℹ️ Skip overdue notification for inactive task: ${task.id} (status: ${task.status})`);
+        return;
+      }
       
       // ตรวจสอบว่าส่งการแจ้งเตือนไปแล้วหรือไม่
       const notificationKey = `task_overdue_${task.id}`;

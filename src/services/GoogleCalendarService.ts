@@ -240,11 +240,21 @@ export class GoogleCalendarService {
         };
       }
 
+      // If a task is completed or cancelled, clear reminders to prevent future alerts
+      if (updates.status === 'completed' || updates.status === 'cancelled') {
+        event.reminders = {
+          useDefault: false,
+          overrides: []
+        } as any;
+      }
+      // Avoid email updates when just clearing reminders on completion/cancellation
+      const sendUpdates = (updates.status === 'completed' || updates.status === 'cancelled') ? 'none' : 'all';
+
       await this.calendar.events.patch({
         calendarId,
         eventId,
         requestBody: event,
-        sendUpdates: 'all'
+        sendUpdates
       });
 
       console.log(`✅ Updated calendar event: ${eventId}`);
