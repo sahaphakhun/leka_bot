@@ -11,7 +11,7 @@ import { RecurringTaskService } from '@/services/RecurringTaskService';
 import { LineService } from '@/services/LineService';
 import { NotificationCardService } from '@/services/NotificationCardService';
 import { AppDataSource } from '@/utils/database';
-import { KPIRecord, RecurringTask, Group as GroupEntity, File as FileEntity } from '@/models';
+import { KPIRecord, RecurringTask, Group as GroupEntity, File as FileEntity, Task } from '@/models';
 
 import multer from 'multer';
 import { logger } from '@/utils/logger';
@@ -3490,6 +3490,89 @@ class ApiController {
   }
 
   /**
+   * POST /api/admin/backfill-submitted-statuses
+   * แก้สถานะย้อนหลังให้เป็น 'submitted' สำหรับงานที่มีการส่ง/ขอตรวจแล้ว แต่ยังอยู่ในสถานะ pending/in_progress/overdue
+   * body: { groupId?: string }  // รองรับ LINE Group ID (ขึ้นต้นด้วย C) หรือ internal UUID
+   */
+  public async backfillSubmittedStatuses(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = (req.body || {}) as { groupId?: string };
+
+      const taskRepo = AppDataSource.getRepository(Task);
+      let internalGroupId: string | undefined;
+
+      if (groupId) {
+        const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+        const groupRepo = AppDataSource.getRepository(GroupEntity);
+        const found = isUuid
+          ? await groupRepo.findOne({ where: { id: groupId as any } })
+          : await groupRepo.findOne({ where: { lineGroupId: groupId } });
+        if (!found) {
+          res.status(404).json({ success: false, error: 'Group not found' });
+          return;
+        }
+        internalGroupId = found.id;
+      }
+
+      const qb = taskRepo
+        .createQueryBuilder('task')
+        .leftJoinAndSelect('task.group', 'group')
+        .where('task.status IN (:...st)', { st: ['pending', 'in_progress', 'overdue'] });
+
+      if (internalGroupId) {
+        qb.andWhere('task.groupId = :gid', { gid: internalGroupId });
+      }
+
+      const tasks = await qb.getMany();
+      let updated = 0;
+
+      for (const task of tasks) {
+        try {
+          const wf: any = (task as any).workflow || {};
+          const submissions = wf?.submissions;
+          const hasSubmission = Array.isArray(submissions)
+            ? submissions.length > 0
+            : submissions && typeof submissions === 'object'
+              ? Object.keys(submissions).length > 0
+              : false;
+          const review = wf?.review;
+          const reviewRequested = !!(review && (review.status === 'pending' || review.reviewRequestedAt));
+
+          if (!hasSubmission && !reviewRequested) {
+            continue;
+          }
+
+          // Backfill submittedAt
+          let submittedAt: Date | undefined = (task as any).submittedAt || undefined;
+          if (!submittedAt) {
+            if (Array.isArray(submissions) && submissions.length > 0) {
+              const times = submissions
+                .map((s: any) => (s?.submittedAt ? new Date(s.submittedAt) : undefined))
+                .filter(Boolean) as Date[];
+              if (times.length > 0) {
+                submittedAt = new Date(Math.min(...times.map(t => t.getTime())));
+              }
+            }
+          }
+
+          (task as any).submittedAt = submittedAt || new Date();
+          task.status = 'submitted';
+
+          await taskRepo.save(task);
+          updated++;
+        } catch (e) {
+          logger.warn('Failed to backfill task', { taskId: task.id, error: (e as any)?.message || e });
+        }
+      }
+
+      res.json({ success: true, message: 'Backfill completed', data: { updated, groupId: groupId || null } });
+    } catch (error) {
+      logger.error('❌ Error in backfillSubmittedStatuses:', error);
+      res.status(500).json({ success: false, error: 'Failed to backfill submitted statuses' });
+    }
+  }
+
+  /**
    * Endpoint to manually trigger duration days column migration
    */
   public async migrateDurationDays(req: Request, res: Response): Promise<void> {
@@ -3953,6 +4036,9 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
 
   // Manual daily summary trigger
   apiRouter.post('/admin/trigger-daily-summary', apiController.triggerDailySummary.bind(apiController));
+  
+  // Admin: backfill submitted statuses for tasks with submissions/review
+  apiRouter.post('/admin/backfill-submitted-statuses', apiController.backfillSubmittedStatuses.bind(apiController));
   
   // Manual bot membership check and cleanup trigger
   apiRouter.post('/admin/check-bot-membership', apiController.checkBotMembershipAndCleanup.bind(apiController));
