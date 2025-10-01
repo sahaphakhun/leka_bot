@@ -3573,6 +3573,71 @@ class ApiController {
   }
 
   /**
+   * GET /api/admin/groups/:groupId/overdue-audit
+   * แสดงรายการงาน overdue พร้อมสัญญาณว่ามีการ "ส่งแล้ว" หรือไม่ (ตามข้อมูลที่ระบบเห็น)
+   * รองรับ groupId เป็น LINE Group ID หรือ internal UUID
+   */
+  public async overdueAudit(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params as { groupId: string };
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const groupRepo = AppDataSource.getRepository(GroupEntity);
+      const taskRepo = AppDataSource.getRepository(Task);
+
+      const group = isUuid
+        ? await groupRepo.findOne({ where: { id: groupId as any } })
+        : await groupRepo.findOne({ where: { lineGroupId: groupId } });
+      if (!group) {
+        res.status(404).json({ success: false, error: 'Group not found' });
+        return;
+      }
+
+      const tasks = await taskRepo.createQueryBuilder('task')
+        .leftJoinAndSelect('task.assignedUsers', 'assignee')
+        .leftJoinAndSelect('task.attachedFiles', 'file')
+        .where('task.groupId = :gid', { gid: group.id })
+        .andWhere('task.status = :st', { st: 'overdue' })
+        .orderBy('task.dueTime', 'ASC')
+        .getMany();
+
+      const data = tasks.map(t => {
+        const wf: any = (t as any).workflow || {};
+        const submissions = wf?.submissions;
+        const hasSubmission = Array.isArray(submissions)
+          ? submissions.length > 0
+          : submissions && typeof submissions === 'object'
+            ? Object.keys(submissions).length > 0
+            : false;
+        const review = wf?.review;
+        const reviewStatus = review?.status || 'not_requested';
+        const reviewRequested = !!(review && (review.status === 'pending' || review.reviewRequestedAt));
+        const hasSubmissionFiles = Array.isArray((t as any).attachedFiles)
+          ? ((t as any).attachedFiles as any[]).some((f: any) => f?.attachmentType === 'submission')
+          : false;
+
+        return {
+          id: t.id,
+          title: t.title,
+          dueTime: t.dueTime,
+          status: t.status,
+          hasSubmission,
+          hasSubmissionFiles,
+          submittedAt: (t as any).submittedAt || null,
+          reviewStatus,
+          reviewRequested,
+          assigneeCount: Array.isArray((t as any).assignedUsers) ? (t as any).assignedUsers.length : 0,
+        };
+      });
+
+      res.json({ success: true, data });
+    } catch (error) {
+      logger.error('❌ Error in overdueAudit:', error);
+      res.status(500).json({ success: false, error: 'Failed to audit overdue tasks' });
+    }
+  }
+
+  /**
    * Endpoint to manually trigger duration days column migration
    */
   public async migrateDurationDays(req: Request, res: Response): Promise<void> {
@@ -4039,6 +4104,8 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   
   // Admin: backfill submitted statuses for tasks with submissions/review
   apiRouter.post('/admin/backfill-submitted-statuses', apiController.backfillSubmittedStatuses.bind(apiController));
+  // Admin: audit overdue tasks for a group
+  apiRouter.get('/admin/groups/:groupId/overdue-audit', apiController.overdueAudit.bind(apiController));
   
   // Manual bot membership check and cleanup trigger
   apiRouter.post('/admin/check-bot-membership', apiController.checkBotMembershipAndCleanup.bind(apiController));

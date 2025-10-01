@@ -819,6 +819,14 @@ export class TaskService {
       return false;
     }
 
+    // ถ้ามีไฟล์แนบที่เป็นประเภทการส่งงาน ถือว่าไม่ค้าง (เผื่อกรณี workflow/submittedAt ไม่ถูกบันทึก)
+    const hasSubmissionFiles = Array.isArray((task as any).attachedFiles)
+      ? ((task as any).attachedFiles as any[]).some((f: any) => f?.attachmentType === 'submission')
+      : false;
+    if (hasSubmissionFiles) {
+      return false;
+    }
+
     // Additional guard: if review has been requested, treat as not actionable for assignee
     const review: any = (task as any).workflow?.review;
     if (review && (review.status === 'pending' || !!review.reviewRequestedAt)) {
@@ -1448,6 +1456,7 @@ export class TaskService {
       const tasks = await this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.group', 'group')
+        .leftJoinAndSelect('task.attachedFiles', 'file')
         .where('assignee.id = :userId', { userId: user.id })
         .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue'] })
         .orderBy('task.dueTime', 'ASC')
@@ -1474,6 +1483,7 @@ export class TaskService {
       const allTasks = await this.taskRepository.createQueryBuilder('task')
         .leftJoinAndSelect('task.assignedUsers', 'assignee')
         .leftJoinAndSelect('task.group', 'group')
+        .leftJoinAndSelect('task.attachedFiles', 'file')
         .where('task.groupId = :gid', { gid: group.id })
         .andWhere('task.status IN (:...statuses)', { statuses: ['pending', 'in_progress', 'overdue'] })
         .orderBy('task.dueTime', 'ASC')

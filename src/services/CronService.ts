@@ -232,6 +232,7 @@ export class CronService {
             .createQueryBuilder('task')
             .leftJoinAndSelect('task.assignedUsers', 'assignee')
             .leftJoinAndSelect('task.group', 'grp')
+            .leftJoinAndSelect('task.attachedFiles', 'file')
             .where('task.groupId = :gid', { gid: group.id })
             .andWhere('task.status IN (:...st)', { st: ['pending', 'in_progress'] })
             .andWhere('task.dueTime < :now', { now: now.toDate() })
@@ -250,8 +251,11 @@ export class CronService {
             const reviewRequested = !!(review && (review.status === 'pending' || review.reviewRequestedAt));
             const alreadySubmitted = !!(task as any).submittedAt;
 
-            // ข้ามงานที่ถูกส่งแล้วหรือมีการขอตรวจแล้ว
-            if (hasSubmission || reviewRequested || alreadySubmitted) {
+            // ข้ามงานที่ถูกส่งแล้วหรือมีการขอตรวจแล้ว หรือมีไฟล์ submission แนบกับงาน
+            const hasSubmissionFiles = Array.isArray((task as any).attachedFiles)
+              ? ((task as any).attachedFiles as any[]).some((f: any) => f?.attachmentType === 'submission')
+              : false;
+            if (hasSubmission || reviewRequested || alreadySubmitted || hasSubmissionFiles) {
               continue;
             }
 
