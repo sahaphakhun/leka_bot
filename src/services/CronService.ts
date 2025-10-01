@@ -226,16 +226,42 @@ export class CronService {
       
       for (const group of groups) {
         try {
-          const overdueTasks = await this.taskService.getOverdueTasksByGroup(group.id);
-          
-          for (const task of overdueTasks) {
+          // เลือกเฉพาะงานที่ถึงกำหนดแล้ว และยังไม่ได้ส่ง/ยังไม่ถูกร้องขอตรวจ
+          const now = moment();
+          const candidates = await AppDataSource.getRepository(Task)
+            .createQueryBuilder('task')
+            .leftJoinAndSelect('task.assignedUsers', 'assignee')
+            .leftJoinAndSelect('task.group', 'grp')
+            .where('task.groupId = :gid', { gid: group.id })
+            .andWhere('task.status IN (:...st)', { st: ['pending', 'in_progress'] })
+            .andWhere('task.dueTime < :now', { now: now.toDate() })
+            .orderBy('task.dueTime', 'ASC')
+            .getMany();
+
+          for (const task of candidates) {
+            const wf: any = (task as any).workflow || {};
+            const submissions = wf?.submissions;
+            const hasSubmission = Array.isArray(submissions)
+              ? submissions.length > 0
+              : submissions && typeof submissions === 'object'
+                ? Object.keys(submissions).length > 0
+                : false;
+            const review = wf?.review;
+            const reviewRequested = !!(review && (review.status === 'pending' || review.reviewRequestedAt));
+            const alreadySubmitted = !!(task as any).submittedAt;
+
+            // ข้ามงานที่ถูกส่งแล้วหรือมีการขอตรวจแล้ว
+            if (hasSubmission || reviewRequested || alreadySubmitted) {
+              continue;
+            }
+
             // อัปเดตสถานะเป็น overdue
             await this.taskService.updateTaskStatus(task.id, 'overdue');
-            
+
             // ส่งการแจ้งเตือน
             const overdueHours = moment().diff(moment(task.dueTime), 'hours');
             await this.notificationService.sendOverdueNotification({ task, overdueHours });
-            
+
             // บันทึก overdue KPI (0 คะแนน) ทันที เพื่อป้องกันการเล่นระบบ
             const overdueDays = moment().diff(moment(task.dueTime), 'days');
             if (overdueDays >= 7 && task.status !== 'cancelled') {
