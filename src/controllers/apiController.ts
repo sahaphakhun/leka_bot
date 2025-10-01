@@ -3727,6 +3727,57 @@ class ApiController {
   }
 
   /**
+   * POST /api/admin/complete-overdue-tasks
+   * เปลี่ยนสถานะเป็น 'completed' ให้กับงานทั้งหมดที่เป็น overdue ในกลุ่มที่ระบุ
+   * body: { groupId: string }
+   * รองรับ groupId เป็น LINE Group ID (ขึ้นต้นด้วย C) หรือ internal UUID
+   */
+  public async completeOverdueTasks(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = (req.body || {}) as { groupId?: string };
+      if (!groupId) {
+        res.status(400).json({ success: false, error: 'groupId is required' });
+        return;
+      }
+
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const groupRepo = AppDataSource.getRepository(GroupEntity);
+      const taskRepo = AppDataSource.getRepository(Task);
+
+      const group = isUuid
+        ? await groupRepo.findOne({ where: { id: groupId as any } })
+        : await groupRepo.findOne({ where: { lineGroupId: groupId } });
+      if (!group) {
+        res.status(404).json({ success: false, error: 'Group not found' });
+        return;
+      }
+
+      const overdueTasks = await taskRepo.find({ where: { groupId: group.id, status: 'overdue' } });
+      let completed = 0;
+      const results: Array<{ taskId: string; title?: string; ok: boolean; error?: string }>=[];
+
+      for (const t of overdueTasks) {
+        try {
+          await this.taskService.updateTaskStatus(t.id, 'completed');
+          completed++;
+          results.push({ taskId: t.id, title: (t as any).title, ok: true });
+        } catch (e) {
+          results.push({ taskId: t.id, title: (t as any).title, ok: false, error: (e as any)?.message || 'Unknown error' });
+        }
+      }
+
+      res.json({
+        success: true,
+        message: `Completed ${completed}/${overdueTasks.length} overdue tasks`,
+        data: { group: { id: group.id, lineGroupId: group.lineGroupId, name: group.name }, total: overdueTasks.length, completed, results }
+      });
+    } catch (error) {
+      logger.error('❌ Error in completeOverdueTasks:', error);
+      res.status(500).json({ success: false, error: 'Failed to complete overdue tasks' });
+    }
+  }
+
+  /**
    * Endpoint to manually trigger duration days column migration
    */
   public async migrateDurationDays(req: Request, res: Response): Promise<void> {
@@ -4197,6 +4248,8 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   apiRouter.get('/admin/groups/:groupId/overdue-audit', apiController.overdueAudit.bind(apiController));
   // Admin: force submit tasks
   apiRouter.post('/admin/force-submit-tasks', apiController.forceSubmitTasks.bind(apiController));
+  // Admin: complete all overdue tasks in a group
+  apiRouter.post('/admin/complete-overdue-tasks', apiController.completeOverdueTasks.bind(apiController));
   
   // Manual bot membership check and cleanup trigger
   apiRouter.post('/admin/check-bot-membership', apiController.checkBotMembershipAndCleanup.bind(apiController));
