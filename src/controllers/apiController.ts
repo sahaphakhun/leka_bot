@@ -3638,6 +3638,95 @@ class ApiController {
   }
 
   /**
+   * POST /api/admin/force-submit-tasks
+   * บันทึกการส่งงานแบบบังคับสำหรับรายการ taskIds ที่ระบุ โดยแนบไฟล์ล่าสุดของผู้รับผิดชอบในช่วงเวลาที่กำหนด (ออปชัน)
+   * body: {
+   *   taskIds: string[];                 // รายการ task UUID
+   *   comment?: string;                  // หมายเหตุที่จะบันทึกไปกับ submission
+   *   submitterLineUserId?: string;      // ถ้าไม่ระบุ จะใช้ LINE ID ของผู้รับผิดชอบคนแรกของงาน
+   *   linkRecentFiles?: boolean;         // ถ้าจริง จะค้นหาไฟล์ล่าสุดมาแนบอัตโนมัติ
+   *   recentHours?: number;              // ช่วงชั่วโมงย้อนหลังสำหรับค้นหาไฟล์ (default 48)
+   * }
+   */
+  public async forceSubmitTasks(req: Request, res: Response): Promise<void> {
+    try {
+      const body = (req.body || {}) as {
+        taskIds: string[];
+        comment?: string;
+        submitterLineUserId?: string;
+        linkRecentFiles?: boolean;
+        recentHours?: number;
+      };
+
+      const { taskIds, comment, submitterLineUserId, linkRecentFiles, recentHours } = body;
+      if (!Array.isArray(taskIds) || taskIds.length === 0) {
+        res.status(400).json({ success: false, error: 'taskIds is required' });
+        return;
+      }
+
+      const results: Array<{ taskId: string; submitted: boolean; fileCount: number; error?: string }> = [];
+      const hours = typeof recentHours === 'number' && recentHours > 0 ? recentHours : 48;
+      const since = new Date(Date.now() - hours * 60 * 60 * 1000);
+
+      for (const taskId of taskIds) {
+        try {
+          // โหลดงานพร้อมความสัมพันธ์ที่ต้องใช้
+          const task = await this.taskService.getTaskById(taskId);
+          if (!task) {
+            results.push({ taskId, submitted: false, fileCount: 0, error: 'Task not found' });
+            continue;
+          }
+
+          // หา submitter LINE ID
+          let submitter = submitterLineUserId;
+          if (!submitter) {
+            const firstAssignee = (task as any).assignedUsers?.[0];
+            submitter = firstAssignee?.lineUserId;
+          }
+          if (!submitter) {
+            results.push({ taskId, submitted: false, fileCount: 0, error: 'No submitter (assignee) found' });
+            continue;
+          }
+
+          // หาไฟล์ล่าสุดในกลุ่มโดยผู้ส่งคนนี้ (ออปชัน)
+          let fileIds: string[] = [];
+          if (linkRecentFiles) {
+            try {
+              // แปลง LINE → internal userId เพื่อกรองผู้อัปโหลด
+              const user = await this.userService.findByLineUserId(submitter);
+              if (user) {
+                const fileRepo = AppDataSource.getRepository(FileEntity);
+                const files = await fileRepo.createQueryBuilder('file')
+                  .select(['file.id', 'file.uploadedAt'])
+                  .where('file.groupId = :gid', { gid: (task as any).groupId })
+                  .andWhere('file.uploadedBy = :uid', { uid: user.id })
+                  .andWhere('file.uploadedAt >= :since', { since })
+                  .orderBy('file.uploadedAt', 'DESC')
+                  .limit(10)
+                  .getMany();
+                fileIds = files.map((f: any) => f.id);
+              }
+            } catch (e) {
+              logger.warn('forceSubmitTasks: failed to lookup recent files', { taskId, error: (e as any)?.message || e });
+            }
+          }
+
+          // ใช้ flow ปกติในการบันทึก submission (จะตั้ง submittedAt, workflow.review เป็น pending)
+          await this.taskService.recordSubmission(taskId, submitter, fileIds, comment || '[admin force-submit]');
+          results.push({ taskId, submitted: true, fileCount: fileIds.length });
+        } catch (err) {
+          results.push({ taskId, submitted: false, fileCount: 0, error: (err as any)?.message || 'Unknown error' });
+        }
+      }
+
+      res.json({ success: true, message: 'Force submit processed', data: { results } });
+    } catch (error) {
+      logger.error('❌ Error in forceSubmitTasks:', error);
+      res.status(500).json({ success: false, error: 'Failed to force-submit tasks' });
+    }
+  }
+
+  /**
    * Endpoint to manually trigger duration days column migration
    */
   public async migrateDurationDays(req: Request, res: Response): Promise<void> {
@@ -4106,6 +4195,8 @@ apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiCont
   apiRouter.post('/admin/backfill-submitted-statuses', apiController.backfillSubmittedStatuses.bind(apiController));
   // Admin: audit overdue tasks for a group
   apiRouter.get('/admin/groups/:groupId/overdue-audit', apiController.overdueAudit.bind(apiController));
+  // Admin: force submit tasks
+  apiRouter.post('/admin/force-submit-tasks', apiController.forceSubmitTasks.bind(apiController));
   
   // Manual bot membership check and cleanup trigger
   apiRouter.post('/admin/check-bot-membership', apiController.checkBotMembershipAndCleanup.bind(apiController));
