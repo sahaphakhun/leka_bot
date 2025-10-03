@@ -1047,9 +1047,36 @@ class ApiController {
         }
       }
 
+      // เติม/normalize attachmentType ให้แน่ใจว่ามีค่า initial/submission เสมอ
+      const submissionIdSet = new Set<string>(
+        Array.isArray((task as any)?.workflow?.submissions)
+          ? (task as any).workflow.submissions.flatMap((s: any) => Array.isArray(s.fileIds) ? s.fileIds : [])
+          : []
+      );
+      const normalized = (files || []).map((f: any) => {
+        const out: any = {
+          id: f.id,
+          groupId: f.groupId,
+          originalName: f.originalName,
+          fileName: f.fileName,
+          mimeType: f.mimeType,
+          size: f.size,
+          uploadedBy: f.uploadedBy,
+          uploadedAt: f.uploadedAt,
+          tags: f.tags,
+          linkedTasks: Array.isArray(f.linkedTasks) ? f.linkedTasks.map((t: any) => t.id || t) : [],
+          path: f.path,
+          isPublic: f.isPublic,
+          attachmentType: f.attachmentType
+        };
+        if (!out.attachmentType) {
+          out.attachmentType = submissionIdSet.has(out.id) ? 'submission' : 'initial';
+        }
+        return out;
+      });
       const response: ApiResponse<any> = {
         success: true,
-        data: files || []
+        data: normalized
       };
 
       res.json(response);
