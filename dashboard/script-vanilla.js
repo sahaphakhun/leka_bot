@@ -3600,93 +3600,141 @@ class DashboardApp {
 
   async loadTaskFilesComprehensive(task) {
     const filesEl = document.getElementById('taskDetailFiles');
-    let allFiles = [];
-    
+    if (!filesEl || !task) {
+      return;
+    }
+
+    const collectedFiles = [];
+    const seenIds = new Set();
+    const submissionFileIds = new Set();
+
+    if (task.workflow && Array.isArray(task.workflow.submissions)) {
+      task.workflow.submissions.forEach(submission => {
+        if (submission && Array.isArray(submission.fileIds)) {
+          submission.fileIds.forEach(id => submissionFileIds.add(id));
+        }
+      });
+    }
+
+    const normalizeFile = (file, fallbackType) => {
+      if (!file || !file.id) return null;
+
+      const normalized = {
+        ...file,
+        uploadedAt: file.uploadedAt || file.createdAt || file.updatedAt || null
+      };
+
+      if (!normalized.attachmentType) {
+        if (fallbackType) {
+          normalized.attachmentType = fallbackType;
+        } else if (submissionFileIds.has(normalized.id)) {
+          normalized.attachmentType = 'submission';
+        } else {
+          normalized.attachmentType = 'initial';
+        }
+      }
+
+      if (!seenIds.has(normalized.id)) {
+        seenIds.add(normalized.id);
+        collectedFiles.push(normalized);
+      }
+
+      return normalized;
+    };
+
     try {
-      // Try to load files from API first
       const response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${task.id}/files`);
       if (response.ok) {
         const result = await response.json();
-        if (result.success && result.data && result.data.length > 0) {
-          allFiles = result.data;
-          console.log('Loaded files from API:', allFiles.length);
+        if (result && result.success && Array.isArray(result.data)) {
+          result.data.forEach(file => normalizeFile(file));
+          console.log('Loaded files from API:', collectedFiles.length);
         }
       }
     } catch (error) {
       console.warn('Could not load files from API:', error);
     }
-    
-    // Also check task.attachedFiles property
-    if (task.attachedFiles && Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0) {
+
+    if (Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0) {
       console.log('Found attached files in task:', task.attachedFiles.length);
-      // Merge with API files, avoiding duplicates by ID
-      const existingIds = allFiles.map(f => f.id);
-      const additionalFiles = task.attachedFiles.filter(f => !existingIds.includes(f.id));
-      allFiles = [...allFiles, ...additionalFiles];
+      task.attachedFiles.forEach(file => normalizeFile(file, 'initial'));
     }
-    
-    // Check workflow submissions for files
-    if (task.workflow && task.workflow.submissions && Array.isArray(task.workflow.submissions)) {
-      task.workflow.submissions.forEach(submission => {
-        if (submission.fileIds && Array.isArray(submission.fileIds)) {
-          console.log('Found submission files:', submission.fileIds.length);
-          // Note: We have file IDs but not file objects, so we'll note this in the display
-        }
-      });
-    }
-    
-    // Render files
-    if (allFiles.length > 0) {
-      // Grouped rendering by attachmentType (initial/submission)
+
+    const missingSubmissionIds = Array.from(submissionFileIds).filter(id => !seenIds.has(id));
+    if (missingSubmissionIds.length > 0) {
       try {
-        const initialFiles = allFiles.filter(f => f && f.attachmentType === 'initial');
-        const submissionFiles = allFiles.filter(f => f && f.attachmentType === 'submission');
-        const otherFiles = allFiles.filter(f => f && !f.attachmentType);
-
-        const renderCard = (file) => `
-          <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
-            <div class="flex items-center">
-              <i class="fas fa-file text-gray-400 mr-3"></i>
-              <div>
-                <div class="font-medium">${this.escapeHtml(file.originalName || file.filename || file.name || 'Unnamed file')}</div>
-                <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${this.formatDate(file.uploadedAt || file.createdAt)}</div>
-              </div>
-            </div>
-            <div class="flex gap-2">
-              <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.previewFile('${file.id}')"><i class="fas fa-eye"></i></button>
-              <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}')"><i class="fas fa-download"></i></button>
-            </div>
-          </div>`;
-
-        const section = (title, icon, color, files) => files.length > 0 ? `
-          <div class="mb-5">
-            <h5 class="text-sm font-semibold ${color} mb-2 flex items-center gap-2">
-              <i class="fas ${icon}"></i> ${title} (${files.length})
-            </h5>
-            <div class="grid gap-2">
-              ${files.map(renderCard).join('')}
-            </div>
-          </div>` : '';
-
-        let html = '';
-        html += section('ไฟล์ตอนสร้างงาน','fa-file-alt','text-green-600', initialFiles);
-        html += section('ไฟล์ที่ส่ง','fa-upload','text-blue-600', submissionFiles);
-        html += section('ไฟล์อื่นๆ','fa-file','text-gray-600', otherFiles);
-
-        if (html) {
-          filesEl.innerHTML = html;
-          return;
-        }
-      } catch (e) {
-        console.warn('Failed grouped render, fallback to flat list:', e);
+        const fetched = await Promise.all(missingSubmissionIds.map(async (fileId) => {
+          try {
+            const resp = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
+            if (!resp.ok) return null;
+            const payload = await resp.json();
+            const data = payload?.data || payload;
+            if (data && data.id) {
+              data.attachmentType = data.attachmentType || 'submission';
+              return data;
+            }
+            return null;
+          } catch (err) {
+            console.warn('Failed to load submission file detail:', err);
+            return null;
+          }
+        }));
+        fetched.filter(Boolean).forEach(file => normalizeFile(file, 'submission'));
+      } catch (err) {
+        console.warn('Could not resolve all submission files:', err);
       }
-      filesEl.innerHTML = allFiles.map(file => `
+    }
+
+    if (collectedFiles.length === 0) {
+      filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
+      return;
+    }
+
+    try {
+      const initialFiles = collectedFiles.filter(file => file && file.attachmentType === 'initial');
+      const submissionFiles = collectedFiles.filter(file => file && file.attachmentType === 'submission');
+      const otherFiles = collectedFiles.filter(file => file && !['initial', 'submission'].includes(file.attachmentType));
+
+      const renderCard = (file) => `
         <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
           <div class="flex items-center">
             <i class="fas fa-file text-gray-400 mr-3"></i>
             <div>
               <div class="font-medium">${this.escapeHtml(file.originalName || file.filename || file.name || 'Unnamed file')}</div>
-              <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${this.formatDate(file.uploadedAt || file.createdAt)}</div>
+              <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${file.uploadedAt ? this.formatDate(file.uploadedAt) : '-'}</div>
+            </div>
+          </div>
+          <div class="flex gap-2">
+            <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.previewFile('${file.id}')"><i class="fas fa-eye"></i></button>
+            <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}')"><i class="fas fa-download"></i></button>
+          </div>
+        </div>`;
+
+      const section = (title, icon, color, files) => files.length > 0 ? `
+        <div class="mb-5">
+          <h5 class="text-sm font-semibold ${color} mb-2 flex items-center gap-2">
+            <i class="fas ${icon}"></i> ${title} (${files.length})
+          </h5>
+          <div class="grid gap-2">
+            ${files.map(renderCard).join('')}
+          </div>
+        </div>` : '';
+
+      let html = '';
+      html += section('ไฟล์ตอนสร้างงาน', 'fa-file-alt', 'text-green-600', initialFiles);
+      html += section('ไฟล์ที่ส่ง', 'fa-upload', 'text-blue-600', submissionFiles);
+      html += section('ไฟล์อื่นๆ', 'fa-file', 'text-gray-600', otherFiles);
+
+      filesEl.innerHTML = html || collectedFiles.map(renderCard).join('');
+    } catch (e) {
+      console.warn('Failed grouped render, fallback to flat list:', e);
+      filesEl.innerHTML = collectedFiles.map(file => `
+        <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+          <div class="flex items-center">
+            <i class="fas fa-file text-gray-400 mr-3"></i>
+            <div>
+              <div class="font-medium">${this.escapeHtml(file.originalName || file.filename || file.name || 'Unnamed file')}</div>
+              <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${file.uploadedAt ? this.formatDate(file.uploadedAt) : '-'}</div>
             </div>
           </div>
           <div class="flex gap-2">
@@ -3699,8 +3747,6 @@ class DashboardApp {
           </div>
         </div>
       `).join('');
-    } else {
-      filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
     }
   }
 
