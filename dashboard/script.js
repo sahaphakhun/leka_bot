@@ -1173,7 +1173,7 @@ class Dashboard {
         console.error(`❌ ไม่สามารถดึงข้อมูลงานได้: ${error.message}`);
       }
       // แสดงข้อความในหน้า dashboard
-      const container = document.getElementById('tasksList');
+      const container = document.getElementById('tasksList') || document.getElementById('tasksContainer');
       if (container) {
         container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #6b7280;">ไม่สามารถโหลดข้อมูลงานได้</div>';
       }
@@ -2122,7 +2122,11 @@ class Dashboard {
   }
 
   updateTasksList(tasks, pagination) {
-    const container = document.getElementById('tasksList');
+    const container = document.getElementById('tasksList') || document.getElementById('tasksContainer');
+    if (!container) {
+      console.warn('Tasks container not found: #tasksList or #tasksContainer');
+      return;
+    }
     
     if (!tasks || tasks.length === 0) {
       container.innerHTML = '<div style="text-align: center; padding: 2rem; color: #6b7280;">ไม่พบงานตามเงื่อนไขที่กำหนด</div>';

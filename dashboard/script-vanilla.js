@@ -3637,6 +3637,49 @@ class DashboardApp {
     
     // Render files
     if (allFiles.length > 0) {
+      // Grouped rendering by attachmentType (initial/submission)
+      try {
+        const initialFiles = allFiles.filter(f => f && f.attachmentType === 'initial');
+        const submissionFiles = allFiles.filter(f => f && f.attachmentType === 'submission');
+        const otherFiles = allFiles.filter(f => f && !f.attachmentType);
+
+        const renderCard = (file) => `
+          <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
+            <div class="flex items-center">
+              <i class="fas fa-file text-gray-400 mr-3"></i>
+              <div>
+                <div class="font-medium">${this.escapeHtml(file.originalName || file.filename || file.name || 'Unnamed file')}</div>
+                <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${this.formatDate(file.uploadedAt || file.createdAt)}</div>
+              </div>
+            </div>
+            <div class="flex gap-2">
+              <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.previewFile('${file.id}')"><i class="fas fa-eye"></i></button>
+              <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}')"><i class="fas fa-download"></i></button>
+            </div>
+          </div>`;
+
+        const section = (title, icon, color, files) => files.length > 0 ? `
+          <div class="mb-5">
+            <h5 class="text-sm font-semibold ${color} mb-2 flex items-center gap-2">
+              <i class="fas ${icon}"></i> ${title} (${files.length})
+            </h5>
+            <div class="grid gap-2">
+              ${files.map(renderCard).join('')}
+            </div>
+          </div>` : '';
+
+        let html = '';
+        html += section('ไฟล์ตอนสร้างงาน','fa-file-alt','text-green-600', initialFiles);
+        html += section('ไฟล์ที่ส่ง','fa-upload','text-blue-600', submissionFiles);
+        html += section('ไฟล์อื่นๆ','fa-file','text-gray-600', otherFiles);
+
+        if (html) {
+          filesEl.innerHTML = html;
+          return;
+        }
+      } catch (e) {
+        console.warn('Failed grouped render, fallback to flat list:', e);
+      }
       filesEl.innerHTML = allFiles.map(file => `
         <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
           <div class="flex items-center">
