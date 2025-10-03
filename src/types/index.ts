@@ -88,7 +88,7 @@ export interface Task {
   
   // การเชื่อมต่อ
   googleEventId?: string;
-  attachedFiles: string[]; // File IDs
+  attachedFiles: File[];
   
   // Workflow
   workflow?: TaskWorkflow;
@@ -153,6 +153,8 @@ export interface File {
   size: number;
   uploadedBy: string; // User ID
   uploadedAt: Date;
+
+  attachmentType?: 'initial' | 'submission';
   
   // การจัดหมวดหมู่
   tags: string[];

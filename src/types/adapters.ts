@@ -23,7 +23,7 @@ export const taskEntityToInterface = (entity: TaskEntity): Task => {
     remindersSent: entity.remindersSent || [],
     customReminders: entity.customReminders,
     googleEventId: entity.googleEventId,
-    attachedFiles: entity.attachedFiles?.map(file => file.id) || [],
+    attachedFiles: entity.attachedFiles?.map(file => fileEntityToInterface(file)) || [],
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
     // เพิ่มข้อมูลผู้ใช้ที่สมบูรณ์สำหรับการแสดงผล
@@ -77,6 +77,7 @@ export const fileEntityToInterface = (entity: FileEntity): File => {
     size: entity.size,
     uploadedBy: entity.uploadedBy,
     uploadedAt: entity.uploadedAt,
+    attachmentType: (entity as any).attachmentType,
     tags: entity.tags,
     linkedTasks: entity.linkedTasks?.map(task => task.id) || [],
     path: entity.path,

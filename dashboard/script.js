@@ -1519,13 +1519,19 @@ class Dashboard {
     }
   }
 
-  async uploadInitialFiles() {
+  async uploadInitialFiles(uploaderId) {
     if (!this.selectedInitialFiles || this.selectedInitialFiles.length === 0) {
       return [];
     }
 
     const formData = new FormData();
-    formData.append('userId', this.currentUserId || this.currentUser?.lineUserId || 'unknown');
+    let userId = uploaderId || this.currentUserId || this.currentUser?.lineUserId;
+    if (!userId) {
+      userId = `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    }
+    formData.append('userId', userId);
+    // explicitly mark as initial attachments
+    formData.append('attachmentType', 'initial');
     
     for (let i = 0; i < this.selectedInitialFiles.length; i++) {
       formData.append('attachments', this.selectedInitialFiles[i]);
@@ -1567,7 +1573,12 @@ class Dashboard {
       let uploadedFiles = [];
       if (this.selectedInitialFiles && this.selectedInitialFiles.length > 0) {
         try {
-          uploadedFiles = await this.uploadInitialFiles();
+          const fallbackUploader = (taskData.createdBy && taskData.createdBy !== 'unknown')
+            ? taskData.createdBy
+            : (Array.isArray(taskData.assigneeIds) && taskData.assigneeIds.length > 0
+                ? taskData.assigneeIds[0]
+                : (this.currentUserId || this.currentUser?.lineUserId || null));
+          uploadedFiles = await this.uploadInitialFiles(fallbackUploader);
           console.log('✅ Uploaded initial files:', uploadedFiles.length);
         } catch (error) {
           console.error('❌ Failed to upload initial files:', error);
@@ -2124,6 +2135,7 @@ class Dashboard {
       const priorityClass = this.getPriorityClass(task.priority);
       // ตรวจสอบไฟล์แนบอย่างถูกต้อง - ต้องมีไฟล์จริงๆ และมีขนาดมากกว่า 0
       const hasAttachments = task.attachedFiles && Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0;
+      const attachedFilesObjs = hasAttachments && typeof task.attachedFiles[0] === 'object' ? task.attachedFiles : [];
       
       return `
         <div class="task-item" style="background: white; border-radius: 12px; padding: 20px; margin-bottom: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); cursor: pointer;" 
@@ -2172,7 +2184,7 @@ class Dashboard {
                 <span style="font-size: 0.875rem; font-weight: 500; color: #374151;">ไฟล์แนบ (${task.attachedFiles.length})</span>
               </div>
               <div style="display: grid; gap: 6px; max-height: 120px; overflow-y: auto;">
-                ${task.attachedFiles.slice(0, 3).map(file => `
+                ${attachedFilesObjs.slice(0, 3).map(file => `
                   <div class="attachment-preview-item" style="display: flex; align-items: center; gap: 8px; padding: 6px 8px; background: white; border-radius: 6px; cursor: pointer; transition: all 0.2s ease; border: 1px solid #e5e7eb;"
                        onclick="event.stopPropagation(); dashboard.viewFile('${file.id}')"
                        onmouseover="this.style.background='#f3f4f6'; this.style.borderColor='#3b82f6'"
@@ -2194,7 +2206,7 @@ class Dashboard {
                     </div>
                   </div>
                 `).join('')}
-                ${task.attachedFiles.length > 3 ? `
+                ${attachedFilesObjs.length > 3 ? `
                   <div style="text-align: center; padding: 4px; font-size: 0.75rem; color: #6b7280; font-style: italic;">
                     และอีก ${task.attachedFiles.length - 3} ไฟล์... (คลิกเพื่อดูทั้งหมด)
                   </div>

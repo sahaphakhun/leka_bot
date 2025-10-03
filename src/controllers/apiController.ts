@@ -352,7 +352,7 @@ class ApiController {
 
       const response: ApiResponse<any> = {
         success: true,
-        data: task,
+        data: taskEntityToInterface(task),
         message: 'Task created successfully'
       };
 
