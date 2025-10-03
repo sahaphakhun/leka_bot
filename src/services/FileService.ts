@@ -2,7 +2,7 @@
 
 import { Repository, In, QueryRunner } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
-import { File, Group, User } from '@/models';
+import { File, Group, Task, User } from '@/models';
 import { config } from '@/utils/config';
 import { serviceContainer } from '@/utils/serviceContainer';
 import { LineService } from '@/services/LineService';
@@ -195,24 +195,30 @@ export class FileService {
    */
   public async linkFileToTask(fileId: string, taskId: string, queryRunner?: QueryRunner): Promise<void> {
     try {
-      const repo = queryRunner ? queryRunner.manager.getRepository(File) : this.fileRepository;
-      const file = await repo.findOne({
-        where: { id: fileId },
-        relations: ['linkedTasks']
-      });
+      const entityManager = queryRunner ? queryRunner.manager : AppDataSource.manager;
+      const fileRepository = entityManager.getRepository(File);
+      const taskRepository = entityManager.getRepository(Task);
+
+      const [file, task] = await Promise.all([
+        fileRepository.findOne({ where: { id: fileId } }),
+        taskRepository.findOne({ where: { id: taskId }, relations: ['attachedFiles'] })
+      ]);
 
       if (!file) {
         throw new Error('File not found');
       }
 
-      // ตรวจสอบว่าผูกแล้วหรือยัง
-      const alreadyLinked = file.linkedTasks.some(task => task.id === taskId);
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      const alreadyLinked = task.attachedFiles?.some(attachedFile => attachedFile.id === fileId);
       if (!alreadyLinked) {
-        const builder = queryRunner ? queryRunner.manager.createQueryBuilder() : AppDataSource.createQueryBuilder();
+        const builder = entityManager.createQueryBuilder();
         await builder
-          .relation(File, 'linkedTasks')
-          .of(fileId)
-          .add(taskId);
+          .relation(Task, 'attachedFiles')
+          .of(taskId)
+          .add(fileId);
       }
 
     } catch (error) {
@@ -228,9 +234,9 @@ export class FileService {
     try {
       await AppDataSource
         .createQueryBuilder()
-        .relation(File, 'linkedTasks')
-        .of(fileId)
-        .remove(taskId);
+        .relation(Task, 'attachedFiles')
+        .of(taskId)
+        .remove(fileId);
 
     } catch (error) {
       console.error('❌ Error unlinking file from task:', error);
