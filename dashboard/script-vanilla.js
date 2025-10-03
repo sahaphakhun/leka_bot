@@ -18,7 +18,7 @@ class DashboardApp {
     this.selectedTaskFiles = []; // Store selected files for task creation
     this.submitFiles = [];
     this.taskFileCache = new Map();
-    
+
     this.init();
   }
 
@@ -1630,7 +1630,7 @@ class DashboardApp {
       this.showToast('กำลังส่งงาน...', 'info');
 
       for (const taskId of selectedTasks) {
-        await this.submitTaskWithOptions(taskId, [], {
+        await this.submitTask(taskId, [], {
           showProgressToast: false,
           showSuccessToast: false
         });
@@ -1639,7 +1639,7 @@ class DashboardApp {
       this.showToast(`ส่งงาน ${selectedTasks.length} รายการเรียบร้อย`, 'success');
       this.clearSelectedTasks();
       this.renderTasks();
-      
+
     } catch (error) {
       console.error('Error submitting selected tasks:', error);
       this.showToast('เกิดข้อผิดพลาดในการส่งงาน', 'error');
@@ -3598,6 +3598,78 @@ class DashboardApp {
     this.updateTaskDetailButtons(task);
   }
 
+  resolveGroupIdForRequest(task = null, file = null) {
+    if (file) {
+      if (file.groupId) return file.groupId;
+      if (file.group?.id) return file.group.id;
+      if (file.group?.groupId) return file.group.groupId;
+      if (file.group?.lineGroupId) return file.group.lineGroupId;
+    }
+
+    if (task) {
+      if (task.groupId) return task.groupId;
+      if (task.group?.id) return task.group.id;
+      if (task.group?.groupId) return task.group.groupId;
+      if (task.group?.lineGroupId) return task.group.lineGroupId;
+      if (task.group?.group?.id) return task.group.group.id;
+      if (task.group?.group?.groupId) return task.group.group.groupId;
+      if (task.group?.group?.lineGroupId) return task.group.group.lineGroupId;
+    }
+
+    if (this.currentGroupId) {
+      return this.currentGroupId;
+    }
+
+    if (this.currentTaskToSubmit?.groupId) {
+      return this.currentTaskToSubmit.groupId;
+    }
+
+    return null;
+  }
+
+  findFileContext(fileId) {
+    if (!fileId) {
+      return { file: null, task: null };
+    }
+
+    const fromLibrary = Array.isArray(this.files)
+      ? this.files.find(file => file && file.id === fileId)
+      : null;
+    if (fromLibrary) {
+      return { file: fromLibrary, task: null };
+    }
+
+    if (this.taskFileCache && typeof this.taskFileCache.entries === 'function') {
+      for (const [taskId, cachedFiles] of this.taskFileCache.entries()) {
+        if (Array.isArray(cachedFiles)) {
+          const match = cachedFiles.find(file => file && file.id === fileId);
+          if (match) {
+            const task = Array.isArray(this.tasks)
+              ? this.tasks.find(t => t.id === taskId)
+              : null;
+            return { file: match, task: task || null };
+          }
+        }
+      }
+    }
+
+    if (Array.isArray(this.tasks)) {
+      for (const task of this.tasks) {
+        const sources = [task?.__cachedFiles, task?.attachedFiles];
+        for (const source of sources) {
+          if (Array.isArray(source)) {
+            const match = source.find(file => file && file.id === fileId);
+            if (match) {
+              return { file: match, task };
+            }
+          }
+        }
+      }
+    }
+
+    return { file: null, task: null };
+  }
+
   async loadTaskFilesComprehensive(task) {
     const filesEl = document.getElementById('taskDetailFiles');
     if (!filesEl || !task) {
@@ -3606,7 +3678,7 @@ class DashboardApp {
 
     const groupIdForTask = this.resolveGroupIdForRequest(task);
     if (!groupIdForTask) {
-      filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่พบไฟล์แนบ</div>';
+      filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
       return;
     }
 
@@ -3623,12 +3695,14 @@ class DashboardApp {
     }
 
     const normalizeFile = (file, fallbackType) => {
-      if (!file || !file.id) return null;
+      if (!file || !file.id) {
+        return null;
+      }
 
       const normalized = {
         ...file,
-        uploadedAt: file.uploadedAt || file.createdAt || file.updatedAt || null,
-        groupId: file.groupId || groupIdForTask
+        groupId: file.groupId || groupIdForTask,
+        uploadedAt: file.uploadedAt || file.createdAt || file.updatedAt || null
       };
 
       if (!normalized.attachmentType) {
@@ -3653,9 +3727,8 @@ class DashboardApp {
       const response = await fetch(`/api/groups/${groupIdForTask}/tasks/${task.id}/files`);
       if (response.ok) {
         const result = await response.json();
-        if (result && result.success && Array.isArray(result.data)) {
+        if (result.success && Array.isArray(result.data)) {
           result.data.forEach(file => normalizeFile(file));
-          console.log('Loaded files from API:', collectedFiles.length);
         }
       }
     } catch (error) {
@@ -3663,18 +3736,23 @@ class DashboardApp {
     }
 
     if (Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0) {
-      console.log('Found attached files in task:', task.attachedFiles.length);
       task.attachedFiles.forEach(file => normalizeFile(file, 'initial'));
+    }
+
+    if (Array.isArray(task.__cachedFiles)) {
+      task.__cachedFiles.forEach(file => normalizeFile(file));
     }
 
     const missingSubmissionIds = Array.from(submissionFileIds).filter(id => !seenIds.has(id));
     if (missingSubmissionIds.length > 0) {
       try {
-        const fetched = await Promise.all(missingSubmissionIds.map(async (fileId) => {
+        const fetchedFiles = await Promise.all(missingSubmissionIds.map(async (fileId) => {
           try {
-            const resp = await fetch(`/api/groups/${groupIdForTask}/files/${fileId}`);
-            if (!resp.ok) return null;
-            const payload = await resp.json();
+            const res = await fetch(`/api/groups/${groupIdForTask}/files/${fileId}`);
+            if (!res.ok) {
+              return null;
+            }
+            const payload = await res.json();
             const data = payload?.data || payload;
             if (data && data.id) {
               data.attachmentType = data.attachmentType || 'submission';
@@ -3686,9 +3764,9 @@ class DashboardApp {
             return null;
           }
         }));
-        fetched.filter(Boolean).forEach(file => normalizeFile(file, 'submission'));
+        fetchedFiles.filter(Boolean).forEach(file => normalizeFile(file, 'submission'));
       } catch (err) {
-        console.warn('Could not resolve all submission files:', err);
+        console.warn('Could not resolve submission files:', err);
       }
     }
 
@@ -3697,14 +3775,9 @@ class DashboardApp {
       return;
     }
 
-    try {
-      const initialFiles = collectedFiles.filter(file => file && file.attachmentType === 'initial');
-      const submissionFiles = collectedFiles.filter(file => file && file.attachmentType === 'submission');
-      const otherFiles = collectedFiles.filter(file => file && !['initial', 'submission'].includes(file.attachmentType));
-
-      const renderCard = (file) => {
-        const safeGroupId = (file.groupId || groupIdForTask || '').replace(/'/g, "\\'");
-        return `
+    const renderCard = (file) => {
+      const safeGroupId = (file.groupId || groupIdForTask || '').replace(/'/g, "\\'");
+      return `
         <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
           <div class="flex items-center">
             <i class="fas fa-file text-gray-400 mr-3"></i>
@@ -3718,9 +3791,9 @@ class DashboardApp {
             <button class="btn btn-sm btn-outline" onclick="window.dashboardApp.downloadFile('${file.id}', '${safeGroupId}')"><i class="fas fa-download"></i></button>
           </div>
         </div>`;
-      };
+    };
 
-      const section = (title, icon, color, files) => files.length > 0 ? `
+    const section = (title, icon, color, files) => files.length > 0 ? `
         <div class="mb-5">
           <h5 class="text-sm font-semibold ${color} mb-2 flex items-center gap-2">
             <i class="fas ${icon}"></i> ${title} (${files.length})
@@ -3730,48 +3803,28 @@ class DashboardApp {
           </div>
         </div>` : '';
 
+    try {
+      const initialFiles = collectedFiles.filter(file => file && file.attachmentType === 'initial');
+      const submissionFiles = collectedFiles.filter(file => file && file.attachmentType === 'submission');
+      const otherFiles = collectedFiles.filter(file => file && !['initial', 'submission'].includes(file.attachmentType));
+
       let html = '';
-      html += section('ไฟล์ตอนสร้างงาน', 'fa-file-alt', 'text-green-600', initialFiles);
-      html += section('ไฟล์ที่ส่ง', 'fa-upload', 'text-blue-600', submissionFiles);
-      html += section('ไฟล์อื่นๆ', 'fa-file', 'text-gray-600', otherFiles);
+      html += section('ไฟล์ตอนสร้างงาน','fa-file-alt','text-green-600', initialFiles);
+      html += section('ไฟล์ที่ส่ง','fa-upload','text-blue-600', submissionFiles);
+      html += section('ไฟล์อื่นๆ','fa-file','text-gray-600', otherFiles);
 
       filesEl.innerHTML = html || collectedFiles.map(renderCard).join('');
-    } catch (e) {
-      console.warn('Failed grouped render, fallback to flat list:', e);
-      filesEl.innerHTML = collectedFiles.map(file => {
-        const safeGroupId = (file.groupId || groupIdForTask || '').replace(/'/g, "\\'");
-        return `
-        <div class="flex items-center justify-between p-3 bg-white border rounded-lg">
-          <div class="flex items-center">
-            <i class="fas fa-file text-gray-400 mr-3"></i>
-            <div>
-              <div class="font-medium">${this.escapeHtml(file.originalName || file.filename || file.name || 'Unnamed file')}</div>
-              <div class="text-sm text-gray-500">${this.formatFileSize(file.size || 0)} • ${file.uploadedAt ? this.formatDate(file.uploadedAt) : '-'}</div>
-            </div>
-          </div>
-          <div class="flex gap-2">
-            <button class="btn btn-sm btn-outline" title="ดูไฟล์" onclick="window.dashboardApp.previewFile('${file.id}', '${safeGroupId}')">
-              <i class="fas fa-eye"></i>
-            </button>
-            <button class="btn btn-sm btn-outline" title="ดาวน์โหลด" onclick="window.dashboardApp.downloadFile('${file.id}', '${safeGroupId}')">
-              <i class="fas fa-download"></i>
-            </button>
-          </div>
-        </div>
-      `;
-      }).join('');
+    } catch (error) {
+      console.warn('Failed grouped render, fallback to flat list:', error);
+      filesEl.innerHTML = collectedFiles.map(renderCard).join('');
     }
 
     task.__cachedFiles = collectedFiles;
-    const cachedIndex = Array.isArray(this.tasks) ? this.tasks.findIndex(t => t.id === task.id) : -1;
-    if (cachedIndex !== -1) {
-      this.tasks[cachedIndex].__cachedFiles = collectedFiles;
-    }
     if (this.taskFileCache && typeof this.taskFileCache.set === 'function') {
       try {
         this.taskFileCache.set(task.id, collectedFiles);
-      } catch (err) {
-        console.warn('Failed to cache task files:', err);
+      } catch (error) {
+        console.warn('Failed to cache task files:', error);
       }
     }
   }
@@ -4025,6 +4078,48 @@ class DashboardApp {
     }
   }
 
+  // Display selected files for submit task modal
+  displaySelectedFiles(files, fileInput) {
+    const fileList = document.getElementById('submitFileList');
+    if (!fileList) {
+      console.warn('submitFileList element not found');
+      return;
+    }
+
+    const normalized = Array.isArray(files) ? files.filter(Boolean) : [];
+    this.submitFiles = normalized;
+
+    this.syncSubmitFileInput(normalized, fileInput);
+
+    if (normalized.length === 0) {
+      fileList.innerHTML = '';
+      fileList.classList.add('hidden');
+      return;
+    }
+
+    fileList.classList.remove('hidden');
+    fileList.innerHTML = `
+      <div class="text-sm font-medium text-gray-700 mb-2">
+        <i class="fas fa-paperclip mr-1"></i>
+        ไฟล์ที่เลือก (${normalized.length})
+      </div>
+      ${normalized.map((file, index) => `
+        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border mb-2">
+          <div class="flex items-center">
+            <i class="fas ${this.getFileIcon(file.type)} text-blue-500 mr-2"></i>
+            <div>
+              <div class="text-sm font-medium text-gray-900">${this.escapeHtml(file.name)}</div>
+              <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
+            </div>
+          </div>
+          <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="window.dashboardApp.removeSubmitFile(${index})">
+            <i class="fas fa-times"></i>
+          </button>
+        </div>
+      `).join('')}
+    `;
+  }
+
   getSubmitFileInput() {
     return document.getElementById('submitTaskFiles');
   }
@@ -4044,13 +4139,9 @@ class DashboardApp {
           }
         });
         input.files = dataTransfer.files;
-        if (dataTransfer.files.length === 0) {
-          input.value = '';
-        }
-        return;
       }
-    } catch (err) {
-      console.warn('Unable to sync file input programmatically:', err);
+    } catch (error) {
+      console.warn('Unable to sync file input programmatically:', error);
     }
 
     if (!files || files.length === 0) {
@@ -4115,48 +4206,6 @@ class DashboardApp {
     return true;
   }
 
-  // Display selected files for submit task modal
-  displaySelectedFiles(files, fileInput) {
-    const fileList = document.getElementById('submitFileList');
-    if (!fileList) {
-      console.warn('submitFileList element not found');
-      return;
-    }
-
-    const normalized = Array.isArray(files) ? files.filter(Boolean) : [];
-    this.submitFiles = normalized;
-
-    this.syncSubmitFileInput(normalized, fileInput);
-
-    if (normalized.length === 0) {
-      fileList.innerHTML = '';
-      fileList.classList.add('hidden');
-      return;
-    }
-
-    fileList.classList.remove('hidden');
-    fileList.innerHTML = `
-      <div class="text-sm font-medium text-gray-700 mb-2">
-        <i class="fas fa-paperclip mr-1"></i>
-        ไฟล์ที่เลือก (${normalized.length})
-      </div>
-      ${normalized.map((file, index) => `
-        <div class="flex items-center justify-between p-2 bg-gray-50 rounded border mb-2">
-          <div class="flex items-center">
-            <i class="fas ${this.getFileIcon(file.type)} text-blue-500 mr-2"></i>
-            <div>
-              <div class="text-sm font-medium text-gray-900">${this.escapeHtml(file.name)}</div>
-              <div class="text-xs text-gray-500">${this.formatFileSize(file.size)}</div>
-            </div>
-          </div>
-          <button type="button" class="text-red-500 hover:text-red-700 p-1" onclick="window.dashboardApp.removeSubmitFile(${index})">
-            <i class="fas fa-times"></i>
-          </button>
-        </div>
-      `).join('')}
-    `;
-  }
-
   // Remove file from submit files list
   removeSubmitFile(index) {
     if (!Array.isArray(this.submitFiles) || index < 0 || index >= this.submitFiles.length) {
@@ -4164,7 +4213,7 @@ class DashboardApp {
     }
 
     this.submitFiles.splice(index, 1);
-    const fileInput = document.getElementById('submitTaskFiles');
+    const fileInput = this.getSubmitFileInput();
     this.displaySelectedFiles(this.submitFiles, fileInput);
 
     if (this.submitFiles.length === 0 && fileInput) {
@@ -4188,16 +4237,15 @@ class DashboardApp {
     try {
       await this.submitTask(this.currentTaskId, stagedFiles);
       this.closeModal('submitTaskModal');
+      this.resetSubmitFileSelection();
+      this.currentTaskToSubmit = null;
+      this.currentTaskId = null;
     } catch (error) {
       console.error('Error submitting task:', error);
     }
   }
 
-  async submitTask(taskId, files = []) {
-    return this.submitTaskWithOptions(taskId, files, {});
-  }
-
-  async submitTaskWithOptions(taskId, files = [], options = {}) {
+  async submitTask(taskId, files = [], options = {}) {
     if (!taskId) {
       this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
       throw new Error('Missing taskId for submission');
@@ -4239,7 +4287,7 @@ class DashboardApp {
         });
       }
 
-      normalizedFiles.forEach(file => {
+      normalizedFiles.forEach((file) => {
         if (file instanceof File && file.size >= 0) {
           formData.append('files', file);
         }
@@ -4252,9 +4300,8 @@ class DashboardApp {
       });
 
       if (!response.ok) {
-        let errorData = null;
-        try { errorData = await response.json(); } catch {}
-        throw new Error(errorData?.error || `HTTP ${response.status}: ${response.statusText}`);
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
 
       const result = await response.json();
@@ -4361,11 +4408,18 @@ class DashboardApp {
     const formData = new FormData(e.target);
     const taskId = formData.get('taskId');
     const comment = formData.get('comment');
-    let selectedFiles = this.collectSubmitFiles(true);
 
     if (!taskId) {
       this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
       return;
+    }
+
+    let selectedFiles = this.collectSubmitFiles(true);
+    if (!selectedFiles.length) {
+      const formFiles = formData.getAll('files');
+      const fallbackFiles = formData.getAll('submitTaskFiles');
+      selectedFiles = [...formFiles, ...fallbackFiles]
+        .filter(file => file instanceof File && file.size > 0);
     }
 
     const taskContext = this.tasks.find(t => t.id === taskId) || this.currentTaskToSubmit;
@@ -4374,7 +4428,7 @@ class DashboardApp {
     }
 
     try {
-      await this.submitTaskWithOptions(taskId, selectedFiles, { comment });
+      await this.submitTask(taskId, selectedFiles, { comment });
       this.closeModal('submitTaskModal');
       if (e && e.target && typeof e.target.reset === 'function') {
         e.target.reset();
@@ -5272,36 +5326,43 @@ class DashboardApp {
 
   // File action functions
   async previewFile(fileId, groupIdOverride = null) {
+    if (!fileId) {
+      this.showToast('ไม่พบไฟล์ที่ต้องการ', 'error');
+      return;
+    }
+
     const context = this.findFileContext(fileId);
     let file = context.file;
     let resolvedGroupId = groupIdOverride || this.resolveGroupIdForRequest(context.task, file);
 
     const candidateGroupIds = new Set();
-    if (resolvedGroupId) {
-      candidateGroupIds.add(resolvedGroupId);
-    }
-    const taskGroupId = this.resolveGroupIdForRequest(context.task);
-    if (taskGroupId) {
-      candidateGroupIds.add(taskGroupId);
+    if (groupIdOverride) candidateGroupIds.add(groupIdOverride);
+    if (resolvedGroupId) candidateGroupIds.add(resolvedGroupId);
+    if (context.task) {
+      const taskGroupId = this.resolveGroupIdForRequest(context.task);
+      if (taskGroupId) candidateGroupIds.add(taskGroupId);
     }
     if (this.currentGroupId) {
       candidateGroupIds.add(this.currentGroupId);
     }
 
     if (!file) {
-      for (const gid of candidateGroupIds) {
+      for (const groupId of candidateGroupIds) {
+        if (!groupId) continue;
         try {
-          const res = await fetch(`/api/groups/${gid}/files/${fileId}`);
+          const res = await fetch(`/api/groups/${groupId}/files/${fileId}`);
           if (res.ok) {
             const payload = await res.json();
             const data = payload?.data || payload;
             if (data && data.id) {
               file = data;
-              resolvedGroupId = gid;
+              resolvedGroupId = groupId;
               break;
             }
           }
-        } catch {}
+        } catch (error) {
+          console.warn('Failed to fetch file info for preview:', error);
+        }
       }
     }
 
@@ -5336,7 +5397,7 @@ class DashboardApp {
     
     // ตั้งค่าปุ่มดาวน์โหลด
     if (downloadBtn) {
-      downloadBtn.onclick = () => this.downloadFile(file.id, file.groupId);
+      downloadBtn.onclick = () => this.downloadFile(file.id);
     }
 
     // เปิด modal
@@ -6129,207 +6190,76 @@ class DashboardApp {
     const maxRetries = 3;
     const retryDelay = 1000;
 
-    try {
-      const context = this.findFileContext(fileId);
-      const candidateGroupIds = new Set();
-      const contextGroupId = this.resolveGroupIdForRequest(context.task, context.file);
-
-      if (groupIdOverride) {
-        candidateGroupIds.add(groupIdOverride);
-      }
-      if (contextGroupId) {
-        candidateGroupIds.add(contextGroupId);
-      }
-      if (this.currentGroupId) {
-        candidateGroupIds.add(this.currentGroupId);
-      }
-
-      if (candidateGroupIds.size === 0) {
-        this.showToast('ไม่พบข้อมูลกลุ่มสำหรับดาวน์โหลดไฟล์', 'error');
-        return;
-      }
-
-      console.log('[Download] Start', {
-        fileId,
-        candidates: Array.from(candidateGroupIds),
-        attempt: retryAttempt + 1
-      });
-
-      if (retryAttempt === 0) {
-        try {
-          const probeGroupId = contextGroupId || this.currentGroupId;
-          if (probeGroupId) {
-            const infoProbe = await fetch(`/api/groups/${probeGroupId}/files/${fileId}`);
-            let infoJson = null;
-            try { infoJson = await infoProbe.json(); } catch {}
-            const fileMeta = infoJson && typeof infoJson === 'object' && 'data' in infoJson ? infoJson.data : infoJson;
-            console.log('[Download] File info probe', { status: infoProbe.status, ok: infoProbe.ok, file: fileMeta });
-          }
-        } catch (probeErr) {
-          console.warn('[Download] File info probe failed', probeErr);
-        }
-      }
-
-      if (retryAttempt > 0) {
-        this.showToast(`กำลังลองดาวน์โหลดอีกครั้ง... (ครั้งที่ ${retryAttempt + 1})`, 'info');
-      }
-
-      let response = null;
-      let usedGroupId = null;
-      let lastError = null;
-
-      for (const gid of candidateGroupIds) {
-        const downloadUrl = `/api/groups/${gid}/files/${fileId}/download`;
-        console.log('[Download] Fetching', { url: downloadUrl });
-        try {
-          const attempt = await fetch(downloadUrl);
-          if (attempt.ok) {
-            response = attempt;
-            usedGroupId = gid;
-            break;
-          }
-          lastError = new Error(`HTTP ${attempt.status}: ${attempt.statusText}`);
-        } catch (err) {
-          lastError = err;
-        }
-      }
-
-      if (!response || !response.ok) {
-        if (retryAttempt < maxRetries) {
-          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
-          return this.downloadFile(fileId, groupIdOverride, retryAttempt + 1);
-        }
-        throw lastError || new Error('ไม่สามารถดาวน์โหลดไฟล์ได้');
-      }
-
-      const blob = await response.blob();
-      const respMime = response.headers.get('Content-Type') || '';
-      const cdHeader = response.headers.get('Content-Disposition') || '';
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-
-      let filename = 'download';
-      if (cdHeader) {
-        const utf8Match = cdHeader.match(/filename\*=UTF-8''([^;]+)/);
-        if (utf8Match) {
-          try {
-            filename = decodeURIComponent(utf8Match[1]);
-          } catch {
-            filename = utf8Match[1];
-          }
-        } else {
-          const filenameMatch = cdHeader.match(/filename="([^"]+)"/);
-          if (filenameMatch) {
-            filename = filenameMatch[1];
-          }
-        }
-      }
-
-      const ensureExtension = async () => {
-        const hasExt = filename && filename.includes('.') && !filename.endsWith('.');
-        if (filename === 'download' || !hasExt) {
-          try {
-            const metaGroupId = usedGroupId || contextGroupId || this.currentGroupId;
-            if (metaGroupId) {
-              const infoRes = await fetch(`/api/groups/${metaGroupId}/files/${fileId}`);
-              if (infoRes.ok) {
-                let fileData = await infoRes.json();
-                if (fileData && typeof fileData === 'object' && 'data' in fileData) {
-                  fileData = fileData.data;
-                }
-                if (fileData) {
-                  const prefer = fileData.originalName || fileData.fileName || fileData.name;
-                  if (prefer) {
-                    filename = prefer;
-                  }
-                  if ((!filename || !filename.includes('.')) && (fileData.mimeType || respMime)) {
-                    const ext = this.getExtensionFromMime(fileData.mimeType || respMime);
-                    if (ext) {
-                      const baseName = filename && filename !== 'download' ? filename : 'download';
-                      filename = baseName.includes('.') ? baseName : `${baseName}.${ext}`;
-                    }
-                  }
-                }
-              }
-            }
-          } catch (err) {
-            console.warn('Failed to fetch file info for filename:', err);
-          }
-
-          if (filename === 'download') {
-            const nameFromUI = document.querySelector(`[data-file-id="${fileId}"] .file-name`)?.textContent?.trim();
-            if (nameFromUI) {
-              filename = nameFromUI;
-            }
-          }
-
-          if (/^[\s\S]*[àÃ]/.test(filename || '')) {
-            try {
-              const bytes = Uint8Array.from(Array.from(filename).map(ch => ch.charCodeAt(0) & 0xFF));
-              const decoded = new TextDecoder('utf-8').decode(bytes);
-              if (decoded && /[฀-๿]/.test(decoded)) {
-                filename = decoded;
-              }
-            } catch {}
-          }
-
-          if ((!filename || filename === 'download') && respMime) {
-            const ext = this.getExtensionFromMime(respMime);
-            if (ext) {
-              filename = `download.${ext}`;
-            }
-          }
-        }
-      };
-
-      await ensureExtension();
-
-      a.download = filename || 'download';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-
-      if (context.file && usedGroupId && !context.file.groupId) {
-        context.file.groupId = usedGroupId;
-      }
-
-      this.showToast('เริ่มดาวน์โหลดไฟล์เรียบร้อย', 'success');
-    } catch (error) {
-      console.error('[Download] Error', {
-        name: (error && error.name) || undefined,
-        message: (error && error.message) || undefined,
-        attempt: retryAttempt + 1,
-        fileId,
-        groupId: this.currentGroupId
-      });
-
-      const isNetworkError = error.name === 'TypeError' || (error.message && error.message.includes('Failed to fetch'));
-      const isServerError = error.message && /(502|503|504)/.test(error.message);
-
-      if ((isNetworkError || isServerError) && retryAttempt < maxRetries) {
-        console.warn('[Download] Network/server error -> retry', {
-          attempt: retryAttempt + 1,
-          maxRetries,
-          isNetworkError,
-          isServerError
-        });
-        await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
-        return this.downloadFile(fileId, groupIdOverride, retryAttempt + 1);
-      }
-
-      let userMessage = 'เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์';
-      if (retryAttempt >= maxRetries) {
-        userMessage = `ไม่สามารถดาวน์โหลดไฟล์ได้หลังจากลองแล้ว ${maxRetries + 1} ครั้ง กรุณาลองใหม่อีกครั้งภายหลัง`;
-      } else if (error.message && !error.message.includes('HTTP')) {
-        userMessage = error.message;
-      }
-
-      this.showToast(userMessage, 'error');
+    if (!fileId) {
+      this.showToast('ไม่พบไฟล์ที่ต้องการ', 'error');
+      return;
     }
-  }
 
+    if (retryAttempt === 0) {
+      this.showToast('กำลังดาวน์โหลดไฟล์...', 'info');
+    }
+
+    const context = this.findFileContext(fileId);
+    const candidateGroupIds = new Set();
+
+    if (groupIdOverride) candidateGroupIds.add(groupIdOverride);
+    const resolvedGroupId = this.resolveGroupIdForRequest(context.task, context.file);
+    if (resolvedGroupId) candidateGroupIds.add(resolvedGroupId);
+    if (this.currentGroupId) candidateGroupIds.add(this.currentGroupId);
+
+    const groupsToTry = candidateGroupIds.size > 0
+      ? Array.from(candidateGroupIds)
+      : (this.currentGroupId ? [this.currentGroupId] : []);
+
+    for (const groupId of groupsToTry) {
+      if (!groupId) continue;
+      try {
+        const response = await fetch(`/api/groups/${groupId}/files/${fileId}/download`);
+        if (response.ok) {
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+
+          let filename = 'download';
+          const contentDisposition = response.headers.get('Content-Disposition');
+          if (contentDisposition) {
+            const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+            if (utf8Match) {
+              filename = decodeURIComponent(utf8Match[1]);
+            } else {
+              const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+              if (filenameMatch) {
+                filename = filenameMatch[1];
+              }
+            }
+          }
+
+          if ((!filename || filename === 'download') && context.file) {
+            filename = context.file.originalName || context.file.filename || context.file.name || filename;
+          }
+
+          a.download = filename || 'download';
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          window.URL.revokeObjectURL(url);
+          this.showToast('ดาวน์โหลดไฟล์สำเร็จ', 'success');
+          return;
+        }
+      } catch (error) {
+        console.warn('[Download] Attempt failed', { fileId, groupId, attempt: retryAttempt + 1, error });
+      }
+    }
+
+    if (retryAttempt < maxRetries - 1) {
+      await new Promise(resolve => setTimeout(resolve, retryDelay));
+      await this.downloadFile(fileId, groupIdOverride, retryAttempt + 1);
+      return;
+    }
+
+    this.showToast('เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์', 'error');
+  }
 
   inviteMember(email = '', role = 'member', message = '') {
     if (!this.currentUserId) {
@@ -7053,7 +6983,7 @@ class DashboardApp {
   // Helper function to show appropriate error messages based on user permissions
   showPermissionError(action, task) {
     const permissions = this.getUserPermissionsForTask(task);
-
+    
     let message = '';
     switch(action) {
       case 'submit':
@@ -7069,82 +6999,8 @@ class DashboardApp {
       default:
         message = 'คุณไม่มีสิทธิ์ดำเนินการนี้';
     }
-
+    
     this.showToast(message, 'error');
-  }
-
-  resolveGroupIdForRequest(task = null, file = null) {
-    if (file && file.groupId) {
-      return file.groupId;
-    }
-
-    if (task) {
-      if (task.groupId) {
-        return task.groupId;
-      }
-      if (task.group) {
-        if (task.group.id) {
-          return task.group.id;
-        }
-        if (task.group.groupId) {
-          return task.group.groupId;
-        }
-        if (task.group.lineGroupId) {
-          return task.group.lineGroupId;
-        }
-      }
-    }
-
-    if (this.currentGroupId) {
-      return this.currentGroupId;
-    }
-
-    return null;
-  }
-
-  findFileContext(fileId) {
-    const context = { file: null, task: null };
-
-    if (!fileId) {
-      return context;
-    }
-
-    if (Array.isArray(this.tasks)) {
-      for (const task of this.tasks) {
-        const pools = [];
-        if (Array.isArray(task.__cachedFiles)) {
-          pools.push(task.__cachedFiles);
-        }
-        if (Array.isArray(task.attachedFiles)) {
-          pools.push(task.attachedFiles);
-        }
-        if (this.taskFileCache && this.taskFileCache.has(task.id)) {
-          const cachedPool = this.taskFileCache.get(task.id);
-          if (Array.isArray(cachedPool)) {
-            pools.push(cachedPool);
-          }
-        }
-
-        for (const pool of pools) {
-          const matched = pool.find(file => file && file.id === fileId);
-          if (matched) {
-            context.file = matched;
-            context.task = task;
-            return context;
-          }
-        }
-      }
-    }
-
-    if (!context.file && Array.isArray(this.files)) {
-      context.file = this.files.find(file => file && file.id === fileId) || null;
-    }
-
-    if (context.file && !context.file.groupId && context.task) {
-      context.file.groupId = this.resolveGroupIdForRequest(context.task, context.file);
-    }
-
-    return context;
   }
 
   getSelectedFiles() {

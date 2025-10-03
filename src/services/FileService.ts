@@ -214,8 +214,8 @@ export class FileService {
 
       const alreadyLinked = task.attachedFiles?.some(attachedFile => attachedFile.id === fileId);
       if (!alreadyLinked) {
-        const builder = entityManager.createQueryBuilder();
-        await builder
+        await entityManager
+          .createQueryBuilder()
           .relation(Task, 'attachedFiles')
           .of(taskId)
           .add(fileId);

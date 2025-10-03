@@ -4022,7 +4022,7 @@ apiRouter.get('/groups/:groupId/stats', apiController.getGroupStats.bind(apiCont
 apiRouter.get('/groups/:groupId/tasks', validateRequest(taskSchemas.list), apiController.getTasks.bind(apiController));
 apiRouter.post('/groups/:groupId/tasks', validateRequest(taskSchemas.create), apiController.createTask.bind(apiController));
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
-// Group file listing should respect the requested group rather than defaulting to "default"
+// Ensure group file listing respects requested group rather than defaulting to "default"
 apiRouter.get('/groups/:groupId/files', apiController.getGroupFiles.bind(apiController));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
 apiRouter.post('/groups/:groupId/sync-leaderboard', apiController.syncLeaderboard.bind(apiController));
