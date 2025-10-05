@@ -3552,6 +3552,7 @@ class DashboardApp {
     document.getElementById('taskDetailLastSubmission').textContent = lastSubmissionDate;
 
     // Files - check both API and task.attachedFiles
+    this.renderTaskAttachmentSummary(Array.isArray(task?.attachedFiles) ? task.attachedFiles : []);
     this.loadTaskFilesComprehensive(task);
 
     // Notes - show both task notes and submission comments
@@ -3630,11 +3631,24 @@ class DashboardApp {
     const groupId = task.groupId || this.currentGroupId;
     const aggregated = new Map();
     const submissionFileIds = new Set();
+    const submissionFilesFromObjects = [];
 
-    if (task.workflow && Array.isArray(task.workflow.submissions)) {
-      task.workflow.submissions.forEach(submission => {
+    const workflowSubmissions = Array.isArray(task?.workflow?.submissions) ? task.workflow.submissions : [];
+    const legacySubmissions = Array.isArray(task?.submissions) ? task.submissions : [];
+    const allSubmissions = [...workflowSubmissions, ...legacySubmissions];
+
+    if (allSubmissions.length > 0) {
+      allSubmissions.forEach(submission => {
         if (submission && Array.isArray(submission.fileIds)) {
           submission.fileIds.forEach(id => submissionFileIds.add(id));
+        }
+        if (submission && Array.isArray(submission.files)) {
+          submission.files.forEach(file => {
+            if (file && file.id) {
+              submissionFileIds.add(file.id);
+              submissionFilesFromObjects.push(file);
+            }
+          });
         }
       });
       if (submissionFileIds.size > 0) {
@@ -3674,6 +3688,11 @@ class DashboardApp {
       this.cacheFileRecords(task.attachedFiles, { groupId, taskId: task.id });
     }
 
+    if (submissionFilesFromObjects.length > 0) {
+      submissionFilesFromObjects.forEach(file => injectFile(file, 'submission'));
+      this.cacheFileRecords(submissionFilesFromObjects, { groupId, taskId: task.id });
+    }
+
     if (submissionFileIds.size > 0) {
       submissionFileIds.forEach(id => {
         const cached = this.findFileInCaches(id, groupId);
@@ -3683,48 +3702,51 @@ class DashboardApp {
       });
     }
 
-    try {
-      const response = await fetch(`/api/groups/${groupId}/tasks/${task.id}/files`);
-      if (response.ok) {
-        const payload = await response.json();
-        const files = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
-        files.forEach(file => injectFile(file));
-        if (files.length > 0) {
-          this.cacheFileRecords(files, { groupId, taskId: task.id });
-        }
-      }
-    } catch (error) {
-      console.warn('Could not load files from API:', error);
-    }
-
-    const unresolvedIds = Array.from(submissionFileIds).filter(id => !aggregated.has(id));
-    if (unresolvedIds.length > 0) {
+    if (groupId) {
       try {
-        const resolvedFiles = await Promise.all(unresolvedIds.map(async fileId => {
-          const cached = this.findFileInCaches(fileId, groupId);
-          if (cached) return cached;
-          try {
-            const resp = await fetch(`/api/groups/${groupId}/files/${fileId}`);
-            if (!resp.ok) return null;
-            const payload = await resp.json();
-            const data = payload?.data || payload;
-            return data && data.id ? data : null;
-          } catch (err) {
-            console.warn('Failed to load submission file detail:', err);
-            return null;
+        const response = await fetch(`/api/groups/${groupId}/tasks/${task.id}/files`);
+        if (response.ok) {
+          const payload = await response.json();
+          const files = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+          files.forEach(file => injectFile(file));
+          if (files.length > 0) {
+            this.cacheFileRecords(files, { groupId, taskId: task.id });
           }
-        }));
-        const validResolved = resolvedFiles.filter(Boolean);
-        validResolved.forEach(file => injectFile(file, 'submission'));
-        if (validResolved.length > 0) {
-          this.cacheFileRecords(validResolved, { groupId, taskId: task.id });
         }
-      } catch (err) {
-        console.warn('Could not resolve all submission files:', err);
+      } catch (error) {
+        console.warn('Could not load files from API:', error);
+      }
+
+      const unresolvedIds = Array.from(submissionFileIds).filter(id => !aggregated.has(id));
+      if (unresolvedIds.length > 0) {
+        try {
+          const resolvedFiles = await Promise.all(unresolvedIds.map(async fileId => {
+            const cached = this.findFileInCaches(fileId, groupId);
+            if (cached) return cached;
+            try {
+              const resp = await fetch(`/api/groups/${groupId}/files/${fileId}`);
+              if (!resp.ok) return null;
+              const payload = await resp.json();
+              const data = payload?.data || payload;
+              return data && data.id ? data : null;
+            } catch (err) {
+              console.warn('Failed to load submission file detail:', err);
+              return null;
+            }
+          }));
+          const validResolved = resolvedFiles.filter(Boolean);
+          validResolved.forEach(file => injectFile(file, 'submission'));
+          if (validResolved.length > 0) {
+            this.cacheFileRecords(validResolved, { groupId, taskId: task.id });
+          }
+        } catch (err) {
+          console.warn('Could not resolve all submission files:', err);
+        }
       }
     }
 
     if (aggregated.size === 0) {
+      this.renderTaskAttachmentSummary([]);
       filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
       return;
     }
@@ -3736,6 +3758,7 @@ class DashboardApp {
     });
 
     this.cacheFileRecords(collectedFiles, { groupId, taskId: task.id });
+    this.renderTaskAttachmentSummary(collectedFiles);
 
     try {
       const initialFiles = collectedFiles.filter(file => file && file.attachmentType === 'initial');
@@ -3794,6 +3817,77 @@ class DashboardApp {
           </div>
         </div>
       `).join('');
+    }
+  }
+
+  renderTaskAttachmentSummary(files = []) {
+    try {
+      const summaryEl = document.getElementById('taskDetailAttachmentSummary');
+      if (!summaryEl) {
+        return;
+      }
+
+      const hasFiles = Array.isArray(files) && files.length > 0;
+      if (!hasFiles) {
+        summaryEl.classList.add('hidden');
+        summaryEl.innerHTML = '';
+        return;
+      }
+
+      const initialFiles = files.filter(file => file && file.attachmentType === 'initial');
+      const submissionFiles = files.filter(file => file && file.attachmentType === 'submission');
+      const otherFiles = files.filter(file => file && !['initial', 'submission'].includes(file.attachmentType));
+
+      const detailParts = [];
+      if (initialFiles.length > 0) detailParts.push(`ตอนสร้างงาน ${initialFiles.length}`);
+      if (submissionFiles.length > 0) detailParts.push(`การส่งงาน ${submissionFiles.length}`);
+      if (otherFiles.length > 0) detailParts.push(`อื่นๆ ${otherFiles.length}`);
+
+      const detailText = detailParts.length > 0
+        ? detailParts.join(' • ')
+        : `รวม ${files.length} ไฟล์`;
+
+      summaryEl.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          <button type="button" id="taskDetailScrollToFilesBtn" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600 text-white text-sm font-medium shadow-sm hover:bg-blue-700 transition-colors">
+            <i class="fas fa-paperclip"></i>
+            ไฟล์แนบ ${files.length} ไฟล์
+          </button>
+          <span class="text-sm text-blue-700">${this.escapeHtml(detailText)}</span>
+          <span class="text-xs text-blue-600">กดเพื่อเลื่อนลงไปยังรายการไฟล์</span>
+        </div>
+      `;
+
+      summaryEl.classList.remove('hidden');
+
+      const scrollBtn = document.getElementById('taskDetailScrollToFilesBtn');
+      if (scrollBtn) {
+        scrollBtn.addEventListener('click', () => this.scrollToTaskAttachmentSection());
+      }
+    } catch (error) {
+      console.warn('Failed to render attachment summary:', error);
+    }
+  }
+
+  scrollToTaskAttachmentSection() {
+    try {
+      const filesEl = document.getElementById('taskDetailFiles');
+      const modal = document.getElementById('taskDetailModal') || document.getElementById('taskDetailsModal');
+      if (!filesEl || !modal) {
+        return;
+      }
+
+      const modalContent = modal.querySelector('.modal-content');
+      if (modalContent && typeof modalContent.scrollTo === 'function') {
+        const contentRect = modalContent.getBoundingClientRect();
+        const filesRect = filesEl.getBoundingClientRect();
+        const offset = filesRect.top - contentRect.top + modalContent.scrollTop - 16;
+        modalContent.scrollTo({ top: Math.max(offset, 0), behavior: 'smooth' });
+      } else {
+        filesEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } catch (error) {
+      console.warn('Failed to scroll to attachment section:', error);
     }
   }
 
@@ -6040,9 +6134,65 @@ class DashboardApp {
       }
     }
     
-    const files = task.files || [];
-    const submissions = task.submissions || [];
+    const baseTaskFiles = Array.isArray(task.files) ? task.files : [];
+    const attachedFiles = Array.isArray(task.attachedFiles) ? task.attachedFiles : [];
+    const files = baseTaskFiles.length > 0 ? baseTaskFiles : attachedFiles;
+    const submissions = Array.isArray(task.submissions) ? task.submissions : [];
     const tags = task.tags || [];
+
+    const submissionFiles = submissions.flatMap(submission =>
+      Array.isArray(submission?.files) ? submission.files : []
+    );
+
+    const initialAttachmentMarkup = files.length > 0
+      ? files.map(file => `
+                <div class="flex items-center justify-between bg-white border rounded-lg p-3">
+                  <div class="flex items-center space-x-3">
+                    <div class="flex-shrink-0">
+                      <i class="fas fa-file text-gray-400"></i>
+                    </div>
+                    <div>
+                      <p class="text-sm font-medium text-gray-900">${this.escapeHtml(file.originalName || file.name || file.filename || 'ไม่ทราบชื่อไฟล์')}</p>
+                      <p class="text-xs text-gray-500">${this.formatFileSize(file.size || 0)} • ${file.createdAt || file.updatedAt || file.uploadedAt ? this.formatDate(file.createdAt || file.updatedAt || file.uploadedAt) : '-'}</p>
+                    </div>
+                  </div>
+                  ${file.id ? `
+                    <div class="flex items-center space-x-2">
+                      <button class="btn btn-sm btn-outline" onclick="dashboardApp.downloadFile('${file.id}')">
+                        <i class="fas fa-download mr-1"></i>
+                        ดาวน์โหลด
+                      </button>
+                    </div>
+                  ` : ''}
+                </div>
+              `).join('')
+      : '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
+
+    const summarySeedMap = new Map();
+    const summarySeedList = [];
+    const pushSummarySeed = (file, type) => {
+      if (!file) return;
+      const seed = { ...file, attachmentType: file.attachmentType || type };
+      if (seed.id) {
+        if (!summarySeedMap.has(seed.id)) {
+          summarySeedMap.set(seed.id, seed);
+        } else {
+          const existing = summarySeedMap.get(seed.id);
+          if (!existing.attachmentType && seed.attachmentType) {
+            existing.attachmentType = seed.attachmentType;
+          }
+        }
+      } else if (seed.name || seed.filename) {
+        summarySeedList.push(seed);
+      }
+    };
+
+    files.filter(Boolean).forEach(file => pushSummarySeed(file, 'initial'));
+    submissionFiles
+      .filter(file => file && (file.id || file.name || file.filename))
+      .forEach(file => pushSummarySeed(file, 'submission'));
+
+    const summarySeeds = [...summarySeedMap.values(), ...summarySeedList];
     
     contentElement.innerHTML = `
       <div class="space-y-6">
@@ -6079,6 +6229,8 @@ class DashboardApp {
           </div>
         </div>
 
+        <div id="taskDetailAttachmentSummary" class="hidden mb-4"></div>
+
         <!-- รายละเอียดงาน -->
         <div>
           <h4 class="text-lg font-semibold text-gray-900 mb-3">รายละเอียดงาน</h4>
@@ -6102,32 +6254,14 @@ class DashboardApp {
         ` : ''}
 
         <!-- ไฟล์แนบจากตอนสร้างงาน -->
-        ${files.length > 0 ? `
-          <div>
-            <h4 class="text-lg font-semibold text-gray-900 mb-3">ไฟล์แนบ (${files.length} ไฟล์)</h4>
-            <div class="space-y-2">
-              ${files.map(file => `
-                <div class="flex items-center justify-between bg-white border rounded-lg p-3">
-                  <div class="flex items-center space-x-3">
-                    <div class="flex-shrink-0">
-                      <i class="fas fa-file text-gray-400"></i>
-                    </div>
-                    <div>
-                      <p class="text-sm font-medium text-gray-900">${file.originalName || file.name}</p>
-                      <p class="text-xs text-gray-500">${this.formatFileSize(file.size)} • ${this.formatDate(file.createdAt)}</p>
-                    </div>
-                  </div>
-                  <div class="flex items-center space-x-2">
-                    <button class="btn btn-sm btn-outline" onclick="dashboardApp.downloadFile('${file.id}')">
-                      <i class="fas fa-download mr-1"></i>
-                      ดาวน์โหลด
-                    </button>
-                  </div>
-                </div>
-              `).join('')}
+        <div>
+          <h4 class="text-lg font-semibold text-gray-900 mb-3">ไฟล์แนบ</h4>
+          <div class="bg-white border rounded-lg p-4">
+            <div id="taskDetailFiles" class="space-y-2">
+              ${initialAttachmentMarkup}
             </div>
           </div>
-        ` : ''}
+        </div>
 
         <!-- งานที่ส่ง -->
         ${submissions.length > 0 ? `
@@ -6156,8 +6290,8 @@ class DashboardApp {
                           <div class="flex items-center justify-between bg-gray-50 rounded-lg p-2">
                             <div class="flex items-center space-x-2">
                               <i class="fas fa-file text-gray-400"></i>
-                              <span class="text-sm text-gray-900">${file.originalName || file.name}</span>
-                              <span class="text-xs text-gray-500">(${this.formatFileSize(file.size)})</span>
+                              <span class="text-sm text-gray-900">${this.escapeHtml(file.originalName || file.name || file.filename || 'ไม่ทราบชื่อไฟล์')}</span>
+                              <span class="text-xs text-gray-500">(${this.formatFileSize(file.size || 0)})</span>
                             </div>
                             <button class="btn btn-xs btn-outline" onclick="dashboardApp.downloadFile('${file.id}')">
                               <i class="fas fa-download mr-1"></i>
@@ -6197,6 +6331,8 @@ class DashboardApp {
         </div>
       </div>
     `;
+    this.renderTaskAttachmentSummary(summarySeeds);
+    this.loadTaskFilesComprehensive(task);
   }
 
   // ฟังก์ชันดาวน์โหลดไฟล์
