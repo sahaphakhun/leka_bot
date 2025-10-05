@@ -16,6 +16,11 @@ class DashboardApp {
     this.currentAction = null;
     this.isLoading = false;
     this.selectedTaskFiles = []; // Store selected files for task creation
+    this.submitFiles = [];
+    this.submitFileInputEl = null;
+    this.fileCache = new Map();
+    this.groupFileCache = new Map();
+    this.taskFileCache = new Map();
     
     this.init();
   }
@@ -687,10 +692,27 @@ class DashboardApp {
       const result = await response.json();
       if (result.success) {
         this.tasks = result.data || [];
+        this.tasks.forEach(task => {
+          if (Array.isArray(task?.attachedFiles) && task.attachedFiles.length > 0) {
+            this.cacheFileRecords(task.attachedFiles, {
+              groupId: task.groupId || this.currentGroupId,
+              taskId: task.id
+            });
+          }
+
+          if (task?.workflow && Array.isArray(task.workflow.submissions)) {
+            const submissionIds = task.workflow.submissions.flatMap(submission =>
+              Array.isArray(submission?.fileIds) ? submission.fileIds : []
+            );
+            if (submissionIds.length > 0) {
+              this.registerTaskFileReferences(task.id, submissionIds);
+            }
+          }
+        });
       } else {
         throw new Error(result.error || 'Failed to load tasks');
       }
-      
+
       this.renderTasks();
       this.updateUpcomingTasks();
     } catch (error) {
@@ -3283,12 +3305,13 @@ class DashboardApp {
     document.getElementById('submitTaskFiles').value = '';
     document.getElementById('submitFileList').innerHTML = '';
     document.getElementById('submitFileList').classList.add('hidden');
-    
+
     // Reset submitFiles array
     this.submitFiles = [];
+    this.syncSubmitInputFileList([]);
 
     this.openModal('submitTaskModal');
-    
+
     // Setup file upload functionality after modal is opened
     setTimeout(() => {
       this.setupSubmitFileUpload();
@@ -3604,8 +3627,8 @@ class DashboardApp {
       return;
     }
 
-    const collectedFiles = [];
-    const seenIds = new Set();
+    const groupId = task.groupId || this.currentGroupId;
+    const aggregated = new Map();
     const submissionFileIds = new Set();
 
     if (task.workflow && Array.isArray(task.workflow.submissions)) {
@@ -3614,15 +3637,24 @@ class DashboardApp {
           submission.fileIds.forEach(id => submissionFileIds.add(id));
         }
       });
+      if (submissionFileIds.size > 0) {
+        this.registerTaskFileReferences(task.id, Array.from(submissionFileIds));
+      }
     }
 
-    const normalizeFile = (file, fallbackType) => {
-      if (!file || !file.id) return null;
+    const injectFile = (file, fallbackType) => {
+      if (!file || !file.id) return;
 
-      const normalized = {
-        ...file,
-        uploadedAt: file.uploadedAt || file.createdAt || file.updatedAt || null
-      };
+      const normalized = file.__normalized ? { ...file } : this.normalizeFileRecord({ ...file });
+      const resolvedGroupId = this.resolveFileGroupId(normalized, groupId);
+      if (resolvedGroupId) {
+        normalized.groupId = resolvedGroupId;
+        normalized.__groupId = resolvedGroupId;
+      }
+
+      if (!normalized.uploadedAt) {
+        normalized.uploadedAt = normalized.uploadedAt || normalized.createdAt || normalized.updatedAt || null;
+      }
 
       if (!normalized.attachmentType) {
         if (fallbackType) {
@@ -3634,61 +3666,76 @@ class DashboardApp {
         }
       }
 
-      if (!seenIds.has(normalized.id)) {
-        seenIds.add(normalized.id);
-        collectedFiles.push(normalized);
-      }
-
-      return normalized;
+      aggregated.set(normalized.id, normalized);
     };
 
+    if (Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0) {
+      task.attachedFiles.forEach(file => injectFile(file, 'initial'));
+      this.cacheFileRecords(task.attachedFiles, { groupId, taskId: task.id });
+    }
+
+    if (submissionFileIds.size > 0) {
+      submissionFileIds.forEach(id => {
+        const cached = this.findFileInCaches(id, groupId);
+        if (cached) {
+          injectFile(cached, 'submission');
+        }
+      });
+    }
+
     try {
-      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks/${task.id}/files`);
+      const response = await fetch(`/api/groups/${groupId}/tasks/${task.id}/files`);
       if (response.ok) {
-        const result = await response.json();
-        if (result && result.success && Array.isArray(result.data)) {
-          result.data.forEach(file => normalizeFile(file));
-          console.log('Loaded files from API:', collectedFiles.length);
+        const payload = await response.json();
+        const files = Array.isArray(payload?.data) ? payload.data : Array.isArray(payload) ? payload : [];
+        files.forEach(file => injectFile(file));
+        if (files.length > 0) {
+          this.cacheFileRecords(files, { groupId, taskId: task.id });
         }
       }
     } catch (error) {
       console.warn('Could not load files from API:', error);
     }
 
-    if (Array.isArray(task.attachedFiles) && task.attachedFiles.length > 0) {
-      console.log('Found attached files in task:', task.attachedFiles.length);
-      task.attachedFiles.forEach(file => normalizeFile(file, 'initial'));
-    }
-
-    const missingSubmissionIds = Array.from(submissionFileIds).filter(id => !seenIds.has(id));
-    if (missingSubmissionIds.length > 0) {
+    const unresolvedIds = Array.from(submissionFileIds).filter(id => !aggregated.has(id));
+    if (unresolvedIds.length > 0) {
       try {
-        const fetched = await Promise.all(missingSubmissionIds.map(async (fileId) => {
+        const resolvedFiles = await Promise.all(unresolvedIds.map(async fileId => {
+          const cached = this.findFileInCaches(fileId, groupId);
+          if (cached) return cached;
           try {
-            const resp = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
+            const resp = await fetch(`/api/groups/${groupId}/files/${fileId}`);
             if (!resp.ok) return null;
             const payload = await resp.json();
             const data = payload?.data || payload;
-            if (data && data.id) {
-              data.attachmentType = data.attachmentType || 'submission';
-              return data;
-            }
-            return null;
+            return data && data.id ? data : null;
           } catch (err) {
             console.warn('Failed to load submission file detail:', err);
             return null;
           }
         }));
-        fetched.filter(Boolean).forEach(file => normalizeFile(file, 'submission'));
+        const validResolved = resolvedFiles.filter(Boolean);
+        validResolved.forEach(file => injectFile(file, 'submission'));
+        if (validResolved.length > 0) {
+          this.cacheFileRecords(validResolved, { groupId, taskId: task.id });
+        }
       } catch (err) {
         console.warn('Could not resolve all submission files:', err);
       }
     }
 
-    if (collectedFiles.length === 0) {
+    if (aggregated.size === 0) {
       filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
       return;
     }
+
+    const collectedFiles = Array.from(aggregated.values()).sort((a, b) => {
+      const timeA = a.uploadedAt ? new Date(a.uploadedAt).getTime() : 0;
+      const timeB = b.uploadedAt ? new Date(b.uploadedAt).getTime() : 0;
+      return timeB - timeA;
+    });
+
+    this.cacheFileRecords(collectedFiles, { groupId, taskId: task.id });
 
     try {
       const initialFiles = collectedFiles.filter(file => file && file.attachmentType === 'initial');
@@ -3919,7 +3966,8 @@ class DashboardApp {
     
     const newFileInput = fileInput.cloneNode(true);
     fileInput.parentNode.replaceChild(newFileInput, fileInput);
-    
+    this.submitFileInputEl = newFileInput;
+
     // Click to upload
     newUploadArea.addEventListener('click', () => newFileInput.click());
     
@@ -3940,13 +3988,13 @@ class DashboardApp {
       e.preventDefault();
       newUploadArea.classList.remove('bg-blue-50', 'border-blue-300');
       
-      const files = Array.from(e.dataTransfer.files);
+      const files = Array.from(e.dataTransfer.files || []);
       this.displaySelectedFiles(files, newFileInput);
     });
-    
+
     // File input change
     newFileInput.addEventListener('change', (e) => {
-      const files = Array.from(e.target.files);
+      const files = Array.from(e.target.files || []);
       this.displaySelectedFiles(files, newFileInput);
     });
   }
@@ -3960,7 +4008,8 @@ class DashboardApp {
     }
 
     // Store files in the instance variable
-    this.submitFiles = Array.from(files);
+    this.submitFiles = Array.isArray(files) ? files : Array.from(files || []);
+    this.syncSubmitInputFileList(this.submitFiles);
 
     if (files.length === 0) {
       fileList.innerHTML = '';
@@ -3995,10 +4044,10 @@ class DashboardApp {
   removeSubmitFile(index) {
     if (this.submitFiles && index >= 0 && index < this.submitFiles.length) {
       this.submitFiles.splice(index, 1);
-      
+
       // Update the display
       this.displaySelectedFiles(this.submitFiles, document.getElementById('submitTaskFiles'));
-      
+
       // Clear the file input if no files left
       if (this.submitFiles.length === 0) {
         const fileInput = document.getElementById('submitTaskFiles');
@@ -4015,86 +4064,107 @@ class DashboardApp {
       return;
     }
 
-    // Check if file attachment is required and validate
-    if (this.currentTaskToSubmit && this.currentTaskToSubmit.requireAttachment) {
-      const hasFiles = this.submitFiles && this.submitFiles.length > 0;
-      if (!hasFiles) {
-        this.showToast('งานนี้ต้องแนบไฟล์เพื่อส่งงาน กรุณาเลือกไฟล์ก่อนกดส่ง', 'error');
-        
-        // Highlight the upload area to draw attention
-        const uploadArea = document.getElementById('submitFileUploadArea');
-        if (uploadArea) {
-          uploadArea.classList.remove('border-yellow-300', 'bg-yellow-50');
-          uploadArea.classList.add('border-red-300', 'bg-red-50');
-          
-          // Reset to warning style after 3 seconds
-          setTimeout(() => {
-            uploadArea.classList.remove('border-red-300', 'bg-red-50');
-            uploadArea.classList.add('border-yellow-300', 'bg-yellow-50');
-          }, 3000);
-        }
-        
-        return;
+    const comment = (document.getElementById('submitComment')?.value || '').toString().trim();
+    const files = this.getSubmitFilesFromState();
+    const validFiles = files.filter(file => file && file.size > 0);
+
+    if (this.currentTaskToSubmit && this.currentTaskToSubmit.requireAttachment && validFiles.length === 0) {
+      this.showToast('งานนี้ต้องแนบไฟล์เพื่อส่งงาน กรุณาเลือกไฟล์ก่อนกดส่ง', 'error');
+
+      const uploadArea = document.getElementById('submitFileUploadArea');
+      if (uploadArea) {
+        uploadArea.classList.remove('border-yellow-300', 'bg-yellow-50');
+        uploadArea.classList.add('border-red-300', 'bg-red-50');
+
+        setTimeout(() => {
+          uploadArea.classList.remove('border-red-300', 'bg-red-50');
+          uploadArea.classList.add('border-yellow-300', 'bg-yellow-50');
+        }, 3000);
       }
+
+      return;
     }
-    
+
     try {
-      await this.submitTask(this.currentTaskId, this.submitFiles || []);
-      this.closeModal('submitTaskModal');
-      this.submitFiles = [];
-      this.currentTaskToSubmit = null; // Clear stored task data
+      await this.submitTask(this.currentTaskId, { files: validFiles, comment });
     } catch (error) {
       console.error('Error submitting task:', error);
     }
   }
 
-  async submitTask(taskId, files = []) {
+  async submitTask(taskId, options = {}) {
+    const opts = Array.isArray(options) ? { files: options } : options || {};
+    const files = Array.isArray(opts.files) ? opts.files.filter(file => file && file.size > 0) : [];
+    const comment = (opts.comment || '').toString().trim();
+    const links = Array.isArray(opts.links) ? opts.links : [];
+
     try {
       this.showToast('กำลังส่งงาน...', 'info');
-      
+
       const formData = new FormData();
-      
-      // Add userId for authentication
+
       if (this.currentUserId) {
         formData.append('userId', this.currentUserId);
       }
-      
-      // เพิ่มไฟล์ลงใน FormData
-      files.forEach((file, index) => {
-        formData.append(`files`, file);
+
+      if (comment) {
+        formData.append('comment', comment);
+      }
+
+      links.forEach(link => {
+        if (link) {
+          formData.append('links[]', link);
+        }
       });
-      
-      const response = await fetch(`/api/tasks/${taskId}/submit?userId=${encodeURIComponent(this.currentUserId || '')}`, {
+
+      files.forEach(file => {
+        formData.append('attachments', file);
+      });
+
+      const response = await fetch(`/api/dashboard/tasks/${taskId}/submit`, {
         method: 'POST',
-        headers: {},
         body: formData
       });
-      
+
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
       }
-      
+
       const result = await response.json();
       if (result.success) {
-        // อัปเดตสถานะงาน
         const taskIndex = this.tasks.findIndex(t => t.id === taskId);
         if (taskIndex !== -1) {
           this.tasks[taskIndex].status = 'submitted';
           this.tasks[taskIndex].submittedAt = new Date().toISOString();
         }
-        
+
         this.showToast('ส่งงานเรียบร้อย', 'success');
+        this.closeModal('submitTaskModal');
         this.renderTasks();
         this.renderRecentTasks();
         this.updateUpcomingTasks();
+
+        this.submitFiles = [];
+        this.syncSubmitInputFileList([]);
+        this.currentTaskToSubmit = null;
+        this.currentTaskId = null;
+        if (this.submitFileInputEl) {
+          this.submitFileInputEl.value = '';
+        }
       } else {
         throw new Error(result.error || 'Failed to submit task');
       }
-      
+
+      return result;
     } catch (error) {
       console.error('Error submitting task:', error);
-      this.showToast(`เกิดข้อผิดพลาดในการส่งงาน: ${error.message}`, 'error');
+      if (error instanceof Error && error.message) {
+        this.showToast(`เกิดข้อผิดพลาดในการส่งงาน: ${error.message}`, 'error');
+      } else {
+        this.showToast('เกิดข้อผิดพลาดในการส่งงาน', 'error');
+      }
+      throw error;
     }
   }
 
@@ -4159,93 +4229,41 @@ class DashboardApp {
   // Submit Task Form Handling
   async handleSubmitTaskForm(e) {
     e.preventDefault();
-    
+
     const formData = new FormData(e.target);
-    const taskId = formData.get('taskId');
-    const comment = formData.get('comment');
-    const files = formData.getAll('files');
-    
+    const taskId = formData.get('taskId') || this.currentTaskId;
+    const comment = (formData.get('comment') || '').toString().trim();
+    const files = this.getSubmitFilesFromState();
+    const validFiles = files.filter(file => file && file.size > 0);
+
     if (!taskId) {
       this.showToast('ไม่พบงานที่ต้องการส่ง', 'error');
       return;
     }
 
-    // Check if file attachment is required and validate
     if (this.currentTaskToSubmit && this.currentTaskToSubmit.requireAttachment) {
-      const hasValidFiles = files.some(file => file.size > 0);
-      if (!hasValidFiles) {
+      if (validFiles.length === 0) {
         this.showToast('งานนี้ต้องแนบไฟล์เพื่อส่งงาน กรุณาเลือกไฟล์ก่อนกดส่ง', 'error');
-        
-        // Highlight the upload area to draw attention
+
         const uploadArea = document.getElementById('submitFileUploadArea');
         if (uploadArea) {
           uploadArea.classList.remove('border-yellow-300', 'bg-yellow-50');
           uploadArea.classList.add('border-red-300', 'bg-red-50');
-          
-          // Reset to warning style after 3 seconds
+
           setTimeout(() => {
             uploadArea.classList.remove('border-red-300', 'bg-red-50');
             uploadArea.classList.add('border-yellow-300', 'bg-yellow-50');
           }, 3000);
         }
-        
+
         return;
       }
     }
-    
+
     try {
-      this.showToast('กำลังส่งงาน...', 'info');
-      
-      const submitFormData = new FormData();
-      if (comment) submitFormData.append('comment', comment);
-      
-      // Add userId for authentication
-      if (this.currentUserId) {
-        submitFormData.append('userId', this.currentUserId);
-      }
-      
-      // เพิ่มไฟล์แนบ
-      files.forEach(file => {
-        if (file.size > 0) {
-          submitFormData.append('files', file);
-        }
-      });
-      
-      const response = await fetch(`/api/tasks/${taskId}/submit?userId=${encodeURIComponent(this.currentUserId || '')}`, {
-        method: 'POST',
-        headers: {},
-        body: submitFormData
-      });
-      
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const result = await response.json();
-      if (result.success) {
-        // อัปเดตสถานะงาน
-        const taskIndex = this.tasks.findIndex(t => t.id === taskId);
-        if (taskIndex !== -1) {
-          this.tasks[taskIndex].status = 'submitted';
-          this.tasks[taskIndex].submittedAt = new Date().toISOString();
-        }
-        
-        this.showToast('ส่งงานเรียบร้อย', 'success');
-        this.closeModal('submitTaskModal');
-        this.renderTasks();
-        this.renderRecentTasks();
-        this.updateUpcomingTasks();
-        
-        // Clear stored task data
-        this.currentTaskToSubmit = null;
-      } else {
-        throw new Error(result.error || 'Failed to submit task');
-      }
-      
+      await this.submitTask(taskId, { files: validFiles, comment });
     } catch (error) {
       console.error('Error submitting task:', error);
-      this.showToast(`เกิดข้อผิดพลาดในการส่งงาน: ${error.message}`, 'error');
     }
   }
 
@@ -4427,6 +4445,7 @@ class DashboardApp {
       const result = await response.json();
       if (result.success) {
         this.files = (result.data || []).map(f => this.normalizeFileRecord(f));
+        this.cacheFileRecords(this.files, { groupId: this.currentGroupId });
         console.log('API group files loaded:', this.files);
         
         // If no group-level files found, check task-level files
@@ -4538,6 +4557,7 @@ class DashboardApp {
       
       if (allTaskFiles.length > 0) {
         this.files = allTaskFiles;
+        this.cacheFileRecords(this.files, { groupId: this.currentGroupId });
         console.log('Total accessible task files:', allTaskFiles.length);
       } else {
         console.log('No files found in any tasks');
@@ -4573,10 +4593,146 @@ class DashboardApp {
         if (ext) display = `${display}.${ext}`;
       }
       clone.name = display || 'ไฟล์ไม่มีชื่อ';
+      if (!clone.groupId && clone.group && (clone.group.id || clone.group.groupId)) {
+        clone.groupId = clone.group.id || clone.group.groupId;
+      }
+      if (clone.groupId) {
+        clone.__groupId = clone.groupId;
+      }
+      clone.__normalized = true;
       return clone;
     } catch {
       return file;
     }
+  }
+
+  resolveFileGroupId(file, fallbackGroupId) {
+    if (!file) {
+      return fallbackGroupId || this.currentGroupId;
+    }
+    return (
+      file.groupId ||
+      file.__groupId ||
+      (file.group && (file.group.id || file.group.groupId)) ||
+      fallbackGroupId ||
+      this.currentGroupId
+    );
+  }
+
+  cacheFileRecords(files, context = {}) {
+    if (!files) return;
+
+    const iterable = Array.isArray(files) ? files : Array.from(files);
+    const { groupId: contextGroupId, taskId } = context;
+
+    iterable.forEach(original => {
+      if (!original || !original.id) {
+        return;
+      }
+
+      const record = original.__normalized ? { ...original } : this.normalizeFileRecord({ ...original });
+      const resolvedGroupId = this.resolveFileGroupId(record, contextGroupId);
+      if (resolvedGroupId) {
+        record.groupId = resolvedGroupId;
+        record.__groupId = resolvedGroupId;
+      }
+
+      this.fileCache.set(record.id, record);
+
+      if (resolvedGroupId) {
+        if (!this.groupFileCache.has(resolvedGroupId)) {
+          this.groupFileCache.set(resolvedGroupId, new Map());
+        }
+        this.groupFileCache.get(resolvedGroupId).set(record.id, record);
+      }
+
+      if (taskId) {
+        if (!this.taskFileCache.has(taskId)) {
+          this.taskFileCache.set(taskId, new Set());
+        }
+        this.taskFileCache.get(taskId).add(record.id);
+      }
+    });
+  }
+
+  registerTaskFileReferences(taskId, fileIds = []) {
+    if (!taskId) return;
+    if (!this.taskFileCache.has(taskId)) {
+      this.taskFileCache.set(taskId, new Set());
+    }
+    const bucket = this.taskFileCache.get(taskId);
+    fileIds.forEach(fileId => {
+      if (fileId) {
+        bucket.add(fileId);
+      }
+    });
+  }
+
+  findFileInCaches(fileId, fallbackGroupId) {
+    if (!fileId) {
+      return null;
+    }
+
+    if (this.fileCache.has(fileId)) {
+      return this.fileCache.get(fileId);
+    }
+
+    const groupId = fallbackGroupId || this.currentGroupId;
+    if (groupId && this.groupFileCache.has(groupId)) {
+      const fromGroup = this.groupFileCache.get(groupId).get(fileId);
+      if (fromGroup) {
+        this.fileCache.set(fileId, fromGroup);
+        return fromGroup;
+      }
+    }
+
+    if (this.taskFileCache) {
+      for (const [taskId, fileSet] of this.taskFileCache.entries()) {
+        if (fileSet.has(fileId)) {
+          const task = this.tasks.find(t => t.id === taskId);
+          if (task && Array.isArray(task.attachedFiles)) {
+            const match = task.attachedFiles.find(f => f.id === fileId);
+            if (match) {
+              this.cacheFileRecords([match], { groupId: task.groupId || groupId, taskId });
+              return this.fileCache.get(fileId) || match;
+            }
+          }
+        }
+      }
+    }
+
+    const fromList = (this.files || []).find(f => f.id === fileId);
+    if (fromList) {
+      this.cacheFileRecords([fromList], { groupId: this.resolveFileGroupId(fromList, groupId) });
+      return this.fileCache.get(fileId) || fromList;
+    }
+
+    return null;
+  }
+
+  syncSubmitInputFileList(files) {
+    const input = this.submitFileInputEl || document.getElementById('submitTaskFiles');
+    if (!input) return;
+
+    try {
+      const dataTransfer = new DataTransfer();
+      (files || []).forEach(file => {
+        if (file instanceof File) {
+          dataTransfer.items.add(file);
+        }
+      });
+      input.files = dataTransfer.files;
+    } catch (error) {
+      console.warn('Unable to sync file input programmatically:', error);
+    }
+  }
+
+  getSubmitFilesFromState() {
+    if (Array.isArray(this.submitFiles)) {
+      return this.submitFiles.filter(file => file instanceof File);
+    }
+    const input = this.submitFileInputEl || document.getElementById('submitTaskFiles');
+    return input && input.files ? Array.from(input.files) : [];
   }
 
   getExtensionFromMime(mime) {
@@ -5140,8 +5296,9 @@ class DashboardApp {
 
   // Get file preview URL (via API for reliability)
   getFilePreviewUrl(file) {
-    if (file && file.id && this.currentGroupId) {
-      return `/api/groups/${this.currentGroupId}/files/${file.id}/preview`;
+    const groupId = this.resolveFileGroupId(file);
+    if (file && file.id && groupId) {
+      return `/api/groups/${groupId}/files/${file.id}/preview`;
     }
     if (file && file.path) {
       return file.path;
@@ -5210,19 +5367,23 @@ class DashboardApp {
 
   // File action functions
   async previewFile(fileId) {
-    let file = this.files.find(f => f.id === fileId);
+    let file = this.findFileInCaches(fileId, this.currentGroupId);
+
     if (!file) {
-      // Fallback: fetch file info from API (used by task detail modal)
+      const groupId = this.resolveFileGroupId(null, this.currentGroupId);
       try {
-        const res = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
+        const res = await fetch(`/api/groups/${groupId}/files/${fileId}`);
         if (res.ok) {
           const payload = await res.json();
-          if (payload && payload.success && payload.data) {
-            file = payload.data;
+          const data = payload && typeof payload === 'object' && 'data' in payload ? payload.data : payload;
+          if (data && data.id) {
+            file = data;
+            this.cacheFileRecords([data], { groupId: this.resolveFileGroupId(data, groupId) });
           }
         }
       } catch {}
     }
+
     if (!file) {
       this.showToast('ไม่พบไฟล์ที่ต้องการ', 'error');
       return;
@@ -6039,36 +6200,55 @@ class DashboardApp {
   }
 
   // ฟังก์ชันดาวน์โหลดไฟล์
-  async downloadFile(fileId, retryAttempt = 0) {
+  async downloadFile(fileOrId, retryAttempt = 0) {
     const maxRetries = 3;
     const retryDelay = 1000; // 1 second
-    
-    try {
-      console.log('[Download] Start', { fileId, groupId: this.currentGroupId, attempt: retryAttempt + 1 });
 
-      // Preflight: fetch file info once on first attempt to aid debugging
+    try {
+      const fileId = typeof fileOrId === 'string' ? fileOrId : fileOrId?.id;
+      if (!fileId) {
+        this.showToast('ไม่พบไฟล์ที่ต้องการดาวน์โหลด', 'error');
+        return;
+      }
+
+      let resolvedFile = (fileOrId && typeof fileOrId === 'object') ? fileOrId : null;
+      if (!resolvedFile) {
+        resolvedFile = this.findFileInCaches(fileId, this.currentGroupId);
+      }
+
+      const effectiveGroupId = this.resolveFileGroupId(resolvedFile, this.currentGroupId);
+
+      console.log('[Download] Start', { fileId, groupId: effectiveGroupId, attempt: retryAttempt + 1 });
+
       if (retryAttempt === 0) {
         try {
-          const infoProbe = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
+          const infoUrl = effectiveGroupId
+            ? `/api/groups/${effectiveGroupId}/files/${fileId}`
+            : `/api/groups/${this.currentGroupId}/files/${fileId}`;
+          const infoProbe = await fetch(infoUrl);
           let infoJson = null;
           try { infoJson = await infoProbe.json(); } catch {}
           const fileMeta = infoJson && typeof infoJson === 'object' && 'data' in infoJson ? infoJson.data : infoJson;
+          if (fileMeta && fileMeta.id) {
+            resolvedFile = fileMeta;
+            this.cacheFileRecords([fileMeta], { groupId: this.resolveFileGroupId(fileMeta, effectiveGroupId) });
+          }
           console.log('[Download] File info probe', { status: infoProbe.status, ok: infoProbe.ok, file: fileMeta });
         } catch (probeErr) {
           console.warn('[Download] File info probe failed', probeErr);
         }
       }
 
-      // Show loading indicator for retries
       if (retryAttempt > 0) {
         this.showToast(`กำลังลองดาวน์โหลดอีกครั้ง... (ครั้งที่ ${retryAttempt + 1})`, 'info');
       }
-      
-      // Use correct API endpoint with groupId
-      const downloadUrl = `/api/groups/${this.currentGroupId}/files/${fileId}/download`;
+
+      const downloadUrl = effectiveGroupId
+        ? `/api/groups/${effectiveGroupId}/files/${fileId}/download`
+        : `/api/groups/${this.currentGroupId}/files/${fileId}/download`;
       console.log('[Download] Fetching', { url: downloadUrl });
       const response = await fetch(downloadUrl);
-      
+
       if (response.ok) {
         const blob = await response.blob();
         const respMime = response.headers.get('Content-Type') || '';
@@ -6077,132 +6257,115 @@ class DashboardApp {
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        
-        // Try to get filename from Content-Disposition header
-        let filename = 'download';
-        const contentDisposition = cdHeader;
-        if (contentDisposition) {
-          // Try to extract from filename*=UTF-8'' first (RFC 5987)
-          const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/);
+
+        let filename = resolvedFile?.originalName || resolvedFile?.fileName || resolvedFile?.name || 'download';
+        if (cdHeader) {
+          const utf8Match = cdHeader.match(/filename\*=UTF-8''([^;]+)/);
           if (utf8Match) {
             filename = decodeURIComponent(utf8Match[1]);
           } else {
-            // Try to extract from filename= normally
-            const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+            const filenameMatch = cdHeader.match(/filename="([^"]+)"/);
             if (filenameMatch) {
               filename = filenameMatch[1];
             }
           }
         }
 
-        // If no usable filename or missing extension, try to fix from API/UI/mime
-        const hasExt = filename && filename.includes('.') && !filename.endsWith('.');
-        if (filename === 'download' || !hasExt) {
-          try {
-            // Try to get file info from API to get originalName
-            const infoRes = await fetch(`/api/groups/${this.currentGroupId}/files/${fileId}`);
-            if (infoRes.ok) {
-              let fileData = await infoRes.json();
-              if (fileData && typeof fileData === 'object' && 'data' in fileData) {
-                fileData = fileData.data;
-              }
-              if (fileData) {
-                const prefer = fileData.originalName || fileData.fileName || fileData.name;
-                if (prefer) filename = prefer;
-                // Ensure extension based on server mime if still missing
-                if (!filename.includes('.') && (fileData.mimeType || respMime)) {
-                  const ext = this.getExtensionFromMime(fileData.mimeType || respMime);
-                  if (ext) filename = `${filename}.${ext}`;
-                }
-              }
+        if (!filename || filename === 'download') {
+          const fallbackInfo = resolvedFile || this.findFileInCaches(fileId, effectiveGroupId);
+          if (fallbackInfo) {
+            const prefer = fallbackInfo.originalName || fallbackInfo.fileName || fallbackInfo.name;
+            if (prefer) filename = prefer;
+            if (!filename.includes('.') && (fallbackInfo.mimeType || respMime)) {
+              const ext = this.getExtensionFromMime(fallbackInfo.mimeType || respMime);
+              if (ext) filename = `${filename}.${ext}`;
             }
-          } catch (err) {
-            console.warn('Failed to fetch file info for filename:', err);
-          }
-
-          // If still no filename, try to use data from UI
-          if (filename === 'download') {
-            const nameFromUI = document.querySelector(`[data-file-id="${fileId}"] .file-name`)?.textContent?.trim();
-            if (nameFromUI) filename = nameFromUI;
-          }
-          // Decode mojibake if present (common Thai UTF-8 mis-decoding)
-          if (/^[\s\S]*[àÃ]/.test(filename)) {
-            try {
-              const bytes = Uint8Array.from(Array.from(filename).map(ch => ch.charCodeAt(0) & 0xFF));
-              const decoded = new TextDecoder('utf-8').decode(bytes);
-              if (decoded && /[\u0E00-\u0E7F]/.test(decoded)) filename = decoded;
-            } catch {}
           }
         }
-        
+
+        if (!filename || filename === 'download') {
+          const nameFromUI = document.querySelector(`[data-file-id="${fileId}"] .file-name`)?.textContent?.trim();
+          if (nameFromUI) filename = nameFromUI;
+        }
+
+        if (/^[\s\S]*[àÃ]/.test(filename)) {
+          try {
+            const bytes = Uint8Array.from(Array.from(filename).map(ch => ch.charCodeAt(0) & 0xFF));
+            const decoded = new TextDecoder('utf-8').decode(bytes);
+            if (decoded && /[\u0E00-\u0E7F]/.test(decoded)) filename = decoded;
+          } catch {}
+        }
+
         a.download = filename;
         document.body.appendChild(a);
         a.click();
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
         this.showToast('เริ่มดาวน์โหลดไฟล์เรียบร้อย', 'success');
-        
-      } else {
-        // Note: vanilla JS file; avoid TypeScript annotations
-        let bodyText = null;
-        try { bodyText = await response.text(); } catch {}
-        console.warn('[Download] HTTP error', { status: response.status, statusText: response.statusText, body: bodyText ? bodyText.slice(0, 300) : null });
-        // Handle different error types with specific messages
-        let errorMessage = `HTTP ${response.status}`;
-        let shouldRetry = false;
-        
-        switch (response.status) {
-          case 502:
-          case 503:
-          case 504:
-            errorMessage = 'เซิร์ฟเวอร์ไม่พร้อมใช้งานชั่วคราว';
-            shouldRetry = true;
-            break;
-          case 404:
-            errorMessage = 'ไม่พบไฟล์ที่ต้องการดาวน์โหลด';
-            break;
-          case 403:
-            errorMessage = 'ไม่มีสิทธิ์เข้าถึงไฟล์นี้';
-            break;
-          case 500:
-            errorMessage = 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์';
-            shouldRetry = true;
-            break;
-          default:
-            errorMessage = `เกิดข้อผิดพลาด: ${response.status} ${response.statusText}`;
-            shouldRetry = response.status >= 500;
-        }
-        
-        // Retry logic for server errors
-        if (shouldRetry && retryAttempt < maxRetries) {
-          console.warn(`[Download] Retry due to ${response.status} (${response.statusText})`, { attempt: retryAttempt + 1, maxRetries });
-          await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
-          return this.downloadFile(fileId, retryAttempt + 1);
-        }
-        
-        throw new Error(errorMessage);
+        return;
       }
+
+      let bodyText = null;
+      try { bodyText = await response.text(); } catch {}
+      console.warn('[Download] HTTP error', { status: response.status, statusText: response.statusText, body: bodyText ? bodyText.slice(0, 300) : null });
+      let errorMessage = `HTTP ${response.status}`;
+      let shouldRetry = false;
+
+      switch (response.status) {
+        case 502:
+        case 503:
+        case 504:
+          errorMessage = 'เซิร์ฟเวอร์ไม่พร้อมใช้งานชั่วคราว';
+          shouldRetry = true;
+          break;
+        case 404:
+          errorMessage = 'ไม่พบไฟล์ที่ต้องการดาวน์โหลด';
+          break;
+        case 403:
+          errorMessage = 'ไม่มีสิทธิ์เข้าถึงไฟล์นี้';
+          break;
+        case 500:
+          errorMessage = 'เกิดข้อผิดพลาดภายในเซิร์ฟเวอร์';
+          shouldRetry = true;
+          break;
+        default:
+          errorMessage = `เกิดข้อผิดพลาด: ${response.status} ${response.statusText}`;
+          shouldRetry = response.status >= 500;
+      }
+
+      if (shouldRetry && retryAttempt < maxRetries) {
+        console.warn('[Download] Retry due to HTTP error', { status: response.status, attempt: retryAttempt + 1 });
+        await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
+        return this.downloadFile(fileId, retryAttempt + 1);
+      }
+
+      throw new Error(errorMessage);
     } catch (error) {
-      console.error('[Download] Error', { name: (error && error.name) || undefined, message: (error && error.message) || undefined, attempt: retryAttempt + 1, fileId, groupId: this.currentGroupId });
-      
-      // Check if this is a network error that should be retried
-      const isNetworkError = error.name === 'TypeError' || error.message.includes('Failed to fetch');
-      const isServerError = error.message.includes('502') || error.message.includes('503') || error.message.includes('504');
-      
+      const fileId = typeof fileOrId === 'string' ? fileOrId : fileOrId?.id;
+      console.error('[Download] Error', {
+        name: (error && error.name) || undefined,
+        message: (error && error.message) || undefined,
+        attempt: retryAttempt + 1,
+        fileId,
+        groupId: this.currentGroupId
+      });
+
+      const isNetworkError = error?.name === 'TypeError' || (error?.message || '').includes('Failed to fetch');
+      const isServerError = (error?.message || '').includes('502') || (error?.message || '').includes('503') || (error?.message || '').includes('504');
+
       if ((isNetworkError || isServerError) && retryAttempt < maxRetries) {
         console.warn('[Download] Network/server error -> retry', { attempt: retryAttempt + 1, maxRetries, isNetworkError, isServerError });
         await new Promise(resolve => setTimeout(resolve, retryDelay * (retryAttempt + 1)));
         return this.downloadFile(fileId, retryAttempt + 1);
       }
-      
-      // Final error message
+
       let userMessage = 'เกิดข้อผิดพลาดในการดาวน์โหลดไฟล์';
       if (retryAttempt >= maxRetries) {
         userMessage = `ไม่สามารถดาวน์โหลดไฟล์ได้หลังจากลองแล้ว ${maxRetries + 1} ครั้ง กรุณาลองใหม่อีกครั้งภายหลัง`;
-      } else if (error.message && !error.message.includes('HTTP')) {
+      } else if (error?.message && !error.message.includes('HTTP')) {
         userMessage = error.message;
       }
-      
+
       this.showToast(userMessage, 'error');
     }
   }

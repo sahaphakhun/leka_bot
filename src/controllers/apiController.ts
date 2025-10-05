@@ -4023,7 +4023,7 @@ apiRouter.get('/groups/:groupId/tasks', validateRequest(taskSchemas.list), apiCo
 apiRouter.post('/groups/:groupId/tasks', validateRequest(taskSchemas.create), apiController.createTask.bind(apiController));
 apiRouter.get('/groups/:groupId/calendar', apiController.getCalendarEvents.bind(apiController));
 // Group file listing should respect the requested group rather than defaulting to "default"
-apiRouter.get('/groups/:groupId/files', apiController.getGroupFiles.bind(apiController));
+apiRouter.get('/groups/:groupId/files', (req, res) => apiController.getGroupFiles(req, res));
 apiRouter.get('/groups/:groupId/leaderboard', apiController.getLeaderboard.bind(apiController));
 apiRouter.post('/groups/:groupId/sync-leaderboard', apiController.syncLeaderboard.bind(apiController));
 apiRouter.get('/users/:userId/score-history/:groupId', apiController.getUserScoreHistory.bind(apiController));
@@ -4126,7 +4126,7 @@ apiRouter.get('/groups/:groupId/tasks/:taskId',
 apiRouter.get('/tasks/:groupId', apiController.getTasks.bind(apiController));
 apiRouter.post('/tasks/:groupId', apiController.createTask.bind(apiController));
 apiRouter.get('/calendar/:groupId', apiController.getCalendarEvents.bind(apiController));
-apiRouter.get('/files/:groupId', apiController.getFiles.bind(apiController));
+apiRouter.get('/files/:groupId', (req, res) => apiController.getGroupFiles(req, res));
 apiRouter.get('/leaderboard/:groupId', apiController.getLeaderboard.bind(apiController));
 
   // Debug endpoint for recurring tasks
