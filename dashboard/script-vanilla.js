@@ -3552,6 +3552,7 @@ class DashboardApp {
     document.getElementById('taskDetailLastSubmission').textContent = lastSubmissionDate;
 
     // Files - check both API and task.attachedFiles
+    this.renderTaskAttachmentSummary(Array.isArray(task?.attachedFiles) ? task.attachedFiles : []);
     this.loadTaskFilesComprehensive(task);
 
     // Notes - show both task notes and submission comments
@@ -3725,6 +3726,7 @@ class DashboardApp {
     }
 
     if (aggregated.size === 0) {
+      this.renderTaskAttachmentSummary([]);
       filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
       return;
     }
@@ -3736,6 +3738,7 @@ class DashboardApp {
     });
 
     this.cacheFileRecords(collectedFiles, { groupId, taskId: task.id });
+    this.renderTaskAttachmentSummary(collectedFiles);
 
     try {
       const initialFiles = collectedFiles.filter(file => file && file.attachmentType === 'initial');
@@ -3794,6 +3797,77 @@ class DashboardApp {
           </div>
         </div>
       `).join('');
+    }
+  }
+
+  renderTaskAttachmentSummary(files = []) {
+    try {
+      const summaryEl = document.getElementById('taskDetailAttachmentSummary');
+      if (!summaryEl) {
+        return;
+      }
+
+      const hasFiles = Array.isArray(files) && files.length > 0;
+      if (!hasFiles) {
+        summaryEl.classList.add('hidden');
+        summaryEl.innerHTML = '';
+        return;
+      }
+
+      const initialFiles = files.filter(file => file && file.attachmentType === 'initial');
+      const submissionFiles = files.filter(file => file && file.attachmentType === 'submission');
+      const otherFiles = files.filter(file => file && !['initial', 'submission'].includes(file.attachmentType));
+
+      const detailParts = [];
+      if (initialFiles.length > 0) detailParts.push(`ตอนสร้างงาน ${initialFiles.length}`);
+      if (submissionFiles.length > 0) detailParts.push(`การส่งงาน ${submissionFiles.length}`);
+      if (otherFiles.length > 0) detailParts.push(`อื่นๆ ${otherFiles.length}`);
+
+      const detailText = detailParts.length > 0
+        ? detailParts.join(' • ')
+        : `รวม ${files.length} ไฟล์`;
+
+      summaryEl.innerHTML = `
+        <div class="flex flex-wrap items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          <button type="button" id="taskDetailScrollToFilesBtn" class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-600 text-white text-sm font-medium shadow-sm hover:bg-blue-700 transition-colors">
+            <i class="fas fa-paperclip"></i>
+            ไฟล์แนบ ${files.length} ไฟล์
+          </button>
+          <span class="text-sm text-blue-700">${this.escapeHtml(detailText)}</span>
+          <span class="text-xs text-blue-600">กดเพื่อเลื่อนลงไปยังรายการไฟล์</span>
+        </div>
+      `;
+
+      summaryEl.classList.remove('hidden');
+
+      const scrollBtn = document.getElementById('taskDetailScrollToFilesBtn');
+      if (scrollBtn) {
+        scrollBtn.addEventListener('click', () => this.scrollToTaskAttachmentSection());
+      }
+    } catch (error) {
+      console.warn('Failed to render attachment summary:', error);
+    }
+  }
+
+  scrollToTaskAttachmentSection() {
+    try {
+      const filesEl = document.getElementById('taskDetailFiles');
+      const modal = document.getElementById('taskDetailModal');
+      if (!filesEl || !modal) {
+        return;
+      }
+
+      const modalContent = modal.querySelector('.modal-content');
+      if (modalContent && typeof modalContent.scrollTo === 'function') {
+        const contentRect = modalContent.getBoundingClientRect();
+        const filesRect = filesEl.getBoundingClientRect();
+        const offset = filesRect.top - contentRect.top + modalContent.scrollTop - 16;
+        modalContent.scrollTo({ top: Math.max(offset, 0), behavior: 'smooth' });
+      } else {
+        filesEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      }
+    } catch (error) {
+      console.warn('Failed to scroll to attachment section:', error);
     }
   }
 
