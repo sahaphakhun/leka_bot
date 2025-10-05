@@ -212,13 +212,15 @@ export class FileService {
         throw new Error('Task not found');
       }
 
-      const alreadyLinked = task.attachedFiles?.some(attachedFile => attachedFile.id === fileId);
+      if (file.groupId !== task.groupId) {
+        throw new Error('File and task belong to different groups');
+      }
+
+      const attachedFiles = task.attachedFiles || [];
+      const alreadyLinked = attachedFiles.some(attachedFile => attachedFile.id === fileId);
       if (!alreadyLinked) {
-        const builder = entityManager.createQueryBuilder();
-        await builder
-          .relation(Task, 'attachedFiles')
-          .of(taskId)
-          .add(fileId);
+        task.attachedFiles = [...attachedFiles, file];
+        await taskRepository.save(task);
       }
 
     } catch (error) {
@@ -230,13 +232,24 @@ export class FileService {
   /**
    * ยกเลิกการผูกไฟล์กับงาน
    */
-  public async unlinkFileFromTask(fileId: string, taskId: string): Promise<void> {
+  public async unlinkFileFromTask(fileId: string, taskId: string, queryRunner?: QueryRunner): Promise<void> {
     try {
-      await AppDataSource
-        .createQueryBuilder()
-        .relation(Task, 'attachedFiles')
-        .of(taskId)
-        .remove(fileId);
+      const entityManager = queryRunner ? queryRunner.manager : AppDataSource.manager;
+      const taskRepository = entityManager.getRepository(Task);
+
+      const task = await taskRepository.findOne({ where: { id: taskId }, relations: ['attachedFiles'] });
+      if (!task) {
+        throw new Error('Task not found');
+      }
+
+      const currentFiles = task.attachedFiles || [];
+      const hasFile = currentFiles.some(f => f.id === fileId);
+      if (!hasFile) {
+        return;
+      }
+
+      task.attachedFiles = currentFiles.filter(f => f.id !== fileId);
+      await taskRepository.save(task);
 
     } catch (error) {
       console.error('❌ Error unlinking file from task:', error);
