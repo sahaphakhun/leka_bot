@@ -21,6 +21,7 @@ class DashboardApp {
     this.fileCache = new Map();
     this.groupFileCache = new Map();
     this.taskFileCache = new Map();
+    this.legacyTaskDetailRequestToken = 0;
     
     this.init();
   }
@@ -6042,18 +6043,109 @@ class DashboardApp {
   showTaskDetailsModal(task) {
     const modal = document.getElementById('taskDetailsModal');
     const overlay = document.getElementById('modalOverlay');
-    
+
     if (!modal) {
       this.createTaskDetailsModal();
     }
-    
+
+    this.currentTaskId = task?.id || null;
     this.populateTaskDetailsModal(task);
-    
+
+    const hasInitialFiles = Array.isArray(task?.attachedFiles) && task.attachedFiles.length > 0;
+    if (!hasInitialFiles) {
+      const filesEl = document.getElementById('taskDetailFiles');
+      const summaryEl = document.getElementById('taskDetailAttachmentSummary');
+      if (summaryEl) {
+        summaryEl.classList.add('hidden');
+        summaryEl.innerHTML = '';
+      }
+      if (filesEl) {
+        filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">กำลังโหลดไฟล์แนบ...</div>';
+      }
+    }
+
+    this.refreshLegacyTaskDetails(task);
+
     if (modal && overlay) {
       overlay.innerHTML = '';
       overlay.appendChild(modal);
       modal.classList.remove('hidden');
       overlay.classList.remove('hidden');
+    }
+  }
+
+  async refreshLegacyTaskDetails(task) {
+    try {
+      const taskId = task?.id;
+      if (!taskId) {
+        return;
+      }
+
+      this.legacyTaskDetailRequestToken += 1;
+      const currentToken = this.legacyTaskDetailRequestToken;
+
+      const candidateGroupIds = [];
+      if (task?.groupId) {
+        candidateGroupIds.push(task.groupId);
+      }
+      if (task?.group?.id && !candidateGroupIds.includes(task.group.id)) {
+        candidateGroupIds.push(task.group.id);
+      }
+      if (this.currentGroupId && !candidateGroupIds.includes(this.currentGroupId)) {
+        candidateGroupIds.push(this.currentGroupId);
+      }
+
+      const endpoints = candidateGroupIds.map(groupId => `/api/groups/${groupId}/tasks/${taskId}`);
+      endpoints.push(`/api/task/${taskId}`);
+
+      for (const endpoint of endpoints) {
+        try {
+          const response = await fetch(endpoint);
+          if (!response?.ok) {
+            continue;
+          }
+
+          const payload = await response.json();
+          const detailedTask = payload?.data || payload;
+          if (!detailedTask || (detailedTask.id && detailedTask.id !== taskId)) {
+            continue;
+          }
+
+          if (this.legacyTaskDetailRequestToken !== currentToken || this.currentTaskId !== taskId) {
+            return;
+          }
+
+          const mergedTask = {
+            ...task,
+            ...detailedTask
+          };
+
+          if (!mergedTask.groupId && mergedTask.group?.id) {
+            mergedTask.groupId = mergedTask.group.id;
+          }
+
+          if (!Array.isArray(mergedTask.attachedFiles) || mergedTask.attachedFiles.length === 0) {
+            const relatedFiles = Array.isArray(detailedTask.files) ? detailedTask.files : detailedTask.attachedFiles;
+            if (Array.isArray(relatedFiles) && relatedFiles.length > 0) {
+              mergedTask.attachedFiles = relatedFiles;
+            }
+          }
+
+          this.populateTaskDetailsModal(mergedTask);
+          return;
+        } catch (error) {
+          console.warn('Failed to refresh legacy task details from', endpoint, error);
+        }
+      }
+
+      if (this.legacyTaskDetailRequestToken === currentToken && this.currentTaskId === taskId) {
+        const filesEl = document.getElementById('taskDetailFiles');
+        if (filesEl && (!Array.isArray(task?.attachedFiles) || task.attachedFiles.length === 0)) {
+          filesEl.innerHTML = '<div class="text-gray-500 text-center py-4">ไม่มีไฟล์แนบ</div>';
+        }
+      }
+    } catch (error) {
+      console.warn('Failed to refresh legacy task details:', error);
     }
   }
 
