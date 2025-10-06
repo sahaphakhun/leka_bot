@@ -3,9 +3,10 @@
 import moment from 'moment-timezone';
 import { Repository } from 'typeorm';
 import { AppDataSource } from '@/utils/database';
-import { RecurringTask } from '@/models';
+import { RecurringTask, Task } from '@/models';
 import { config } from '@/utils/config';
 import { logger } from '@/utils/logger';
+import { TaskService } from './TaskService';
 
 export class RecurringTaskService {
   private repo: Repository<RecurringTask>;
@@ -29,9 +30,11 @@ export class RecurringTaskService {
     weekDay?: number;
     // monthly
     dayOfMonth?: number;
-    timeOfDay?: string; // 'HH:mm'
+    timeOfDay?: string; // 'HH:mm' (ไม่บังคับแล้ว)
     timezone?: string;
     createdByLineUserId: string;
+    // โหมดใหม่: วันกำหนดส่งของรอบแรก (จำเป็น)
+    initialDueTime: string | Date;
   }): Promise<RecurringTask> {
     try {
       logger.info('📝 RecurringTaskService.create called:', {
@@ -39,7 +42,8 @@ export class RecurringTaskService {
         title: template.title,
         recurrence: template.recurrence,
         assigneeCount: template.assigneeLineUserIds?.length || 0,
-        createdBy: template.createdByLineUserId
+        createdBy: template.createdByLineUserId,
+        initialDueTime: template.initialDueTime
       });
       
       // Validate required fields
@@ -55,6 +59,9 @@ export class RecurringTaskService {
       if (!template.createdByLineUserId) {
         throw new Error('createdByLineUserId is required');
       }
+      if (!template.initialDueTime) {
+        throw new Error('initialDueTime is required');
+      }
       
       // Check if repository is available
       if (!this.repo) {
@@ -63,33 +70,75 @@ export class RecurringTaskService {
       }
       
       const tz = template.timezone || config.app.defaultTimezone;
-      logger.info('🕰️ Calculating next run time with timezone:', tz);
-      
-      const nextRunAt = this.calculateNextRunAt({
-        recurrence: template.recurrence,
-        weekDay: template.weekDay,
-        dayOfMonth: template.dayOfMonth,
-        timeOfDay: template.timeOfDay || '09:00',
-        timezone: tz
-      });
-      
-      logger.info('📅 Next run calculated:', nextRunAt);
+      // แปลง initial due
+      const initialDue = typeof template.initialDueTime === 'string'
+        ? new Date(template.initialDueTime)
+        : template.initialDueTime;
+      if (isNaN(initialDue.getTime())) {
+        throw new Error('Invalid initialDueTime');
+      }
+
+      // อนุมานสัญญาณสำหรับ UI (ไม่บังคับผู้ใช้ต้องกรอก)
+      const derivedWeekDay = initialDue.getDay(); // 0-6
+      const derivedDayOfMonth = initialDue.getDate();
+      const hh = String(initialDue.getHours()).padStart(2, '0');
+      const mm = String(initialDue.getMinutes()).padStart(2, '0');
+      const derivedTimeOfDay = `${hh}:${mm}`;
 
       const entity = this.repo.create({
         ...template,
-        timeOfDay: template.timeOfDay || '09:00',
+        // เก็บค่าที่อนุมานจากกำหนดส่งครั้งแรก เพื่อแสดงผลสวยงาม
+        weekDay: template.weekDay ?? derivedWeekDay,
+        dayOfMonth: template.dayOfMonth ?? derivedDayOfMonth,
+        timeOfDay: template.timeOfDay || derivedTimeOfDay,
         timezone: tz,
         priority: template.priority || 'medium',
         tags: template.tags || [],
         requireAttachment: template.requireAttachment ?? true,
-        nextRunAt,
-        active: template.active ?? true
+        // ใช้ initial due เป็นตัวชี้วัดรอบล่าสุด (จะสร้างรอบถัดไปเมื่อเลยกำหนดนี้)
+        nextRunAt: initialDue,
+        active: template.active ?? true,
+        totalInstances: 0
       });
       
       logger.info('💾 Saving entity to database...');
       const saved = await this.repo.save(entity);
       logger.info('✅ Recurring task saved successfully:', { id: saved.id });
-      
+
+      // สร้างงานรอบแรกทันทีตามกำหนดส่งที่ระบุ
+      try {
+        const taskService = new TaskService();
+        const newTask = await taskService.createTask({
+          groupId: template.lineGroupId,
+          title: template.title,
+          description: template.description,
+          assigneeIds: template.assigneeLineUserIds || [],
+          createdBy: template.createdByLineUserId,
+          dueTime: initialDue,
+          priority: template.priority || 'medium',
+          tags: template.tags || [],
+          requireAttachment: !!template.requireAttachment,
+          reviewerUserId: template.reviewerLineUserId
+        });
+
+        // ลิงก์ task → recurring
+        await AppDataSource.getRepository(Task)
+          .createQueryBuilder()
+          .update()
+          .set({ recurringTaskId: saved.id, recurringInstance: 1 })
+          .where('id = :taskId', { taskId: newTask.id })
+          .execute();
+
+        // อัปเดตตัวนับและเวลาทำงานล่าสุด
+        saved.totalInstances = 1;
+        saved.lastRunAt = new Date();
+        await this.repo.save(saved);
+        logger.info('✅ First instance created and linked', { taskId: newTask.id, recurringId: saved.id });
+      } catch (firstErr) {
+        logger.error('❌ Failed to create first instance of recurring task:', firstErr);
+        // ไม่ throw ต่อเพื่อให้ยังคืน template ได้ แต่แนะนำให้ผู้ใช้ตรวจสอบ
+      }
+
       return saved;
     } catch (error) {
       logger.error('❌ Error in RecurringTaskService.create:', {

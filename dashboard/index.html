@@ -1360,7 +1360,7 @@
                                 <input type="radio" name="recurrence" value="weekly" class="mr-3" checked>
                                 <div>
                                     <div class="font-medium">📅 รายสัปดาห์</div>
-                                    <div class="text-sm text-gray-600">สร้างงานทุกสัปดาห์ ในวันที่กำหนด</div>
+                                    <div class="text-sm text-gray-600">สร้างงานใหม่เมื่อเลยกำหนดส่งของรอบล่าสุด ทุกสัปดาห์</div>
                                 </div>
                             </label>
                             
@@ -1368,7 +1368,7 @@
                                 <input type="radio" name="recurrence" value="monthly" class="mr-3">
                                 <div>
                                     <div class="font-medium">📆 รายเดือน</div>
-                                    <div class="text-sm text-gray-600">สร้างงานทุกเดือน ในวันที่กำหนด</div>
+                                    <div class="text-sm text-gray-600">สร้างงานใหม่เมื่อเลยกำหนดส่งของรอบล่าสุด ทุกเดือน</div>
                                 </div>
                             </label>
                             
@@ -1376,78 +1376,32 @@
                                 <input type="radio" name="recurrence" value="quarterly" class="mr-3">
                                 <div>
                                     <div class="font-medium">📈 รายไตรมาส</div>
-                                    <div class="text-sm text-gray-600">สร้างงานทุก 3 เดือน ในวันที่กำหนด</div>
+                                    <div class="text-sm text-gray-600">สร้างงานใหม่เมื่อเลยกำหนดส่งของรอบล่าสุด ทุก 3 เดือน</div>
                                 </div>
                             </label>
                         </div>
                     </div>
                     
-                    <!-- การตั้งค่าเวลา -->
+                    <!-- วันกำหนดส่งครั้งแรก -->
                     <div class="form-group">
-                        <label class="text-lg font-medium text-gray-800 mb-3 block">การตั้งค่าเวลา</label>
-                        
-                        <!-- สำหรับรายสัปดาห์ -->
-                        <div id="weeklySettings" class="recurrence-settings">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="weekDay">วันในสัปดาห์</label>
-                                    <select id="weekDay" name="weekDay">
-                                        <option value="1">จันทร์</option>
-                                        <option value="2">อังคาร</option>
-                                        <option value="3">พุธ</option>
-                                        <option value="4">พฤหัสบดี</option>
-                                        <option value="5">ศุกร์</option>
-                                        <option value="6">เสาร์</option>
-                                        <option value="0">อาทิตย์</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label for="timeOfDay">เวลาสร้างงาน</label>
-                                    <input type="time" id="timeOfDay" name="timeOfDay" value="09:00">
-                                </div>
+                        <label class="text-lg font-medium text-gray-800 mb-3 block">วันกำหนดส่งครั้งแรก</label>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label for="recurringInitialDueDate">วันที่ครบกำหนด</label>
+                                <input type="date" id="recurringInitialDueDate" name="recurringInitialDueDate" required>
+                            </div>
+                            <div>
+                                <label for="recurringInitialDueTime">เวลาครบกำหนด</label>
+                                <input type="time" id="recurringInitialDueTime" name="recurringInitialDueTime" value="23:59" required>
                             </div>
                         </div>
-                        
-                        <!-- สำหรับรายเดือน -->
-                        <div id="monthlySettings" class="recurrence-settings hidden">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="dayOfMonth">วันที่ของเดือน</label>
-                                    <input type="number" id="dayOfMonth" name="dayOfMonth" min="1" max="31" value="1">
-                                </div>
-                                <div>
-                                    <label for="monthlyTimeOfDay">เวลาสร้างงาน</label>
-                                    <input type="time" id="monthlyTimeOfDay" name="monthlyTimeOfDay" value="09:00">
-                                </div>
-                            </div>
-                        </div>
-                        
-                        <!-- สำหรับรายไตรมาส -->
-                        <div id="quarterlySettings" class="recurrence-settings hidden">
-                            <div class="grid grid-cols-2 gap-4">
-                                <div>
-                                    <label for="quarterlyDayOfMonth">วันที่ของไตรมาส</label>
-                                    <input type="number" id="quarterlyDayOfMonth" name="quarterlyDayOfMonth" min="1" max="31" value="1">
-                                </div>
-                                <div>
-                                    <label for="quarterlyTimeOfDay">เวลาสร้างงาน</label>
-                                    <input type="time" id="quarterlyTimeOfDay" name="quarterlyTimeOfDay" value="09:00">
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="durationDays">ระยะเวลาทำงาน (วัน)</label>
-                        <input type="number" id="durationDays" name="durationDays" min="1" max="365" value="7" placeholder="7">
-                        <div class="text-sm text-gray-500 mt-1">หลังสร้างงานแล้ว จะให้เวลาทำกี่วัน</div>
                     </div>
                     
                     <!-- ตัวอย่างการทำงาน -->
                     <div class="form-group bg-blue-50 p-4 rounded-lg">
                         <h4 class="font-medium text-blue-800 mb-2">💡 ตัวอย่าง</h4>
                         <div id="recurrencePreview" class="text-sm text-blue-600">
-                            ทุกวันจันทร์ เวลา 09:00 สร้างงานใหม่ให้ทำภายใน 7 วัน
+                            เมื่อถึงกำหนดส่งครั้งแรก ระบบจะเริ่มนับรอบ และเมื่อเลยกำหนดส่งของรอบล่าสุด จะสร้างงานรอบถัดไปทันที
                         </div>
                     </div>
                     

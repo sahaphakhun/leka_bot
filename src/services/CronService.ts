@@ -711,11 +711,25 @@ export class CronService {
       for (const template of recurringTemplates) {
         try {
           console.log(`🔄 Processing recurring task: ${template.title}`);
-          
-          // สร้างงานใหม่จากแม่แบบ
-          const dueTime = new Date();
-          dueTime.setDate(dueTime.getDate() + (template.durationDays || 7));
-          
+
+          // คำนวณกำหนดส่งของรอบถัดไปจากกำหนดล่าสุด (nextRunAt)
+          const tz = (template as any).timezone || config.app.defaultTimezone;
+          const prevDue = moment(template.nextRunAt).tz(tz);
+          let nextDue = prevDue.clone();
+          if (template.recurrence === 'weekly') {
+            nextDue = prevDue.clone().add(1, 'week');
+          } else if (template.recurrence === 'monthly') {
+            const dom = prevDue.date();
+            const candidate = prevDue.clone().add(1, 'month');
+            const clampedDay = Math.min(dom, candidate.daysInMonth());
+            nextDue = candidate.date(clampedDay);
+          } else { // quarterly
+            const dom = prevDue.date();
+            const candidate = prevDue.clone().add(3, 'months');
+            const clampedDay = Math.min(dom, candidate.daysInMonth());
+            nextDue = candidate.date(clampedDay);
+          }
+
           // ตรวจสอบและใช้ LINE User ID ที่ถูกต้อง
           const createdByLineUserId = template.createdByLineUserId || template.assigneeLineUserIds?.[0];
           if (!createdByLineUserId) {
@@ -729,7 +743,7 @@ export class CronService {
             description: template.description,
             assigneeIds: template.assigneeLineUserIds,
             createdBy: createdByLineUserId,
-            dueTime: dueTime,
+            dueTime: nextDue.toDate(),
             priority: template.priority,
             tags: template.tags,
             requireAttachment: template.requireAttachment,
@@ -749,23 +763,15 @@ export class CronService {
             
           console.log(`🔗 Linked task ${newTask.id} to recurring template ${template.id} (instance #${(template.totalInstances || 0) + 1});`);
           
-          // อัปเดตแม่แบบ: เพิ่มจำนวนครั้งและคำนวณเวลาถัดไป
-          const nextRunAt = this.recurringTaskService.calculateNextRunAt({
-            recurrence: template.recurrence,
-            weekDay: template.weekDay,
-            dayOfMonth: template.dayOfMonth,
-            timeOfDay: template.timeOfDay,
-            timezone: template.timezone
-          });
-          
+          // อัปเดตแม่แบบ: เพิ่มจำนวนครั้ง และตั้ง nextRunAt = กำหนดส่งของรอบล่าสุด (ใช้ nextDue)
           await this.recurringTaskService.update(template.id, {
             lastRunAt: new Date(),
-            nextRunAt: nextRunAt,
+            nextRunAt: nextDue.toDate(),
             totalInstances: (template.totalInstances || 0) + 1
           });
           
           console.log(`✅ Created recurring task: ${template.title} (Instance #${(template.totalInstances || 0) + 1})`);
-          console.log(`📅 Next run scheduled for: ${nextRunAt}`);
+          console.log(`📅 Next trigger (current instance due): ${nextDue.toDate().toISOString()}`);
           
         } catch (taskError) {
           console.error(`❌ Error processing recurring task ${template.id}:`, taskError);

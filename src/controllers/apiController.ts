@@ -2524,6 +2524,9 @@ class ApiController {
         priority: body.priority || 'medium',
         tags: body.tags || [],
         recurrence: body.recurrence, // 'weekly' | 'monthly' | 'quarterly'
+        // โหมดใหม่: ใช้วันกำหนดส่งครั้งแรกเป็นตัวตั้งต้นของรอบ
+        initialDueTime: body.initialDueTime,
+        // ฟิลด์ด้านล่างยังรองรับเพื่อความเข้ากันได้ย้อนหลัง แต่ Service จะไม่พึ่งพา
         weekDay: body.weekDay,
         dayOfMonth: body.dayOfMonth,
         timeOfDay: body.timeOfDay,

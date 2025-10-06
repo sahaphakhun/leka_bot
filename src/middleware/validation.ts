@@ -200,10 +200,13 @@ export const recurringTaskSchemas = {
       priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
       tags: Joi.array().items(Joi.string()).optional(),
       recurrence: Joi.string().valid('weekly', 'monthly', 'quarterly').required(),
+      // การทำงานแบบใหม่: ใช้เพียงวันกำหนดส่งครั้งแรก แล้วระบบจะสร้างรอบถัดไปเมื่อเลยกำหนดส่งของรอบล่าสุด
+      initialDueTime: Joi.string().required(),
+      // ตัวเลือกเดิมทำเป็น optional เพื่อความเข้ากันได้ย้อนหลัง แต่ UI ใหม่จะไม่ส่งค่าเหล่านี้
       weekDay: Joi.number().integer().min(0).max(6).optional().allow(null), // 0-6 for Sunday-Saturday
       dayOfMonth: Joi.number().integer().min(1).max(31).optional().allow(null),
-      timeOfDay: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).default('09:00'),
-      durationDays: Joi.number().integer().min(1).max(365).default(7),
+      timeOfDay: Joi.string().pattern(/^([01]?[0-9]|2[0-3]):[0-5][0-9]$/).optional(),
+      durationDays: Joi.number().integer().min(1).max(365).optional(),
       timezone: Joi.string().default('Asia/Bangkok'),
       createdBy: Joi.string().required() // Accept both createdBy and createdByLineUserId
     }).unknown() // Allow unknown fields

@@ -215,7 +215,7 @@ class RecurringTasksApp {
           ${task.lastRunAt ? this.formatDate(task.lastRunAt) : '-'}
         </td>
         <td class="px-6 py-4 text-sm text-gray-900">
-          ${this.formatDate(task.nextRunAt)}
+          ${this.formatDate(this.computeNextDueTime(task))}
         </td>
         <td class="px-6 py-4 text-sm text-gray-900">
           ${task.totalInstances || 0} ครั้ง
@@ -283,15 +283,19 @@ class RecurringTasksApp {
     // Find next task
     const activeTasks = this.recurringTasks.filter(t => t.active);
     const nextTask = activeTasks.length > 0 ? 
-      activeTasks.reduce((earliest, task) => 
-        new Date(task.nextRunAt) < new Date(earliest.nextRunAt) ? task : earliest
-      ) : null;
+      activeTasks.reduce((earliest, task) => {
+        const a = this.computeNextDueTime(task);
+        const b = this.computeNextDueTime(earliest);
+        if (!a) return earliest;
+        if (!b) return task;
+        return a < b ? task : earliest;
+      }) : null;
     
     document.getElementById('totalRecurring').textContent = total;
     document.getElementById('activeRecurring').textContent = active;
     document.getElementById('totalInstances').textContent = totalInstances;
     document.getElementById('nextTask').textContent = nextTask ? 
-      this.formatDate(nextTask.nextRunAt) : '-';
+      this.formatDate(this.computeNextDueTime(nextTask)) : '-';
   }
 
   async viewRecurring(id) {
@@ -364,12 +368,7 @@ class RecurringTasksApp {
 
     const nextRunEl = document.getElementById('recurringNextRun');
     if (nextRunEl) {
-      nextRunEl.textContent = this.formatDate(task.nextRunAt);
-    }
-
-    const durationEl = document.getElementById('recurringDuration');
-    if (durationEl) {
-      durationEl.textContent = `${task.durationDays || 7} วัน`;
+      nextRunEl.textContent = this.formatDate(this.computeNextDueTime(task));
     }
 
     this.renderRecurringStats(stats);
@@ -685,7 +684,39 @@ class RecurringTasksApp {
 
   getFullScheduleText(task) {
     const schedule = this.getScheduleText(task);
-    return `${schedule} (ให้ทำ ${task.durationDays || 7} วัน)`;
+    return `${schedule}`;
+  }
+
+  // คำนวณกำหนดส่งครั้งถัดไปจากค่าปัจจุบันใน template
+  computeNextDueTime(task) {
+    try {
+      if (!task || !task.nextRunAt) return null;
+      const prev = new Date(task.nextRunAt);
+      if (isNaN(prev)) return null;
+      const next = new Date(prev.getTime());
+      if (task.recurrence === 'weekly') {
+        next.setDate(prev.getDate() + 7);
+      } else if (task.recurrence === 'monthly') {
+        const d = prev.getDate();
+        const candMonth = prev.getMonth() + 1;
+        const year = prev.getFullYear() + Math.floor(candMonth / 12);
+        const month = candMonth % 12;
+        const daysInTarget = new Date(year, month + 1, 0).getDate();
+        next.setFullYear(year, month, Math.min(d, daysInTarget));
+      } else {
+        // quarterly = +3 months
+        const d = prev.getDate();
+        const candMonth = prev.getMonth() + 3;
+        const year = prev.getFullYear() + Math.floor(candMonth / 12);
+        const month = candMonth % 12;
+        const daysInTarget = new Date(year, month + 1, 0).getDate();
+        next.setFullYear(year, month, Math.min(d, daysInTarget));
+      }
+      return next;
+    } catch (e) {
+      console.warn('computeNextDueTime error', e);
+      return null;
+    }
   }
 
   openAddRecurringModal() {

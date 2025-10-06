@@ -7674,29 +7674,7 @@ class DashboardApp {
    * อัปเดตการตั้งค่าการเกิดซ้ำตามประเภทที่เลือก
    */
   updateRecurrenceSettings() {
-    const selectedRecurrence = document.querySelector('input[name="recurrence"]:checked')?.value;
-    const weeklySettings = document.getElementById('weeklySettings');
-    const monthlySettings = document.getElementById('monthlySettings');
-    const quarterlySettings = document.getElementById('quarterlySettings');
-    
-    // ซ่อนทั้งหมดก่อน
-    weeklySettings?.classList.add('hidden');
-    monthlySettings?.classList.add('hidden');
-    quarterlySettings?.classList.add('hidden');
-    
-    // แสดงการตั้งค่าที่เหมาะสม
-    switch (selectedRecurrence) {
-      case 'weekly':
-        weeklySettings?.classList.remove('hidden');
-        break;
-      case 'monthly':
-        monthlySettings?.classList.remove('hidden');
-        break;
-      case 'quarterly':
-        quarterlySettings?.classList.remove('hidden');
-        break;
-    }
-    
+    // โหมดใหม่: ไม่ต้องตั้งค่าเพิ่มเติม แค่ปรับตัวอย่าง
     this.updateRecurrencePreview();
   }
   
@@ -7706,37 +7684,19 @@ class DashboardApp {
   updateRecurrencePreview() {
     const selectedRecurrence = document.querySelector('input[name="recurrence"]:checked')?.value;
     const previewElement = document.getElementById('recurrencePreview');
-    const durationDays = document.getElementById('durationDays')?.value || '7';
-    
+    const date = document.getElementById('recurringInitialDueDate')?.value;
+    const time = document.getElementById('recurringInitialDueTime')?.value;
+
     if (!previewElement) return;
-    
-    let previewText = '';
-    
-    switch (selectedRecurrence) {
-      case 'weekly':
-        const weekDay = document.getElementById('weekDay')?.value;
-        const timeOfDay = document.getElementById('timeOfDay')?.value || '09:00';
-        const dayNames = ['อาทิตย์', 'จันทร์', 'อังคาร', 'พุธ', 'พฤหัสบดี', 'ศุกร์', 'เสาร์'];
-        previewText = `ทุกวัน${dayNames[weekDay]} เวลา ${timeOfDay} สร้างงานใหม่ให้ทำภายใน ${durationDays} วัน`;
-        break;
-        
-      case 'monthly':
-        const dayOfMonth = document.getElementById('dayOfMonth')?.value || '1';
-        const monthlyTime = document.getElementById('monthlyTimeOfDay')?.value || '09:00';
-        previewText = `ทุกวันที่ ${dayOfMonth} ของเดือน เวลา ${monthlyTime} สร้างงานใหม่ให้ทำภายใน ${durationDays} วัน`;
-        break;
-        
-      case 'quarterly':
-        const quarterlyDay = document.getElementById('quarterlyDayOfMonth')?.value || '1';
-        const quarterlyTime = document.getElementById('quarterlyTimeOfDay')?.value || '09:00';
-        previewText = `ทุกวันที่ ${quarterlyDay} ของไตรมาส เวลา ${quarterlyTime} สร้างงานใหม่ให้ทำภายใน ${durationDays} วัน`;
-        break;
-        
-      default:
-        previewText = 'กรุณาเลือกรอบการทำงาน';
+
+    if (!selectedRecurrence) {
+      previewElement.textContent = 'กรุณาเลือกรอบการทำงาน';
+      return;
     }
-    
-    previewElement.textContent = previewText;
+
+    const recurrenceText = selectedRecurrence === 'weekly' ? 'รายสัปดาห์' : (selectedRecurrence === 'monthly' ? 'รายเดือน' : 'รายไตรมาส');
+    const dueText = (date && time) ? `${date} ${time}` : '—';
+    previewElement.textContent = `เริ่มด้วยกำหนดส่งครั้งแรก: ${dueText} • เมื่อเลยกำหนดส่ง ระบบจะสร้างงานรอบถัดไปแบบ${recurrenceText}ทันที`;
   }
   
   /**
@@ -7809,6 +7769,11 @@ class DashboardApp {
       const assignees = Array.from(document.querySelectorAll('input[name="recurringAssignedTo"]:checked'))
         .map(input => input.value);
       
+      // รวมวันเวลาเป็น ISO string อย่างง่าย (ไม่ใส่โซนเวลา)
+      const initialDueDate = formData.get('recurringInitialDueDate');
+      const initialDueTime = formData.get('recurringInitialDueTime') || '23:59';
+      const initialDueTimeISO = initialDueDate ? `${initialDueDate}T${initialDueTime}:00` : '';
+
       const recurringTaskData = {
         title: formData.get('recurringTaskTitle'),
         description: formData.get('recurringTaskDescription'),
@@ -7818,10 +7783,8 @@ class DashboardApp {
         tags: formData.get('recurringTags')?.split(',').map(tag => tag.trim()).filter(tag => tag) || [],
         requireAttachment: formData.get('recurringRequireAttachment') === 'on',
         recurrence: formData.get('recurrence'),
-        weekDay: formData.get('weekDay') ? parseInt(formData.get('weekDay')) : null,
-        dayOfMonth: formData.get('dayOfMonth') ? parseInt(formData.get('dayOfMonth')) : null,
-        timeOfDay: this.getSelectedTimeOfDay(formData.get('recurrence')),
-        durationDays: parseInt(formData.get('durationDays') || '7'),
+        // โหมดใหม่: ไม่ต้องส่งการตั้งค่าเวลาสร้าง/ระยะเวลา ส่งเพียงกำหนดส่งครั้งแรก
+        initialDueTime: initialDueTimeISO,
         timezone: this.timezone,
         createdBy: this.currentUserId || 'unknown'
       };
@@ -7848,9 +7811,7 @@ class DashboardApp {
         assigneeCount: recurringTaskData.assigneeLineUserIds?.length,
         recurrence: recurringTaskData.recurrence,
         recurrenceType: typeof recurringTaskData.recurrence,
-        weekDay: recurringTaskData.weekDay,
-        dayOfMonth: recurringTaskData.dayOfMonth,
-        timeOfDay: recurringTaskData.timeOfDay,
+        initialDueTime: recurringTaskData.initialDueTime,
         timezone: recurringTaskData.timezone,
         createdBy: recurringTaskData.createdBy,
         createdByType: typeof recurringTaskData.createdBy,
@@ -7887,17 +7848,9 @@ class DashboardApp {
   /**
    * ดึงเวลาที่เลือกตามประเภทการเกิดซ้ำ
    */
-  getSelectedTimeOfDay(recurrence) {
-    switch (recurrence) {
-      case 'weekly':
-        return document.getElementById('timeOfDay')?.value || '09:00';
-      case 'monthly':
-        return document.getElementById('monthlyTimeOfDay')?.value || '09:00';
-      case 'quarterly':
-        return document.getElementById('quarterlyTimeOfDay')?.value || '09:00';
-      default:
-        return '09:00';
-    }
+  getSelectedTimeOfDay() {
+    // โหมดใหม่ไม่ใช้เวลาสร้างงาน แค่มีเวลาครบกำหนดครั้งแรก
+    return '23:59';
   }
 }
 
