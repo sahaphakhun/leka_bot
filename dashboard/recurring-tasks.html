@@ -73,7 +73,7 @@
     <!-- Header -->
     <div class="bg-white shadow-sm border-b">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center py-4">
+            <div class="flex justify-between items-center py-4 flex-wrap gap-4">
                 <div class="flex items-center">
                     <button onclick="history.back()" class="mr-4 p-2 text-gray-600 hover:text-gray-800">
                         <i class="fas fa-arrow-left"></i>
@@ -83,10 +83,25 @@
                         <p class="text-sm text-gray-600">สร้างและจัดการงานที่เกิดขึ้นซ้ำตามรอบเวลา</p>
                     </div>
                 </div>
-                <button id="addRecurringBtn" class="btn btn-primary">
-                    <i class="fas fa-plus mr-2"></i>
-                    สร้างงานประจำใหม่
-                </button>
+                <div class="flex items-center space-x-4">
+                    <div class="text-right">
+                        <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">กลุ่ม</div>
+                        <div class="text-sm font-semibold text-gray-900" id="currentGroupName">-</div>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div id="currentUserAvatar" class="hidden sm:flex w-9 h-9 rounded-full bg-blue-100 text-blue-600 items-center justify-center text-sm font-semibold" title="">
+                            👤
+                        </div>
+                        <div class="text-right">
+                            <div class="text-xs font-medium text-gray-500 uppercase tracking-wide">ผู้ใช้งาน</div>
+                            <div class="text-sm font-semibold text-gray-900" id="currentUserName">-</div>
+                        </div>
+                    </div>
+                    <button id="addRecurringBtn" class="btn btn-primary">
+                        <i class="fas fa-plus mr-2"></i>
+                        สร้างงานประจำใหม่
+                    </button>
+                </div>
             </div>
         </div>
     </div>

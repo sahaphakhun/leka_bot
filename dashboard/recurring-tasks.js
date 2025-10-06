@@ -6,7 +6,13 @@ class RecurringTasksApp {
     this.currentUserId = this.getUserIdFromURL();
     this.recurringTasks = [];
     this.currentRecurringId = null;
-    
+    this.groupInfo = null;
+    this.groupMembers = [];
+    this.memberNameCache = new Map();
+    this.memberDataByLineId = new Map();
+    this.pendingMemberRequests = new Map();
+    this.currentUserProfile = null;
+
     this.init();
   }
 
@@ -20,8 +26,9 @@ class RecurringTasksApp {
     return urlParams.get('userId') || 'default-user';
   }
 
-  init() {
+  async init() {
     this.setupEventListeners();
+    await this.loadContextData();
     this.loadRecurringTasks();
   }
 
@@ -43,10 +50,23 @@ class RecurringTasksApp {
     document.getElementById('viewAllHistoryBtn')?.addEventListener('click', () => this.viewAllHistory());
   }
 
+  async loadContextData() {
+    try {
+      await Promise.all([
+        this.loadGroupInfo(),
+        this.loadGroupMembers()
+      ]);
+    } catch (error) {
+      console.warn('⚠️ Failed to preload context data:', error);
+    }
+
+    await this.loadCurrentUser();
+  }
+
   async loadRecurringTasks() {
     try {
       this.showLoading(true);
-      
+
       const response = await fetch(`/api/groups/${this.currentGroupId}/recurring`);
       const result = await response.json();
       
@@ -63,6 +83,93 @@ class RecurringTasksApp {
       this.showAlert('เกิดข้อผิดพลาดในการโหลดข้อมูล: ' + error.message, 'error');
     } finally {
       this.showLoading(false);
+    }
+  }
+
+  async loadGroupInfo() {
+    if (!this.currentGroupId || this.currentGroupId === 'default-group') {
+      this.updateGroupDisplay({ name: 'ไม่ทราบชื่อกลุ่ม', lineGroupId: this.currentGroupId });
+      return null;
+    }
+
+    try {
+      const response = await fetch(`/api/groups/${this.currentGroupId}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        this.groupInfo = result.data;
+        this.updateGroupDisplay(result.data);
+        return result.data;
+      }
+
+      throw new Error(result.error || 'Failed to load group information');
+    } catch (error) {
+      console.error('❌ Error loading group info:', error);
+      this.updateGroupDisplay({ name: 'ไม่ทราบชื่อกลุ่ม', lineGroupId: this.currentGroupId });
+      return null;
+    }
+  }
+
+  async loadGroupMembers() {
+    if (!this.currentGroupId || this.currentGroupId === 'default-group') {
+      this.groupMembers = [];
+      return [];
+    }
+
+    try {
+      const response = await fetch(`/api/groups/${this.currentGroupId}/members`);
+      const result = await response.json();
+
+      if (result.success && Array.isArray(result.data)) {
+        this.groupMembers = result.data;
+        this.cacheMemberNames(result.data);
+        return result.data;
+      }
+
+      throw new Error(result.error || 'Failed to load group members');
+    } catch (error) {
+      console.error('❌ Error loading group members:', error);
+      this.groupMembers = [];
+      return [];
+    }
+  }
+
+  async loadCurrentUser() {
+    if (!this.currentUserId || this.currentUserId === 'default-user') {
+      this.updateUserDisplay(null);
+      return null;
+    }
+
+    const normalizedId = this.normalizeLineId(this.currentUserId);
+    const memberFromGroup = this.memberDataByLineId.get(normalizedId);
+    if (memberFromGroup) {
+      this.currentUserProfile = memberFromGroup;
+      this.memberNameCache.set(normalizedId, this.extractDisplayName(memberFromGroup));
+      this.updateUserDisplay(memberFromGroup);
+      return memberFromGroup;
+    }
+
+    try {
+      const response = await fetch(`/api/users/${this.currentUserId}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const userData = result.data;
+        const normalizedUserId = this.normalizeLineId(userData.lineUserId || this.currentUserId);
+        if (normalizedUserId) {
+          this.memberDataByLineId.set(normalizedUserId, userData);
+          this.memberNameCache.set(normalizedUserId, this.extractDisplayName(userData));
+        }
+        this.currentUserProfile = userData;
+        this.updateUserDisplay(userData);
+        return userData;
+      }
+
+      throw new Error(result.error || 'Failed to load user information');
+    } catch (error) {
+      console.error('❌ Error loading current user info:', error);
+      this.updateUserDisplay({ displayName: 'ไม่ทราบชื่อผู้ใช้', lineUserId: this.currentUserId });
+      return null;
     }
   }
 
@@ -203,7 +310,7 @@ class RecurringTasksApp {
       const stats = await statsResponse.json();
       
       if (detail.success) {
-        this.showRecurringDetail(detail.data, history.data || {}, stats.data || {});
+        await this.showRecurringDetail(detail.data, history.data || {}, stats.data || {});
         this.openModal('recurringDetailModal');
       } else {
         throw new Error(detail.error || 'Failed to load recurring task details');
@@ -217,22 +324,55 @@ class RecurringTasksApp {
     }
   }
 
-  showRecurringDetail(task, history, stats) {
-    // Update modal title
-    document.getElementById('recurringDetailTitle').textContent = `📊 ${task.title}`;
-    
-    // Update basic info
-    document.getElementById('recurringDescription').textContent = task.description || '-';
-    document.getElementById('recurringAssignees').textContent = task.assigneeLineUserIds.join(', ') || '-';
-    document.getElementById('recurringReviewer').textContent = task.reviewerLineUserId || '(ไม่ระบุ)';
-    document.getElementById('recurringSchedule').textContent = this.getFullScheduleText(task);
-    document.getElementById('recurringNextRun').textContent = this.formatDate(task.nextRunAt);
-    document.getElementById('recurringDuration').textContent = `${task.durationDays || 7} วัน`;
-    
-    // Update statistics
+  async showRecurringDetail(task, history, stats) {
+    const titleEl = document.getElementById('recurringDetailTitle');
+    if (titleEl) {
+      titleEl.textContent = `📊 ${task.title}`;
+    }
+
+    const descriptionEl = document.getElementById('recurringDescription');
+    if (descriptionEl) {
+      descriptionEl.textContent = task.description || '-';
+    }
+
+    const assigneesEl = document.getElementById('recurringAssignees');
+    if (assigneesEl) {
+      const assigneeNames = await this.resolveMemberNames(task.assigneeLineUserIds || []);
+      assigneesEl.textContent = assigneeNames.length ? assigneeNames.join(', ') : '-';
+      if (Array.isArray(task.assigneeLineUserIds) && task.assigneeLineUserIds.length > 0) {
+        assigneesEl.title = task.assigneeLineUserIds.join(', ');
+      } else {
+        assigneesEl.removeAttribute('title');
+      }
+    }
+
+    const reviewerEl = document.getElementById('recurringReviewer');
+    if (reviewerEl) {
+      const reviewerName = await this.resolveMemberName(task.reviewerLineUserId);
+      reviewerEl.textContent = reviewerName || '(ไม่ระบุ)';
+      if (task.reviewerLineUserId) {
+        reviewerEl.title = task.reviewerLineUserId;
+      } else {
+        reviewerEl.removeAttribute('title');
+      }
+    }
+
+    const scheduleEl = document.getElementById('recurringSchedule');
+    if (scheduleEl) {
+      scheduleEl.textContent = this.getFullScheduleText(task);
+    }
+
+    const nextRunEl = document.getElementById('recurringNextRun');
+    if (nextRunEl) {
+      nextRunEl.textContent = this.formatDate(task.nextRunAt);
+    }
+
+    const durationEl = document.getElementById('recurringDuration');
+    if (durationEl) {
+      durationEl.textContent = `${task.durationDays || 7} วัน`;
+    }
+
     this.renderRecurringStats(stats);
-    
-    // Update history
     this.renderRecurringHistory(history.tasks || []);
   }
 
@@ -259,7 +399,7 @@ class RecurringTasksApp {
   renderRecurringHistory(tasks) {
     const historyContainer = document.getElementById('recurringHistory');
     if (!historyContainer) return;
-    
+
     if (tasks.length === 0) {
       historyContainer.innerHTML = '<p class="text-gray-500 text-center py-4">ยังไม่มีประวัติการทำงาน</p>';
       return;
@@ -269,23 +409,215 @@ class RecurringTasksApp {
       const statusIcon = this.getTaskStatusIcon(task.status);
       const statusText = this.getTaskStatusText(task.status);
       const timeInfo = this.getTaskTimeInfo(task);
-      
+      const assigneeNames = this.formatAssignedUsers(task.assignedUsers, task.assigneeLineUserIds);
+      const infoLines = [
+        this.escapeHtml(`${statusText}${timeInfo ? ` ${timeInfo}` : ''}`)
+      ];
+
+      if (assigneeNames) {
+        infoLines.push(this.escapeHtml(`ผู้รับผิดชอบ: ${assigneeNames}`));
+      }
+
+      const infoHtml = infoLines
+        .filter(Boolean)
+        .map(line => `<div class="text-sm text-gray-500">${line}</div>`)
+        .join('');
+
       return `
         <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
           <div class="flex items-center space-x-3">
             <span class="text-lg">${statusIcon}</span>
             <div>
               <div class="font-medium text-gray-900">#${task.recurringInstance} | ${this.formatDate(task.createdAt)}</div>
-              <div class="text-sm text-gray-500">${statusText} ${timeInfo}</div>
+              ${infoHtml}
             </div>
           </div>
-          <button onclick="window.open('/dashboard/index.html?groupId=${this.currentGroupId}&taskId=${task.id}', '_blank')" 
+          <button onclick="window.open('/dashboard/index.html?groupId=${this.currentGroupId}&taskId=${task.id}', '_blank')"
                   class="text-blue-600 hover:text-blue-800 text-sm">
             ดูรายละเอียด
           </button>
         </div>
       `;
     }).join('');
+  }
+
+  formatAssignedUsers(users = [], fallbackIds = []) {
+    const names = [];
+
+    if (Array.isArray(users) && users.length > 0) {
+      for (const user of users) {
+        const name = this.extractDisplayName(user);
+        if (name && !names.includes(name)) {
+          names.push(name);
+        }
+      }
+    }
+
+    if (names.length === 0 && Array.isArray(fallbackIds) && fallbackIds.length > 0) {
+      for (const rawId of fallbackIds) {
+        if (!rawId) continue;
+        if (typeof rawId === 'string' && rawId.toLowerCase() === 'team') {
+          if (!names.includes('ทีมทั้งหมด')) {
+            names.push('ทีมทั้งหมด');
+          }
+          continue;
+        }
+
+        const normalized = this.normalizeLineId(rawId);
+        const cached = this.memberNameCache.get(normalized);
+        if (cached && !names.includes(cached)) {
+          names.push(cached);
+        }
+      }
+    }
+
+    return names.join(', ');
+  }
+
+  cacheMemberNames(members = []) {
+    members.forEach(member => {
+      if (!member) return;
+      const lineUserId = member.lineUserId || member.userId || member.id;
+      const normalized = this.normalizeLineId(lineUserId);
+      if (!normalized) return;
+
+      this.memberDataByLineId.set(normalized, member);
+      const displayName = this.extractDisplayName(member);
+      if (displayName) {
+        this.memberNameCache.set(normalized, displayName);
+      }
+    });
+  }
+
+  normalizeLineId(id) {
+    if (!id || typeof id !== 'string') return '';
+    return id.trim().toUpperCase();
+  }
+
+  extractDisplayName(entity) {
+    if (!entity) return '';
+    if (typeof entity === 'string') return entity;
+
+    return (
+      entity.displayName ||
+      entity.realName ||
+      entity.fullName ||
+      entity.name ||
+      entity.title ||
+      entity.lineUserId ||
+      ''
+    ).toString().trim();
+  }
+
+  async resolveMemberNames(ids = []) {
+    const names = [];
+    if (!Array.isArray(ids)) return names;
+
+    for (const id of ids) {
+      const name = await this.resolveMemberName(id);
+      if (name) {
+        names.push(name);
+      }
+    }
+
+    // Remove duplicates while preserving order
+    return names.filter((name, index) => names.indexOf(name) === index);
+  }
+
+  async resolveMemberName(lineUserId) {
+    if (!lineUserId) return '';
+    if (typeof lineUserId === 'string' && lineUserId.toLowerCase() === 'team') return 'ทีมทั้งหมด';
+
+    const normalized = this.normalizeLineId(lineUserId);
+    if (!normalized) return '';
+
+    if (this.memberNameCache.has(normalized)) {
+      return this.memberNameCache.get(normalized);
+    }
+
+    if (this.pendingMemberRequests.has(normalized)) {
+      return await this.pendingMemberRequests.get(normalized);
+    }
+
+    const fetchPromise = this.fetchAndCacheMemberName(lineUserId);
+    this.pendingMemberRequests.set(normalized, fetchPromise);
+    const name = await fetchPromise;
+    this.pendingMemberRequests.delete(normalized);
+    return name;
+  }
+
+  async fetchAndCacheMemberName(lineUserId) {
+    try {
+      const response = await fetch(`/api/users/${lineUserId}`);
+      const result = await response.json();
+
+      if (result.success && result.data) {
+        const userData = result.data;
+        const normalized = this.normalizeLineId(userData.lineUserId || lineUserId);
+        const displayName = this.extractDisplayName(userData) || 'ไม่ทราบชื่อ';
+        if (normalized) {
+          this.memberDataByLineId.set(normalized, userData);
+          this.memberNameCache.set(normalized, displayName);
+        }
+        return displayName;
+      }
+    } catch (error) {
+      console.error(`❌ Error fetching user profile for ${lineUserId}:`, error);
+    }
+
+    const fallbackName = 'ไม่ทราบชื่อ';
+    const normalizedFallback = this.normalizeLineId(lineUserId);
+    if (normalizedFallback && !this.memberNameCache.has(normalizedFallback)) {
+      this.memberNameCache.set(normalizedFallback, fallbackName);
+    }
+    return fallbackName;
+  }
+
+  updateGroupDisplay(group) {
+    const groupNameEl = document.getElementById('currentGroupName');
+    if (!groupNameEl) return;
+
+    const displayName = (group?.name && group.name.trim()) ? group.name.trim() : 'ไม่ทราบชื่อกลุ่ม';
+    groupNameEl.textContent = displayName;
+
+    if (group?.lineGroupId && !['default-group', 'default', 'undefined'].includes(group.lineGroupId)) {
+      groupNameEl.setAttribute('title', group.lineGroupId);
+    } else {
+      groupNameEl.removeAttribute('title');
+    }
+  }
+
+  updateUserDisplay(user) {
+    const userNameEl = document.getElementById('currentUserName');
+    const avatarEl = document.getElementById('currentUserAvatar');
+
+    const displayName = user ? this.extractDisplayName(user) : '-';
+    const currentLineId = this.currentUserId && this.currentUserId !== 'default-user'
+      ? this.currentUserId
+      : '';
+    const lineUserId = user?.lineUserId || currentLineId;
+
+    if (userNameEl) {
+      userNameEl.textContent = displayName || '-';
+      if (lineUserId) {
+        userNameEl.setAttribute('title', lineUserId);
+      } else {
+        userNameEl.removeAttribute('title');
+      }
+    }
+
+    if (avatarEl) {
+      let initial = '👤';
+      if (displayName && displayName.trim()) {
+        initial = displayName.trim().charAt(0).toUpperCase();
+      }
+      avatarEl.textContent = initial;
+      if (lineUserId) {
+        avatarEl.setAttribute('title', lineUserId);
+      } else {
+        avatarEl.removeAttribute('title');
+      }
+    }
   }
 
   getTaskStatusIcon(status) {
