@@ -955,13 +955,13 @@ export class KPIService {
         .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('task.status = :status', { status: 'completed' });
 
-      // สร้าง query builder สำหรับงานที่ค้าง
+      // สร้าง query builder สำหรับงานที่ค้าง (จำกัดช่วงเวลาหากระบุ period)
       let pendingTasksQuery = this.taskRepository
         .createQueryBuilder('task')
         .where('task.groupId = :groupId', { groupId: internalGroupId })
         .andWhere('task.status = :status', { status: 'pending' });
 
-      // สร้าง query builder สำหรับงานที่เกินกำหนด
+      // สร้าง query builder สำหรับงานที่เกินกำหนด (จำกัดช่วงเวลาหากระบุ period)
       let overdueTasksQuery = this.taskRepository
         .createQueryBuilder('task')
         .where('task.groupId = :groupId', { groupId: internalGroupId })
@@ -976,6 +976,16 @@ export class KPIService {
         completedTasksQuery = completedTasksQuery
           .andWhere('task.completedAt >= :startDate', { startDate })
           .andWhere('task.completedAt <= :endDate', { endDate });
+
+        // สำหรับงานค้างและงานเกินกำหนด ให้จำกัดตามกำหนดส่ง (dueTime) ภายในช่วงสัปดาห์/เดือนเดียวกัน
+        // เพื่อให้สรุปรายสัปดาห์/รายเดือนสอดคล้องกับแดชบอร์ด
+        pendingTasksQuery = pendingTasksQuery
+          .andWhere('task.dueTime >= :startDate', { startDate })
+          .andWhere('task.dueTime <= :endDate', { endDate });
+
+        overdueTasksQuery = overdueTasksQuery
+          .andWhere('task.dueTime >= :startDate', { startDate })
+          .andWhere('task.dueTime <= :endDate', { endDate });
       }
 
       // ดึงข้อมูลสถิติ

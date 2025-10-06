@@ -305,14 +305,7 @@ export class CronService {
         // ส่งรายงานรายสัปดาห์ปกติ
         await this.notificationService.sendWeeklyReport(group, weeklyStats, leaderboard);
         
-        // ส่ง Leader Board การ์ด
-        try {
-          const leaderboardFlexMessage = this.createLeaderboardFlexMessage(group, leaderboard);
-          await (this.notificationService as any).lineService.pushMessage(group.lineGroupId, leaderboardFlexMessage);
-          console.log(`✅ Sent leaderboard flex message to group: ${group.name}`);
-        } catch (err) {
-          console.warn('⚠️ Failed to send leaderboard flex message:', group.lineGroupId, err);
-        }
+        // ยกเลิกการส่งการ์ด Leaderboard แยก เพื่อรวมในรายงานฉบับเดียวให้ครบถ้วน
         
         // ส่งให้หัวหน้าทีม (admin) ทางส่วนตัวด้วย
         try {
@@ -959,7 +952,7 @@ ${result.errors.length > 0 ? `⚠️ ข้อผิดพลาด: ${result.er
       FlexMessageDesignSystem.createButton(
         'ดู Leaderboard ฉบับเต็ม',
         'uri',
-        `${config.baseUrl}/dashboard?groupId=${group.id}#leaderboard`,
+        `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`,
         'primary'
       )
     ];

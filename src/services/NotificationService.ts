@@ -1192,7 +1192,7 @@ export class NotificationService {
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
-      '📊 รายงานประจำสัปดาห์',
+      `📊 ${group.name}`,
       '📊',
       FlexMessageDesignSystem.colors.primary,
       content,
@@ -1246,7 +1246,7 @@ export class NotificationService {
     ];
 
     return FlexMessageDesignSystem.createStandardTaskCard(
-      '📊 รายงานประจำสัปดาห์',
+      `📊 ${group.name}`,
       '📊',
       FlexMessageDesignSystem.colors.info,
       content,
