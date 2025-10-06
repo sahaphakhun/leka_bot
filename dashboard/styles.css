@@ -12,6 +12,16 @@ body {
   background-color: #f9fafb;
 }
 
+.app-main {
+  padding-bottom: 0;
+}
+
+@media (max-width: 767px) {
+  .app-main {
+    padding-bottom: 96px;
+  }
+}
+
 /* Content sections */
 .content-section {
   display: none;
