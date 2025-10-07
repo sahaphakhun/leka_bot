@@ -273,133 +273,37 @@ export class TaskService {
         }
       }
 
-      // ซิงค์ไปยัง Google Calendar
+      // ซิงค์ไปยัง Google Calendar (รายบุคคล)
       try {
-        // ตรวจสอบว่า Google Calendar feature เปิดใช้งานหรือไม่
         if (!features.googleCalendar) {
           console.log('ℹ️ Google Calendar feature is disabled - skipping calendar sync');
         } else {
-          console.log(`🔍 Checking Google Calendar for group: ${group.name}`);
-          console.log(`📅 Group calendar ID: ${group.settings.googleCalendarId || 'Not configured'}`);
-          
-          if (group.settings.googleCalendarId) {
-            console.log('✅ Group has Google Calendar configured, syncing task...');
-            
-            // รวบรวมผู้เข้าร่วมทั้งหมด (ผู้สร้าง ผู้รับผิดชอบ ผู้ตรวจ)
-            const participantIds = new Set<string>();
-            participantIds.add(creator.id);
-            if (reviewerInternalId) participantIds.add(reviewerInternalId);
-            if (savedTask.assignedUsers) {
-              for (const user of savedTask.assignedUsers) {
-                participantIds.add(user.id);
-              }
-            }
-
-            // ดึงอีเมลและลบซ้ำ
-            const attendeeUsers = await Promise.all(
-              Array.from(participantIds).map(id => this.userService.findById(id))
-            );
-            const attendeeEmails = Array.from(
-              new Set(
-                attendeeUsers
-                  .filter(u => u && u.email && u.isVerified)
-                  .map(u => u!.email!)
-              )
-            );
-
-            console.log(`📧 Syncing task with ${attendeeEmails.length} attendees:`, attendeeEmails);
-
-            const eventId = await this.googleService.syncTaskToCalendar(
-              savedTask,
-              group.settings.googleCalendarId,
-              attendeeEmails
-            );
-            
-            // อัปเดต task ด้วย eventId
-            savedTask.googleEventId = eventId;
-            await this.taskRepository.save(savedTask);
-
-            console.log(`✅ Task synced to Google Calendar with event ID: ${eventId}`);
-
-            await this.googleService.shareCalendarWithMembers(
-              group.id,
-              Array.from(participantIds)
-            );
-            
-            console.log('✅ Calendar shared with group members');
-          } else {
-            console.log('🔄 Group does not have Google Calendar, creating one automatically...');
-            
-            try {
-              // สร้าง Google Calendar อัตโนมัติ
-              const calendarId = await this.googleService.setupGroupCalendar(
-                group.id,
-                group.name,
-                config.app.defaultTimezone
-              );
-              
-              console.log(`✅ Created Google Calendar for group: ${group.name} (${calendarId})`);
-              
-              // อัปเดตการตั้งค่ากลุ่ม
-              group.settings = {
-                ...group.settings,
-                googleCalendarId: calendarId
-              };
-              await this.groupRepository.save(group);
-              
-              console.log('✅ Updated group settings with calendar ID');
-              
-              // ซิงค์งานไปยัง Calendar ที่เพิ่งสร้าง
-              const participantIds = new Set<string>();
-              participantIds.add(creator.id);
-              if (reviewerInternalId) participantIds.add(reviewerInternalId);
-              if (savedTask.assignedUsers) {
-                for (const user of savedTask.assignedUsers) {
-                  participantIds.add(user.id);
-                }
-              }
-
-              const attendeeUsers = await Promise.all(
-                Array.from(participantIds).map(id => this.userService.findById(id))
-              );
-              const attendeeEmails = Array.from(
-                new Set(
-                  attendeeUsers
-                    .filter(u => u && u.email && u.isVerified)
-                    .map(u => u!.email!)
-                )
-              );
-
-              console.log(`📧 Syncing task with ${attendeeEmails.length} attendees:`, attendeeEmails);
-
-              const eventId = await this.googleService.syncTaskToCalendar(
-                savedTask,
-                calendarId,
-                attendeeEmails
-              );
-              
-              // อัปเดต task ด้วย eventId
-              savedTask.googleEventId = eventId;
-              await this.taskRepository.save(savedTask);
-
-              console.log(`✅ Task synced to new Google Calendar with event ID: ${eventId}`);
-
-              await this.googleService.shareCalendarWithMembers(
-                group.id,
-                Array.from(participantIds)
-              );
-              
-              console.log('✅ New calendar shared with group members');
-              
-            } catch (calendarError) {
-              console.warn('⚠️ Failed to create Google Calendar automatically:', calendarError);
-              console.log('ℹ️ Task created successfully, but Google Calendar integration failed');
-              console.log('💡 You can manually set up Google Calendar later');
+          // สร้างอีเวนต์ให้ปฏิทินของผู้เกี่ยวข้องทุกบทบาท: ผู้รับผิดชอบ/ผู้สร้าง/ผู้ตรวจ
+          const eventMap: Record<string, { calendarId: string; eventId: string }> = {};
+          const participantIds = new Map<string, 'assignee' | 'creator' | 'reviewer'>();
+          if (savedTask.assignedUsers) {
+            for (const u of savedTask.assignedUsers) {
+              participantIds.set(u.id, 'assignee');
             }
           }
+          if (creator?.id) participantIds.set(creator.id, 'creator');
+          if (reviewerInternalId) participantIds.set(reviewerInternalId, 'reviewer');
+
+          for (const [userId, role] of participantIds.entries()) {
+            try {
+              const { calendarId, eventId } = await this.googleService.syncTaskToUserCalendar(savedTask, userId);
+              eventMap[userId] = { calendarId, eventId };
+              console.log(`✅ Synced task to user calendar (${role}): ${userId} (${eventId})`);
+            } catch (err) {
+              console.warn(`⚠️ Failed to sync task to user calendar (${userId}):`, err);
+            }
+          }
+          // บันทึก mapping ลงงาน
+          (savedTask as any).googleEventIds = eventMap;
+          await this.taskRepository.save(savedTask);
         }
       } catch (error) {
-        console.warn('⚠️ Failed to sync task to Google Calendar:', error);
+        console.warn('⚠️ Failed to sync task to personal calendars:', error);
       }
 
       // โหลด task พร้อม relations เพื่อ return ข้อมูลครบถ้วน
@@ -467,6 +371,16 @@ export class TaskService {
       if (!task) {
         throw new Error('Task not found');
       }
+      // เก็บผู้เกี่ยวข้องเดิมไว้เพื่อทำ diff หลังบันทึก
+      const prevParticipants = new Set<string>();
+      try {
+        if (task.createdBy) prevParticipants.add(task.createdBy);
+        const prevReviewer = (task.workflow as any)?.review?.reviewerUserId;
+        if (prevReviewer) prevParticipants.add(prevReviewer);
+        if (Array.isArray(task.assignedUsers)) {
+          task.assignedUsers.forEach(u => prevParticipants.add(u.id));
+        }
+      } catch {}
       // Prevent accidental overwrite of relations like attachedFiles
       const safeUpdates: any = { ...updates };
       if ('attachedFiles' in safeUpdates) {
@@ -545,6 +459,56 @@ export class TaskService {
 
       const updatedTask = await this.taskRepository.save(task);
 
+      // คำนวณ diff ผู้เกี่ยวข้อง และอัปเดตอีเวนต์ปฏิทิน (เพิ่ม/ลบ)
+      try {
+        const nextParticipants = new Set<string>();
+        if (updatedTask.createdBy) nextParticipants.add(updatedTask.createdBy);
+        const nextReviewer = (updatedTask.workflow as any)?.review?.reviewerUserId;
+        if (nextReviewer) nextParticipants.add(nextReviewer);
+        if (Array.isArray((updatedTask as any).assignedUsers)) {
+          (updatedTask as any).assignedUsers.forEach((u: any) => nextParticipants.add(u.id));
+        }
+
+        const added: string[] = [];
+        const removed: string[] = [];
+
+        for (const id of nextParticipants) {
+          if (!prevParticipants.has(id)) added.push(id);
+        }
+        for (const id of prevParticipants) {
+          if (!nextParticipants.has(id)) removed.push(id);
+        }
+
+        const map: Record<string, { calendarId: string; eventId: string }> = (updatedTask as any).googleEventIds || {};
+
+        // เพิ่มผู้เกี่ยวข้องใหม่ → สร้างอีเวนต์ให้ปฏิทินส่วนบุคคล
+        for (const userId of added) {
+          try {
+            const { calendarId, eventId } = await this.googleService.syncTaskToUserCalendar(updatedTask as any, userId);
+            map[userId] = { calendarId, eventId };
+          } catch (err) {
+            console.warn(`⚠️ Failed to add user calendar event (${userId}):`, err);
+          }
+        }
+
+        // ลบผู้เกี่ยวข้องที่ออก → ลบอีเวนต์จากปฏิทินของผู้ใช้
+        for (const userId of removed) {
+          try {
+            await this.googleService.removeTaskFromUserCalendar(updatedTask as any, userId);
+            delete map[userId];
+          } catch (err) {
+            console.warn(`⚠️ Failed to remove user calendar event (${userId}):`, err);
+          }
+        }
+
+        (updatedTask as any).googleEventIds = map;
+        if (added.length > 0 || removed.length > 0) {
+          await this.taskRepository.save(updatedTask);
+        }
+      } catch (err) {
+        console.warn('⚠️ Failed to diff participants for calendar sync:', err);
+      }
+
       // อัปเดตใน Google Calendar
       try {
         await this.googleService.updateTaskInCalendar(task, updates);
@@ -572,12 +536,10 @@ export class TaskService {
         console.warn('⚠️ Failed to send task rejected notification:', err);
       }
 
-      // อัปเดต Google Calendar ถ้ามีการเปลี่ยนแปลง
+      // อัปเดต Google Calendar (รองรับปฏิทินรายบุคคล/รายกลุ่ม)
       try {
-        if (updatedTask.googleEventId && task.group?.settings?.googleCalendarId) {
-          await this.googleService.updateTaskInCalendar(updatedTask, updates);
-          console.log(`✅ Updated task in Google Calendar: ${updatedTask.id}`);
-        }
+        await this.googleService.updateTaskInCalendar(updatedTask, updates);
+        console.log(`✅ Updated task in Google Calendar: ${updatedTask.id}`);
       } catch (err) {
         console.warn('⚠️ Failed to update task in Google Calendar:', err);
       }
@@ -664,12 +626,10 @@ export class TaskService {
 
       const updatedTask = await this.taskRepository.save(task);
 
-      // อัปเดต Google Calendar ถ้ามีการเปลี่ยนแปลงสถานะ
+      // อัปเดต Google Calendar (รองรับปฏิทินรายบุคคล/รายกลุ่ม)
       try {
-        if (updatedTask.googleEventId && task.group?.settings?.googleCalendarId) {
-          await this.googleService.updateTaskInCalendar(updatedTask, { status });
-          console.log(`✅ Updated task status in Google Calendar: ${updatedTask.id}`);
-        }
+        await this.googleService.updateTaskInCalendar(updatedTask, { status });
+        console.log(`✅ Updated task status in Google Calendar: ${updatedTask.id}`);
       } catch (err) {
         console.warn('⚠️ Failed to update task status in Google Calendar:', err);
       }

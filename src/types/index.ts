@@ -32,6 +32,10 @@ export interface User {
   isVerified: boolean;
   createdAt: Date;
   updatedAt: Date;
+  settings?: {
+    googleCalendarId?: string;
+    googleRefreshToken?: string;
+  };
 }
 
 export interface GroupMember {
@@ -88,6 +92,8 @@ export interface Task {
   
   // การเชื่อมต่อ
   googleEventId?: string;
+  // ปฏิทินรายบุคคล: เก็บ event ต่อผู้ใช้ (user UUID)
+  googleEventIds?: Record<string, { calendarId: string; eventId: string }>;
   attachedFiles: File[];
   
   // Workflow

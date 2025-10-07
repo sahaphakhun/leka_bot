@@ -16,6 +16,23 @@ export class UserService {
     this.groupMemberRepository = AppDataSource.getRepository(GroupMember);
   }
 
+  /**
+   * อัปเดตการตั้งค่าผู้ใช้ (เช่น ปฏิทินส่วนบุคคล)
+   */
+  public async updateUserSettings(userId: string, settings: Partial<User['settings']>): Promise<User> {
+    try {
+      const user = await this.userRepository.findOneBy({ id: userId });
+      if (!user) {
+        throw new Error('User not found');
+      }
+      user.settings = { ...(user.settings || {}), ...(settings || {}) } as any;
+      return await this.userRepository.save(user);
+    } catch (error) {
+      console.error('❌ Error updating user settings:', error);
+      throw error;
+    }
+  }
+
   // User Management
 
   /**

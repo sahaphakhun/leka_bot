@@ -2100,7 +2100,20 @@ class DashboardApp {
         return [];
       }
 
-      const response = await fetch(`/api/groups/${this.currentGroupId}/tasks`);
+      // Build query with date range and optional assignee (per-user calendar)
+      const startDate = new Date(year, month - 1, 1, 0, 0, 0);
+      const endDate = new Date(year, month, 0, 23, 59, 59);
+      const params = new URLSearchParams();
+      params.set('startDate', startDate.toISOString());
+      params.set('endDate', endDate.toISOString());
+      params.set('limit', '500');
+      if (this.currentUserId) {
+        // Filter tasks to show only those assigned to the current user
+        params.set('assignee', this.currentUserId);
+      }
+
+      const endpoint = `/api/groups/${this.currentGroupId}/tasks?${params.toString()}`;
+      const response = await fetch(endpoint);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -2112,10 +2125,9 @@ class DashboardApp {
       
       const allTasks = result.data || [];
       
-      // Filter tasks for the specific month
+      // Safety: filter to the specific month (server already filters by range)
       return allTasks.filter(task => {
         if (!task.dueTime) return false;
-        
         const dueDate = new Date(task.dueTime);
         return dueDate.getFullYear() === year && dueDate.getMonth() === (month - 1);
       });
@@ -2372,6 +2384,8 @@ class DashboardApp {
       hour: '2-digit',
       minute: '2-digit'
     });
+    const creatorName = (task?.createdByUser?.displayName || task?.createdByUser?.realName || '').trim();
+    const attachmentCount = Array.isArray(task?.attachedFiles) ? task.attachedFiles.length : 0;
     
     const isOverdue = new Date(task.dueTime) < new Date() && (task.status === 'pending' || task.status === 'in_progress');
     
@@ -2382,6 +2396,8 @@ class DashboardApp {
           <div class="flex-1 min-w-0">
             <h6 class="font-medium text-gray-900 truncate">${this.escapeHtml(task.title)}</h6>
             <p class="text-sm text-gray-600 mt-1">เวลา: ${dueTime}</p>
+            ${creatorName ? `<p class="text-sm text-gray-600 mt-1">ผู้สั่งงาน: ${this.escapeHtml(creatorName)}</p>` : ''}
+            ${attachmentCount > 0 ? `<p class="text-sm text-gray-600 mt-1">📎 ไฟล์แนบ: ${attachmentCount}</p>` : ''}
             <div class="flex items-center gap-2 mt-2">
               <span class="inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${statusInfo.class}">
                 <i class="${statusInfo.icon} mr-1"></i>

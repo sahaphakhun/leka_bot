@@ -111,6 +111,8 @@ export const initializeDatabase = async (): Promise<void> => {
 
       // ตรวจสอบและเพิ่มคอลัมน์ที่จำเป็นซึ่งอาจยังไม่มีอยู่ (เช่นจากการอัปเดตโครงสร้าง)
       await ensureFilesTableColumns(queryRunner);
+      await ensureUsersTableColumns(queryRunner);
+      await ensureTasksTableColumns(queryRunner);
       
     } finally {
       await queryRunner.release();
@@ -162,6 +164,60 @@ const ensureFilesTableColumns = async (queryRunner: QueryRunner): Promise<void> 
     }
   } catch (error) {
     console.error('❌ Failed ensuring files table columns:', error);
+    throw error;
+  }
+};
+
+/**
+ * ตรวจสอบและเพิ่มคอลัมน์ที่จำเป็นให้ตาราง users หากยังไม่มีอยู่
+ * - "settings" jsonb NOT NULL DEFAULT '{}'
+ */
+const ensureUsersTableColumns = async (queryRunner: QueryRunner): Promise<void> => {
+  try {
+    const existingColumnsResult = await queryRunner.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'users'
+    `);
+    const existingColumnNames: string[] = existingColumnsResult.map((r: any) => r.column_name);
+
+    if (!existingColumnNames.includes('settings')) {
+      const alterSql = `ALTER TABLE "users" ADD COLUMN "settings" jsonb NOT NULL DEFAULT '{}'`;
+      console.log('🔧 Applying schema update for users:', alterSql);
+      await queryRunner.query(alterSql);
+      console.log('✅ Users table columns ensured');
+    } else {
+      console.log('✅ Users table already has required columns');
+    }
+  } catch (error) {
+    console.error('❌ Failed ensuring users table columns:', error);
+    throw error;
+  }
+};
+
+/**
+ * ตรวจสอบและเพิ่มคอลัมน์ที่จำเป็นให้ตาราง tasks หากยังไม่มีอยู่
+ * - "googleEventIds" jsonb NOT NULL DEFAULT '{}'
+ */
+const ensureTasksTableColumns = async (queryRunner: QueryRunner): Promise<void> => {
+  try {
+    const existingColumnsResult = await queryRunner.query(`
+      SELECT column_name
+      FROM information_schema.columns
+      WHERE table_schema = 'public' AND table_name = 'tasks'
+    `);
+    const existingColumnNames: string[] = existingColumnsResult.map((r: any) => r.column_name);
+
+    if (!existingColumnNames.includes('googleEventIds')) {
+      const alterSql = `ALTER TABLE "tasks" ADD COLUMN "googleEventIds" jsonb NOT NULL DEFAULT '{}'`;
+      console.log('🔧 Applying schema update for tasks:', alterSql);
+      await queryRunner.query(alterSql);
+      console.log('✅ Tasks table columns ensured');
+    } else {
+      console.log('✅ Tasks table already has required columns');
+    }
+  } catch (error) {
+    console.error('❌ Failed ensuring tasks table columns:', error);
     throw error;
   }
 };

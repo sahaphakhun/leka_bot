@@ -78,6 +78,13 @@ export class User {
   @UpdateDateColumn()
   updatedAt: Date;
 
+  // การตั้งค่าผู้ใช้ (เช่น ปฏิทินส่วนบุคคล)
+  @Column('jsonb', { default: {} })
+  settings: {
+    googleCalendarId?: string;
+    googleRefreshToken?: string;
+  };
+
   @OneToMany(() => GroupMember, member => member.user)
   groupMemberships: GroupMember[];
 
@@ -193,6 +200,11 @@ export class Task {
 
   @Column({ type: 'varchar', nullable: true })
   googleEventId?: string;
+
+  // ปฏิทินรายบุคคล: เก็บ event ต่อผู้ใช้
+  // โครงสร้าง: { [userId]: { calendarId: string; eventId: string } }
+  @Column('jsonb', { default: {} })
+  googleEventIds: Record<string, { calendarId: string; eventId: string }>;
 
   // ข้อมูลเวิร์กโฟลว์การส่งงาน/ตรวจงาน/อนุมัติ
   @Column('jsonb', { default: {} })

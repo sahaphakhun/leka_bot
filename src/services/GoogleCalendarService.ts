@@ -159,7 +159,8 @@ export class GoogleCalendarService {
   public async createTaskEvent(
     task: Task | TaskEntity,
     calendarId: string,
-    attendeeEmails?: string[]
+    attendeeEmails?: string[],
+    options?: { viewerRole?: 'assignee' | 'creator' | 'reviewer' }
   ): Promise<string> {
     try {
       const attendees = attendeeEmails
@@ -172,7 +173,7 @@ export class GoogleCalendarService {
       }
       const event: GoogleCalendarEvent = {
         summary: task.title,
-        description: this.formatEventDescription(task),
+        description: this.buildEventDescription(task, options?.viewerRole),
         start: {
           dateTime: task.startTime
             ? moment(task.startTime).toISOString()
@@ -213,7 +214,8 @@ export class GoogleCalendarService {
   public async updateTaskEvent(
     eventId: string, 
     calendarId: string, 
-    updates: Partial<Task>
+    updates: Partial<Task>,
+    options?: { overrideDescription?: string }
   ): Promise<void> {
     try {
       const event: Partial<GoogleCalendarEvent> = {};
@@ -222,7 +224,9 @@ export class GoogleCalendarService {
         event.summary = updates.title;
       }
 
-      if (updates.description) {
+      if (options?.overrideDescription) {
+        event.description = options.overrideDescription as any;
+      } else if ((updates as any).description) {
         event.description = this.formatEventDescription(updates as Task);
       }
 
@@ -390,22 +394,112 @@ export class GoogleCalendarService {
    */
   private formatEventDescription(task: Task | TaskEntity): string {
     let description = '';
-    
-    if (task.description) {
-      description += `📝 ${task.description}\n\n`;
+
+    // รายละเอียดงาน
+    if ((task as any)?.description) {
+      description += `📝 ${(task as any).description}\n\n`;
     }
 
-    description += `🎯 สถานะ: ${this.getStatusText(task.status)}\n`;
-    description += `⚡ ระดับ: ${this.getPriorityText(task.priority)}\n`;
-
-    if (task.tags && task.tags.length > 0) {
-      description += `🏷️ แท็ก: ${task.tags.map((tag: string) => `#${tag}`).join(' ')}\n`;
+    // ผู้สั่งงาน (ถ้ามีข้อมูลผู้ใช้)
+    const creatorName = (task as any)?.createdByUser?.displayName
+      || (task as any)?.createdByUser?.realName
+      || undefined;
+    if (creatorName) {
+      description += `👤 ผู้สั่งงาน: ${creatorName}\n`;
     }
 
-    description += `\n📊 ดูรายละเอียดที่: ${config.baseUrl}/dashboard`;
+    // ผู้รับผิดชอบ (ถ้ามี)
+    if (Array.isArray((task as any)?.assignedUsers) && (task as any).assignedUsers.length > 0) {
+      const names = ((task as any).assignedUsers as any[])
+        .map(u => u.displayName || u.realName)
+        .filter(Boolean)
+        .join(', ');
+      if (names) {
+        description += `🧑‍💼 ผู้รับผิดชอบ: ${names}\n`;
+      }
+    }
+
+    // สถานะ / ความสำคัญ
+    description += `🎯 สถานะ: ${this.getStatusText((task as any).status)}\n`;
+    description += `⚡ ระดับ: ${this.getPriorityText((task as any).priority)}\n`;
+
+    // แท็ก
+    if ((task as any)?.tags && (task as any).tags.length > 0) {
+      description += `🏷️ แท็ก: ${(task as any).tags.map((tag: string) => `#${tag}`).join(' ')}\n`;
+    }
+
+    // ไฟล์แนบ (แสดงจำนวนถ้ามี)
+    const attachmentCount = Array.isArray((task as any)?.attachedFiles) ? (task as any).attachedFiles.length : 0;
+    if (attachmentCount > 0) {
+      description += `📎 ไฟล์แนบ: ${attachmentCount} ไฟล์ (เปิดดูใน Dashboard)\n`;
+    }
+
+    // ลิงก์ไปยัง Dashboard แบบ deep link เพื่อเปิดรายละเอียดงานทันที
+    const groupId = (task as any)?.groupId;
+    const taskId = (task as any)?.id;
+    const detailUrl = groupId && taskId
+      ? `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(groupId)}&taskId=${encodeURIComponent(taskId)}&action=view`
+      : `${config.baseUrl}/dashboard`;
+
+    description += `\n🔗 เปิดรายละเอียด: ${detailUrl}`;
+
+    // เพิ่มลิงก์แบบเฉพาะบุคคล (ถ้ารู้ LINE userId ของผู้รับผิดชอบ)
+    try {
+      const assignees: any[] = Array.isArray((task as any)?.assignedUsers) ? (task as any).assignedUsers : [];
+      const personalized = assignees
+        .filter(a => !!a?.lineUserId && (a.displayName || a.realName))
+        .slice(0, 5)
+        .map(a => {
+          const name = a.displayName || a.realName;
+          const link = `${detailUrl}&userId=${encodeURIComponent(a.lineUserId)}`;
+          return `   • ${name}: ${link}`;
+        });
+      if (personalized.length > 0) {
+        description += `\n🔒 ลิงก์เฉพาะบุคคล:\n${personalized.join('\n')}`;
+      }
+    } catch {}
     description += `\n🤖 สร้างโดยเลขาบอท`;
 
     return description;
+  }
+
+  /**
+   * สร้างคำอธิบาย Event พร้อมบอกบทบาทของผู้ใช้งานที่ดูปฏิทิน
+   */
+  public buildEventDescription(task: Task | TaskEntity, viewerRole?: 'assignee' | 'creator' | 'reviewer'): string {
+    const base = this.formatEventDescription(task);
+    if (!viewerRole) return base;
+    const roleMap: Record<string, string> = {
+      assignee: 'ผู้รับผิดชอบ',
+      creator: 'ผู้สร้างงาน',
+      reviewer: 'ผู้ตรวจ'
+    };
+    return `👤 บทบาทของคุณ: ${roleMap[viewerRole] || viewerRole}\n` + base;
+  }
+
+  /**
+   * สร้าง Calendar ใหม่สำหรับผู้ใช้ (ปฏิทินรายบุคคล)
+   */
+  public async createUserCalendar(userName: string, timezone: string = config.app.defaultTimezone): Promise<string> {
+    try {
+      const calendar = {
+        summary: `เลขาบอท - งานของ ${userName}`,
+        description: `ปฏิทินงานส่วนบุคคลสำหรับ ${userName} จากระบบเลขาบอท`,
+        timeZone: timezone
+      };
+
+      const response = await this.calendar.calendars.insert({
+        requestBody: calendar as any
+      });
+
+      const calendarId = response.data.id!;
+      console.log(`✅ Created user calendar for: ${userName} (${calendarId})`);
+      return calendarId;
+
+    } catch (error) {
+      console.error('❌ Error creating user calendar:', error);
+      throw error;
+    }
   }
 
   /**

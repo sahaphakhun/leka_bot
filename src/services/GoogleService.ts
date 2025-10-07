@@ -16,6 +16,18 @@ export class GoogleService {
     this.userService = new UserService();
   }
 
+  private getUserRole(task: Task | TaskEntity, userId: string): 'assignee' | 'creator' | 'reviewer' | undefined {
+    const anyTask: any = task as any;
+    if (anyTask.createdBy === userId || anyTask.createdByUser?.id === userId) return 'creator';
+    const reviewerId = anyTask?.workflow?.review?.reviewerUserId;
+    if (reviewerId === userId) return 'reviewer';
+    if (Array.isArray(anyTask.assignedUsers)) {
+      const inAssignees = anyTask.assignedUsers.some((u: any) => (typeof u === 'string' ? u === userId : u?.id === userId));
+      if (inAssignees) return 'assignee';
+    }
+    return undefined;
+  }
+
   /**
    * ตั้งค่า Google Calendar สำหรับกลุ่มใหม่
    */
@@ -75,27 +87,73 @@ export class GoogleService {
   }
 
   /**
+   * ตั้งค่า Google Calendar สำหรับผู้ใช้ (รายบุคคล) และแชร์ให้ผู้ใช้อัตโนมัติ
+   */
+  public async ensureUserCalendar(userId: string): Promise<string> {
+    const user = await this.userService.findById(userId);
+    if (!user) throw new Error('User not found');
+    const existing = (user as any).settings?.googleCalendarId;
+    if (existing) return existing;
+
+    const calendarId = await this.calendarService.createUserCalendar(user.displayName || `ผู้ใช้ ${user.id}`, user.timezone);
+    // บันทึกใน user.settings
+    await this.userService.updateUserSettings(user.id, { googleCalendarId: calendarId });
+
+    // แชร์ calendar ให้ผู้ใช้ถ้ามีอีเมลและยืนยันแล้ว
+    try {
+      if (user.email && user.isVerified) {
+        await this.calendarService.shareCalendarWithUser(calendarId, user.email, 'writer');
+      }
+    } catch (err) {
+      console.warn('⚠️ Failed to share user calendar with user:', err);
+    }
+
+    return calendarId;
+  }
+
+  /**
+   * สร้าง event ใส่ปฏิทินของผู้ใช้รายบุคคล คืนค่า eventId
+   */
+  public async syncTaskToUserCalendar(task: Task | TaskEntity, userId: string): Promise<{ calendarId: string; eventId: string }> {
+    const calendarId = await this.ensureUserCalendar(userId);
+    const viewerRole = this.getUserRole(task, userId);
+    const eventId = await this.calendarService.createTaskEvent(task, calendarId, undefined, { viewerRole });
+    return { calendarId, eventId };
+  }
+
+  /**
    * อัปเดตงานใน Calendar
    */
   public async updateTaskInCalendar(task: Task | TaskEntity, updates: Partial<Task>): Promise<void> {
     try {
-      if (!task.googleEventId) {
-        console.warn('⚠️ Task has no Google Event ID, skipping calendar update');
+      const anyTask: any = task as any;
+      const userEventMap: Record<string, { calendarId: string; eventId: string }> = anyTask.googleEventIds || {};
+
+      const entries = Object.entries(userEventMap);
+      if (entries.length > 0) {
+        for (const [userId, info] of entries) {
+          try {
+            const role = this.getUserRole(task, userId);
+            const desc = this.calendarService.buildEventDescription(task, role);
+            await this.calendarService.updateTaskEvent(info.eventId, info.calendarId, updates, { overrideDescription: desc });
+          } catch (err) {
+            console.warn('⚠️ Failed to update user calendar event:', err);
+          }
+        }
         return;
       }
 
-      // task.groupId เป็น internal UUID ของกลุ่ม
-      const group = await this.userService.findGroupById(task.groupId);
-      if (!group?.settings.googleCalendarId) {
-        console.warn('⚠️ Group has no calendar configured');
-        return;
+      // Backward-compatibility: update group event if present
+      if ((task as any).googleEventId) {
+        const group = await this.userService.findGroupById((task as any).groupId);
+        if (group?.settings.googleCalendarId) {
+          await this.calendarService.updateTaskEvent(
+            (task as any).googleEventId,
+            group.settings.googleCalendarId,
+            updates
+          );
+        }
       }
-
-      await this.calendarService.updateTaskEvent(
-        task.googleEventId,
-        group.settings.googleCalendarId,
-        updates
-      );
 
     } catch (error) {
       console.error('❌ Error updating task in calendar:', error);
@@ -108,23 +166,44 @@ export class GoogleService {
    */
   public async removeTaskFromCalendar(task: Task | TaskEntity): Promise<void> {
     try {
-      if (!task.googleEventId) {
+      const anyTask: any = task as any;
+      const userEventMap: Record<string, { calendarId: string; eventId: string }> = anyTask.googleEventIds || {};
+      const entries = Object.entries(userEventMap);
+      if (entries.length > 0) {
+        for (const [, info] of entries) {
+          try {
+            await this.calendarService.deleteTaskEvent(info.eventId, info.calendarId);
+          } catch (err) {
+            console.warn('⚠️ Failed to delete user calendar event:', err);
+          }
+        }
         return;
       }
 
-      // task.groupId เป็น internal UUID ของกลุ่ม
-      const group = await this.userService.findGroupById(task.groupId);
-      if (!group?.settings.googleCalendarId) {
-        return;
+      if ((task as any).googleEventId) {
+        const group = await this.userService.findGroupById((task as any).groupId);
+        if (group?.settings.googleCalendarId) {
+          await this.calendarService.deleteTaskEvent((task as any).googleEventId, group.settings.googleCalendarId);
+        }
       }
-
-      await this.calendarService.deleteTaskEvent(
-        task.googleEventId,
-        group.settings.googleCalendarId
-      );
 
     } catch (error) {
       console.error('❌ Error removing task from calendar:', error);
+    }
+  }
+
+  /**
+   * ลบอีเวนต์ของงานออกจากปฏิทินของผู้ใช้รายหนึ่ง (ตาม mapping ที่บันทึกในงาน)
+   */
+  public async removeTaskFromUserCalendar(task: Task | TaskEntity, userId: string): Promise<void> {
+    try {
+      const anyTask: any = task as any;
+      const map: Record<string, { calendarId: string; eventId: string }> = anyTask.googleEventIds || {};
+      const info = map[userId];
+      if (!info) return;
+      await this.calendarService.deleteTaskEvent(info.eventId, info.calendarId);
+    } catch (error) {
+      console.warn('⚠️ Failed to remove task from a user calendar:', error);
     }
   }
 

@@ -23,6 +23,7 @@ export const taskEntityToInterface = (entity: TaskEntity): Task => {
     remindersSent: entity.remindersSent || [],
     customReminders: entity.customReminders,
     googleEventId: entity.googleEventId,
+    googleEventIds: (entity as any).googleEventIds || {},
     attachedFiles: entity.attachedFiles?.map(file => fileEntityToInterface(file)) || [],
     createdAt: entity.createdAt,
     updatedAt: entity.updatedAt,
