@@ -52,6 +52,37 @@ try {
     console.warn('⚠️ Failed to copy dashboard assets:', copyErr && copyErr.message ? copyErr.message : copyErr);
   }
 
+  // Build dashboard-new (React)
+  try {
+    console.log('⚛️  Building dashboard-new (React)...');
+    const dashboardNewDir = path.join(__dirname, 'dashboard-new');
+    if (fs.existsSync(dashboardNewDir)) {
+      // Install dependencies if needed
+      if (!fs.existsSync(path.join(dashboardNewDir, 'node_modules'))) {
+        console.log('📦 Installing dashboard-new dependencies...');
+        execSync('npm install', { cwd: dashboardNewDir, stdio: 'inherit' });
+      }
+      // Build React app
+      console.log('🔨 Building React app...');
+      execSync('npm run build', { cwd: dashboardNewDir, stdio: 'inherit' });
+      console.log('✅ Dashboard-new build completed');
+      
+      // Copy built files to dist
+      const srcDashboardNewDist = path.join(dashboardNewDir, 'dist');
+      const distDashboardNewDir = path.join(__dirname, 'dist', 'dashboard-new', 'dist');
+      if (fs.existsSync(srcDashboardNewDist)) {
+        console.log('🗂️  Copying dashboard-new/dist to dist/dashboard-new/dist ...');
+        copyRecursiveSync(srcDashboardNewDist, distDashboardNewDir);
+        console.log('✅ Dashboard-new assets copied');
+      }
+    } else {
+      console.warn('⚠️ dashboard-new directory not found, skipping...');
+    }
+  } catch (dashboardNewErr) {
+    console.warn('⚠️ Failed to build dashboard-new:', dashboardNewErr && dashboardNewErr.message ? dashboardNewErr.message : dashboardNewErr);
+    console.warn('   Continuing without dashboard-new...');
+  }
+
   console.log('🚀 Build successful!');
   
 } catch (error) {
