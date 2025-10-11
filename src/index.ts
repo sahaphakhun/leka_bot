@@ -95,8 +95,8 @@ class Server {
     // Dashboard static assets (CSS, JS, images)  
     this.app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
     
-    // New Bordio-style UI (React app)
-    this.app.use('/dashboard-new', express.static(path.join(__dirname, '../dashboard-new')));
+    // New React Dashboard (serve built files from dist)
+    this.app.use('/dashboard-new', express.static(path.join(__dirname, '../dashboard-new/dist')));
 
     // Serve PDF.js from node_modules under same-origin to satisfy CSP
     try {

@@ -1,0 +1,178 @@
+export const sampleTasks = [
+  {
+    id: 1,
+    title: 'Design new landing page',
+    description: 'Create a modern landing page design with Bordio style',
+    status: 'in-progress',
+    priority: 'high',
+    assignee: {
+      name: 'John Doe',
+      avatar: null
+    },
+    scheduledDate: new Date().toISOString(),
+    estimatedTime: '4h',
+    tags: ['design', 'frontend']
+  },
+  {
+    id: 2,
+    title: 'Fix authentication bug',
+    description: 'Users unable to login with Google OAuth',
+    status: 'overdue',
+    priority: 'high',
+    assignee: {
+      name: 'Jane Smith',
+      avatar: null
+    },
+    scheduledDate: new Date(Date.now() - 86400000).toISOString(), // Yesterday
+    estimatedTime: '2h',
+    tags: ['bug', 'backend']
+  },
+  {
+    id: 3,
+    title: 'Update documentation',
+    description: 'Add API documentation for new endpoints',
+    status: 'scheduled',
+    priority: 'medium',
+    assignee: {
+      name: 'Bob Johnson',
+      avatar: null
+    },
+    scheduledDate: new Date(Date.now() + 86400000).toISOString(), // Tomorrow
+    estimatedTime: '3h',
+    tags: ['docs']
+  },
+  {
+    id: 4,
+    title: 'Code review for PR #123',
+    description: 'Review pull request for new feature implementation',
+    status: 'new',
+    priority: 'medium',
+    assignee: {
+      name: 'Alice Williams',
+      avatar: null
+    },
+    scheduledDate: null, // Waiting list
+    estimatedTime: '1h',
+    tags: ['review']
+  },
+  {
+    id: 5,
+    title: 'Setup CI/CD pipeline',
+    description: 'Configure automated testing and deployment',
+    status: 'completed',
+    priority: 'high',
+    assignee: {
+      name: 'Charlie Brown',
+      avatar: null
+    },
+    scheduledDate: new Date(Date.now() - 172800000).toISOString(), // 2 days ago
+    estimatedTime: '6h',
+    tags: ['devops', 'infrastructure']
+  },
+  {
+    id: 6,
+    title: 'Database optimization',
+    description: 'Optimize slow queries and add indexes',
+    status: 'in-progress',
+    priority: 'high',
+    assignee: {
+      name: 'David Lee',
+      avatar: null
+    },
+    scheduledDate: new Date().toISOString(),
+    estimatedTime: '5h',
+    tags: ['backend', 'performance']
+  },
+  {
+    id: 7,
+    title: 'Mobile app testing',
+    description: 'Test new features on iOS and Android',
+    status: 'scheduled',
+    priority: 'medium',
+    assignee: {
+      name: 'Emma Davis',
+      avatar: null
+    },
+    scheduledDate: new Date(Date.now() + 172800000).toISOString(), // 2 days later
+    estimatedTime: '4h',
+    tags: ['mobile', 'testing']
+  },
+  {
+    id: 8,
+    title: 'Security audit',
+    description: 'Perform security audit on authentication system',
+    status: 'new',
+    priority: 'high',
+    assignee: {
+      name: 'Frank Miller',
+      avatar: null
+    },
+    scheduledDate: null, // Waiting list
+    estimatedTime: '8h',
+    tags: ['security', 'audit']
+  },
+  {
+    id: 9,
+    title: 'User feedback analysis',
+    description: 'Analyze user feedback from last sprint',
+    status: 'scheduled',
+    priority: 'low',
+    assignee: {
+      name: 'Grace Wilson',
+      avatar: null
+    },
+    scheduledDate: new Date(Date.now() + 259200000).toISOString(), // 3 days later
+    estimatedTime: '2h',
+    tags: ['research', 'ux']
+  },
+  {
+    id: 10,
+    title: 'Implement dark mode',
+    description: 'Add dark mode support to the application',
+    status: 'in-progress',
+    priority: 'medium',
+    assignee: {
+      name: 'Henry Taylor',
+      avatar: null
+    },
+    scheduledDate: new Date().toISOString(),
+    estimatedTime: '6h',
+    tags: ['frontend', 'feature']
+  },
+  {
+    id: 11,
+    title: 'Write unit tests',
+    description: 'Add unit tests for new components',
+    status: 'new',
+    priority: 'medium',
+    assignee: {
+      name: 'Ivy Anderson',
+      avatar: null
+    },
+    scheduledDate: null, // Waiting list
+    estimatedTime: '4h',
+    tags: ['testing', 'quality']
+  },
+  {
+    id: 12,
+    title: 'Performance monitoring setup',
+    description: 'Setup monitoring tools for application performance',
+    status: 'completed',
+    priority: 'high',
+    assignee: {
+      name: 'Jack Thomas',
+      avatar: null
+    },
+    scheduledDate: new Date(Date.now() - 259200000).toISOString(), // 3 days ago
+    estimatedTime: '3h',
+    tags: ['devops', 'monitoring']
+  }
+];
+
+export const sampleStats = {
+  totalTasks: sampleTasks.length,
+  completedTasks: sampleTasks.filter(t => t.status === 'completed').length,
+  inProgressTasks: sampleTasks.filter(t => t.status === 'in-progress').length,
+  overdueTasks: sampleTasks.filter(t => t.status === 'overdue').length,
+};
+
