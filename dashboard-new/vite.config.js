@@ -6,7 +6,11 @@ import path from 'path'
 // https://vite.dev/config/
 export default defineConfig({
   base: '/dashboard-new/',
-  plugins: [react(),tailwindcss()],
+  plugins: [
+    // Ensure Tailwind v4 CSS import support
+    tailwindcss(),
+    react(),
+  ],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
@@ -26,4 +30,3 @@ export default defineConfig({
     ],
   },
 })
-

@@ -9,7 +9,7 @@ import helmet from 'helmet';
 import path from 'path';
 import { config, validateConfig, features } from './utils/config';
 import { initializeDatabase, closeDatabase } from './utils/database';
-import { webhookRouter } from './controllers/webhookController';
+import { createWebhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
 import { dashboardRouter } from './controllers/dashboardController';
 import { projectRouter } from './controllers/projectController';
@@ -22,13 +22,11 @@ import { autoMigration } from './utils/autoMigration';
 
 class Server {
   private app: Application;
-  private lineService: LineService;
-  private cronService: CronService;
+  private lineService?: LineService;
+  private cronService?: CronService;
 
   constructor() {
     this.app = express();
-    this.lineService = new LineService();
-    this.cronService = new CronService();
     
     this.configureMiddleware();
     this.configureRoutes();
@@ -174,7 +172,7 @@ class Server {
 
     // LINE Webhook (mount เฉพาะเมื่อเปิดใช้ LINE integration)
     if (features.lineEnabled) {
-      this.app.use('/webhook', webhookRouter);
+      this.app.use('/webhook', createWebhookRouter());
     } else {
       // ให้ตอบกลับอย่างสุภาพเมื่อมีการเรียก /webhook ในโหมด Dashboard-only
       this.app.post('/webhook', (req: Request, res: Response) => {
@@ -235,7 +233,7 @@ class Server {
     logger.info('Starting graceful shutdown...');
     try {
       // Stop cron jobs
-      this.cronService.stop();
+      this.cronService?.stop();
       
       // Close database connections
       await closeDatabase();
@@ -279,6 +277,10 @@ class Server {
       // Initialize LINE service และ Cron jobs (เฉพาะเมื่อเปิดใช้ LINE integration)
       try {
         if (features.lineEnabled) {
+          // Lazily instantiate only when enabled
+          this.lineService = new LineService();
+          this.cronService = new CronService();
+
           await this.lineService.initialize();
           logger.info('LINE service initialized');
           this.cronService.start();

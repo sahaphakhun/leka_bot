@@ -16,7 +16,13 @@ import { logger } from '@/utils/logger';
 import { formatFileSize } from '@/utils/common';
 import moment from 'moment-timezone';
 
-export const webhookRouter = Router();
+// Lazily create router to avoid instantiating LINE services when disabled
+export function createWebhookRouter(): Router {
+  const router = Router();
+  const controller = new WebhookController();
+  router.post('/', (req, res) => controller.handleWebhook(req, res));
+  return router;
+}
 
 class WebhookController {
   private lineService: LineService;
@@ -1650,7 +1656,4 @@ class WebhookController {
   }
 }
 
-const webhookController = new WebhookController();
-
-// Routes
-webhookRouter.post('/', (req, res) => webhookController.handleWebhook(req, res));
+// Routes are now registered via createWebhookRouter()
