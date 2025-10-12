@@ -7,6 +7,7 @@ import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
+import fs from 'fs';
 import { config, validateConfig, features } from './utils/config';
 import { initializeDatabase, closeDatabase, AppDataSource } from './utils/database';
 import { randomUUID } from 'crypto';
@@ -89,13 +90,27 @@ class Server {
     });
 
     // Static files สำหรับ dashboard และ uploads
-    this.app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
-    
-    // Dashboard static assets (CSS, JS, images)  
-    this.app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
-    
+    const uploadsCandidates = [
+      path.join(__dirname, 'uploads'),
+      path.join(__dirname, '../uploads'),
+    ];
+    const uploadsDir = uploadsCandidates.find((p) => fs.existsSync(p)) || uploadsCandidates[0];
+    this.app.use('/uploads', express.static(uploadsDir));
+
+    // Legacy Dashboard static assets (CSS, JS, images)
+    const dashboardCandidates = [
+      path.join(__dirname, 'dashboard'),
+      path.join(__dirname, '../dashboard'),
+    ];
+    const dashboardDir = dashboardCandidates.find((p) => fs.existsSync(p)) || dashboardCandidates[0];
+    this.app.use('/dashboard', express.static(dashboardDir));
+
     // New React Dashboard (serve built files)
-    const dashboardNewDir = path.join(__dirname, '../dashboard-new/dist');
+    const dashboardNewCandidates = [
+      path.join(__dirname, 'dashboard-new/dist'),
+      path.join(__dirname, '../dashboard-new/dist'),
+    ];
+    const dashboardNewDir = dashboardNewCandidates.find((p) => fs.existsSync(p)) || dashboardNewCandidates[0];
     this.app.use('/dashboard-new', express.static(dashboardNewDir));
     // SPA fallback for dashboard-new so deep links and query strings work
     this.app.get(['/dashboard-new', '/dashboard-new/'], (_req: Request, res: Response) => {

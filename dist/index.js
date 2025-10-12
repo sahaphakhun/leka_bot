@@ -11,6 +11,7 @@ const express_1 = __importDefault(require("express"));
 const cors_1 = __importDefault(require("cors"));
 const helmet_1 = __importDefault(require("helmet"));
 const path_1 = __importDefault(require("path"));
+const fs_1 = __importDefault(require("fs"));
 const config_1 = require("./utils/config");
 const database_1 = require("./utils/database");
 const crypto_1 = require("crypto");
@@ -83,11 +84,25 @@ class Server {
             });
         });
         // Static files สำหรับ dashboard และ uploads
-        this.app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../uploads')));
-        // Dashboard static assets (CSS, JS, images)  
-        this.app.use('/dashboard', express_1.default.static(path_1.default.join(__dirname, '../dashboard')));
+        const uploadsCandidates = [
+            path_1.default.join(__dirname, 'uploads'),
+            path_1.default.join(__dirname, '../uploads'),
+        ];
+        const uploadsDir = uploadsCandidates.find((p) => fs_1.default.existsSync(p)) || uploadsCandidates[0];
+        this.app.use('/uploads', express_1.default.static(uploadsDir));
+        // Legacy Dashboard static assets (CSS, JS, images)
+        const dashboardCandidates = [
+            path_1.default.join(__dirname, 'dashboard'),
+            path_1.default.join(__dirname, '../dashboard'),
+        ];
+        const dashboardDir = dashboardCandidates.find((p) => fs_1.default.existsSync(p)) || dashboardCandidates[0];
+        this.app.use('/dashboard', express_1.default.static(dashboardDir));
         // New React Dashboard (serve built files)
-        const dashboardNewDir = path_1.default.join(__dirname, '../dashboard-new/dist');
+        const dashboardNewCandidates = [
+            path_1.default.join(__dirname, 'dashboard-new/dist'),
+            path_1.default.join(__dirname, '../dashboard-new/dist'),
+        ];
+        const dashboardNewDir = dashboardNewCandidates.find((p) => fs_1.default.existsSync(p)) || dashboardNewCandidates[0];
         this.app.use('/dashboard-new', express_1.default.static(dashboardNewDir));
         // SPA fallback for dashboard-new so deep links and query strings work
         this.app.get(['/dashboard-new', '/dashboard-new/'], (_req, res) => {
