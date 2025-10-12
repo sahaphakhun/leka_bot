@@ -117,6 +117,40 @@ export const submitTask = async (groupId, taskId, submitData = {}) => {
   });
 };
 
+export const submitTaskWithProgress = (groupId, taskId, formData, onProgress) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`, true);
+      xhr.responseType = 'json';
+
+      if (typeof onProgress === 'function') {
+        xhr.upload.onprogress = (event) => {
+          onProgress({
+            loaded: event.loaded,
+            total: event.total,
+            lengthComputable: event.lengthComputable,
+          });
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.response || {});
+        } else {
+          const message = xhr.response?.message || xhr.response?.error || `HTTP ${xhr.status}`;
+          reject(new Error(message));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(formData);
+    } catch (error) {
+      reject(error);
+    }
+  });
+};
+
 export const approveTask = async (groupIdOrTaskId, maybeTaskId, payload = {}) => {
   const hasGroup = typeof maybeTaskId !== 'undefined';
   const groupId = hasGroup ? groupIdOrTaskId : null;
@@ -299,6 +333,48 @@ export const getFilePreview = async (fileId, groupId) => {
     throw new Error('Missing groupId for file preview');
   }
   return `${API_BASE_URL}/groups/${resolvedGroupId}/files/${fileId}/preview`;
+};
+
+export const uploadFilesWithProgress = (groupId, files = [], metadata = {}, onProgress) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const formData = new FormData();
+      files.forEach(file => file && formData.append('files', file));
+      Object.entries(metadata || {}).forEach(([key, value]) => {
+        if (value !== undefined && value !== null) {
+          formData.append(key, value);
+        }
+      });
+
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', `${API_BASE_URL}/groups/${groupId}/files`, true);
+      xhr.responseType = 'json';
+
+      if (typeof onProgress === 'function') {
+        xhr.upload.onprogress = (event) => {
+          onProgress({
+            loaded: event.loaded,
+            total: event.total,
+            lengthComputable: event.lengthComputable,
+          });
+        };
+      }
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(xhr.response || {});
+        } else {
+          const message = xhr.response?.message || xhr.response?.error || `HTTP ${xhr.status}`;
+          reject(new Error(message));
+        }
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.send(formData);
+    } catch (error) {
+      reject(error);
+    }
+  });
 };
 
 // ==================== User APIs ====================
@@ -536,6 +612,7 @@ export default {
   deleteTask,
   completeTask,
   submitTask,
+  submitTaskWithProgress,
   approveTask,
   reopenTask,
   createMultipleTasks,
@@ -557,6 +634,7 @@ export default {
   previewFile,
   uploadFile,
   uploadFiles,
+  uploadFilesWithProgress,
   deleteFile,
   getFilePreview,
   getUserStats,

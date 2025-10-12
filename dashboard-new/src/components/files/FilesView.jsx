@@ -10,6 +10,8 @@ import FileListView from './FileListView';
 import FileGridView from './FileGridView';
 import FileFolderView from './FileFolderView';
 import FileUploadZone from './FileUploadZone';
+import { uploadFilesWithProgress, fetchTasks, getGroupFiles, deleteFile } from '../../services/api';
+import { showUploadProgress, updateUploadProgress, hideUploadProgress } from '../../lib/uploadProgress';
 
 export default function FilesView({ refreshKey = 0 }) {
   const { groupId } = useAuth();
@@ -31,7 +33,6 @@ export default function FilesView({ refreshKey = 0 }) {
   const loadFiles = async () => {
     setLoading(true);
     try {
-      const { getGroupFiles } = await import('../../services/api');
       const response = await getGroupFiles(groupId);
       setFiles(response.data || response);
     } catch (error) {
@@ -79,7 +80,6 @@ export default function FilesView({ refreshKey = 0 }) {
 
   const loadTasks = async () => {
     try {
-      const { fetchTasks } = await import('../../services/api');
       const response = await fetchTasks(groupId);
       setTasks(response.data || response.tasks || []);
     } catch (error) {
@@ -87,21 +87,53 @@ export default function FilesView({ refreshKey = 0 }) {
     }
   };
 
-  const handleFileUpload = async (uploadedFiles) => {
+  const formatFileSize = (bytes) => {
+    if (!bytes) return '0 Bytes';
+    const k = 1024;
+    const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return `${(bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1)} ${sizes[i]}`;
+  };
+
+  const handleFileUpload = async (uploadedFiles, onProgress) => {
     try {
-      const { uploadFiles } = await import('../../services/api');
-      await uploadFiles(groupId, uploadedFiles);
+      const fileArray = Array.from(uploadedFiles || []);
+      if (fileArray.length === 0) {
+        return;
+      }
+      const totalSize = fileArray.reduce((sum, file) => sum + (file?.size || 0), 0);
+      const subtitle = fileArray.length > 0
+        ? `${fileArray.length} ไฟล์ • รวม ${formatFileSize(totalSize)}`
+        : 'กำลังอัปโหลดไฟล์...';
+
+      showUploadProgress({
+        title: '📤 กำลังอัปโหลดไฟล์',
+        subtitle,
+      });
+
+      await uploadFilesWithProgress(groupId, fileArray, {}, ({ loaded, total, lengthComputable }) => {
+        updateUploadProgress({ loaded, total, lengthComputable });
+        if (typeof onProgress === 'function') {
+          onProgress({ loaded, total, lengthComputable });
+        }
+      });
+
+      updateUploadProgress({
+        percent: 100,
+        detail: fileArray.length > 0 ? `${formatFileSize(totalSize)} / ${formatFileSize(totalSize)}` : 'อัปโหลดเสร็จสมบูรณ์',
+      });
       loadFiles();
       setShowUploadZone(false);
     } catch (error) {
       console.error('Failed to upload files:', error);
       alert('ไม่สามารถอัปโหลดไฟล์ได้');
+    } finally {
+      hideUploadProgress();
     }
   };
 
   const handleFileDelete = async (fileId) => {
     try {
-      const { deleteFile } = await import('../../services/api');
       await deleteFile(groupId, fileId);
       loadFiles();
     } catch (error) {

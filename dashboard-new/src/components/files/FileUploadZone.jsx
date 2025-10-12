@@ -1,7 +1,7 @@
 import { useState, useCallback } from 'react';
 import { Button } from '../ui/button';
 import { Progress } from '../ui/progress';
-import { Upload, X, FileIcon } from 'lucide-react';
+import { Upload, X } from 'lucide-react';
 
 export default function FileUploadZone({ onFilesUploaded, onCancel }) {
   const [files, setFiles] = useState([]);
@@ -14,7 +14,7 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
     addFiles(selectedFiles);
   };
 
-  const addFiles = (newFiles) => {
+  const addFiles = useCallback((newFiles) => {
     const validFiles = newFiles.filter(file => {
       // Check file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
@@ -25,29 +25,32 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
     });
 
     setFiles(prev => [...prev, ...validFiles]);
-  };
+  }, []);
 
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleDragOver = useCallback((e) => {
+    if (uploading) return;
     e.preventDefault();
     setIsDragging(true);
-  }, []);
+  }, [uploading]);
 
   const handleDragLeave = useCallback((e) => {
+    if (uploading) return;
     e.preventDefault();
     setIsDragging(false);
-  }, []);
+  }, [uploading]);
 
   const handleDrop = useCallback((e) => {
+    if (uploading) return;
     e.preventDefault();
     setIsDragging(false);
     
     const droppedFiles = Array.from(e.dataTransfer.files);
     addFiles(droppedFiles);
-  }, []);
+  }, [uploading, addFiles]);
 
   const handleUpload = async () => {
     if (files.length === 0) {
@@ -59,20 +62,15 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
     setUploadProgress(0);
 
     try {
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
+      await onFilesUploaded(files, ({ loaded, total, lengthComputable }) => {
+        if (lengthComputable && total > 0) {
+          const pct = Math.round((loaded / total) * 100);
+          setUploadProgress(pct);
+        } else {
+          setUploadProgress(prev => (prev >= 95 ? prev : prev + 5));
+        }
+      });
 
-      await onFilesUploaded(files);
-
-      clearInterval(progressInterval);
       setUploadProgress(100);
 
       // Reset after success
@@ -91,7 +89,7 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
   };
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -103,10 +101,16 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
     const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
     const docExts = ['doc', 'docx', 'pdf', 'txt'];
     const excelExts = ['xls', 'xlsx', 'csv'];
+    const archiveExts = ['zip', 'rar', '7z'];
+    const audioExts = ['mp3', 'wav', 'm4a', 'aac', 'flac'];
+    const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
     
     if (imageExts.includes(ext)) return '🖼️';
     if (docExts.includes(ext)) return '📄';
     if (excelExts.includes(ext)) return '📊';
+    if (archiveExts.includes(ext)) return '📦';
+    if (audioExts.includes(ext)) return '🎵';
+    if (videoExts.includes(ext)) return '🎬';
     return '📎';
   };
 
@@ -115,7 +119,7 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold">อัปโหลดไฟล์</h3>
-        <Button variant="ghost" size="sm" onClick={onCancel}>
+        <Button variant="ghost" size="sm" onClick={onCancel} disabled={uploading}>
           <X className="w-4 h-4" />
         </Button>
       </div>
@@ -148,6 +152,7 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
           type="file"
           multiple
           className="hidden"
+          accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z,.mp4,.mov,.avi,.mp3,.wav"
           onChange={handleFileSelect}
         />
         <p className="text-xs text-gray-500 mt-2">
@@ -238,4 +243,3 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
     </div>
   );
 }
-

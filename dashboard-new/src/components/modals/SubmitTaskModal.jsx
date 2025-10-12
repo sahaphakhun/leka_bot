@@ -7,9 +7,11 @@ import { Label } from '../ui/label';
 import { Textarea } from '../ui/textarea';
 import { Badge } from '../ui/badge';
 import { Progress } from '../ui/progress';
-import { Upload, X, FileIcon, CheckCircle2 } from 'lucide-react';
+import { Upload, X, CheckCircle2 } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { submitTaskWithProgress } from '../../services/api';
+import { showUploadProgress, updateUploadProgress, hideUploadProgress } from '../../lib/uploadProgress';
 
 export default function SubmitTaskModal({ onTaskSubmitted }) {
   const { groupId, userId } = useAuth();
@@ -27,7 +29,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     addFiles(selectedFiles);
   };
 
-  const addFiles = (newFiles) => {
+  const addFiles = useCallback((newFiles) => {
     const validFiles = newFiles.filter(file => {
       // Check file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
@@ -38,29 +40,32 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     });
 
     setFiles(prev => [...prev, ...validFiles]);
-  };
+  }, []);
 
   const removeFile = (index) => {
     setFiles(prev => prev.filter((_, i) => i !== index));
   };
 
   const handleDragOver = useCallback((e) => {
+    if (loading) return;
     e.preventDefault();
     setIsDragging(true);
-  }, []);
+  }, [loading]);
 
   const handleDragLeave = useCallback((e) => {
+    if (loading) return;
     e.preventDefault();
     setIsDragging(false);
-  }, []);
+  }, [loading]);
 
   const handleDrop = useCallback((e) => {
+    if (loading) return;
     e.preventDefault();
     setIsDragging(false);
     
     const droppedFiles = Array.from(e.dataTransfer.files);
     addFiles(droppedFiles);
-  }, []);
+  }, [loading, addFiles]);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -68,31 +73,50 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     setUploadProgress(0);
 
     try {
+      if (!groupId) {
+        alert('ไม่พบข้อมูลกลุ่ม');
+        setLoading(false);
+        return;
+      }
+
       const formData = new FormData();
       formData.append('taskId', selectedTask.id);
       formData.append('notes', notes);
       formData.append('submittedBy', userId);
       
-      files.forEach((file, index) => {
-        formData.append(`files`, file);
+      files.forEach((file) => {
+        formData.append('files', file);
       });
 
-      // Simulate upload progress
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
-          if (prev >= 90) {
-            clearInterval(progressInterval);
-            return 90;
-          }
-          return prev + 10;
-        });
-      }, 200);
+      const totalSize = files.reduce((sum, file) => sum + (file?.size || 0), 0);
+      const subtitle = files.length > 0
+        ? `${files.length} ไฟล์ • รวม ${formatFileSize(totalSize)}`
+        : 'กำลังส่งข้อมูลงาน';
 
-      const { submitTask } = await import('../../services/api');
-      await submitTask(groupId, selectedTask.id, formData);
+      showUploadProgress({
+        title: '📤 กำลังส่งงาน',
+        subtitle,
+      });
 
-      clearInterval(progressInterval);
+      await submitTaskWithProgress(groupId, selectedTask.id, formData, ({ loaded, total, lengthComputable }) => {
+        if (lengthComputable && total > 0) {
+          const pct = Math.round((loaded / total) * 100);
+          setUploadProgress(pct);
+          updateUploadProgress({ loaded, total, lengthComputable });
+        } else {
+          setUploadProgress(prev => {
+            const next = prev >= 95 ? prev : prev + 5;
+            return next;
+          });
+          updateUploadProgress({ loaded, total, lengthComputable });
+        }
+      });
+
       setUploadProgress(100);
+      updateUploadProgress({
+        percent: 100,
+        detail: files.length > 0 ? `${formatFileSize(totalSize)} / ${formatFileSize(totalSize)}` : 'อัปโหลดเสร็จสมบูรณ์',
+      });
 
       // Success
       setTimeout(() => {
@@ -107,6 +131,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
       setUploadProgress(0);
     } finally {
       setLoading(false);
+      hideUploadProgress();
     }
   };
 
@@ -117,7 +142,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
   };
 
   const formatFileSize = (bytes) => {
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes) return '0 Bytes';
     const k = 1024;
     const sizes = ['Bytes', 'KB', 'MB', 'GB'];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
@@ -129,10 +154,16 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'];
     const docExts = ['doc', 'docx', 'pdf', 'txt'];
     const excelExts = ['xls', 'xlsx', 'csv'];
+    const archiveExts = ['zip', 'rar', '7z'];
+    const audioExts = ['mp3', 'wav', 'm4a', 'aac', 'flac'];
+    const videoExts = ['mp4', 'mov', 'avi', 'mkv', 'webm'];
     
     if (imageExts.includes(ext)) return '🖼️';
     if (docExts.includes(ext)) return '📄';
     if (excelExts.includes(ext)) return '📊';
+    if (archiveExts.includes(ext)) return '📦';
+    if (audioExts.includes(ext)) return '🎵';
+    if (videoExts.includes(ext)) return '🎬';
     return '📎';
   };
 
@@ -203,6 +234,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
                 type="button"
                 variant="outline"
                 onClick={() => document.getElementById('file-input').click()}
+                disabled={loading}
               >
                 เลือกไฟล์
               </Button>
@@ -211,6 +243,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
                 type="file"
                 multiple
                 className="hidden"
+                accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z,.mp4,.mov,.avi,.mp3,.wav"
                 onChange={handleFileSelect}
               />
               <p className="text-xs text-gray-500 mt-2">
@@ -291,4 +324,3 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     </Dialog>
   );
 }
-
