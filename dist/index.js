@@ -13,6 +13,7 @@ const helmet_1 = __importDefault(require("helmet"));
 const path_1 = __importDefault(require("path"));
 const config_1 = require("./utils/config");
 const database_1 = require("./utils/database");
+const crypto_1 = require("crypto");
 const webhookController_1 = require("./controllers/webhookController");
 const apiController_1 = require("./controllers/apiController");
 const dashboardController_1 = require("./controllers/dashboardController");
@@ -176,7 +177,39 @@ class Server {
             });
         }
         // API Routes
-        this.app.use('/api', apiController_1.apiRouter);
+        // Lightweight mock API when DB is not connected (dashboard-only)
+        this.app.use('/api', (req, res, next) => {
+            if (database_1.AppDataSource.isInitialized)
+                return next();
+            if (!config_1.config.allowDashboardOnly)
+                return next();
+            // Minimal endpoints used by dashboard-new initial load
+            const groupMatch = req.path.match(/^\/groups\/(.+?)(?:\/(.*))?$/);
+            if (req.method === 'GET' && groupMatch) {
+                const groupId = groupMatch[1];
+                const sub = groupMatch[2];
+                if (!sub) {
+                    return res.json({ id: groupId, lineGroupId: groupId, name: 'Demo Group', memberCount: 0 });
+                }
+                if (sub === 'tasks') {
+                    const now = new Date();
+                    const addDays = (d) => new Date(now.getTime() + d * 24 * 60 * 60 * 1000);
+                    const sample = [
+                        { id: (0, crypto_1.randomUUID)(), title: 'Plan sprint', description: 'Prepare next sprint backlog', status: 'new', dueDate: addDays(3), assignees: [] },
+                        { id: (0, crypto_1.randomUUID)(), title: 'Fix bugs', description: 'Triage and fix P1 bugs', status: 'in-progress', dueDate: addDays(1), assignees: [] },
+                        { id: (0, crypto_1.randomUUID)(), title: 'Release 2.0', description: 'Cut release and notes', status: 'scheduled', dueDate: addDays(7), assignees: [] },
+                    ];
+                    return res.json({ success: true, data: sample });
+                }
+                if (sub === 'members') {
+                    return res.json({ success: true, members: [] });
+                }
+                if (sub === 'stats') {
+                    return res.json({ success: true, stats: { total: 3, completed: 0 } });
+                }
+            }
+            return next();
+        }, apiController_1.apiRouter);
         // Project Rules & Memory Routes
         this.app.use('/api/project', projectController_1.projectRouter);
         // File Backup Routes

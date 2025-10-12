@@ -8,7 +8,8 @@ import cors from 'cors';
 import helmet from 'helmet';
 import path from 'path';
 import { config, validateConfig, features } from './utils/config';
-import { initializeDatabase, closeDatabase } from './utils/database';
+import { initializeDatabase, closeDatabase, AppDataSource } from './utils/database';
+import { randomUUID } from 'crypto';
 import { createWebhookRouter } from './controllers/webhookController';
 import { apiRouter } from './controllers/apiController';
 import { dashboardRouter } from './controllers/dashboardController';
@@ -189,7 +190,39 @@ class Server {
     }
 
     // API Routes
-    this.app.use('/api', apiRouter);
+    // Lightweight mock API when DB is not connected (dashboard-only)
+    this.app.use('/api', (req: Request, res: Response, next) => {
+      if (AppDataSource.isInitialized) return next();
+      if (!config.allowDashboardOnly) return next();
+
+      // Minimal endpoints used by dashboard-new initial load
+      const groupMatch = req.path.match(/^\/groups\/(.+?)(?:\/(.*))?$/);
+      if (req.method === 'GET' && groupMatch) {
+        const groupId = groupMatch[1];
+        const sub = groupMatch[2];
+        
+        if (!sub) {
+          return res.json({ id: groupId, lineGroupId: groupId, name: 'Demo Group', memberCount: 0 });
+        }
+        if (sub === 'tasks') {
+          const now = new Date();
+          const addDays = (d: number) => new Date(now.getTime() + d*24*60*60*1000);
+          const sample = [
+            { id: randomUUID(), title: 'Plan sprint', description: 'Prepare next sprint backlog', status: 'new', dueDate: addDays(3), assignees: [] },
+            { id: randomUUID(), title: 'Fix bugs', description: 'Triage and fix P1 bugs', status: 'in-progress', dueDate: addDays(1), assignees: [] },
+            { id: randomUUID(), title: 'Release 2.0', description: 'Cut release and notes', status: 'scheduled', dueDate: addDays(7), assignees: [] },
+          ];
+          return res.json({ success: true, data: sample });
+        }
+        if (sub === 'members') {
+          return res.json({ success: true, members: [] });
+        }
+        if (sub === 'stats') {
+          return res.json({ success: true, stats: { total: 3, completed: 0 } });
+        }
+      }
+      return next();
+    }, apiRouter);
 
     // Project Rules & Memory Routes
     this.app.use('/api/project', projectRouter);
