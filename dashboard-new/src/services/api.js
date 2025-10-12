@@ -43,7 +43,8 @@ const apiCall = async (endpoint, options = {}) => {
 
 export const fetchTasks = async (groupId, filters = {}) => {
   const url = buildUrl(`/groups/${groupId}/tasks`, filters);
-  return apiCall(url);
+  const res = await apiCall(url);
+  return res?.data ?? res; // normalize to {data: [...] } or array
 };
 
 export const getTask = async (groupId, taskId) => {
@@ -99,15 +100,18 @@ export const getCalendarEvents = async (groupId, params = {}) => {
 // ==================== Group APIs ====================
 
 export const getGroup = async (groupId) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}`);
+  const res = await apiCall(`${API_BASE_URL}/groups/${groupId}`);
+  return res?.data ?? res;
 };
 
 export const getGroupMembers = async (groupId) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/members`);
+  const res = await apiCall(`${API_BASE_URL}/groups/${groupId}/members`);
+  return res?.data ?? res?.members ?? [];
 };
 
 export const getGroupStats = async (groupId) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/stats`);
+  const res = await apiCall(`${API_BASE_URL}/groups/${groupId}/stats`);
+  return res?.data ?? res?.stats ?? res;
 };
 
 export const getLeaderboard = async (groupId) => {
@@ -175,11 +179,13 @@ export const getUserAverageScore = async (userId, groupId) => {
 // ==================== Recurring Task APIs ====================
 
 export const listRecurringTasks = async (groupId) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/recurring`);
+  const res = await apiCall(`${API_BASE_URL}/groups/${groupId}/recurring`);
+  return res?.data ?? res ?? [];
 };
 
 export const getRecurringTask = async (id) => {
-  return apiCall(`${API_BASE_URL}/recurring/${id}`);
+  const res = await apiCall(`${API_BASE_URL}/recurring/${id}`);
+  return res?.data ?? res;
 };
 
 export const createRecurringTask = async (groupId, recurringData) => {
@@ -203,27 +209,32 @@ export const deleteRecurringTask = async (id) => {
 };
 
 export const getRecurringHistory = async (id) => {
-  return apiCall(`${API_BASE_URL}/recurring/${id}/history`);
+  const res = await apiCall(`${API_BASE_URL}/recurring/${id}/history`);
+  return res?.data ?? res ?? [];
 };
 
 export const getRecurringStats = async (id) => {
-  return apiCall(`${API_BASE_URL}/recurring/${id}/stats`);
+  const res = await apiCall(`${API_BASE_URL}/recurring/${id}/stats`);
+  return res?.data ?? res;
 };
 
 export const getGroupRecurringStats = async (groupId) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/recurring/stats`);
+  const res = await apiCall(`${API_BASE_URL}/groups/${groupId}/recurring/stats`);
+  return res?.data ?? res;
 };
 
 // ==================== Report APIs ====================
 
 export const getReportsSummary = async (groupId, params = {}) => {
   const url = buildUrl(`/groups/${groupId}/reports/summary`, params);
-  return apiCall(url);
+  const res = await apiCall(url);
+  return res?.data ?? res;
 };
 
 export const getReportsByUsers = async (groupId, params = {}) => {
   const url = buildUrl(`/groups/${groupId}/reports/by-users`, params);
-  return apiCall(url);
+  const res = await apiCall(url);
+  return res?.data ?? res ?? [];
 };
 
 export const exportReports = async (groupId, params = {}) => {
@@ -342,4 +353,3 @@ export default {
   normalizeTasks,
   calculateStats,
 };
-
