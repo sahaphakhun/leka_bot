@@ -85,8 +85,16 @@ class Server {
         this.app.use('/uploads', express_1.default.static(path_1.default.join(__dirname, '../uploads')));
         // Dashboard static assets (CSS, JS, images)  
         this.app.use('/dashboard', express_1.default.static(path_1.default.join(__dirname, '../dashboard')));
-        // New React Dashboard (serve built files from dist)
-        this.app.use('/dashboard-new', express_1.default.static(path_1.default.join(__dirname, '../dashboard-new/dist')));
+        // New React Dashboard (serve built files)
+        const dashboardNewDir = path_1.default.join(__dirname, '../dashboard-new/dist');
+        this.app.use('/dashboard-new', express_1.default.static(dashboardNewDir));
+        // SPA fallback for dashboard-new so deep links and query strings work
+        this.app.get(['/dashboard-new', '/dashboard-new/'], (_req, res) => {
+            res.sendFile(path_1.default.join(dashboardNewDir, 'index.html'));
+        });
+        this.app.get('/dashboard-new/*', (_req, res) => {
+            res.sendFile(path_1.default.join(dashboardNewDir, 'index.html'));
+        });
         // Serve PDF.js from node_modules under same-origin to satisfy CSP
         try {
             // Resolve the directory containing pdf.min.js
@@ -226,9 +234,19 @@ class Server {
             // Validate configuration
             (0, config_1.validateConfig)();
             logger_1.logger.info('Configuration validated');
-            // Initialize database
-            await (0, database_1.initializeDatabase)();
-            logger_1.logger.info('Database connected');
+            // Initialize database (allow dashboard-only mode if configured)
+            try {
+                await (0, database_1.initializeDatabase)();
+                logger_1.logger.info('Database connected');
+            }
+            catch (dbErr) {
+                if (config_1.config.allowDashboardOnly) {
+                    logger_1.logger.warn('⚠️ Database connection failed, continuing in dashboard-only mode:', dbErr);
+                }
+                else {
+                    throw dbErr;
+                }
+            }
             // Run auto-migration if needed (non-blocking)
             try {
                 const needsMigration = await autoMigration_1.autoMigration.checkMigrationNeeded();

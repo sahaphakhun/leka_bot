@@ -93,8 +93,16 @@ class Server {
     // Dashboard static assets (CSS, JS, images)  
     this.app.use('/dashboard', express.static(path.join(__dirname, '../dashboard')));
     
-    // New React Dashboard (serve built files from dist)
-    this.app.use('/dashboard-new', express.static(path.join(__dirname, '../dashboard-new/dist')));
+    // New React Dashboard (serve built files)
+    const dashboardNewDir = path.join(__dirname, '../dashboard-new/dist');
+    this.app.use('/dashboard-new', express.static(dashboardNewDir));
+    // SPA fallback for dashboard-new so deep links and query strings work
+    this.app.get(['/dashboard-new', '/dashboard-new/'], (_req: Request, res: Response) => {
+      res.sendFile(path.join(dashboardNewDir, 'index.html'));
+    });
+    this.app.get('/dashboard-new/*', (_req: Request, res: Response) => {
+      res.sendFile(path.join(dashboardNewDir, 'index.html'));
+    });
 
     // Serve PDF.js from node_modules under same-origin to satisfy CSP
     try {
@@ -252,9 +260,17 @@ class Server {
       validateConfig();
       logger.info('Configuration validated');
 
-      // Initialize database
-      await initializeDatabase();
-      logger.info('Database connected');
+      // Initialize database (allow dashboard-only mode if configured)
+      try {
+        await initializeDatabase();
+        logger.info('Database connected');
+      } catch (dbErr) {
+        if (config.allowDashboardOnly) {
+          logger.warn('⚠️ Database connection failed, continuing in dashboard-only mode:', dbErr);
+        } else {
+          throw dbErr;
+        }
+      }
 
       // Run auto-migration if needed (non-blocking)
       try {
