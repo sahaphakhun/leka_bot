@@ -479,6 +479,11 @@ class ApiController {
         
         // Archives
         'application/zip',
+        'application/x-zip-compressed',
+        'application/x-zip',
+        'application/x-compressed',
+        'application/vnd.ms-zip',
+        'multipart/x-zip',
         'application/x-rar-compressed',
         'application/x-7z-compressed',
         'application/x-tar',
