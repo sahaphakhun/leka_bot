@@ -35,9 +35,19 @@ export default function RecurringTasksView() {
   const loadRecurringTasks = async () => {
     setLoading(true);
     try {
-      const { getRecurringTasks } = await import('../../services/api');
-      const response = await getRecurringTasks(groupId);
-      setRecurringTasks(response.data || response);
+      const { listRecurringTasks } = await import('../../services/api');
+      const data = await listRecurringTasks(groupId);
+      // Ensure array and normalize minimal fields
+      const items = Array.isArray(data) ? data : (data?.items || []);
+      setRecurringTasks(items.map(t => ({
+        id: t.id,
+        title: t.title || t.name || 'Untitled',
+        recurrence: t.recurrence || t.frequency || 'custom',
+        isActive: !!(t.isActive ?? t.active ?? true),
+        nextRun: t.nextRun || t.nextSchedule || null,
+        createdCount: t.createdCount ?? t.count ?? 0,
+        assignedUsers: t.assignedUsers || t.assignees || [],
+      })));
     } catch (error) {
       console.error('Failed to load recurring tasks:', error);
       // Sample data for development
@@ -133,11 +143,11 @@ export default function RecurringTasksView() {
   };
 
   const filteredTasks = recurringTasks.filter(task => {
-    const matchesSearch = task.title.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = (task.title || '').toLowerCase().includes((searchTerm || '').toLowerCase());
     const matchesStatus = statusFilter === 'all' || 
       (statusFilter === 'active' && task.isActive) ||
       (statusFilter === 'inactive' && !task.isActive);
-    const matchesRecurrence = recurrenceFilter === 'all' || task.recurrence === recurrenceFilter;
+    const matchesRecurrence = recurrenceFilter === 'all' || (task.recurrence || '').toLowerCase() === recurrenceFilter.toLowerCase();
     
     return matchesSearch && matchesStatus && matchesRecurrence;
   });
@@ -341,4 +351,3 @@ export default function RecurringTasksView() {
     </div>
   );
 }
-

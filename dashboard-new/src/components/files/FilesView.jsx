@@ -129,9 +129,10 @@ export default function FilesView() {
   };
 
   const filteredFiles = files.filter(file => {
-    const matchesSearch = file.name.toLowerCase().includes(searchTerm.toLowerCase());
+    const displayName = file.name || file.originalName || file.filename || file.fileName || '';
+    const matchesSearch = displayName.toLowerCase().includes((searchTerm || '').toLowerCase());
     const matchesTask = taskFilter === 'all' || file.taskId === taskFilter;
-    const matchesType = typeFilter === 'all' || file.type === typeFilter;
+    const matchesType = typeFilter === 'all' || (file.type || '').toLowerCase() === (typeFilter || '').toLowerCase();
     
     return matchesSearch && matchesTask && matchesType;
   });
@@ -312,4 +313,3 @@ export default function FilesView() {
     </div>
   );
 }
-

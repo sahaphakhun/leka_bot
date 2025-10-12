@@ -31,7 +31,7 @@ export default function MembersView() {
   };
 
   const filteredMembers = members.filter(member =>
-    (member.displayName || member.name || '').toLowerCase().includes(searchTerm.toLowerCase())
+    (member.displayName || member.name || '').toLowerCase().includes((searchTerm || '').toLowerCase())
   );
 
   if (loading) {
