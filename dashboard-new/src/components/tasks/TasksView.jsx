@@ -2,9 +2,21 @@ import { useState } from 'react';
 import { Plus, Table, LayoutGrid } from 'lucide-react';
 import TableView from './TableView';
 import KanbanView from './KanbanView';
+import { useModal } from '../../context/ModalContext';
 
 const TasksView = ({ tasks = [], onTaskUpdate }) => {
   const [viewMode, setViewMode] = useState('table'); // 'table' or 'kanban'
+  const { openAddTask, openTaskDetail } = useModal();
+
+  const handleAddTask = () => {
+    openAddTask('normal');
+  };
+
+  const handleTaskClick = (task) => {
+    if (task) {
+      openTaskDetail(task);
+    }
+  };
 
   return (
     <div>
@@ -13,7 +25,11 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4">
             <h1 className="text-2xl font-semibold">Tasks</h1>
-            <button className="btn-bordio flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handleAddTask}
+              className="btn-bordio flex items-center gap-2"
+            >
               <Plus size={16} />
               Add new
             </button>
@@ -48,13 +64,22 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
 
       {/* Content */}
       {viewMode === 'table' ? (
-        <TableView tasks={tasks} onTaskUpdate={onTaskUpdate} />
+        <TableView
+          tasks={tasks}
+          onTaskUpdate={onTaskUpdate}
+          onTaskClick={handleTaskClick}
+          onCreateTask={handleAddTask}
+        />
       ) : (
-        <KanbanView tasks={tasks} onTaskUpdate={onTaskUpdate} />
+        <KanbanView
+          tasks={tasks}
+          onTaskUpdate={onTaskUpdate}
+          onTaskClick={handleTaskClick}
+          onCreateTask={handleAddTask}
+        />
       )}
     </div>
   );
 };
 
 export default TasksView;
-

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { ModalProvider } from './context/ModalContext'
 import Sidebar from './components/layout/Sidebar'
@@ -12,7 +12,17 @@ import MembersView from './components/members/MembersView'
 import ReportsView from './components/reports/ReportsView'
 import ProfileView from './components/profile/ProfileView'
 import SubmitMultipleView from './components/submit/SubmitMultipleView'
-import { fetchTasks, normalizeTasks, calculateStats, getGroup, getGroupMembers } from './services/api'
+import AddTaskModal from './components/modals/AddTaskModal'
+import EditTaskModal from './components/modals/EditTaskModal'
+import TaskDetailModal from './components/modals/TaskDetailModal'
+import SubmitTaskModal from './components/modals/SubmitTaskModal'
+import FilePreviewModal from './components/modals/FilePreviewModal'
+import ConfirmDialog from './components/modals/ConfirmDialog'
+import RecurringTaskModal from './components/recurring/RecurringTaskModal'
+import RecurringHistoryModal from './components/recurring/RecurringHistoryModal'
+import InviteMemberModal from './components/members/InviteMemberModal'
+import MemberActionsModal from './components/members/MemberActionsModal'
+import { fetchTasks, normalizeTasks, calculateStats, getGroup } from './services/api'
 import './App.css'
 
 function AppContent() {
@@ -23,84 +33,11 @@ function AppContent() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [groupInfo, setGroupInfo] = useState(null)
+  const [membersRefreshKey, setMembersRefreshKey] = useState(0)
+  const [recurringRefreshKey, setRecurringRefreshKey] = useState(0)
+  const filesRefreshKey = 0
 
-  // Load tasks from API
-  useEffect(() => {
-    const loadData = async () => {
-      console.log('=== Load Data Start ===')
-      console.log('View Mode:', viewMode)
-      console.log('User ID:', userId)
-      console.log('Group ID:', groupId)
-      console.log('Is Personal Mode:', isPersonalMode())
-      console.log('Is Group Mode:', isGroupMode())
-      
-      if (!groupId) {
-        console.log('❌ No groupId, stopping')
-        setLoading(false)
-        setError('Missing groupId parameter')
-        return
-      }
-
-      try {
-        setLoading(true)
-        setError(null)
-
-        // Load group info
-        try {
-          console.log('📥 Fetching group info...')
-          const group = await getGroup(groupId)
-          console.log('✅ Group loaded:', group)
-          setGroupInfo(group)
-          setGroup(group)
-        } catch (err) {
-          console.warn('⚠️ Failed to load group info:', err)
-        }
-
-        // Load tasks
-        console.log('📥 Fetching tasks...')
-        const response = await fetchTasks(groupId)
-        console.log('✅ Tasks loaded:', response)
-        
-        // API returns {success: true, data: [...]} so we need response.data
-        let normalizedTasks = normalizeTasks(response.data || response.tasks || response)
-        
-        // ถ้าเป็น Personal mode → filter เฉพาะงานของ user
-        if (isPersonalMode() && userId) {
-          console.log('🔍 Filtering tasks for user:', userId)
-          normalizedTasks = normalizedTasks.filter(task => {
-            // แสดงงานที่ user เป็นผู้รับผิดชอบหรือสร้าง
-            const isAssigned = task.assignedUsers?.some(u => u.lineUserId === userId)
-            const isCreator = task.createdBy === userId
-            return isAssigned || isCreator
-          })
-          console.log('✅ Filtered tasks:', normalizedTasks.length)
-        }
-        
-        setTasks(normalizedTasks)
-        
-        // Calculate stats
-        const calculatedStats = calculateStats(normalizedTasks)
-        console.log('📊 Stats:', calculatedStats)
-        setStats(calculatedStats)
-
-      } catch (err) {
-        console.error('❌ Failed to load data:', err)
-        console.error('Error stack:', err.stack)
-        setError(err.message)
-        // Fall back to sample data on error
-        console.log('⚠️ Loading sample data as fallback')
-        loadSampleData()
-      } finally {
-        console.log('✅ Setting loading to false')
-        setLoading(false)
-      }
-    }
-
-    loadData()
-  }, [groupId, userId, viewMode]) // แก้ไข: เอา functions ออกจาก dependencies
-
-  // Load sample data as fallback
-  const loadSampleData = async () => {
+  const loadSampleData = useCallback(async () => {
     try {
       const { sampleTasks, sampleStats } = await import('./data/sampleData')
       setTasks(sampleTasks)
@@ -108,7 +45,86 @@ function AppContent() {
     } catch (err) {
       console.error('Failed to load sample data:', err)
     }
-  }
+  }, [])
+
+  const loadData = useCallback(async () => {
+    console.log('=== Load Data Start ===')
+    console.log('View Mode:', viewMode)
+    console.log('User ID:', userId)
+    console.log('Group ID:', groupId)
+    console.log('Is Personal Mode:', isPersonalMode())
+    console.log('Is Group Mode:', isGroupMode())
+    
+    if (!groupId) {
+      console.log('❌ No groupId, stopping')
+      setLoading(false)
+      setError('Missing groupId parameter')
+      return
+    }
+
+    try {
+      setLoading(true)
+      setError(null)
+
+      try {
+        console.log('📥 Fetching group info...')
+        const group = await getGroup(groupId)
+        console.log('✅ Group loaded:', group)
+        setGroupInfo(group)
+        setGroup(group)
+      } catch (err) {
+        console.warn('⚠️ Failed to load group info:', err)
+      }
+
+      console.log('📥 Fetching tasks...')
+      const response = await fetchTasks(groupId)
+      console.log('✅ Tasks loaded:', response)
+
+      let normalizedTasks = normalizeTasks(response.data || response.tasks || response)
+
+      if (isPersonalMode() && userId) {
+        console.log('🔍 Filtering tasks for user:', userId)
+        normalizedTasks = normalizedTasks.filter(task => {
+          const isAssigned = task.assignedUsers?.some(u => u.lineUserId === userId)
+          const isCreator = task.createdBy === userId
+          return isAssigned || isCreator
+        })
+        console.log('✅ Filtered tasks:', normalizedTasks.length)
+      }
+
+      setTasks(normalizedTasks)
+
+      const calculatedStats = calculateStats(normalizedTasks)
+      console.log('📊 Stats:', calculatedStats)
+      setStats(calculatedStats)
+    } catch (err) {
+      console.error('❌ Failed to load data:', err)
+      console.error('Error stack:', err.stack)
+      setError(err.message)
+      console.log('⚠️ Loading sample data as fallback')
+      loadSampleData()
+    } finally {
+      console.log('✅ Setting loading to false')
+      setLoading(false)
+    }
+  }, [groupId, userId, viewMode, isPersonalMode, isGroupMode, setGroup, loadSampleData])
+
+  // Load tasks from API
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  const handleTasksReload = useCallback(() => {
+    loadData()
+  }, [loadData])
+
+  const handleMembersRefresh = useCallback(() => {
+    setMembersRefreshKey(prev => prev + 1)
+  }, [])
+
+  const handleRecurringRefresh = useCallback(() => {
+    setRecurringRefreshKey(prev => prev + 1)
+  }, [])
 
   // Handle task update (for drag-and-drop)
   const handleTaskUpdate = async (taskId, updates) => {
@@ -192,11 +208,11 @@ function AppContent() {
       case 'tasks':
         return <TasksView tasks={tasks} onTaskUpdate={handleTaskUpdate} />
       case 'recurring':
-        return <RecurringTasksView />
+        return <RecurringTasksView refreshKey={recurringRefreshKey} />
       case 'files':
-        return <FilesView />
+        return <FilesView refreshKey={filesRefreshKey} />
       case 'team':
-        return <MembersView />
+        return <MembersView refreshKey={membersRefreshKey} />
       case 'reports':
         return <ReportsView />
       case 'profile':
@@ -219,6 +235,16 @@ function AppContent() {
       />
       <MainLayout>
         {renderView()}
+        <AddTaskModal onTaskCreated={handleTasksReload} />
+        <EditTaskModal onTaskUpdated={handleTasksReload} />
+        <TaskDetailModal onTaskUpdated={handleTasksReload} onTaskDeleted={handleTasksReload} />
+        <SubmitTaskModal onTaskSubmitted={handleTasksReload} />
+        <FilePreviewModal />
+        <ConfirmDialog />
+        <RecurringTaskModal onTaskCreated={handleRecurringRefresh} onTaskUpdated={handleRecurringRefresh} />
+        <RecurringHistoryModal />
+        <InviteMemberModal onInvited={handleMembersRefresh} />
+        <MemberActionsModal onUpdated={handleMembersRefresh} />
       </MainLayout>
     </div>
   )
@@ -235,4 +261,3 @@ function App() {
 }
 
 export default App
-

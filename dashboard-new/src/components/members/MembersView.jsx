@@ -6,7 +6,7 @@ import { Input } from '../ui/input';
 import { RefreshCw, UserPlus, Search } from 'lucide-react';
 import MemberCard from './MemberCard';
 
-export default function MembersView() {
+export default function MembersView({ refreshKey = 0 }) {
   const { groupId } = useAuth();
   const { openInviteMember } = useModal();
   const [members, setMembers] = useState([]);
@@ -15,7 +15,7 @@ export default function MembersView() {
 
   useEffect(() => {
     loadMembers();
-  }, [groupId]);
+  }, [groupId, refreshKey]);
 
   const loadMembers = async () => {
     setLoading(true);

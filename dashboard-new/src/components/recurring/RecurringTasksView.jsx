@@ -19,7 +19,7 @@ import {
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
-export default function RecurringTasksView() {
+export default function RecurringTasksView({ refreshKey = 0 }) {
   const { groupId } = useAuth();
   const { openRecurringTask, openRecurringHistory, openConfirmDialog } = useModal();
   const [recurringTasks, setRecurringTasks] = useState([]);
@@ -30,7 +30,7 @@ export default function RecurringTasksView() {
 
   useEffect(() => {
     loadRecurringTasks();
-  }, [groupId]);
+  }, [groupId, refreshKey]);
 
   const loadRecurringTasks = async () => {
     setLoading(true);

@@ -11,7 +11,7 @@ import FileGridView from './FileGridView';
 import FileFolderView from './FileFolderView';
 import FileUploadZone from './FileUploadZone';
 
-export default function FilesView() {
+export default function FilesView({ refreshKey = 0 }) {
   const { groupId } = useAuth();
   const { openFilePreview } = useModal();
   const [files, setFiles] = useState([]);
@@ -26,7 +26,7 @@ export default function FilesView() {
   useEffect(() => {
     loadFiles();
     loadTasks();
-  }, [groupId]);
+  }, [groupId, refreshKey]);
 
   const loadFiles = async () => {
     setLoading(true);

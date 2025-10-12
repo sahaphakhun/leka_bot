@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { ChevronLeft, ChevronRight, Plus } from 'lucide-react';
 import TaskCard from '../common/TaskCard';
+import { useModal } from '../../context/ModalContext';
 
 const CalendarView = ({ tasks = [], onTaskUpdate }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const { openTaskDetail, openAddTask } = useModal();
   
   // Get days for current week
   const getWeekDays = () => {
@@ -72,7 +74,11 @@ const CalendarView = ({ tasks = [], onTaskUpdate }) => {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <h1 className="text-2xl font-semibold">Calendar</h1>
-          <button className="btn-bordio flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => openAddTask('normal')}
+            className="btn-bordio flex items-center gap-2"
+          >
             <Plus size={16} />
             Add new
           </button>
@@ -129,7 +135,7 @@ const CalendarView = ({ tasks = [], onTaskUpdate }) => {
                   <TaskCard 
                     key={task.id} 
                     task={task}
-                    onClick={() => console.log('Task clicked:', task)}
+                    onClick={() => openTaskDetail(task)}
                   />
                 ))}
               </div>
@@ -157,7 +163,7 @@ const CalendarView = ({ tasks = [], onTaskUpdate }) => {
             <TaskCard 
               key={task.id} 
               task={task}
-              onClick={() => console.log('Task clicked:', task)}
+              onClick={() => openTaskDetail(task)}
             />
           ))}
         </div>
@@ -167,4 +173,3 @@ const CalendarView = ({ tasks = [], onTaskUpdate }) => {
 };
 
 export default CalendarView;
-

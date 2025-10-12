@@ -19,12 +19,19 @@ const buildUrl = (endpoint, params = {}) => {
 // Helper function for API calls
 const apiCall = async (endpoint, options = {}) => {
   try {
+    const isFormData = options.body instanceof FormData;
+    const headers = {
+      ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
+      ...options.headers,
+    };
+
+    if (isFormData && headers['Content-Type']) {
+      delete headers['Content-Type'];
+    }
+
     const response = await fetch(endpoint, {
       ...options,
-      headers: {
-        'Content-Type': 'application/json',
-        ...options.headers,
-      },
+      headers,
     });
 
     if (!response.ok) {
@@ -65,22 +72,85 @@ export const updateTask = async (groupId, taskId, updates) => {
   });
 };
 
-export const deleteTask = async (taskId) => {
-  return apiCall(`${API_BASE_URL}/tasks/${taskId}`, {
-    method: 'DELETE',
+export const deleteTask = async (groupIdOrTaskId, maybeTaskId) => {
+  const hasGroup = typeof maybeTaskId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrTaskId : null;
+  const taskId = hasGroup ? maybeTaskId : groupIdOrTaskId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}`
+    : `${API_BASE_URL}/tasks/${taskId}`;
+
+  return apiCall(endpoint, { method: 'DELETE' });
+};
+
+export const completeTask = async (groupIdOrTaskId, maybeTaskId) => {
+  const hasGroup = typeof maybeTaskId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrTaskId : null;
+  const taskId = hasGroup ? maybeTaskId : groupIdOrTaskId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/complete`
+    : `${API_BASE_URL}/tasks/${taskId}/complete`;
+
+  return apiCall(endpoint, { method: 'POST' });
+};
+
+export const submitTask = async (groupId, taskId, submitData = {}) => {
+  const endpoint = `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`;
+
+  if (submitData instanceof FormData) {
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      body: submitData,
+    });
+
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ message: 'Request failed' }));
+      throw new Error(error.message || `HTTP ${response.status}`);
+    }
+
+    return await response.json();
+  }
+
+  return apiCall(endpoint, {
+    method: 'POST',
+    body: typeof submitData === 'string' ? submitData : JSON.stringify(submitData || {}),
   });
 };
 
-export const completeTask = async (taskId) => {
-  return apiCall(`${API_BASE_URL}/tasks/${taskId}/complete`, {
+export const approveTask = async (groupIdOrTaskId, maybeTaskId, payload = {}) => {
+  const hasGroup = typeof maybeTaskId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrTaskId : null;
+  const taskId = hasGroup ? maybeTaskId : groupIdOrTaskId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/approve`
+    : `${API_BASE_URL}/tasks/${taskId}/approve`;
+
+  const hasPayload = payload && Object.keys(payload).length > 0;
+
+  return apiCall(endpoint, {
     method: 'POST',
+    ...(hasPayload ? { body: JSON.stringify(payload) } : {}),
   });
 };
 
-export const submitTask = async (groupId, taskId, submitData) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`, {
+export const reopenTask = async (groupIdOrTaskId, maybeTaskId, updates = { status: 'in_progress' }) => {
+  const hasGroup = typeof maybeTaskId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrTaskId : null;
+  const taskId = hasGroup ? maybeTaskId : groupIdOrTaskId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}`
+    : `${API_BASE_URL}/tasks/${taskId}`;
+
+  return apiCall(endpoint, {
+    method: 'PUT',
+    body: JSON.stringify(updates),
+  });
+};
+
+export const createMultipleTasks = async (groupId, tasks = []) => {
+  return apiCall(`${API_BASE_URL}/groups/${groupId}/tasks/bulk`, {
     method: 'POST',
-    body: JSON.stringify(submitData),
+    body: JSON.stringify({ tasks }),
   });
 };
 
@@ -112,6 +182,33 @@ export const getGroupMembers = async (groupId) => {
 export const getGroupStats = async (groupId) => {
   const res = await apiCall(`${API_BASE_URL}/groups/${groupId}/stats`);
   return res?.data ?? res?.stats ?? res;
+};
+
+export const createInviteLink = async (groupId) => {
+  const res = await apiCall(`${API_BASE_URL}/groups/${groupId}/invites`, {
+    method: 'POST',
+  });
+  return res?.data ?? res;
+};
+
+export const sendInviteEmail = async (groupId, email, message) => {
+  return apiCall(`${API_BASE_URL}/groups/${groupId}/invites/email`, {
+    method: 'POST',
+    body: JSON.stringify({ email, message }),
+  });
+};
+
+export const updateMemberRole = async (groupId, memberId, role) => {
+  return apiCall(`${API_BASE_URL}/groups/${groupId}/members/${memberId}/role`, {
+    method: 'PUT',
+    body: JSON.stringify({ role }),
+  });
+};
+
+export const removeMember = async (groupId, memberId) => {
+  return apiCall(`${API_BASE_URL}/groups/${groupId}/members/${memberId}`, {
+    method: 'DELETE',
+  });
 };
 
 export const getLeaderboard = async (groupId) => {
@@ -161,6 +258,49 @@ export const uploadFile = async (groupId, formData) => {
   return await response.json();
 };
 
+export const uploadFiles = async (groupId, files = [], metadata = {}) => {
+  const formData = new FormData();
+
+  files.forEach(file => {
+    if (file) {
+      formData.append('files', file);
+    }
+  });
+
+  Object.entries(metadata || {}).forEach(([key, value]) => {
+    if (value !== undefined && value !== null) {
+      formData.append(key, value);
+    }
+  });
+
+  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/files`, {
+    method: 'POST',
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const error = await response.json().catch(() => ({ message: 'Upload failed' }));
+    throw new Error(error.message || `HTTP ${response.status}`);
+  }
+
+  return await response.json();
+};
+
+export const deleteFile = async (groupId, fileId) => {
+  return apiCall(`${API_BASE_URL}/groups/${groupId}/files/${fileId}`, {
+    method: 'DELETE',
+  });
+};
+
+export const getFilePreview = async (fileId, groupId) => {
+  const storedGroupId = typeof localStorage !== 'undefined' ? localStorage.getItem('leka_groupId') : null;
+  const resolvedGroupId = groupId || storedGroupId;
+  if (!resolvedGroupId) {
+    throw new Error('Missing groupId for file preview');
+  }
+  return `${API_BASE_URL}/groups/${resolvedGroupId}/files/${fileId}/preview`;
+};
+
 // ==================== User APIs ====================
 
 export const getUserStats = async (userId, groupId) => {
@@ -176,6 +316,25 @@ export const getUserAverageScore = async (userId, groupId) => {
   return apiCall(`${API_BASE_URL}/users/${userId}/average-score/${groupId}`);
 };
 
+export const getUserProfile = async (userId, groupId) => {
+  const endpoint = groupId
+    ? `${API_BASE_URL}/groups/${groupId}/users/${userId}/profile`
+    : `${API_BASE_URL}/users/${userId}/profile`;
+  const res = await apiCall(endpoint);
+  return res?.data ?? res;
+};
+
+export const updateUserProfile = async (userId, groupId, profileData = {}) => {
+  const endpoint = groupId
+    ? `${API_BASE_URL}/groups/${groupId}/users/${userId}/profile`
+    : `${API_BASE_URL}/users/${userId}/profile`;
+
+  return apiCall(endpoint, {
+    method: 'PUT',
+    body: JSON.stringify(profileData),
+  });
+};
+
 // ==================== Recurring Task APIs ====================
 
 export const listRecurringTasks = async (groupId) => {
@@ -183,8 +342,15 @@ export const listRecurringTasks = async (groupId) => {
   return res?.data ?? res ?? [];
 };
 
-export const getRecurringTask = async (id) => {
-  const res = await apiCall(`${API_BASE_URL}/recurring/${id}`);
+export const getRecurringTask = async (groupIdOrId, maybeId) => {
+  const hasGroup = typeof maybeId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrId : null;
+  const id = hasGroup ? maybeId : groupIdOrId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/recurring/${id}`
+    : `${API_BASE_URL}/recurring/${id}`;
+
+  const res = await apiCall(endpoint);
   return res?.data ?? res;
 };
 
@@ -195,22 +361,54 @@ export const createRecurringTask = async (groupId, recurringData) => {
   });
 };
 
-export const updateRecurringTask = async (id, updates) => {
-  return apiCall(`${API_BASE_URL}/recurring/${id}`, {
+export const updateRecurringTask = async (groupIdOrId, maybeId, updates) => {
+  const hasGroup = typeof maybeId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrId : null;
+  const id = hasGroup ? maybeId : groupIdOrId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/recurring/${id}`
+    : `${API_BASE_URL}/recurring/${id}`;
+
+  return apiCall(endpoint, {
     method: 'PUT',
     body: JSON.stringify(updates),
   });
 };
 
-export const deleteRecurringTask = async (id) => {
-  return apiCall(`${API_BASE_URL}/recurring/${id}`, {
+export const deleteRecurringTask = async (groupIdOrId, maybeId) => {
+  const hasGroup = typeof maybeId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrId : null;
+  const id = hasGroup ? maybeId : groupIdOrId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/recurring/${id}`
+    : `${API_BASE_URL}/recurring/${id}`;
+
+  return apiCall(endpoint, {
     method: 'DELETE',
   });
 };
 
-export const getRecurringHistory = async (id) => {
-  const res = await apiCall(`${API_BASE_URL}/recurring/${id}/history`);
+export const toggleRecurringTask = async (groupId, taskId, enabled) => {
+  return apiCall(`${API_BASE_URL}/groups/${groupId}/recurring/${taskId}/toggle`, {
+    method: 'PATCH',
+    body: JSON.stringify({ enabled }),
+  });
+};
+
+export const getRecurringHistory = async (groupIdOrId, maybeId) => {
+  const hasGroup = typeof maybeId !== 'undefined';
+  const groupId = hasGroup ? groupIdOrId : null;
+  const id = hasGroup ? maybeId : groupIdOrId;
+  const endpoint = hasGroup
+    ? `${API_BASE_URL}/groups/${groupId}/recurring/${id}/history`
+    : `${API_BASE_URL}/recurring/${id}/history`;
+
+  const res = await apiCall(endpoint);
   return res?.data ?? res ?? [];
+};
+
+export const getRecurringTaskHistory = async (groupId, taskId) => {
+  return getRecurringHistory(groupId, taskId);
 };
 
 export const getRecurringStats = async (id) => {
@@ -224,6 +422,25 @@ export const getGroupRecurringStats = async (groupId) => {
 };
 
 // ==================== Report APIs ====================
+
+export const getReports = async (groupId, params = {}) => {
+  try {
+    const url = buildUrl(`/groups/${groupId}/reports`, params);
+    const res = await apiCall(url);
+    return res?.data ?? res;
+  } catch (error) {
+    console.warn('⚠️ getReports fallback to summary/by-users:', error);
+    const [summary, byUsers] = await Promise.all([
+      getReportsSummary(groupId, params).catch(() => null),
+      getReportsByUsers(groupId, params).catch(() => []),
+    ]);
+
+    return {
+      summary,
+      byMember: byUsers,
+    };
+  }
+};
 
 export const getReportsSummary = async (groupId, params = {}) => {
   const url = buildUrl(`/groups/${groupId}/reports/summary`, params);
@@ -319,11 +536,18 @@ export default {
   deleteTask,
   completeTask,
   submitTask,
+  approveTask,
+  reopenTask,
+  createMultipleTasks,
   approveExtension,
   getCalendarEvents,
   getGroup,
   getGroupMembers,
   getGroupStats,
+  createInviteLink,
+  sendInviteEmail,
+  updateMemberRole,
+  removeMember,
   getLeaderboard,
   syncLeaderboard,
   getGroupFiles,
@@ -332,17 +556,25 @@ export default {
   downloadFile,
   previewFile,
   uploadFile,
+  uploadFiles,
+  deleteFile,
+  getFilePreview,
   getUserStats,
   getUserScoreHistory,
   getUserAverageScore,
+  getUserProfile,
+  updateUserProfile,
   listRecurringTasks,
   getRecurringTask,
   createRecurringTask,
   updateRecurringTask,
   deleteRecurringTask,
+  toggleRecurringTask,
   getRecurringHistory,
+  getRecurringTaskHistory,
   getRecurringStats,
   getGroupRecurringStats,
+  getReports,
   getReportsSummary,
   getReportsByUsers,
   exportReports,

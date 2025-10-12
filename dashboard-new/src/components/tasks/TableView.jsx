@@ -1,7 +1,7 @@
 import { ChevronDown, ChevronRight } from 'lucide-react';
 import { useState } from 'react';
 
-const TableView = ({ tasks = [] }) => {
+const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
   const [expandedSections, setExpandedSections] = useState({
     active: true,
     completed: false
@@ -27,11 +27,22 @@ const TableView = ({ tasks = [] }) => {
     return statusMap[status] || statusMap['new'];
   };
 
-  const TaskRow = ({ task }) => {
+  const TaskRow = ({ task, onClick }) => {
     const statusBadge = getStatusBadge(task.status);
     
     return (
-      <div className="grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-3 border-b border-border hover:bg-gray-50 transition-colors">
+      <div
+        role="button"
+        tabIndex={0}
+        onClick={() => onClick && onClick(task)}
+        onKeyDown={(event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick && onClick(task);
+          }
+        }}
+        className="grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-3 border-b border-border hover:bg-gray-100 transition-colors cursor-pointer"
+      >
         <div className="font-medium text-sm">{task.title}</div>
         <div>
           <span className={`badge-bordio ${statusBadge.class}`}>
@@ -79,11 +90,15 @@ const TableView = ({ tasks = [] }) => {
             </div>
             
             {activeTasks.map((task) => (
-              <TaskRow key={task.id} task={task} />
+              <TaskRow key={task.id} task={task} onClick={onTaskClick} />
             ))}
             
             <div className="px-4 py-3">
-              <button className="text-sm text-blue-500 hover:text-blue-600">
+              <button
+                type="button"
+                onClick={() => onCreateTask && onCreateTask()}
+                className="text-sm text-blue-500 hover:text-blue-600"
+              >
                 + Add task
               </button>
             </div>
@@ -113,7 +128,7 @@ const TableView = ({ tasks = [] }) => {
             </div>
             
             {completedTasks.map((task) => (
-              <TaskRow key={task.id} task={task} />
+              <TaskRow key={task.id} task={task} onClick={onTaskClick} />
             ))}
           </>
         )}
@@ -123,4 +138,3 @@ const TableView = ({ tasks = [] }) => {
 };
 
 export default TableView;
-

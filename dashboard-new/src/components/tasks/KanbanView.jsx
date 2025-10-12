@@ -34,7 +34,7 @@ const DraggableTaskCard = ({ task, onClick }) => {
   );
 };
 
-const KanbanView = ({ tasks = [], onTaskUpdate }) => {
+const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => {
   const columns = [
     { id: 'new', title: 'New task', icon: Mail, status: 'new' },
     { id: 'scheduled', title: 'Scheduled', icon: CalendarIcon, status: 'scheduled' },
@@ -120,11 +120,15 @@ const KanbanView = ({ tasks = [], onTaskUpdate }) => {
                       <DraggableTaskCard
                         key={task.id}
                         task={task}
-                        onClick={() => console.log('Task clicked:', task)}
+                        onClick={() => onTaskClick && onTaskClick(task)}
                       />
                     ))}
                     
-                    <button className="w-full py-2 text-sm text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors">
+                    <button
+                      type="button"
+                      onClick={() => onCreateTask && onCreateTask()}
+                      className="w-full py-2 text-sm text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                    >
                       + Create task
                     </button>
                   </div>
@@ -139,4 +143,3 @@ const KanbanView = ({ tasks = [], onTaskUpdate }) => {
 };
 
 export default KanbanView;
-
