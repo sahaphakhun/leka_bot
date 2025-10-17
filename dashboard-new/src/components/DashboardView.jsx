@@ -1,5 +1,19 @@
 import { useMemo } from 'react';
-import { ClipboardList, Timer, CheckCircle2, AlertTriangle, RefreshCw, CalendarDays, Users, Clock, AlertCircle } from 'lucide-react';
+import {
+  ClipboardList,
+  Timer,
+  CheckCircle2,
+  AlertTriangle,
+  RefreshCw,
+  CalendarDays,
+  Users,
+  Clock,
+  AlertCircle,
+  Send,
+  FileDown,
+  User as UserIcon,
+  ArrowRightLeft,
+} from 'lucide-react';
 import TaskCard from './common/TaskCard';
 import { useAuth } from '../context/AuthContext';
 
@@ -18,6 +32,12 @@ const completedStatuses = ['completed', 'approved', 'done', 'submitted'];
 
 const rankEmojis = ['🥇', '🥈', '🥉'];
 
+const periods = [
+  { value: 'this_week', label: 'สัปดาห์นี้', icon: CalendarDays },
+  { value: 'last_week', label: 'สัปดาห์ก่อน', icon: ArrowRightLeft },
+  { value: 'all', label: 'ทั้งหมด', icon: ClipboardList },
+];
+
 const DashboardView = ({
   tasks = [],
   stats = {},
@@ -25,8 +45,12 @@ const DashboardView = ({
   groupStats = null,
   onTaskSelect = () => {},
   onRefresh,
+  onNavigate,
+  onStatsPeriodChange,
+  statsPeriod = 'this_week',
 }) => {
-  const { isPersonalMode, currentGroup } = useAuth();
+  const { isPersonalMode, currentGroup, userId, currentUser } = useAuth();
+  const readOnly = !userId;
 
   const today = useMemo(() => {
     const date = new Date();
@@ -233,27 +257,44 @@ const DashboardView = ({
     <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold">แดชบอร์ดหลัก</h1>
+        <div className="space-y-2">
+          <div className="flex flex-wrap items-center gap-3">
+            <h1 className="text-2xl font-bold">แดชบอร์ดหลัก</h1>
+            <span
+              className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                isPersonalMode()
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'bg-green-100 text-green-700'
+              }`}
+            >
+              {isPersonalMode() ? 'โหมดส่วนตัว' : 'โหมดกลุ่ม'}
+            </span>
+            {readOnly && (
+              <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
+                โหมดดูอย่างเดียว
+              </span>
+            )}
+          </div>
           <p className="text-muted-foreground">
-            {isPersonalMode() ? 'ภาพรวมงานของฉันในกลุ่ม LINE' : 'ติดตามสถานะงานและผลงานของกลุ่มแบบเรียลไทม์'}
+            {isPersonalMode()
+              ? 'ภาพรวมงานของฉันในกลุ่ม LINE'
+              : 'ติดตามสถานะงานและผลงานของกลุ่มแบบเรียลไทม์'}
           </p>
           {currentGroup && (
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-sm text-muted-foreground">
               กลุ่ม: {currentGroup.name || 'ไม่ระบุชื่อ'}
             </p>
           )}
         </div>
-        <div className="flex items-center gap-2">
-          <span
-            className={`px-3 py-1 rounded-full text-xs font-semibold ${
-              isPersonalMode()
-                ? 'bg-blue-100 text-blue-700'
-                : 'bg-green-100 text-green-700'
-            }`}
-          >
-            {isPersonalMode() ? 'โหมดส่วนตัว' : 'โหมดกลุ่ม'}
-          </span>
+        <div className="flex flex-wrap items-center gap-2">
+          {currentUser && (
+            <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-full bg-white shadow-sm">
+              <UserIcon className="w-4 h-4 text-blue-500" />
+              <span className="text-sm font-medium">
+                {currentUser.displayName || currentUser.realName || currentUser.lineUserId || 'ผู้ใช้งาน'}
+              </span>
+            </div>
+          )}
           {typeof onRefresh === 'function' && (
             <button
               type="button"
@@ -264,6 +305,62 @@ const DashboardView = ({
               รีเฟรชข้อมูล
             </button>
           )}
+          {typeof onNavigate === 'function' && (
+            <>
+              <button
+                type="button"
+                onClick={() => onNavigate('submit')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-blue-500 text-white text-sm hover:bg-blue-600 transition"
+              >
+                <Send className="w-4 h-4" />
+                ส่งงาน
+              </button>
+              <button
+                type="button"
+                onClick={() => onNavigate('reports')}
+                className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-blue-500 text-blue-600 text-sm hover:bg-blue-50 transition"
+              >
+                <FileDown className="w-4 h-4" />
+                ส่งออกรายงาน
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      {/* Read-only banner */}
+      {readOnly && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <p className="font-medium">คุณกำลังดูในโหมดตัวอย่าง</p>
+          <p>โปรดเข้าจากลิงก์ใน LINE ส่วนตัวเพื่อยืนยันตัวตนและใช้งานคำสั่งเต็มรูปแบบ</p>
+        </div>
+      )}
+
+      {/* Stats period selector */}
+      <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-4 shadow-sm">
+        <div className="text-sm text-muted-foreground">
+          ปรับช่วงข้อมูลสถิติเพื่อดูแนวโน้มล่าสุดของทีม
+        </div>
+        <div className="flex flex-wrap gap-2">
+          {periods.map((period) => {
+            const Icon = period.icon;
+            const isActive = statsPeriod === period.value;
+            return (
+              <button
+                key={period.value}
+                type="button"
+                onClick={() => onStatsPeriodChange && onStatsPeriodChange(period.value)}
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition ${
+                  isActive
+                    ? 'bg-blue-500 text-white shadow'
+                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                }`}
+              >
+                <Icon className="w-3 h-3" />
+                {period.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

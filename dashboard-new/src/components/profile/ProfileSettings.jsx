@@ -6,7 +6,9 @@ import { Input } from '../ui/input';
 import { Label } from '../ui/label';
 import { Switch } from '../ui/switch';
 import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Save, Bell, Mail } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+import { Badge } from '../ui/badge';
+import { Save } from 'lucide-react';
 
 export default function ProfileSettings({ profile, onUpdate }) {
   const { userId, groupId } = useAuth();
@@ -14,6 +16,7 @@ export default function ProfileSettings({ profile, onUpdate }) {
   const [settings, setSettings] = useState({
     displayName: profile?.displayName || '',
     email: profile?.email || '',
+    timezone: profile?.timezone || 'Asia/Bangkok',
     notifications: {
       taskAssigned: profile?.notifications?.taskAssigned ?? true,
       taskDue: profile?.notifications?.taskDue ?? true,
@@ -75,6 +78,30 @@ export default function ProfileSettings({ profile, onUpdate }) {
               value={settings.email}
               onChange={(e) => setSettings({ ...settings, email: e.target.value })}
             />
+            <div className="flex items-center gap-2 text-sm text-gray-600">
+              <Badge variant={settings.email ? 'default' : 'outline'}>
+                {settings.email ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ' }
+              </Badge>
+              <span>{settings.email ? 'สามารถรับอีเมลแจ้งเตือนได้' : 'กรุณาใส่อีเมลสำหรับรับการแจ้งเตือน'}</span>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="timezone">เขตเวลา</Label>
+            <Select
+              value={settings.timezone}
+              onValueChange={(value) => setSettings({ ...settings, timezone: value })}
+            >
+              <SelectTrigger id="timezone">
+                <SelectValue placeholder="เลือกเขตเวลา" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Asia/Bangkok">Asia/Bangkok (UTC+7)</SelectItem>
+                <SelectItem value="Asia/Singapore">Asia/Singapore (UTC+8)</SelectItem>
+                <SelectItem value="Asia/Tokyo">Asia/Tokyo (UTC+9)</SelectItem>
+                <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
         </CardContent>
       </Card>

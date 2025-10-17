@@ -39,6 +39,7 @@ function AppContent() {
   const [recurringRefreshKey, setRecurringRefreshKey] = useState(0)
   const [groupStats, setGroupStats] = useState(null)
   const [leaderboard, setLeaderboard] = useState([])
+  const [statsPeriod, setStatsPeriod] = useState('this_week')
   const filesRefreshKey = 0
 
   const loadSampleData = useCallback(async () => {
@@ -54,14 +55,14 @@ function AppContent() {
   const loadMiniLeaderboard = useCallback(async () => {
     if (!groupId) return
     try {
-      const response = await getLeaderboard(groupId, { period: 'weekly', limit: 5 })
+      const response = await getLeaderboard(groupId, { period: statsPeriod === 'last_week' ? 'weekly' : statsPeriod, limit: 5 })
       const list = response?.data || response?.leaderboard || response
       setLeaderboard(Array.isArray(list) ? list : [])
     } catch (err) {
       console.warn('⚠️ Failed to load leaderboard:', err.message)
       setLeaderboard([])
     }
-  }, [groupId])
+  }, [groupId, statsPeriod])
 
   const loadData = useCallback(async () => {
     console.log('=== Load Data Start ===')
@@ -93,7 +94,7 @@ function AppContent() {
       }
 
       console.log('📥 Fetching tasks...')
-      const response = await fetchTasks(groupId)
+      const response = await fetchTasks(groupId, { period: statsPeriod })
       console.log('✅ Tasks loaded:', response)
 
       let normalizedTasks = normalizeTasks(response.data || response.tasks || response)
@@ -116,7 +117,7 @@ function AppContent() {
 
       try {
         console.log('📥 Fetching group stats...')
-        const statsResponse = await getGroupStats(groupId)
+        const statsResponse = await getGroupStats(groupId, { period: statsPeriod })
         console.log('✅ Group stats loaded:', statsResponse)
         setGroupStats(statsResponse?.data || statsResponse)
       } catch (statsError) {
@@ -137,12 +138,18 @@ function AppContent() {
       console.log('✅ Setting loading to false')
       setLoading(false)
     }
-  }, [groupId, userId, viewMode, isPersonalMode, isGroupMode, setGroup, loadSampleData, loadMiniLeaderboard])
+  }, [groupId, userId, viewMode, isPersonalMode, isGroupMode, setGroup, loadSampleData, loadMiniLeaderboard, statsPeriod])
 
   // Load tasks from API
   useEffect(() => {
     loadData()
   }, [loadData])
+
+  useEffect(() => {
+    if (groupId) {
+      loadMiniLeaderboard()
+    }
+  }, [groupId, statsPeriod, loadMiniLeaderboard])
 
   const handleTasksReload = useCallback(() => {
     loadData()
@@ -240,6 +247,9 @@ function AppContent() {
             groupStats={groupStats}
             onTaskSelect={openTaskDetail}
             onRefresh={loadData}
+            onNavigate={setActiveView}
+            onStatsPeriodChange={setStatsPeriod}
+            statsPeriod={statsPeriod}
           />
         )
       case 'calendar':

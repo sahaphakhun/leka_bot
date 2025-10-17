@@ -146,6 +146,18 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
     });
   };
 
+  const summaryCounts = useMemo(() => {
+    const total = filteredTasks.length;
+    const pending = filteredTasks.filter((task) => ['new', 'scheduled'].includes(task.status)).length;
+    const inProgress = filteredTasks.filter((task) => ['in-progress', 'in_progress'].includes(task.status)).length;
+    const completed = filteredTasks.filter((task) => task.status === 'completed').length;
+    const overdue = filteredTasks.filter((task) => {
+      const date = getTaskDate(task);
+      return date && date < startOfToday && task.status !== 'completed';
+    }).length;
+    return { total, pending, inProgress, completed, overdue };
+  }, [filteredTasks, startOfToday]);
+
   return (
     <div>
       {/* Header */}
@@ -273,6 +285,27 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             <RotateCcw className="w-4 h-4" />
             รีเซ็ตตัวกรอง
           </button>
+        </div>
+      </div>
+
+      <div className="px-6 py-4 bg-white border-b border-border">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+            <p className="text-xs text-blue-700">งานที่แสดง</p>
+            <p className="text-2xl font-semibold text-blue-700">{summaryCounts.total}</p>
+          </div>
+          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+            <p className="text-xs text-amber-700">รอดำเนินการ</p>
+            <p className="text-2xl font-semibold text-amber-700">{summaryCounts.pending + summaryCounts.inProgress}</p>
+          </div>
+          <div className="rounded-lg border border-green-100 bg-green-50 p-4">
+            <p className="text-xs text-green-700">เสร็จแล้ว</p>
+            <p className="text-2xl font-semibold text-green-700">{summaryCounts.completed}</p>
+          </div>
+          <div className="rounded-lg border border-red-100 bg-red-50 p-4">
+            <p className="text-xs text-red-700">เกินกำหนด</p>
+            <p className="text-2xl font-semibold text-red-700">{summaryCounts.overdue}</p>
+          </div>
         </div>
       </div>
 

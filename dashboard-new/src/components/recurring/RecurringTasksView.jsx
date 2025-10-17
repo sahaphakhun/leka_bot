@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { useModal } from '../../context/ModalContext';
 import { Button } from '../ui/button';
@@ -152,6 +152,26 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
     return matchesSearch && matchesStatus && matchesRecurrence;
   });
 
+  const summary = useMemo(() => {
+    const total = recurringTasks.length;
+    const active = recurringTasks.filter((task) => task.isActive).length;
+    const paused = total - active;
+    const totalInstances = recurringTasks.reduce((sum, task) => sum + (task.createdCount || 0), 0);
+    const nextTask = recurringTasks
+      .map((task) => task.nextRun)
+      .filter(Boolean)
+      .map((date) => new Date(date))
+      .sort((a, b) => a - b)[0];
+
+    return {
+      total,
+      active,
+      paused,
+      totalInstances,
+      nextTask,
+    };
+  }, [recurringTasks]);
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -183,6 +203,31 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
         </div>
       </div>
 
+      {/* Summary */}
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+        <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
+          <p className="text-xs text-blue-700">งานประจำทั้งหมด</p>
+          <p className="text-3xl font-semibold text-blue-700">{summary.total}</p>
+        </div>
+        <div className="rounded-xl border border-green-100 bg-green-50 p-5">
+          <p className="text-xs text-green-700">ใช้งานอยู่</p>
+          <p className="text-3xl font-semibold text-green-700">{summary.active}</p>
+        </div>
+        <div className="rounded-xl border border-amber-100 bg-amber-50 p-5">
+          <p className="text-xs text-amber-700">หยุดชั่วคราว</p>
+          <p className="text-3xl font-semibold text-amber-700">{summary.paused}</p>
+        </div>
+        <div className="rounded-xl border border-purple-100 bg-purple-50 p-5">
+          <p className="text-xs text-purple-700">งานที่สร้างสะสม</p>
+          <p className="text-3xl font-semibold text-purple-700">{summary.totalInstances}</p>
+          {summary.nextTask && (
+            <p className="text-xs text-purple-600 mt-2">
+              งานครั้งถัดไป: {format(summary.nextTask, 'dd MMM yyyy HH:mm', { locale: th })}
+            </p>
+          )}
+        </div>
+      </div>
+
       {/* Filters */}
       <div className="bg-white rounded-lg p-4 shadow-sm">
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -200,7 +245,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
           {/* Status Filter */}
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="เลือกสถานะ" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">สถานะ: ทั้งหมด</SelectItem>
@@ -212,7 +257,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
           {/* Recurrence Filter */}
           <Select value={recurrenceFilter} onValueChange={setRecurrenceFilter}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="เลือกรอบเวลา" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">รอบ: ทั้งหมด</SelectItem>
@@ -308,9 +353,15 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
                       <span className="text-sm">{task.createdCount} งาน</span>
                     </td>
                     <td className="px-6 py-4">
-                      <div className="flex items-center gap-1">
+                      <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Users className="w-4 h-4 text-gray-400" />
-                        <span className="text-sm">{task.assignedUsers?.length || 0}</span>
+                        <span className="truncate">
+                          {(task.assignedUsers && task.assignedUsers.length > 0)
+                            ? task.assignedUsers
+                                .map((user) => user.displayName || user.name || user.lineUserId)
+                                .join(', ')
+                            : 'ไม่ระบุ'}
+                        </span>
                       </div>
                     </td>
                     <td className="px-6 py-4">

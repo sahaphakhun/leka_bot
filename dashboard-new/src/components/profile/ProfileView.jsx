@@ -7,6 +7,7 @@ import CalendarIntegration from './CalendarIntegration';
 
 export default function ProfileView() {
   const { userId, groupId } = useAuth();
+  const readOnly = !userId;
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -41,6 +42,13 @@ export default function ProfileView() {
         <h1 className="text-2xl font-bold">โปรไฟล์และการตั้งค่า</h1>
         <p className="text-muted-foreground">จัดการข้อมูลส่วนตัวและการตั้งค่า</p>
       </div>
+
+      {readOnly && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+          <p className="font-semibold">โหมดดูอย่างเดียว</p>
+          <p>กรุณาเข้าสู่ระบบผ่านลิงก์ใน LINE ส่วนตัวเพื่อแก้ไขข้อมูลโปรไฟล์และการแจ้งเตือน</p>
+        </div>
+      )}
 
       <Tabs defaultValue="settings" className="w-full">
         <TabsList className="grid w-full grid-cols-2 max-w-md">

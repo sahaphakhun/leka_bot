@@ -163,11 +163,16 @@ export default function FilesView({ refreshKey = 0 }) {
   const filteredFiles = files.filter(file => {
     const displayName = file.name || file.originalName || file.filename || file.fileName || '';
     const matchesSearch = displayName.toLowerCase().includes((searchTerm || '').toLowerCase());
-    const matchesTask = taskFilter === 'all' || file.taskId === taskFilter;
+    const matchesTask =
+      taskFilter === 'all' ||
+      (taskFilter === 'unassigned' && !file.taskId) ||
+      file.taskId === taskFilter;
     const matchesType = typeFilter === 'all' || (file.type || '').toLowerCase() === (typeFilter || '').toLowerCase();
-    
+
     return matchesSearch && matchesTask && matchesType;
   });
+
+  const summaryText = `แสดง ${filteredFiles.length} จาก ${files.length} ไฟล์`;
 
   const groupFilesByTask = () => {
     const grouped = {};
@@ -245,6 +250,7 @@ export default function FilesView({ refreshKey = 0 }) {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">งาน: ทั้งหมด</SelectItem>
+              <SelectItem value="unassigned">ไฟล์ทั่วไป (ไม่ผูกงาน)</SelectItem>
               {tasks.map((task) => (
                 <SelectItem key={task.id} value={task.id}>
                   {task.title}
@@ -311,7 +317,7 @@ export default function FilesView({ refreshKey = 0 }) {
           </TabsList>
 
           <p className="text-sm text-muted-foreground">
-            แสดง {filteredFiles.length} ไฟล์
+            {summaryText}
           </p>
         </div>
 

@@ -33,7 +33,7 @@ export default function SubmitTaskRow({ task, index, onUpdate, onRemove, canRemo
         <div className="flex gap-2">
           <Select value={task.priority} onValueChange={(value) => onUpdate(task.id, 'priority', value)}>
             <SelectTrigger className="flex-1">
-              <SelectValue />
+              <SelectValue placeholder="ความสำคัญ" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="low">ต่ำ</SelectItem>
