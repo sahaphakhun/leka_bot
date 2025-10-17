@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { ModalProvider } from './context/ModalContext'
+import { ModalProvider, useModal } from './context/ModalContext'
 import Sidebar from './components/layout/Sidebar'
 import MainLayout from './components/layout/MainLayout'
 import DashboardView from './components/DashboardView'
@@ -12,6 +12,7 @@ import MembersView from './components/members/MembersView'
 import ReportsView from './components/reports/ReportsView'
 import ProfileView from './components/profile/ProfileView'
 import SubmitMultipleView from './components/submit/SubmitMultipleView'
+import LeaderboardView from './components/leaderboard/LeaderboardView'
 import AddTaskModal from './components/modals/AddTaskModal'
 import EditTaskModal from './components/modals/EditTaskModal'
 import TaskDetailModal from './components/modals/TaskDetailModal'
@@ -22,11 +23,12 @@ import RecurringTaskModal from './components/recurring/RecurringTaskModal'
 import RecurringHistoryModal from './components/recurring/RecurringHistoryModal'
 import InviteMemberModal from './components/members/InviteMemberModal'
 import MemberActionsModal from './components/members/MemberActionsModal'
-import { fetchTasks, normalizeTasks, calculateStats, getGroup } from './services/api'
+import { fetchTasks, normalizeTasks, calculateStats, getGroup, getGroupStats, getLeaderboard } from './services/api'
 import './App.css'
 
 function AppContent() {
   const { userId, groupId, isAuthenticated, setGroup, viewMode, isPersonalMode, isGroupMode } = useAuth()
+  const { openTaskDetail } = useModal()
   const [activeView, setActiveView] = useState('dashboard')
   const [tasks, setTasks] = useState([])
   const [stats, setStats] = useState({})
@@ -35,6 +37,8 @@ function AppContent() {
   const [groupInfo, setGroupInfo] = useState(null)
   const [membersRefreshKey, setMembersRefreshKey] = useState(0)
   const [recurringRefreshKey, setRecurringRefreshKey] = useState(0)
+  const [groupStats, setGroupStats] = useState(null)
+  const [leaderboard, setLeaderboard] = useState([])
   const filesRefreshKey = 0
 
   const loadSampleData = useCallback(async () => {
@@ -46,6 +50,18 @@ function AppContent() {
       console.error('Failed to load sample data:', err)
     }
   }, [])
+
+  const loadMiniLeaderboard = useCallback(async () => {
+    if (!groupId) return
+    try {
+      const response = await getLeaderboard(groupId, { period: 'weekly', limit: 5 })
+      const list = response?.data || response?.leaderboard || response
+      setLeaderboard(Array.isArray(list) ? list : [])
+    } catch (err) {
+      console.warn('⚠️ Failed to load leaderboard:', err.message)
+      setLeaderboard([])
+    }
+  }, [groupId])
 
   const loadData = useCallback(async () => {
     console.log('=== Load Data Start ===')
@@ -97,17 +113,31 @@ function AppContent() {
       const calculatedStats = calculateStats(normalizedTasks)
       console.log('📊 Stats:', calculatedStats)
       setStats(calculatedStats)
+
+      try {
+        console.log('📥 Fetching group stats...')
+        const statsResponse = await getGroupStats(groupId)
+        console.log('✅ Group stats loaded:', statsResponse)
+        setGroupStats(statsResponse?.data || statsResponse)
+      } catch (statsError) {
+        console.warn('⚠️ Failed to load group stats:', statsError)
+        setGroupStats(null)
+      }
+
+      await loadMiniLeaderboard()
     } catch (err) {
       console.error('❌ Failed to load data:', err)
       console.error('Error stack:', err.stack)
       setError(err.message)
       console.log('⚠️ Loading sample data as fallback')
       loadSampleData()
+      setGroupStats(null)
+      setLeaderboard([])
     } finally {
       console.log('✅ Setting loading to false')
       setLoading(false)
     }
-  }, [groupId, userId, viewMode, isPersonalMode, isGroupMode, setGroup, loadSampleData])
+  }, [groupId, userId, viewMode, isPersonalMode, isGroupMode, setGroup, loadSampleData, loadMiniLeaderboard])
 
   // Load tasks from API
   useEffect(() => {
@@ -202,7 +232,16 @@ function AppContent() {
 
     switch (activeView) {
       case 'dashboard':
-        return <DashboardView tasks={tasks} stats={stats} />
+        return (
+          <DashboardView 
+            tasks={tasks} 
+            stats={stats} 
+            leaderboard={leaderboard}
+            groupStats={groupStats}
+            onTaskSelect={openTaskDetail}
+            onRefresh={loadData}
+          />
+        )
       case 'calendar':
         return <CalendarView tasks={tasks} onTaskUpdate={handleTaskUpdate} />
       case 'tasks':
@@ -213,6 +252,8 @@ function AppContent() {
         return <FilesView refreshKey={filesRefreshKey} />
       case 'team':
         return <MembersView refreshKey={membersRefreshKey} />
+      case 'leaderboard':
+        return <LeaderboardView />
       case 'reports':
         return <ReportsView />
       case 'profile':

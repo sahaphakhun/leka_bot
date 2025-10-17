@@ -36,10 +36,10 @@ const DraggableTaskCard = ({ task, onClick }) => {
 
 const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => {
   const columns = [
-    { id: 'new', title: 'New task', icon: Mail, status: 'new' },
-    { id: 'scheduled', title: 'Scheduled', icon: CalendarIcon, status: 'scheduled' },
-    { id: 'in-progress', title: 'In progress', icon: Wrench, status: 'in-progress' },
-    { id: 'completed', title: 'Completed', icon: CheckCircle, status: 'completed' }
+    { id: 'new', title: 'งานใหม่', icon: Mail, status: 'new' },
+    { id: 'scheduled', title: 'รอกำหนดส่ง', icon: CalendarIcon, status: 'scheduled' },
+    { id: 'in-progress', title: 'กำลังดำเนินการ', icon: Wrench, status: 'in-progress' },
+    { id: 'completed', title: 'เสร็จแล้ว', icon: CheckCircle, status: 'completed' }
   ];
 
   const sensors = useSensors(
@@ -106,7 +106,7 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
                     <span>{column.title}</span>
                   </div>
                   <span className="px-2 py-0.5 bg-white rounded-full text-xs text-gray-600">
-                    {columnTasks.length}
+                    {columnTasks.length} งาน
                   </span>
                 </div>
                 
@@ -129,7 +129,7 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
                       onClick={() => onCreateTask && onCreateTask()}
                       className="w-full py-2 text-sm text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
                     >
-                      + Create task
+                      + สร้างงาน
                     </button>
                   </div>
                 </SortableContext>

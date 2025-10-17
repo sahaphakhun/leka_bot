@@ -241,7 +241,7 @@
 
 /* Sidebar */
 .sidebar-bordio {
-  width: 190px;
+  width: 240px;
   background: var(--bordio-navy);
   color: white;
   height: 100vh;
@@ -433,4 +433,3 @@
     border-radius: 0;
   }
 }
-

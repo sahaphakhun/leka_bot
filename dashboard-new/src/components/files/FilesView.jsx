@@ -241,7 +241,7 @@ export default function FilesView({ refreshKey = 0 }) {
           {/* Task Filter */}
           <Select value={taskFilter} onValueChange={setTaskFilter}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="เลือกงาน" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">งาน: ทั้งหมด</SelectItem>
@@ -256,7 +256,7 @@ export default function FilesView({ refreshKey = 0 }) {
           {/* Type Filter */}
           <Select value={typeFilter} onValueChange={setTypeFilter}>
             <SelectTrigger>
-              <SelectValue />
+              <SelectValue placeholder="เลือกประเภทไฟล์" />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">ประเภท: ทั้งหมด</SelectItem>

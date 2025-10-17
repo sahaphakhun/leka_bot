@@ -1,26 +1,45 @@
-import { Home, Calendar, CheckSquare, Repeat, FileText, Users, BarChart3, Settings, LogOut } from 'lucide-react';
-import { useState } from 'react';
+import { 
+  Home, 
+  Calendar, 
+  CheckSquare, 
+  Repeat, 
+  FileText, 
+  Users, 
+  BarChart3, 
+  Trophy,
+  Send,
+  UserCircle,
+  LogOut
+} from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
 
 const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
-  const [expandedSections, setExpandedSections] = useState({
-    teams: true,
-    projects: true
-  });
+  const { logout } = useAuth();
 
   const menuItems = [
-    { id: 'dashboard', icon: Home, label: 'My work' },
-    { id: 'calendar', icon: Calendar, label: 'Calendar' },
-    { id: 'tasks', icon: CheckSquare, label: 'Tasks' },
-    { id: 'recurring', icon: Repeat, label: 'Recurring' },
-    { id: 'files', icon: FileText, label: 'Files' },
-    { id: 'team', icon: Users, label: 'Team' },
-    { id: 'reports', icon: BarChart3, label: 'Reports' },
+    { id: 'dashboard', icon: Home, label: 'ภาพรวม' },
+    { id: 'calendar', icon: Calendar, label: 'ปฏิทินงาน' },
+    { id: 'tasks', icon: CheckSquare, label: 'งานทั้งหมด' },
+    { id: 'recurring', icon: Repeat, label: 'งานประจำ' },
+    { id: 'files', icon: FileText, label: 'คลังไฟล์' },
+    { id: 'team', icon: Users, label: 'สมาชิกกลุ่ม' },
+    { id: 'leaderboard', icon: Trophy, label: 'อันดับ' },
+    { id: 'reports', icon: BarChart3, label: 'รายงาน' },
+    { id: 'submit', icon: Send, label: 'ส่งงาน' },
   ];
 
   const bottomItems = [
-    { id: 'settings', icon: Settings, label: 'Settings' },
-    { id: 'logout', icon: LogOut, label: 'Logout' },
+    { id: 'profile', icon: UserCircle, label: 'โปรไฟล์ของฉัน' },
+    { id: 'logout', icon: LogOut, label: 'ออกจากระบบ' },
   ];
+
+  const handleMenuClick = (id) => {
+    if (id === 'logout') {
+      logout();
+      return;
+    }
+    onViewChange(id);
+  };
 
   return (
     <div className="sidebar-bordio">
@@ -61,7 +80,7 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
           <div
             key={item.id}
             className={`sidebar-item ${activeView === item.id ? 'active' : ''}`}
-            onClick={() => onViewChange(item.id)}
+            onClick={() => handleMenuClick(item.id)}
           >
             <item.icon size={20} />
             <span>{item.label}</span>
@@ -74,8 +93,8 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
         {bottomItems.map((item) => (
           <div
             key={item.id}
-            className="sidebar-item"
-            onClick={() => onViewChange(item.id)}
+            className={`sidebar-item ${activeView === item.id ? 'active' : ''}`}
+            onClick={() => handleMenuClick(item.id)}
           >
             <item.icon size={20} />
             <span>{item.label}</span>
@@ -87,4 +106,3 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
 };
 
 export default Sidebar;
-

@@ -18,13 +18,58 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
   };
 
   const getStatusBadge = (status) => {
+    const normalized = status?.replace('_', '-');
     const statusMap = {
-      'new': { class: 'badge-new', label: 'New task' },
-      'scheduled': { class: 'badge-scheduled', label: 'Scheduled' },
-      'in-progress': { class: 'badge-in-progress', label: 'In progress' },
-      'completed': { class: 'badge-completed', label: 'Completed' }
+      'new': { class: 'bg-purple-100 text-purple-700', label: 'งานใหม่' },
+      'scheduled': { class: 'bg-blue-100 text-blue-700', label: 'รอกำหนดส่ง' },
+      'in-progress': { class: 'bg-amber-100 text-amber-700', label: 'กำลังดำเนินการ' },
+      'completed': { class: 'bg-green-100 text-green-700', label: 'เสร็จแล้ว' },
+      'overdue': { class: 'bg-red-100 text-red-700', label: 'เกินกำหนด' },
     };
-    return statusMap[status] || statusMap['new'];
+    return statusMap[normalized] || statusMap['new'];
+  };
+
+  const formatTaskType = (type) => {
+    const typeMap = {
+      operational: 'งานทั่วไป',
+      report: 'รายงาน',
+      meeting: 'การประชุม',
+      project: 'โครงการ',
+      maintenance: 'บำรุงรักษา',
+    };
+    if (!type) return 'อื่นๆ';
+    return typeMap[type] || typeMap[type?.toLowerCase?.()] || type || 'อื่นๆ';
+  };
+
+  const formatDueDate = (date) => {
+    if (!date) return 'ไม่กำหนด';
+    try {
+      return new Date(date).toLocaleDateString('th-TH', { dateStyle: 'medium' });
+    } catch (error) {
+      return date;
+    }
+  };
+
+  const getAssigneeNames = (task) => {
+    const candidates = [];
+    if (Array.isArray(task.assignees)) {
+      task.assignees.forEach((member) =>
+        candidates.push(member.displayName || member.name || member.lineUserId)
+      );
+    }
+    if (Array.isArray(task.assignedUsers)) {
+      task.assignedUsers.forEach((member) =>
+        candidates.push(member.displayName || member.name || member.lineUserId)
+      );
+    }
+    if (task.assignee) {
+      candidates.push(
+        task.assignee.name || task.assignee.displayName || task.assignee.lineUserId
+      );
+    }
+    const unique = candidates.filter(Boolean);
+    if (unique.length === 0) return 'ไม่ระบุ';
+    return Array.from(new Set(unique)).join(', ');
   };
 
   const TaskRow = ({ task, onClick }) => {
@@ -45,22 +90,18 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
       >
         <div className="font-medium text-sm">{task.title}</div>
         <div>
-          <span className={`badge-bordio ${statusBadge.class}`}>
+          <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.class}`}>
             {statusBadge.label}
           </span>
         </div>
-        <div className="text-sm text-gray-600">{task.type || 'Operational'}</div>
+        <div className="text-sm text-gray-600">{formatTaskType(task.type)}</div>
         <div className="text-sm text-gray-600">
-          {task.dueDate ? new Date(task.dueDate).toLocaleDateString() : '-'}
+          {formatDueDate(task.dueDate || task.scheduledDate)}
         </div>
         <div className="flex justify-end">
-          {task.assignee && (
-            <img 
-              src={task.assignee.avatar || `https://ui-avatars.com/api/?name=${task.assignee.name}&background=4A90E2&color=fff`}
-              alt={task.assignee.name}
-              className="avatar-bordio avatar-sm"
-            />
-          )}
+          <span className="text-sm text-gray-600 truncate max-w-[120px]">
+            {getAssigneeNames(task)}
+          </span>
         </div>
       </div>
     );
@@ -75,18 +116,18 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
           onClick={() => toggleSection('active')}
         >
           {expandedSections.active ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-          <h3 className="font-semibold">Active tasks</h3>
+          <h3 className="font-semibold">งานที่ยังเปิดอยู่</h3>
           <span className="text-sm text-gray-500">{activeTasks.length}</span>
         </div>
         
         {expandedSections.active && (
           <>
             <div className="grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-2 bg-gray-50 text-sm font-medium text-gray-600">
-              <div>Task name</div>
-              <div>Status</div>
-              <div>Type</div>
-              <div>Due date</div>
-              <div className="text-right">Responsible</div>
+              <div>ชื่องาน</div>
+              <div>สถานะ</div>
+              <div>ประเภท</div>
+              <div>กำหนดส่ง</div>
+              <div className="text-right">ผู้รับผิดชอบ</div>
             </div>
             
             {activeTasks.map((task) => (
@@ -99,7 +140,7 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
                 onClick={() => onCreateTask && onCreateTask()}
                 className="text-sm text-blue-500 hover:text-blue-600"
               >
-                + Add task
+                + เพิ่มงาน
               </button>
             </div>
           </>
@@ -113,18 +154,18 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
           onClick={() => toggleSection('completed')}
         >
           {expandedSections.completed ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-          <h3 className="font-semibold">Completed tasks</h3>
+          <h3 className="font-semibold">งานที่เสร็จแล้ว</h3>
           <span className="text-sm text-gray-500">{completedTasks.length}</span>
         </div>
         
         {expandedSections.completed && (
           <>
             <div className="grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-2 bg-gray-50 text-sm font-medium text-gray-600">
-              <div>Task name</div>
-              <div>Status</div>
-              <div>Type</div>
-              <div>Due date</div>
-              <div className="text-right">Responsible</div>
+              <div>ชื่องาน</div>
+              <div>สถานะ</div>
+              <div>ประเภท</div>
+              <div>กำหนดส่ง</div>
+              <div className="text-right">ผู้รับผิดชอบ</div>
             </div>
             
             {completedTasks.map((task) => (

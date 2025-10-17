@@ -245,8 +245,10 @@ export const removeMember = async (groupId, memberId) => {
   });
 };
 
-export const getLeaderboard = async (groupId) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/leaderboard`);
+export const getLeaderboard = async (groupId, params = {}) => {
+  const url = buildUrl(`/groups/${groupId}/leaderboard`, params);
+  const res = await apiCall(url);
+  return res?.data ?? res?.leaderboard ?? res;
 };
 
 export const syncLeaderboard = async (groupId) => {
