@@ -8,26 +8,33 @@ const path = require("path");
 console.log("🔨 Building TypeScript project...");
 
 try {
-  // Build Tailwind CSS first
-  try {
-    console.log("🎨 Building Tailwind CSS...");
-    execSync(
-      "npx tailwindcss -i ./dashboard/input.css -o ./dashboard/tailwind.css --minify",
-      { stdio: "inherit" },
-    );
-    console.log("✅ Tailwind CSS build completed");
-  } catch (cssErr) {
-    console.warn(
-      "⚠️ Failed to build Tailwind CSS:",
-      cssErr && cssErr.message ? cssErr.message : cssErr,
+  const skipInternalBuild = process.env.SKIP_INTERNAL_BUILD === "true";
+
+  if (!skipInternalBuild) {
+    // Build Tailwind CSS first
+    try {
+      console.log("🎨 Building Tailwind CSS...");
+      execSync(
+        "npx tailwindcss -i ./dashboard/input.css -o ./dashboard/tailwind.css --minify",
+        { stdio: "inherit" },
+      );
+      console.log("✅ Tailwind CSS build completed");
+    } catch (cssErr) {
+      console.warn(
+        "⚠️ Failed to build Tailwind CSS:",
+        cssErr && cssErr.message ? cssErr.message : cssErr,
+      );
+    }
+
+    // Run TypeScript compiler
+    console.log("📦 Compiling TypeScript...");
+    execSync("npx tsc", { stdio: "inherit" });
+    console.log("✅ TypeScript compilation completed");
+  } else {
+    console.log(
+      "⏭️  SKIP_INTERNAL_BUILD=true — skipping Tailwind and TypeScript compilation",
     );
   }
-
-  // Run TypeScript compiler
-  console.log("📦 Compiling TypeScript...");
-  execSync("npx tsc", { stdio: "inherit" });
-
-  console.log("✅ TypeScript compilation completed");
   // Copy static dashboard assets to dist so Express can serve them in production
   const srcDashboardDir = path.join(__dirname, "dashboard");
   const distDashboardDir = path.join(__dirname, "dist", "dashboard");
@@ -66,37 +73,46 @@ try {
     console.log("⚛️  Building dashboard-new (React)...");
     const dashboardNewDir = path.join(__dirname, "dashboard-new");
     if (fs.existsSync(dashboardNewDir)) {
-      // Clean dist folder first to ensure fresh build
       const dashboardNewDist = path.join(dashboardNewDir, "dist");
-      if (fs.existsSync(dashboardNewDist)) {
-        console.log("🗑️  Cleaning old dashboard-new/dist...");
-        fs.rmSync(dashboardNewDist, { recursive: true, force: true });
-      }
 
-      // Install dependencies if needed
-      if (!fs.existsSync(path.join(dashboardNewDir, "node_modules"))) {
-        console.log("📦 Installing dashboard-new dependencies...");
-        execSync("npm install", { cwd: dashboardNewDir, stdio: "inherit" });
+      if (!skipInternalBuild) {
+        // Clean dist folder first to ensure fresh build
+        if (fs.existsSync(dashboardNewDist)) {
+          console.log("🗑️  Cleaning old dashboard-new/dist...");
+          fs.rmSync(dashboardNewDist, { recursive: true, force: true });
+        }
+
+        // Install dependencies if needed
+        if (!fs.existsSync(path.join(dashboardNewDir, "node_modules"))) {
+          console.log("📦 Installing dashboard-new dependencies...");
+          execSync("npm install", { cwd: dashboardNewDir, stdio: "inherit" });
+        }
+
+        // Build React app
+        console.log("🔨 Building React app...");
+        execSync("npm run build", { cwd: dashboardNewDir, stdio: "inherit" });
+        console.log("✅ Dashboard-new build completed");
+      } else {
+        console.log(
+          "⏭️  SKIP_INTERNAL_BUILD=true — skipping dashboard-new rebuild",
+        );
       }
-      // Build React app
-      console.log("🔨 Building React app...");
-      execSync("npm run build", { cwd: dashboardNewDir, stdio: "inherit" });
-      console.log("✅ Dashboard-new build completed");
 
       // Copy built files to dist
-      const srcDashboardNewDist = path.join(dashboardNewDir, "dist");
       const distDashboardNewDir = path.join(
         __dirname,
         "dist",
         "dashboard-new",
         "dist",
       );
-      if (fs.existsSync(srcDashboardNewDist)) {
+      if (fs.existsSync(dashboardNewDist)) {
         console.log(
           "🗂️  Copying dashboard-new/dist to dist/dashboard-new/dist ...",
         );
-        copyRecursiveSync(srcDashboardNewDist, distDashboardNewDir);
+        copyRecursiveSync(dashboardNewDist, distDashboardNewDir);
         console.log("✅ Dashboard-new assets copied");
+      } else {
+        console.warn("⚠️ dashboard-new/dist not found. Skipping asset copy.");
       }
     } else {
       console.warn("⚠️ dashboard-new directory not found, skipping...");

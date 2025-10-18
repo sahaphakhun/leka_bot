@@ -10,16 +10,20 @@ ENV PORT=3000
 
 # Copy package files first for better caching
 COPY package*.json ./
+COPY dashboard-new/package*.json ./dashboard-new/
 
 # Install dependencies (include dev for build)
 RUN npm ci --include=dev
+RUN cd dashboard-new && npm ci
 
 # Copy source code (ensure .dockerignore allows src and scripts)
 COPY . .
 
-# Build TypeScript to dist and then prune dev deps
-RUN npm run build || echo "Build step failed, continuing with existing dist if present" \
- && npm prune --omit=dev
+# Build application (backend + dashboard) using helper script
+RUN chmod +x railway-build.sh \
+ && ./railway-build.sh \
+ && npm prune --omit=dev \
+ && cd dashboard-new && npm prune --omit=dev && cd ..
 
 # Create non-root user
 RUN addgroup -g 1001 -S nodejs
