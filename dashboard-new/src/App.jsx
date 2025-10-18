@@ -47,7 +47,13 @@ function AppContent() {
     canModify,
     getAuthError,
   } = useAuth();
-  const { openTaskDetail, openAddTask, openSubmitTask } = useModal();
+  const {
+    openTaskDetail,
+    openAddTask,
+    openEditTask,
+    openSubmitTask,
+    openRecurringTask,
+  } = useModal();
   const [activeView, setActiveView] = useState("dashboard");
   const [tasks, setTasks] = useState([]);
   const [stats, setStats] = useState({});
@@ -86,33 +92,94 @@ function AppContent() {
 
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get("action");
+    const taskId = urlParams.get("taskId");
 
     if (action) {
-      console.log("🎯 URL Action detected:", action);
+      console.log(
+        "🎯 URL Action detected:",
+        action,
+        taskId ? `(taskId: ${taskId})` : "",
+      );
+
+      // Check permission for actions that require userId
+      const requiresUserId = [
+        "new-task",
+        "create-task",
+        "edit",
+        "new-recurring-task",
+      ];
+      if (requiresUserId.includes(action) && !canModify()) {
+        console.warn("⚠️ Action requires userId (Personal Mode)");
+        // Toast warning will be shown by modal itself
+      }
 
       // Handle different actions
       switch (action) {
         case "new-task":
         case "create-task":
-          console.log("Opening AddTask modal...");
+          console.log("📝 Opening AddTask modal...");
           openAddTask();
           break;
+
+        case "new-recurring-task":
+          console.log("🔄 Opening RecurringTask modal...");
+          openRecurringTask();
+          break;
+
+        case "view":
+          if (taskId) {
+            console.log("👁️ Opening TaskDetail modal for task:", taskId);
+            // Find task and open detail modal
+            const task = tasks.find((t) => t.id === taskId);
+            if (task) {
+              openTaskDetail(task);
+            } else {
+              console.warn("⚠️ Task not found:", taskId);
+            }
+          }
+          break;
+
+        case "edit":
+          if (taskId) {
+            console.log("✏️ Opening EditTask modal for task:", taskId);
+            // Find task and open edit modal
+            const task = tasks.find((t) => t.id === taskId);
+            if (task) {
+              openEditTask(task);
+            } else {
+              console.warn("⚠️ Task not found:", taskId);
+            }
+          }
+          break;
+
         case "submit-task":
-          console.log("Opening SubmitTask modal...");
+          console.log("📤 Opening SubmitTask modal...");
           openSubmitTask();
           break;
+
         default:
-          console.log("Unknown action:", action);
+          console.log("❓ Unknown action:", action);
       }
 
       // Remove action parameter from URL to prevent reopening on refresh
       urlParams.delete("action");
+      if (taskId) urlParams.delete("taskId");
       const newUrl = urlParams.toString()
         ? `${window.location.pathname}?${urlParams.toString()}`
         : window.location.pathname;
       window.history.replaceState({}, "", newUrl);
     }
-  }, [isAuthenticated, loading, openAddTask, openSubmitTask]);
+  }, [
+    isAuthenticated,
+    loading,
+    tasks,
+    canModify,
+    openAddTask,
+    openEditTask,
+    openTaskDetail,
+    openSubmitTask,
+    openRecurringTask,
+  ]);
 
   const loadSampleData = useCallback(async () => {
     try {
