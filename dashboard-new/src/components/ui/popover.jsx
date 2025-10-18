@@ -31,7 +31,7 @@ function PopoverContent({
         sideOffset={sideOffset}
         avoidCollisions={avoidCollisions}
         style={{
-          zIndex: 9999,
+          zIndex: 2147483647,
           pointerEvents: "auto",
           ...style,
         }}
