@@ -47,7 +47,7 @@ function AppContent() {
     canModify,
     getAuthError,
   } = useAuth();
-  const { openTaskDetail } = useModal();
+  const { openTaskDetail, openAddTask, openSubmitTask } = useModal();
   const [activeView, setActiveView] = useState("dashboard");
   const [tasks, setTasks] = useState([]);
   const [stats, setStats] = useState({});
@@ -79,6 +79,40 @@ function AppContent() {
     };
     checkConnection();
   }, []);
+
+  // Handle URL parameter actions (e.g., ?action=new-task)
+  useEffect(() => {
+    if (!isAuthenticated() || loading) return;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const action = urlParams.get("action");
+
+    if (action) {
+      console.log("🎯 URL Action detected:", action);
+
+      // Handle different actions
+      switch (action) {
+        case "new-task":
+        case "create-task":
+          console.log("Opening AddTask modal...");
+          openAddTask();
+          break;
+        case "submit-task":
+          console.log("Opening SubmitTask modal...");
+          openSubmitTask();
+          break;
+        default:
+          console.log("Unknown action:", action);
+      }
+
+      // Remove action parameter from URL to prevent reopening on refresh
+      urlParams.delete("action");
+      const newUrl = urlParams.toString()
+        ? `${window.location.pathname}?${urlParams.toString()}`
+        : window.location.pathname;
+      window.history.replaceState({}, "", newUrl);
+    }
+  }, [isAuthenticated, loading, openAddTask, openSubmitTask]);
 
   const loadSampleData = useCallback(async () => {
     try {
