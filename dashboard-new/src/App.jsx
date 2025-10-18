@@ -79,6 +79,7 @@ function AppContent() {
   const openSubmitTaskRef = useRef(openSubmitTask);
   const openRecurringTaskRef = useRef(openRecurringTask);
 
+  // Update refs whenever modal functions change
   useEffect(() => {
     openAddTaskRef.current = openAddTask;
     openEditTaskRef.current = openEditTask;
@@ -119,129 +120,138 @@ function AppContent() {
 
   // Handle URL parameter actions (e.g., ?action=new-task)
   useEffect(() => {
-    console.log(
-      "🔍 URL Action Effect - isAuth:",
-      authenticated,
-      "loading:",
-      loading,
-      "canModify:",
-      userCanModify,
-    );
+    const handleUrlAction = () => {
+      console.log(
+        "🔍 URL Action Effect - isAuth:",
+        authenticated,
+        "loading:",
+        loading,
+        "canModify:",
+        userCanModify,
+      );
 
-    if (!authenticated || loading) {
-      console.log("⏳ Skipping - not ready yet");
-      return;
-    }
+      if (!authenticated || loading) {
+        console.log("⏳ Skipping - not ready yet");
+        return;
+      }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const action = urlParams.get("action");
-    const taskId = urlParams.get("taskId");
+      const urlParams = new URLSearchParams(window.location.search);
+      const action = urlParams.get("action");
+      const taskId = urlParams.get("taskId");
 
-    if (!action) {
-      urlActionStateRef.current.lastKey = null;
-      return;
-    }
+      if (!action) {
+        urlActionStateRef.current.lastKey = null;
+        return;
+      }
 
-    const actionKey = `${action}|${taskId || ""}`;
-    if (urlActionStateRef.current.lastKey === actionKey) {
-      console.log("⏭️ Action already handled:", actionKey);
-      return;
-    }
+      const actionKey = `${action}|${taskId || ""}`;
+      if (urlActionStateRef.current.lastKey === actionKey) {
+        console.log("⏭️ Action already handled:", actionKey);
+        return;
+      }
 
-    console.log(
-      "🎯 URL Action detected:",
-      action,
-      taskId ? `(taskId: ${taskId})` : "",
-    );
+      console.log(
+        "🎯 URL Action detected:",
+        action,
+        taskId ? `(taskId: ${taskId})` : "",
+      );
 
-    const requiresUserId = [
-      "new-task",
-      "create-task",
-      "submit-task",
-      "edit",
-      "new-recurring-task",
-    ];
+      const requiresUserId = [
+        "new-task",
+        "create-task",
+        "submit-task",
+        "edit",
+        "new-recurring-task",
+      ];
 
-    if (requiresUserId.includes(action) && !userCanModify) {
-      console.warn("⚠️ Action requires userId (Personal Mode)");
-      urlActionStateRef.current.lastKey = actionKey;
-      urlParams.delete("action");
-      if (taskId) urlParams.delete("taskId");
-      const newUrl = urlParams.toString()
-        ? `${window.location.pathname}?${urlParams.toString()}`
-        : window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
-      return;
-    }
+      if (requiresUserId.includes(action) && !userCanModify) {
+        console.warn("⚠️ Action requires userId (Personal Mode)");
+        urlActionStateRef.current.lastKey = actionKey;
+        urlParams.delete("action");
+        if (taskId) urlParams.delete("taskId");
+        const newUrl = urlParams.toString()
+          ? `${window.location.pathname}?${urlParams.toString()}`
+          : window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+        return;
+      }
 
-    let handled = false;
+      let handled = false;
 
-    switch (action) {
-      case "new-task":
-      case "create-task":
-        console.log("📝 Opening AddTask modal...");
-        openAddTaskRef.current?.();
-        handled = true;
-        break;
+      switch (action) {
+        case "new-task":
+        case "create-task":
+          console.log("📝 Opening AddTask modal...");
+          openAddTask("normal");
+          handled = true;
+          break;
 
-      case "new-recurring-task":
-        console.log("🔄 Opening RecurringTask modal...");
-        openRecurringTaskRef.current?.();
-        handled = true;
-        break;
+        case "new-recurring-task":
+          console.log("🔄 Opening RecurringTask modal...");
+          openRecurringTask();
+          handled = true;
+          break;
 
-      case "view":
-        if (taskId) {
-          console.log("👁️ Opening TaskDetail modal for task:", taskId);
-          const task = tasks.find((t) => t.id === taskId);
-          if (task) {
-            openTaskDetailRef.current?.(task);
-            handled = true;
-          } else {
-            console.warn("⚠️ Task not found:", taskId);
+        case "view":
+          if (taskId) {
+            console.log("👁️ Opening TaskDetail modal for task:", taskId);
+            const task = tasks.find((t) => t.id === taskId);
+            if (task) {
+              openTaskDetail(task);
+              handled = true;
+            } else {
+              console.warn("⚠️ Task not found:", taskId);
+            }
           }
-        }
-        break;
+          break;
 
-      case "edit":
-        if (taskId) {
-          console.log("✏️ Opening EditTask modal for task:", taskId);
-          const task = tasks.find((t) => t.id === taskId);
-          if (task) {
-            openEditTaskRef.current?.(task);
-            handled = true;
-          } else {
-            console.warn("⚠️ Task not found:", taskId);
+        case "edit":
+          if (taskId) {
+            console.log("✏️ Opening EditTask modal for task:", taskId);
+            const task = tasks.find((t) => t.id === taskId);
+            if (task) {
+              openEditTask(task);
+              handled = true;
+            } else {
+              console.warn("⚠️ Task not found:", taskId);
+            }
           }
-        }
-        break;
+          break;
 
-      case "submit-task":
-        console.log("📤 Opening SubmitTask modal...");
-        openSubmitTaskRef.current?.();
-        handled = true;
-        break;
+        case "submit-task":
+          console.log("📤 Opening SubmitTask modal...");
+          openSubmitTask();
+          handled = true;
+          break;
 
-      default:
-        console.log("❓ Unknown action:", action);
-    }
+        default:
+          console.log("❓ Unknown action:", action);
+      }
 
-    if (handled) {
-      urlActionStateRef.current.lastKey = actionKey;
-      urlParams.delete("action");
-      if (taskId) urlParams.delete("taskId");
-      const newUrl = urlParams.toString()
-        ? `${window.location.pathname}?${urlParams.toString()}`
-        : window.location.pathname;
-      window.history.replaceState({}, "", newUrl);
-    } else {
-      urlActionStateRef.current.lastKey = null;
-    }
+      if (handled) {
+        urlActionStateRef.current.lastKey = actionKey;
+        urlParams.delete("action");
+        if (taskId) urlParams.delete("taskId");
+        const newUrl = urlParams.toString()
+          ? `${window.location.pathname}?${urlParams.toString()}`
+          : window.location.pathname;
+        window.history.replaceState({}, "", newUrl);
+      } else {
+        urlActionStateRef.current.lastKey = null;
+      }
+    };
+
+    handleUrlAction();
   }, [
     authenticated,
     loading,
     tasks,
     userCanModify,
+    openAddTask,
+    openRecurringTask,
+    openTaskDetail,
+    openEditTask,
+    openSubmitTask,
   ]);
 
   const loadSampleData = useCallback(async () => {
