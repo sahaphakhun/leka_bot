@@ -325,13 +325,21 @@ export default function AddTaskModal({ onTaskCreated }) {
                           : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="start" sideOffset={8} side="bottom" avoidCollisions={false} className="w-auto p-0">
+                    <PopoverContent
+                      align="start"
+                      sideOffset={8}
+                      side="bottom"
+                      className="w-auto p-0"
+                    >
                       <Calendar
                         mode="single"
                         selected={normalTask.dueDate}
                         onSelect={(date) => {
                           if (!date) {
-                            setNormalTask((prev) => ({ ...prev, dueDate: null }));
+                            setNormalTask((prev) => ({
+                              ...prev,
+                              dueDate: null,
+                            }));
                             return;
                           }
                           setNormalTask((prev) => ({ ...prev, dueDate: date }));
@@ -573,16 +581,27 @@ export default function AddTaskModal({ onTaskCreated }) {
                           : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent align="start" sideOffset={8} side="bottom" avoidCollisions={false} className="w-auto p-0">
+                    <PopoverContent
+                      align="start"
+                      sideOffset={8}
+                      side="bottom"
+                      className="w-auto p-0"
+                    >
                       <Calendar
                         mode="single"
                         selected={recurringTask.startDate}
                         onSelect={(date) => {
                           if (!date) {
-                            setRecurringTask((prev) => ({ ...prev, startDate: null }));
+                            setRecurringTask((prev) => ({
+                              ...prev,
+                              startDate: null,
+                            }));
                             return;
                           }
-                          setRecurringTask((prev) => ({ ...prev, startDate: date }));
+                          setRecurringTask((prev) => ({
+                            ...prev,
+                            startDate: date,
+                          }));
                           setIsRecurringDateOpen(false);
                         }}
                         initialFocus
