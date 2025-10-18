@@ -48,6 +48,16 @@ const periods = [
   { value: "all", label: "ทั้งหมด", icon: ClipboardList },
 ];
 
+const safeNumber = (value) => {
+  if (value === undefined || value === null) return null;
+  if (typeof value === "number") return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const parsed = Number(value);
+    return Number.isNaN(parsed) ? null : parsed;
+  }
+  return null;
+};
+
 const DashboardView = ({
   tasks = [],
   stats = {},
@@ -238,17 +248,49 @@ const DashboardView = ({
 
   const memberSummaryItems = useMemo(() => {
     if (!groupStats) return [];
+
+    const memberStats = groupStats.members ?? {};
+    const statsSummary = groupStats.stats ?? {};
+
     const totalMembers =
-      groupStats.totalMembers ??
-      groupStats.memberCount ??
-      groupStats.members ??
-      groupStats.total_member ??
+      safeNumber(memberStats.totalMembers) ??
+      safeNumber(memberStats.memberCount) ??
+      safeNumber(memberStats.total_member) ??
+      safeNumber(groupStats.totalMembers) ??
+      safeNumber(groupStats.memberCount) ??
+      safeNumber(groupStats.total_member) ??
       null;
-    const activeMembers = groupStats.activeMembers ?? groupStats.active ?? null;
-    const completedThisWeek =
-      groupStats.completedThisWeek ??
-      groupStats.weeklyCompleted ??
-      groupStats.tasksCompletedThisWeek ??
+
+    const verifiedMembers =
+      safeNumber(memberStats.verifiedMembers) ??
+      safeNumber(groupStats.verifiedMembers) ??
+      null;
+
+    const adminCount =
+      safeNumber(memberStats.adminCount) ??
+      safeNumber(groupStats.adminCount) ??
+      null;
+
+    const joinedThisMonth =
+      safeNumber(memberStats.joinedThisMonth) ??
+      safeNumber(groupStats.joinedThisMonth) ??
+      null;
+
+    const activeMembers =
+      safeNumber(memberStats.activeMembers) ??
+      safeNumber(memberStats.active) ??
+      safeNumber(groupStats.activeMembers) ??
+      safeNumber(groupStats.active) ??
+      null;
+
+    const completedThisPeriod =
+      safeNumber(statsSummary.completedTasks) ??
+      safeNumber(statsSummary.completedThisWeek) ??
+      safeNumber(statsSummary.weeklyCompleted) ??
+      safeNumber(groupStats.completedThisWeek) ??
+      safeNumber(groupStats.weeklyCompleted) ??
+      safeNumber(groupStats.tasksCompletedThisWeek) ??
+      safeNumber(statsData.completedTasks) ??
       null;
 
     return [
@@ -257,18 +299,33 @@ const DashboardView = ({
         value: totalMembers,
         icon: Users,
       },
+      verifiedMembers !== null && {
+        label: "สมาชิกยืนยันแล้ว",
+        value: verifiedMembers,
+        icon: CheckCircle2,
+      },
+      adminCount !== null && {
+        label: "ผู้ดูแลระบบ",
+        value: adminCount,
+        icon: UserIcon,
+      },
       activeMembers !== null && {
         label: "สมาชิกที่ใช้งาน",
         value: activeMembers,
         icon: Users,
       },
-      completedThisWeek !== null && {
-        label: "งานที่เสร็จสัปดาห์นี้",
-        value: completedThisWeek,
+      joinedThisMonth !== null && {
+        label: "สมาชิกใหม่เดือนนี้",
+        value: joinedThisMonth,
+        icon: CalendarDays,
+      },
+      completedThisPeriod !== null && {
+        label: "งานที่เสร็จ",
+        value: completedThisPeriod,
         icon: CheckCircle2,
       },
     ].filter(Boolean);
-  }, [groupStats]);
+  }, [groupStats, statsData.completedTasks]);
 
   const statCards = [
     {
