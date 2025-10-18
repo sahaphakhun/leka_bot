@@ -299,7 +299,7 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>วันที่ครบกำหนด *</Label>
-                  <Popover>
+                  <Popover modal={false}>
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
@@ -538,7 +538,7 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>วันที่เริ่ม *</Label>
-                  <Popover>
+                  <Popover modal={false}>
                     <PopoverTrigger asChild>
                       <Button
                         type="button"

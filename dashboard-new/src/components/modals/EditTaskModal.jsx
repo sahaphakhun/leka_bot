@@ -209,7 +209,7 @@ export default function EditTaskModal({ onTaskUpdated }) {
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>วันที่ครบกำหนด *</Label>
-              <Popover>
+              <Popover modal={false}>
                 <PopoverTrigger asChild>
                   <Button
                     variant="outline"
