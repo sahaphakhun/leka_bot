@@ -1,22 +1,34 @@
-import { useState } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../ui/card';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Switch } from '../ui/switch';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Badge } from '../ui/badge';
-import { Save } from 'lucide-react';
+import { useState } from "react";
+import { useAuth } from "../../context/AuthContext";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Switch } from "../ui/switch";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Badge } from "../ui/badge";
+import { Save } from "lucide-react";
 
 export default function ProfileSettings({ profile, onUpdate }) {
   const { userId, groupId } = useAuth();
   const [loading, setLoading] = useState(false);
   const [settings, setSettings] = useState({
-    displayName: profile?.displayName || '',
-    email: profile?.email || '',
-    timezone: profile?.timezone || 'Asia/Bangkok',
+    displayName: profile?.displayName || "",
+    email: profile?.email || "",
+    timezone: profile?.timezone || "Asia/Bangkok",
     notifications: {
       taskAssigned: profile?.notifications?.taskAssigned ?? true,
       taskDue: profile?.notifications?.taskDue ?? true,
@@ -28,13 +40,13 @@ export default function ProfileSettings({ profile, onUpdate }) {
   const handleSave = async () => {
     setLoading(true);
     try {
-      const { updateUserProfile } = await import('../../services/api');
+      const { updateUserProfile } = await import("../../services/api");
       await updateUserProfile(userId, groupId, settings);
       if (onUpdate) onUpdate();
-      alert('บันทึกการตั้งค่าเรียบร้อยแล้ว');
+      alert("บันทึกการตั้งค่าเรียบร้อยแล้ว");
     } catch (error) {
-      console.error('Failed to update profile:', error);
-      alert('ไม่สามารถบันทึกการตั้งค่าได้');
+      console.error("Failed to update profile:", error);
+      alert("ไม่สามารถบันทึกการตั้งค่าได้");
     } finally {
       setLoading(false);
     }
@@ -53,7 +65,7 @@ export default function ProfileSettings({ profile, onUpdate }) {
             <Avatar className="w-20 h-20">
               <AvatarImage src={profile?.pictureUrl} />
               <AvatarFallback>
-                {(profile?.displayName || '?').charAt(0)}
+                {(profile?.displayName || "?").charAt(0)}
               </AvatarFallback>
             </Avatar>
             <div>
@@ -66,40 +78,98 @@ export default function ProfileSettings({ profile, onUpdate }) {
             <Input
               id="displayName"
               value={settings.displayName}
-              onChange={(e) => setSettings({ ...settings, displayName: e.target.value })}
+              onChange={(e) =>
+                setSettings({ ...settings, displayName: e.target.value })
+              }
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="email">อีเมล</Label>
+            <Label htmlFor="email">อีเมล (ไม่บังคับ)</Label>
             <Input
               id="email"
               type="email"
+              placeholder="your@email.com"
               value={settings.email}
-              onChange={(e) => setSettings({ ...settings, email: e.target.value })}
+              onChange={(e) =>
+                setSettings({ ...settings, email: e.target.value })
+              }
             />
-            <div className="flex items-center gap-2 text-sm text-gray-600">
-              <Badge variant={settings.email ? 'default' : 'outline'}>
-                {settings.email ? 'เชื่อมต่อแล้ว' : 'ยังไม่เชื่อมต่อ' }
-              </Badge>
-              <span>{settings.email ? 'สามารถรับอีเมลแจ้งเตือนได้' : 'กรุณาใส่อีเมลสำหรับรับการแจ้งเตือน'}</span>
+            <div className="flex items-center gap-2 text-xs text-gray-500">
+              {settings.email ? (
+                <>
+                  <Badge variant="default" className="bg-green-500">
+                    ✓ เชื่อมต่อแล้ว
+                  </Badge>
+                  <span>สามารถรับอีเมลแจ้งเตือนได้</span>
+                </>
+              ) : (
+                <>
+                  <Badge variant="outline">ยังไม่เชื่อมต่อ</Badge>
+                  <span>กรุณาใส่อีเมลสำหรับรับการแจ้งเตือน</span>
+                </>
+              )}
             </div>
           </div>
 
           <div className="space-y-2">
             <Label htmlFor="timezone">เขตเวลา</Label>
+            <p className="text-xs text-gray-500">
+              ใช้สำหรับแสดงเวลาในปฏิทินและการแจ้งเตือน
+            </p>
             <Select
               value={settings.timezone}
-              onValueChange={(value) => setSettings({ ...settings, timezone: value })}
+              onValueChange={(value) =>
+                setSettings({ ...settings, timezone: value })
+              }
             >
               <SelectTrigger id="timezone">
                 <SelectValue placeholder="เลือกเขตเวลา" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="Asia/Bangkok">Asia/Bangkok (UTC+7)</SelectItem>
-                <SelectItem value="Asia/Singapore">Asia/Singapore (UTC+8)</SelectItem>
-                <SelectItem value="Asia/Tokyo">Asia/Tokyo (UTC+9)</SelectItem>
-                <SelectItem value="Europe/London">Europe/London (UTC+0)</SelectItem>
+                <SelectItem value="Asia/Bangkok">
+                  🇹🇭 ประเทศไทย (UTC+7)
+                </SelectItem>
+                <SelectItem value="Asia/Ho_Chi_Minh">
+                  🇻🇳 เวียดนาม (UTC+7)
+                </SelectItem>
+                <SelectItem value="Asia/Jakarta">
+                  🇮🇩 อินโดนีเซีย (UTC+7)
+                </SelectItem>
+                <SelectItem value="Asia/Singapore">
+                  🇸🇬 สิงคโปร์ (UTC+8)
+                </SelectItem>
+                <SelectItem value="Asia/Kuala_Lumpur">
+                  🇲🇾 มาเลเซีย (UTC+8)
+                </SelectItem>
+                <SelectItem value="Asia/Manila">
+                  🇵🇭 ฟิลิปปินส์ (UTC+8)
+                </SelectItem>
+                <SelectItem value="Asia/Hong_Kong">
+                  🇭🇰 ฮ่องกง (UTC+8)
+                </SelectItem>
+                <SelectItem value="Asia/Shanghai">🇨🇳 จีน (UTC+8)</SelectItem>
+                <SelectItem value="Asia/Taipei">🇹🇼 ไต้หวัน (UTC+8)</SelectItem>
+                <SelectItem value="Asia/Tokyo">🇯🇵 ญี่ปุ่น (UTC+9)</SelectItem>
+                <SelectItem value="Asia/Seoul">🇰🇷 เกาหลีใต้ (UTC+9)</SelectItem>
+                <SelectItem value="Australia/Sydney">
+                  🇦🇺 ออสเตรเลีย (UTC+10/+11)
+                </SelectItem>
+                <SelectItem value="Pacific/Auckland">
+                  🇳🇿 นิวซีแลนด์ (UTC+12/+13)
+                </SelectItem>
+                <SelectItem value="Europe/London">
+                  🇬🇧 ลอนดอน (UTC+0/+1)
+                </SelectItem>
+                <SelectItem value="Europe/Paris">
+                  🇫🇷 ปารีส (UTC+1/+2)
+                </SelectItem>
+                <SelectItem value="America/New_York">
+                  🇺🇸 นิวยอร์ก (UTC-5/-4)
+                </SelectItem>
+                <SelectItem value="America/Los_Angeles">
+                  🇺🇸 ลอสแอนเจลิส (UTC-8/-7)
+                </SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -115,15 +185,20 @@ export default function ProfileSettings({ profile, onUpdate }) {
         <CardContent className="space-y-4">
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>งานที่ได้รับมอบหมาย</Label>
-              <p className="text-sm text-gray-500">แจ้งเตือนเมื่อมีงานใหม่</p>
+              <Label>📋 งานที่ได้รับมอบหมาย</Label>
+              <p className="text-sm text-gray-500">
+                แจ้งเตือนทันทีเมื่อมีงานใหม่
+              </p>
             </div>
             <Switch
               checked={settings.notifications.taskAssigned}
               onCheckedChange={(checked) =>
                 setSettings({
                   ...settings,
-                  notifications: { ...settings.notifications, taskAssigned: checked },
+                  notifications: {
+                    ...settings.notifications,
+                    taskAssigned: checked,
+                  },
                 })
               }
             />
@@ -131,15 +206,18 @@ export default function ProfileSettings({ profile, onUpdate }) {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>งานใกล้ครบกำหนด</Label>
-              <p className="text-sm text-gray-500">แจ้งเตือนก่อนครบกำหนด 1 วัน</p>
+              <Label>⏰ งานใกล้ครบกำหนด</Label>
+              <p className="text-sm text-gray-500">แจ้งเตือนล่วงหน้า 1 วัน</p>
             </div>
             <Switch
               checked={settings.notifications.taskDue}
               onCheckedChange={(checked) =>
                 setSettings({
                   ...settings,
-                  notifications: { ...settings.notifications, taskDue: checked },
+                  notifications: {
+                    ...settings.notifications,
+                    taskDue: checked,
+                  },
                 })
               }
             />
@@ -147,31 +225,45 @@ export default function ProfileSettings({ profile, onUpdate }) {
 
           <div className="flex items-center justify-between">
             <div className="space-y-0.5">
-              <Label>งานเสร็จสิ้น</Label>
-              <p className="text-sm text-gray-500">แจ้งเตือนเมื่องานเสร็จ</p>
+              <Label>✅ งานเสร็จสิ้น</Label>
+              <p className="text-sm text-gray-500">
+                แจ้งเตือนเมื่องานที่มอบหมายเสร็จแล้ว
+              </p>
             </div>
             <Switch
               checked={settings.notifications.taskCompleted}
               onCheckedChange={(checked) =>
                 setSettings({
                   ...settings,
-                  notifications: { ...settings.notifications, taskCompleted: checked },
+                  notifications: {
+                    ...settings.notifications,
+                    taskCompleted: checked,
+                  },
                 })
               }
             />
           </div>
 
-          <div className="flex items-center justify-between pt-2 border-t">
+          <div className="flex items-center justify-between pt-4 border-t">
             <div className="space-y-0.5">
-              <Label>แจ้งเตือนทางอีเมล</Label>
-              <p className="text-sm text-gray-500">รับการแจ้งเตือนทางอีเมลด้วย</p>
+              <Label>📧 แจ้งเตือนทางอีเมล</Label>
+              <p className="text-sm text-gray-500">
+                รับการแจ้งเตือนทางอีเมลพร้อม LINE
+                {!settings.email && (
+                  <span className="text-amber-600"> (ต้องใส่อีเมลก่อน)</span>
+                )}
+              </p>
             </div>
             <Switch
               checked={settings.notifications.emailNotifications}
+              disabled={!settings.email}
               onCheckedChange={(checked) =>
                 setSettings({
                   ...settings,
-                  notifications: { ...settings.notifications, emailNotifications: checked },
+                  notifications: {
+                    ...settings.notifications,
+                    emailNotifications: checked,
+                  },
                 })
               }
             />
@@ -183,7 +275,7 @@ export default function ProfileSettings({ profile, onUpdate }) {
       <div className="flex justify-end">
         <Button onClick={handleSave} disabled={loading}>
           <Save className="w-4 h-4 mr-2" />
-          {loading ? 'กำลังบันทึก...' : 'บันทึกการตั้งค่า'}
+          {loading ? "กำลังบันทึก..." : "บันทึกการตั้งค่า"}
         </Button>
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from "react";
 import {
   ClipboardList,
   Timer,
@@ -13,29 +13,39 @@ import {
   FileDown,
   User as UserIcon,
   ArrowRightLeft,
-} from 'lucide-react';
-import TaskCard from './common/TaskCard';
-import { useAuth } from '../context/AuthContext';
+  Download,
+  FileText,
+  FileSpreadsheet,
+} from "lucide-react";
+import TaskCard from "./common/TaskCard";
+import { useAuth } from "../context/AuthContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "./ui/dropdown-menu";
+import { Button } from "./ui/button";
 
 const statusLabels = {
-  new: 'งานใหม่',
-  scheduled: 'รอกำหนดส่ง',
-  'in-progress': 'กำลังดำเนินการ',
-  in_progress: 'กำลังดำเนินการ',
-  completed: 'เสร็จแล้ว',
-  approved: 'อนุมัติแล้ว',
-  submitted: 'ส่งแล้ว',
-  overdue: 'เกินกำหนด',
+  new: "งานใหม่",
+  scheduled: "รอกำหนดส่ง",
+  "in-progress": "กำลังดำเนินการ",
+  in_progress: "กำลังดำเนินการ",
+  completed: "เสร็จแล้ว",
+  approved: "อนุมัติแล้ว",
+  submitted: "ส่งแล้ว",
+  overdue: "เกินกำหนด",
 };
 
-const completedStatuses = ['completed', 'approved', 'done', 'submitted'];
+const completedStatuses = ["completed", "approved", "done", "submitted"];
 
-const rankEmojis = ['🥇', '🥈', '🥉'];
+const rankEmojis = ["🥇", "🥈", "🥉"];
 
 const periods = [
-  { value: 'this_week', label: 'สัปดาห์นี้', icon: CalendarDays },
-  { value: 'last_week', label: 'สัปดาห์ก่อน', icon: ArrowRightLeft },
-  { value: 'all', label: 'ทั้งหมด', icon: ClipboardList },
+  { value: "this_week", label: "สัปดาห์นี้", icon: CalendarDays },
+  { value: "last_week", label: "สัปดาห์ก่อน", icon: ArrowRightLeft },
+  { value: "all", label: "ทั้งหมด", icon: ClipboardList },
 ];
 
 const DashboardView = ({
@@ -47,10 +57,24 @@ const DashboardView = ({
   onRefresh,
   onNavigate,
   onStatsPeriodChange,
-  statsPeriod = 'this_week',
+  statsPeriod = "this_week",
 }) => {
   const { isPersonalMode, currentGroup, userId, currentUser } = useAuth();
   const readOnly = !userId;
+  const [exporting, setExporting] = useState(false);
+
+  const handleExportDashboard = async (format) => {
+    setExporting(true);
+    try {
+      const { exportDashboardData } = await import("../services/exportService");
+      await exportDashboardData(tasks, statsData, format);
+    } catch (error) {
+      console.error("Failed to export dashboard:", error);
+      alert("ไม่สามารถส่งออกข้อมูลได้");
+    } finally {
+      setExporting(false);
+    }
+  };
 
   const today = useMemo(() => {
     const date = new Date();
@@ -83,19 +107,22 @@ const DashboardView = ({
     const defaultStats = {
       totalTasks: tasks.length,
       completedTasks: tasks.filter((t) => isCompleted(t.status)).length,
-      inProgressTasks: tasks.filter((t) => ['in-progress', 'in_progress'].includes(t.status)).length,
+      inProgressTasks: tasks.filter((t) =>
+        ["in-progress", "in_progress"].includes(t.status),
+      ).length,
       overdueTasks: tasks.filter((t) => {
         const date = getTaskDate(t);
         if (!date) return false;
         return date < today && !isCompleted(t.status);
       }).length,
-      newTasks: tasks.filter((t) => t.status === 'new').length,
-      scheduledTasks: tasks.filter((t) => t.status === 'scheduled').length,
+      newTasks: tasks.filter((t) => t.status === "new").length,
+      scheduledTasks: tasks.filter((t) => t.status === "scheduled").length,
     };
     return { ...defaultStats, ...stats };
   }, [tasks, stats, today]);
 
-  const processingTasksCount = statsData.inProgressTasks + statsData.scheduledTasks + statsData.newTasks;
+  const processingTasksCount =
+    statsData.inProgressTasks + statsData.scheduledTasks + statsData.newTasks;
 
   const upcomingTasks = useMemo(() => {
     return tasks
@@ -131,8 +158,12 @@ const DashboardView = ({
   const recentTasks = useMemo(() => {
     return [...tasks]
       .sort((a, b) => {
-        const dateA = new Date(a.updatedAt || a.createdAt || a.dueDate || a.scheduledDate || 0);
-        const dateB = new Date(b.updatedAt || b.createdAt || b.dueDate || b.scheduledDate || 0);
+        const dateA = new Date(
+          a.updatedAt || a.createdAt || a.dueDate || a.scheduledDate || 0,
+        );
+        const dateB = new Date(
+          b.updatedAt || b.createdAt || b.dueDate || b.scheduledDate || 0,
+        );
         return dateB - dateA;
       })
       .slice(0, 6);
@@ -147,14 +178,19 @@ const DashboardView = ({
           entry.weeklyPoints ??
           entry.monthlyPoints ??
           entry.points ??
-          0
+          0,
       );
-      const completed = Number(entry.completed ?? entry.tasksCompleted ?? entry.totalTasks ?? 0);
-      const onTime = Math.round(entry.onTimeRate ?? entry.onTimePercentage ?? entry.punctuality ?? 0);
+      const completed = Number(
+        entry.completed ?? entry.tasksCompleted ?? entry.totalTasks ?? 0,
+      );
+      const onTime = Math.round(
+        entry.onTimeRate ?? entry.onTimePercentage ?? entry.punctuality ?? 0,
+      );
       return {
         id: entry.id || entry.lineUserId || entry.userId || `leader-${index}`,
         rank: entry.rank || index + 1,
-        name: entry.name || entry.displayName || entry.realName || 'ไม่ทราบชื่อ',
+        name:
+          entry.name || entry.displayName || entry.realName || "ไม่ทราบชื่อ",
         score: score.toFixed(1),
         completed,
         onTime,
@@ -164,14 +200,15 @@ const DashboardView = ({
 
   const formatDateTime = (task) => {
     const date = getTaskDate(task);
-    if (!date) return 'ไม่มีกำหนด';
-    const dateString = date.toLocaleDateString('th-TH', {
-      weekday: 'short',
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
+    if (!date) return "ไม่มีกำหนด";
+    const dateString = date.toLocaleDateString("th-TH", {
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
     });
-    const timeString = task.dueTime || task.time ? ` เวลา ${task.dueTime || task.time}` : '';
+    const timeString =
+      task.dueTime || task.time ? ` เวลา ${task.dueTime || task.time}` : "";
     return `${dateString}${timeString}`;
   };
 
@@ -179,13 +216,24 @@ const DashboardView = ({
     const candidates = task.assignees || task.assignedUsers;
     if (Array.isArray(candidates) && candidates.length > 0) {
       return candidates
-        .map((member) => member.displayName || member.name || member.realName || member.lineUserId)
-        .join(', ');
+        .map(
+          (member) =>
+            member.displayName ||
+            member.name ||
+            member.realName ||
+            member.lineUserId,
+        )
+        .join(", ");
     }
     if (task.assignee) {
-      return task.assignee.name || task.assignee.displayName || task.assignee.lineUserId || 'ไม่ระบุ';
+      return (
+        task.assignee.name ||
+        task.assignee.displayName ||
+        task.assignee.lineUserId ||
+        "ไม่ระบุ"
+      );
     }
-    return 'ไม่ระบุ';
+    return "ไม่ระบุ";
   };
 
   const memberSummaryItems = useMemo(() => {
@@ -205,17 +253,17 @@ const DashboardView = ({
 
     return [
       totalMembers !== null && {
-        label: 'สมาชิกทั้งหมด',
+        label: "สมาชิกทั้งหมด",
         value: totalMembers,
         icon: Users,
       },
       activeMembers !== null && {
-        label: 'สมาชิกที่ใช้งาน',
+        label: "สมาชิกที่ใช้งาน",
         value: activeMembers,
         icon: Users,
       },
       completedThisWeek !== null && {
-        label: 'งานที่เสร็จสัปดาห์นี้',
+        label: "งานที่เสร็จสัปดาห์นี้",
         value: completedThisWeek,
         icon: CheckCircle2,
       },
@@ -224,32 +272,32 @@ const DashboardView = ({
 
   const statCards = [
     {
-      title: 'งานทั้งหมด',
+      title: "งานทั้งหมด",
       value: statsData.totalTasks,
       icon: ClipboardList,
-      color: 'text-blue-600',
-      bgColor: 'bg-blue-100/80',
+      color: "text-blue-600",
+      bgColor: "bg-blue-100/80",
     },
     {
-      title: 'อยู่ระหว่างดำเนินการ',
+      title: "อยู่ระหว่างดำเนินการ",
       value: processingTasksCount,
       icon: Timer,
-      color: 'text-indigo-600',
-      bgColor: 'bg-indigo-100/80',
+      color: "text-indigo-600",
+      bgColor: "bg-indigo-100/80",
     },
     {
-      title: 'เสร็จสิ้นแล้ว',
+      title: "เสร็จสิ้นแล้ว",
       value: statsData.completedTasks,
       icon: CheckCircle2,
-      color: 'text-green-600',
-      bgColor: 'bg-green-100/80',
+      color: "text-green-600",
+      bgColor: "bg-green-100/80",
     },
     {
-      title: 'เกินกำหนด',
+      title: "เกินกำหนด",
       value: statsData.overdueTasks,
       icon: AlertTriangle,
-      color: 'text-red-600',
-      bgColor: 'bg-red-100/80',
+      color: "text-red-600",
+      bgColor: "bg-red-100/80",
     },
   ];
 
@@ -263,11 +311,11 @@ const DashboardView = ({
             <span
               className={`px-3 py-1 rounded-full text-xs font-semibold ${
                 isPersonalMode()
-                  ? 'bg-blue-100 text-blue-700'
-                  : 'bg-green-100 text-green-700'
+                  ? "bg-blue-100 text-blue-700"
+                  : "bg-green-100 text-green-700"
               }`}
             >
-              {isPersonalMode() ? 'โหมดส่วนตัว' : 'โหมดกลุ่ม'}
+              {isPersonalMode() ? "โหมดส่วนตัว" : "โหมดกลุ่ม"}
             </span>
             {readOnly && (
               <span className="px-3 py-1 rounded-full text-xs font-semibold bg-yellow-100 text-yellow-800">
@@ -277,12 +325,12 @@ const DashboardView = ({
           </div>
           <p className="text-muted-foreground">
             {isPersonalMode()
-              ? 'ภาพรวมงานของฉันในกลุ่ม LINE'
-              : 'ติดตามสถานะงานและผลงานของกลุ่มแบบเรียลไทม์'}
+              ? "ภาพรวมงานของฉันในกลุ่ม LINE"
+              : "ติดตามสถานะงานและผลงานของกลุ่มแบบเรียลไทม์"}
           </p>
           {currentGroup && (
             <p className="text-sm text-muted-foreground">
-              กลุ่ม: {currentGroup.name || 'ไม่ระบุชื่อ'}
+              กลุ่ม: {currentGroup.name || "ไม่ระบุชื่อ"}
             </p>
           )}
         </div>
@@ -291,11 +339,14 @@ const DashboardView = ({
             <div className="flex items-center gap-2 px-3 py-2 border border-border rounded-full bg-white shadow-sm">
               <UserIcon className="w-4 h-4 text-blue-500" />
               <span className="text-sm font-medium">
-                {currentUser.displayName || currentUser.realName || currentUser.lineUserId || 'ผู้ใช้งาน'}
+                {currentUser.displayName ||
+                  currentUser.realName ||
+                  currentUser.lineUserId ||
+                  "ผู้ใช้งาน"}
               </span>
             </div>
           )}
-          {typeof onRefresh === 'function' && (
+          {typeof onRefresh === "function" && (
             <button
               type="button"
               onClick={onRefresh}
@@ -305,11 +356,42 @@ const DashboardView = ({
               รีเฟรชข้อมูล
             </button>
           )}
-          {typeof onNavigate === 'function' && (
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={exporting || tasks.length === 0}
+              >
+                {exporting ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600 mr-2" />
+                    กำลังส่งออก...
+                  </>
+                ) : (
+                  <>
+                    <Download className="w-4 h-4 mr-2" />
+                    ส่งออกข้อมูล
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => handleExportDashboard("csv")}>
+                <FileText className="w-4 h-4 mr-2" />
+                ส่งออกเป็น CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExportDashboard("excel")}>
+                <FileSpreadsheet className="w-4 h-4 mr-2" />
+                ส่งออกเป็น Excel
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {typeof onNavigate === "function" && (
             <>
               <button
                 type="button"
-                onClick={() => onNavigate('submit')}
+                onClick={() => onNavigate("submit")}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-md bg-blue-500 text-white text-sm hover:bg-blue-600 transition"
               >
                 <Send className="w-4 h-4" />
@@ -317,11 +399,11 @@ const DashboardView = ({
               </button>
               <button
                 type="button"
-                onClick={() => onNavigate('reports')}
+                onClick={() => onNavigate("reports")}
                 className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-blue-500 text-blue-600 text-sm hover:bg-blue-50 transition"
               >
                 <FileDown className="w-4 h-4" />
-                ส่งออกรายงาน
+                รายงานเต็ม
               </button>
             </>
           )}
@@ -332,7 +414,10 @@ const DashboardView = ({
       {readOnly && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           <p className="font-medium">คุณกำลังดูในโหมดตัวอย่าง</p>
-          <p>โปรดเข้าจากลิงก์ใน LINE ส่วนตัวเพื่อยืนยันตัวตนและใช้งานคำสั่งเต็มรูปแบบ</p>
+          <p>
+            โปรดเข้าจากลิงก์ใน LINE
+            ส่วนตัวเพื่อยืนยันตัวตนและใช้งานคำสั่งเต็มรูปแบบ
+          </p>
         </div>
       )}
 
@@ -349,11 +434,13 @@ const DashboardView = ({
               <button
                 key={period.value}
                 type="button"
-                onClick={() => onStatsPeriodChange && onStatsPeriodChange(period.value)}
+                onClick={() =>
+                  onStatsPeriodChange && onStatsPeriodChange(period.value)
+                }
                 className={`inline-flex items-center gap-2 rounded-full px-3 py-2 text-xs font-medium transition ${
                   isActive
-                    ? 'bg-blue-500 text-white shadow'
-                    : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                    ? "bg-blue-500 text-white shadow"
+                    : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
                 <Icon className="w-3 h-3" />
@@ -412,7 +499,9 @@ const DashboardView = ({
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
             <div className="px-5 py-4 border-b flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold">งานใกล้ครบกำหนด (7 วัน)</h2>
+                <h2 className="text-lg font-semibold">
+                  งานใกล้ครบกำหนด (7 วัน)
+                </h2>
                 <p className="text-sm text-muted-foreground">
                   จัดลำดับความสำคัญของงานที่ต้องดำเนินการต่อ
                 </p>
@@ -471,7 +560,11 @@ const DashboardView = ({
                 ) : (
                   <div className="grid grid-cols-1 gap-3">
                     {todayTasks.map((task) => (
-                      <TaskCard key={task.id} task={task} onClick={() => onTaskSelect(task)} />
+                      <TaskCard
+                        key={task.id}
+                        task={task}
+                        onClick={() => onTaskSelect(task)}
+                      />
                     ))}
                   </div>
                 )}
@@ -480,7 +573,9 @@ const DashboardView = ({
 
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
               <div className="px-5 py-4 border-b flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-red-600">งานที่เกินกำหนด</h2>
+                <h2 className="text-lg font-semibold text-red-600">
+                  งานที่เกินกำหนด
+                </h2>
                 <AlertCircle className="w-5 h-5 text-red-500" />
               </div>
               <div className="p-5">
@@ -498,8 +593,12 @@ const DashboardView = ({
                           className="w-full text-left bg-red-50 hover:bg-red-100 transition rounded-lg px-4 py-3 border border-red-100 text-red-700"
                         >
                           <div className="flex items-center justify-between gap-4">
-                            <p className="font-medium line-clamp-1">{task.title}</p>
-                            <span className="text-xs whitespace-nowrap">{formatDateTime(task)}</span>
+                            <p className="font-medium line-clamp-1">
+                              {task.title}
+                            </p>
+                            <span className="text-xs whitespace-nowrap">
+                              {formatDateTime(task)}
+                            </span>
                           </div>
                           <p className="text-xs mt-1">
                             ผู้รับผิดชอบ: {getAssigneeNames(task)}
@@ -535,11 +634,14 @@ const DashboardView = ({
                       key={entry.id}
                       className="flex items-center gap-3 border border-gray-100 rounded-lg px-4 py-3 bg-gray-50"
                     >
-                      <span className="text-2xl">{rankEmojis[index] || `#${entry.rank}`}</span>
+                      <span className="text-2xl">
+                        {rankEmojis[index] || `#${entry.rank}`}
+                      </span>
                       <div className="flex-1">
                         <p className="font-semibold text-sm">{entry.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          คะแนน {entry.score} • เสร็จ {entry.completed} งาน • ตรงเวลา {entry.onTime}%
+                          คะแนน {entry.score} • เสร็จ {entry.completed} งาน •
+                          ตรงเวลา {entry.onTime}%
                         </p>
                       </div>
                     </div>
@@ -573,9 +675,12 @@ const DashboardView = ({
                     <div className="flex items-center gap-3 py-2 border-b border-gray-100 last:border-0 hover:bg-gray-50 px-1 rounded transition">
                       <div className="w-2 h-2 rounded-full bg-blue-500" />
                       <div className="flex-1">
-                        <p className="text-sm font-medium line-clamp-1">{task.title}</p>
+                        <p className="text-sm font-medium line-clamp-1">
+                          {task.title}
+                        </p>
                         <p className="text-xs text-muted-foreground">
-                          {getAssigneeNames(task)} • {statusLabels[task.status] || task.status}
+                          {getAssigneeNames(task)} •{" "}
+                          {statusLabels[task.status] || task.status}
                         </p>
                       </div>
                       <span className="text-xs text-muted-foreground whitespace-nowrap">

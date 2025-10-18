@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState } from "react";
 import {
   CalendarDays,
   ChevronLeft,
@@ -8,14 +8,22 @@ import {
   Filter,
   Search,
   AlertCircle,
-} from 'lucide-react';
-import TaskCard from '../common/TaskCard';
-import { useModal } from '../../context/ModalContext';
-import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
+  Calendar,
+  CalendarCheck,
+} from "lucide-react";
+import TaskCard from "../common/TaskCard";
+import { useModal } from "../../context/ModalContext";
+import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
 
-const DAY_HEADERS = ['อา', 'จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส'];
-const completedStatuses = ['completed', 'approved', 'done', 'submitted'];
+const DAY_HEADERS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
+const completedStatuses = ["completed", "approved", "done", "submitted"];
 
 const startOfDay = (date) => {
   const clone = new Date(date);
@@ -30,22 +38,22 @@ const getTaskDate = (task) => {
 };
 
 const statusLabels = {
-  new: 'งานใหม่',
-  scheduled: 'รอกำหนดส่ง',
-  'in-progress': 'กำลังดำเนินการ',
-  completed: 'เสร็จแล้ว',
-  overdue: 'เกินกำหนด',
+  new: "งานใหม่",
+  scheduled: "รอกำหนดส่ง",
+  "in-progress": "กำลังดำเนินการ",
+  completed: "เสร็จแล้ว",
+  overdue: "เกินกำหนด",
 };
 
 const CalendarView = ({ tasks = [] }) => {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(startOfDay(new Date()));
   const [filters, setFilters] = useState({
-    search: '',
-    status: 'all',
-    priority: 'all',
-    assignee: 'all',
-    due: 'all',
+    search: "",
+    status: "all",
+    priority: "all",
+    assignee: "all",
+    due: "all",
   });
   const { openTaskDetail, openAddTask } = useModal();
 
@@ -83,7 +91,11 @@ const CalendarView = ({ tasks = [] }) => {
     while (days.length % 7 !== 0) {
       const lastDay = days[days.length - 1].date;
       days.push({
-        date: new Date(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate() + 1),
+        date: new Date(
+          lastDay.getFullYear(),
+          lastDay.getMonth(),
+          lastDay.getDate() + 1,
+        ),
         isCurrentMonth: false,
       });
     }
@@ -99,72 +111,83 @@ const CalendarView = ({ tasks = [] }) => {
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
-      const title = (task.title || '').toLowerCase();
-      const description = (task.description || '').toLowerCase();
+      const title = (task.title || "").toLowerCase();
+      const description = (task.description || "").toLowerCase();
       const query = filters.search.toLowerCase();
-      const matchesSearch = !filters.search || title.includes(query) || description.includes(query);
+      const matchesSearch =
+        !filters.search || title.includes(query) || description.includes(query);
 
       if (!matchesSearch) return false;
 
-      if (filters.status !== 'all') {
-        const normalizedStatus = (task.status || '').replace('_', '-');
-        if (filters.status === 'overdue') {
+      if (filters.status !== "all") {
+        const normalizedStatus = (task.status || "").replace("_", "-");
+        if (filters.status === "overdue") {
           const date = getTaskDate(task);
           if (!date || date >= today || isCompleted(task)) return false;
-        } else if (filters.status === 'in-progress') {
-          if (!['in-progress', 'in-progress', 'in_progress'].includes(normalizedStatus)) {
+        } else if (filters.status === "in-progress") {
+          if (
+            !["in-progress", "in-progress", "in_progress"].includes(
+              normalizedStatus,
+            )
+          ) {
             return false;
           }
-        } else if (filters.status === 'completed') {
+        } else if (filters.status === "completed") {
           if (!isCompleted(task)) return false;
         } else if (normalizedStatus !== filters.status) {
           return false;
         }
       }
 
-      if (filters.priority !== 'all') {
-        const taskPriority = (task.priority || '').toLowerCase();
+      if (filters.priority !== "all") {
+        const taskPriority = (task.priority || "").toLowerCase();
         if (taskPriority !== filters.priority) return false;
       }
 
-      if (filters.assignee !== 'all') {
+      if (filters.assignee !== "all") {
         const assignees = new Set();
         if (Array.isArray(task.assignees)) {
           task.assignees.forEach((member) =>
-            assignees.add(member.displayName || member.name || member.lineUserId)
+            assignees.add(
+              member.displayName || member.name || member.lineUserId,
+            ),
           );
         }
         if (Array.isArray(task.assignedUsers)) {
           task.assignedUsers.forEach((member) =>
-            assignees.add(member.displayName || member.name || member.lineUserId)
+            assignees.add(
+              member.displayName || member.name || member.lineUserId,
+            ),
           );
         }
         if (task.assignee) {
           assignees.add(
-            task.assignee.name || task.assignee.displayName || task.assignee.lineUserId
+            task.assignee.name ||
+              task.assignee.displayName ||
+              task.assignee.lineUserId,
           );
         }
         if (!assignees.has(filters.assignee)) return false;
       }
 
-      if (filters.due !== 'all') {
+      if (filters.due !== "all") {
         const date = getTaskDate(task);
         if (!date) {
-          if (filters.due !== 'unscheduled') return false;
+          if (filters.due !== "unscheduled") return false;
         } else {
-          if (filters.due === 'today') {
+          if (filters.due === "today") {
             if (!(date >= today && date <= endOfToday)) return false;
-          } else if (filters.due === 'tomorrow') {
+          } else if (filters.due === "tomorrow") {
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
             const endTomorrow = new Date(tomorrow);
             endTomorrow.setHours(23, 59, 59, 999);
             if (!(date >= tomorrow && date <= endTomorrow)) return false;
-          } else if (filters.due === 'week') {
+          } else if (filters.due === "week") {
             const nextWeek = new Date(today);
             nextWeek.setDate(nextWeek.getDate() + 7);
             if (!(date >= today && date <= nextWeek)) return false;
-          } else if (filters.due === 'past') {
+          } else if (filters.due === "past") {
             if (!(date < today && !isCompleted(task))) return false;
           }
         }
@@ -179,16 +202,20 @@ const CalendarView = ({ tasks = [] }) => {
     tasks.forEach((task) => {
       if (Array.isArray(task.assignees)) {
         task.assignees.forEach((member) =>
-          names.add(member.displayName || member.name || member.lineUserId)
+          names.add(member.displayName || member.name || member.lineUserId),
         );
       }
       if (Array.isArray(task.assignedUsers)) {
         task.assignedUsers.forEach((member) =>
-          names.add(member.displayName || member.name || member.lineUserId)
+          names.add(member.displayName || member.name || member.lineUserId),
         );
       }
       if (task.assignee) {
-        names.add(task.assignee.name || task.assignee.displayName || task.assignee.lineUserId);
+        names.add(
+          task.assignee.name ||
+            task.assignee.displayName ||
+            task.assignee.lineUserId,
+        );
       }
     });
     return Array.from(names);
@@ -204,9 +231,9 @@ const CalendarView = ({ tasks = [] }) => {
 
   const getStatusVariant = (task) => {
     const date = getTaskDate(task);
-    if (isCompleted(task)) return 'completed';
-    if (date && date < today) return 'overdue';
-    return 'pending';
+    if (isCompleted(task)) return "completed";
+    if (date && date < today) return "overdue";
+    return "pending";
   };
 
   const upcomingTasks = useMemo(() => {
@@ -226,36 +253,36 @@ const CalendarView = ({ tasks = [] }) => {
       filteredTasks
         .filter((task) => !getTaskDate(task) && !isCompleted(task))
         .slice(0, 10),
-    [filteredTasks]
+    [filteredTasks],
   );
 
   const selectedDayTasks = useMemo(
     () => getTasksForDate(selectedDate),
-    [selectedDate, filteredTasks]
+    [selectedDate, filteredTasks],
   );
 
   const formatMonthTitle = (date) => {
-    return date.toLocaleDateString('th-TH', {
-      month: 'long',
-      year: 'numeric',
+    return date.toLocaleDateString("th-TH", {
+      month: "long",
+      year: "numeric",
     });
   };
 
   const formatLongDate = (date) => {
-    return date.toLocaleDateString('th-TH', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
+    return date.toLocaleDateString("th-TH", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
     });
   };
 
   const formatTaskDue = (task) => {
     const date = getTaskDate(task);
-    if (!date) return 'ไม่มีกำหนด';
-    const dateStr = date.toLocaleDateString('th-TH', {
-      month: 'short',
-      day: 'numeric',
+    if (!date) return "ไม่มีกำหนด";
+    const dateStr = date.toLocaleDateString("th-TH", {
+      month: "short",
+      day: "numeric",
     });
     if (task.dueTime) {
       return `${dateStr} • ${task.dueTime}`;
@@ -288,7 +315,10 @@ const CalendarView = ({ tasks = [] }) => {
 
   const summaryCounts = useMemo(() => {
     const total = filteredTasks.length;
-    const inProgress = filteredTasks.filter((task) => !isCompleted(task) && getTaskDate(task) && getTaskDate(task) >= today).length;
+    const inProgress = filteredTasks.filter(
+      (task) =>
+        !isCompleted(task) && getTaskDate(task) && getTaskDate(task) >= today,
+    ).length;
     const completed = filteredTasks.filter((task) => isCompleted(task)).length;
     const overdue = filteredTasks.filter((task) => {
       const date = getTaskDate(task);
@@ -310,20 +340,22 @@ const CalendarView = ({ tasks = [] }) => {
           <button
             type="button"
             onClick={goToToday}
-            className="px-3 py-2 rounded-md border border-border text-sm hover:bg-gray-50 transition"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm hover:bg-gray-50 transition"
           >
+            <CalendarCheck className="w-4 h-4" />
             วันนี้
           </button>
           <button
             type="button"
             onClick={goToCurrentMonth}
-            className="px-3 py-2 rounded-md border border-border text-sm hover:bg-gray-50 transition"
+            className="inline-flex items-center gap-2 px-3 py-2 rounded-md border border-border text-sm hover:bg-gray-50 transition"
           >
+            <Calendar className="w-4 h-4" />
             เดือนนี้
           </button>
           <button
             type="button"
-            onClick={() => openAddTask && openAddTask('normal')}
+            onClick={() => openAddTask && openAddTask("normal")}
             className="inline-flex items-center gap-2 rounded-md bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 transition"
           >
             <CalendarDays className="w-4 h-4" />
@@ -385,13 +417,17 @@ const CalendarView = ({ tasks = [] }) => {
             <Input
               placeholder="ค้นหาชื่องานหรือคำอธิบาย..."
               value={filters.search}
-              onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, search: e.target.value }))
+              }
               className="pl-9"
             />
           </div>
           <Select
             value={filters.status}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, status: value }))}
+            onValueChange={(value) =>
+              setFilters((prev) => ({ ...prev, status: value }))
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="เลือกสถานะ" />
@@ -407,7 +443,9 @@ const CalendarView = ({ tasks = [] }) => {
           </Select>
           <Select
             value={filters.priority}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, priority: value }))}
+            onValueChange={(value) =>
+              setFilters((prev) => ({ ...prev, priority: value }))
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="เลือกความสำคัญ" />
@@ -422,7 +460,9 @@ const CalendarView = ({ tasks = [] }) => {
           </Select>
           <Select
             value={filters.assignee}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, assignee: value }))}
+            onValueChange={(value) =>
+              setFilters((prev) => ({ ...prev, assignee: value }))
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="เลือกผู้รับผิดชอบ" />
@@ -438,7 +478,9 @@ const CalendarView = ({ tasks = [] }) => {
           </Select>
           <Select
             value={filters.due}
-            onValueChange={(value) => setFilters((prev) => ({ ...prev, due: value }))}
+            onValueChange={(value) =>
+              setFilters((prev) => ({ ...prev, due: value }))
+            }
           >
             <SelectTrigger>
               <SelectValue placeholder="เลือกกำหนดส่ง" />
@@ -456,19 +498,27 @@ const CalendarView = ({ tasks = [] }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
             <p className="text-xs text-blue-700">งานที่แสดง</p>
-            <p className="text-2xl font-semibold text-blue-700">{summaryCounts.total}</p>
+            <p className="text-2xl font-semibold text-blue-700">
+              {summaryCounts.total}
+            </p>
           </div>
           <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
             <p className="text-xs text-amber-700">กำลังดำเนินการ</p>
-            <p className="text-2xl font-semibold text-amber-700">{summaryCounts.inProgress}</p>
+            <p className="text-2xl font-semibold text-amber-700">
+              {summaryCounts.inProgress}
+            </p>
           </div>
           <div className="rounded-lg border border-green-100 bg-green-50 p-4">
             <p className="text-xs text-green-700">เสร็จสิ้นแล้ว</p>
-            <p className="text-2xl font-semibold text-green-700">{summaryCounts.completed}</p>
+            <p className="text-2xl font-semibold text-green-700">
+              {summaryCounts.completed}
+            </p>
           </div>
           <div className="rounded-lg border border-red-100 bg-red-50 p-4">
             <p className="text-xs text-red-700">เกินกำหนด</p>
-            <p className="text-2xl font-semibold text-red-700">{summaryCounts.overdue}</p>
+            <p className="text-2xl font-semibold text-red-700">
+              {summaryCounts.overdue}
+            </p>
           </div>
         </div>
       </div>
@@ -487,7 +537,8 @@ const CalendarView = ({ tasks = [] }) => {
             {calendarMatrix.flat().map(({ date, isCurrentMonth }, index) => {
               const dayTasks = getTasksForDate(date);
               const isToday = startOfDay(date).getTime() === today.getTime();
-              const isSelected = startOfDay(date).getTime() === selectedDate.getTime();
+              const isSelected =
+                startOfDay(date).getTime() === selectedDate.getTime();
 
               return (
                 <button
@@ -496,14 +547,14 @@ const CalendarView = ({ tasks = [] }) => {
                   onClick={() => setSelectedDate(startOfDay(date))}
                   className={`min-h-[120px] rounded-lg border p-2 text-left transition ${
                     isSelected
-                      ? 'border-blue-500 bg-blue-50/40 ring-2 ring-blue-100'
-                      : 'border-gray-100 hover:border-blue-200 hover:bg-blue-50/30'
-                  } ${!isCurrentMonth ? 'bg-gray-50 text-gray-400' : 'bg-white'}`}
+                      ? "border-blue-500 bg-blue-50/40 ring-2 ring-blue-100"
+                      : "border-gray-100 hover:border-blue-200 hover:bg-blue-50/30"
+                  } ${!isCurrentMonth ? "bg-gray-50 text-gray-400" : "bg-white"}`}
                 >
                   <div className="flex items-center justify-between">
                     <span
                       className={`text-sm font-semibold ${
-                        isToday ? 'text-blue-600' : 'text-gray-700'
+                        isToday ? "text-blue-600" : "text-gray-700"
                       }`}
                     >
                       {date.getDate()}
@@ -519,11 +570,11 @@ const CalendarView = ({ tasks = [] }) => {
                     {dayTasks.slice(0, 3).map((task) => {
                       const variant = getStatusVariant(task);
                       const colorClass =
-                        variant === 'completed'
-                          ? 'bg-green-100 text-green-700'
-                          : variant === 'overdue'
-                          ? 'bg-red-100 text-red-700'
-                          : 'bg-blue-100 text-blue-700';
+                        variant === "completed"
+                          ? "bg-green-100 text-green-700"
+                          : variant === "overdue"
+                            ? "bg-red-100 text-red-700"
+                            : "bg-blue-100 text-blue-700";
                       return (
                         <span
                           key={task.id}
@@ -549,7 +600,9 @@ const CalendarView = ({ tasks = [] }) => {
               <CalendarDays className="w-5 h-5 text-blue-500" />
               <div>
                 <h2 className="text-lg font-semibold">งานในวันที่เลือก</h2>
-                <p className="text-sm text-muted-foreground">{formatLongDate(selectedDate)}</p>
+                <p className="text-sm text-muted-foreground">
+                  {formatLongDate(selectedDate)}
+                </p>
               </div>
             </div>
             <div className="p-5">
@@ -561,7 +614,11 @@ const CalendarView = ({ tasks = [] }) => {
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {selectedDayTasks.map((task) => (
-                    <TaskCard key={task.id} task={task} onClick={() => openTaskDetail(task)} />
+                    <TaskCard
+                      key={task.id}
+                      task={task}
+                      onClick={() => openTaskDetail(task)}
+                    />
                   ))}
                 </div>
               )}
@@ -574,7 +631,9 @@ const CalendarView = ({ tasks = [] }) => {
             <div className="flex items-center justify-between border-b px-5 py-4">
               <div>
                 <h2 className="text-lg font-semibold">งานที่กำลังจะถึง</h2>
-                <p className="text-xs text-muted-foreground">ภายใน 7 วันข้างหน้า</p>
+                <p className="text-xs text-muted-foreground">
+                  ภายใน 7 วันข้างหน้า
+                </p>
               </div>
               <Clock className="w-5 h-5 text-indigo-500" />
             </div>
@@ -591,8 +650,12 @@ const CalendarView = ({ tasks = [] }) => {
                     onClick={() => openTaskDetail(task)}
                     className="w-full rounded-lg border border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50"
                   >
-                    <p className="truncate text-sm font-medium text-gray-900">{task.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">{formatTaskDue(task)}</p>
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {task.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {formatTaskDue(task)}
+                    </p>
                   </button>
                 ))
               )}
@@ -603,7 +666,9 @@ const CalendarView = ({ tasks = [] }) => {
             <div className="flex items-center justify-between border-b px-5 py-4">
               <div>
                 <h2 className="text-lg font-semibold">งานที่ยังไม่มีกำหนด</h2>
-                <p className="text-xs text-muted-foreground">จัดตารางเวลาให้พร้อมก่อนส่ง</p>
+                <p className="text-xs text-muted-foreground">
+                  จัดตารางเวลาให้พร้อมก่อนส่ง
+                </p>
               </div>
               <ListTodo className="w-5 h-5 text-amber-500" />
             </div>
@@ -620,8 +685,12 @@ const CalendarView = ({ tasks = [] }) => {
                     onClick={() => openTaskDetail(task)}
                     className="w-full rounded-lg border border-dashed border-gray-200 px-4 py-3 text-left transition hover:border-blue-200 hover:bg-blue-50/30"
                   >
-                    <p className="truncate text-sm font-medium text-gray-900">{task.title}</p>
-                    <p className="text-xs text-muted-foreground mt-1">ยังไม่กำหนดวันส่ง</p>
+                    <p className="truncate text-sm font-medium text-gray-900">
+                      {task.title}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      ยังไม่กำหนดวันส่ง
+                    </p>
                   </button>
                 ))
               )}
@@ -653,27 +722,36 @@ const CalendarView = ({ tasks = [] }) => {
             <tbody>
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-10 text-center text-muted-foreground">
+                  <td
+                    colSpan={5}
+                    className="py-10 text-center text-muted-foreground"
+                  >
                     ไม่พบงานตามเงื่อนไขที่เลือก
                   </td>
                 </tr>
               ) : (
                 filteredTasks.map((task) => {
-                  const status = (task.status || '').replace('_', '-');
+                  const status = (task.status || "").replace("_", "-");
                   const date = getTaskDate(task);
                   const assignees = [];
                   if (Array.isArray(task.assignees)) {
                     assignees.push(
                       ...task.assignees.map(
-                        (member) => member.displayName || member.name || member.lineUserId
-                      )
+                        (member) =>
+                          member.displayName ||
+                          member.name ||
+                          member.lineUserId,
+                      ),
                     );
                   }
                   if (Array.isArray(task.assignedUsers)) {
                     assignees.push(
                       ...task.assignedUsers.map(
-                        (member) => member.displayName || member.name || member.lineUserId
-                      )
+                        (member) =>
+                          member.displayName ||
+                          member.name ||
+                          member.lineUserId,
+                      ),
                     );
                   }
                   if (task.assignee) {
@@ -681,7 +759,7 @@ const CalendarView = ({ tasks = [] }) => {
                       task.assignee.name ||
                         task.assignee.displayName ||
                         task.assignee.lineUserId ||
-                        ''
+                        "",
                     );
                   }
 
@@ -691,18 +769,24 @@ const CalendarView = ({ tasks = [] }) => {
                       className="border-b last:border-0 hover:bg-gray-50 cursor-pointer"
                       onClick={() => openTaskDetail(task)}
                     >
-                      <td className="py-3 px-4 font-medium text-gray-900">{task.title}</td>
+                      <td className="py-3 px-4 font-medium text-gray-900">
+                        {task.title}
+                      </td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
                           {statusLabels[status] || status}
                         </span>
                       </td>
-                      <td className="py-3 px-4 capitalize text-gray-600">{task.priority || '-'}</td>
-                      <td className="py-3 px-4 text-gray-600">
-                        {date ? formatTaskDue(task) : 'ไม่กำหนด'}
+                      <td className="py-3 px-4 capitalize text-gray-600">
+                        {task.priority || "-"}
                       </td>
                       <td className="py-3 px-4 text-gray-600">
-                        {assignees.length > 0 ? Array.from(new Set(assignees)).join(', ') : 'ไม่ระบุ'}
+                        {date ? formatTaskDue(task) : "ไม่กำหนด"}
+                      </td>
+                      <td className="py-3 px-4 text-gray-600">
+                        {assignees.length > 0
+                          ? Array.from(new Set(assignees)).join(", ")
+                          : "ไม่ระบุ"}
                       </td>
                     </tr>
                   );

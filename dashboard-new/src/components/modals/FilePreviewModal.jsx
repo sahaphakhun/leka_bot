@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react';
-import { useModal } from '../../context/ModalContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '../ui/dialog';
-import { Button } from '../ui/button';
-import { Download, X, FileText, Image as ImageIcon, Film, Music } from 'lucide-react';
+import { useState, useEffect } from "react";
+import { useModal } from "../../context/ModalContext";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import { Button } from "../ui/button";
+import {
+  Download,
+  X,
+  FileText,
+  Image as ImageIcon,
+  Film,
+  Music,
+} from "lucide-react";
 
 export default function FilePreviewModal() {
   const { isFilePreviewOpen, closeFilePreview, selectedFile } = useModal();
@@ -21,23 +28,23 @@ export default function FilePreviewModal() {
   const detectFileType = () => {
     if (!selectedFile) return;
 
-    const fileName = selectedFile.name || selectedFile.fileName || '';
-    const ext = fileName.split('.').pop().toLowerCase();
+    const fileName = selectedFile.name || selectedFile.fileName || "";
+    const ext = fileName.split(".").pop().toLowerCase();
 
-    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'];
-    const videoExts = ['mp4', 'webm', 'ogg', 'mov', 'avi'];
-    const audioExts = ['mp3', 'wav', 'ogg', 'm4a'];
-    const pdfExts = ['pdf'];
-    const textExts = ['txt', 'md', 'json', 'xml', 'csv'];
-    const docExts = ['doc', 'docx', 'xls', 'xlsx', 'ppt', 'pptx'];
+    const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"];
+    const videoExts = ["mp4", "webm", "ogg", "mov", "avi"];
+    const audioExts = ["mp3", "wav", "ogg", "m4a"];
+    const pdfExts = ["pdf"];
+    const textExts = ["txt", "md", "json", "xml", "csv"];
+    const docExts = ["doc", "docx", "xls", "xlsx", "ppt", "pptx"];
 
-    if (imageExts.includes(ext)) setFileType('image');
-    else if (videoExts.includes(ext)) setFileType('video');
-    else if (audioExts.includes(ext)) setFileType('audio');
-    else if (pdfExts.includes(ext)) setFileType('pdf');
-    else if (textExts.includes(ext)) setFileType('text');
-    else if (docExts.includes(ext)) setFileType('document');
-    else setFileType('unknown');
+    if (imageExts.includes(ext)) setFileType("image");
+    else if (videoExts.includes(ext)) setFileType("video");
+    else if (audioExts.includes(ext)) setFileType("audio");
+    else if (pdfExts.includes(ext)) setFileType("pdf");
+    else if (textExts.includes(ext)) setFileType("text");
+    else if (docExts.includes(ext)) setFileType("document");
+    else setFileType("unknown");
   };
 
   const loadPreview = async () => {
@@ -56,13 +63,13 @@ export default function FilePreviewModal() {
       }
       // Otherwise, fetch from API
       else if (selectedFile.id) {
-        const { getFilePreview } = await import('../../services/api');
+        const { getFilePreview } = await import("../../services/api");
         const url = await getFilePreview(selectedFile.id);
         setPreviewUrl(url);
       }
     } catch (err) {
-      console.error('Failed to load preview:', err);
-      setError('ไม่สามารถโหลดตัวอย่างไฟล์ได้');
+      console.error("Failed to load preview:", err);
+      setError("ไม่สามารถโหลดตัวอย่างไฟล์ได้");
     } finally {
       setLoading(false);
     }
@@ -72,15 +79,15 @@ export default function FilePreviewModal() {
     if (!selectedFile) return;
 
     try {
-      const link = document.createElement('a');
+      const link = document.createElement("a");
       link.href = previewUrl || selectedFile.url;
-      link.download = selectedFile.name || selectedFile.fileName || 'download';
+      link.download = selectedFile.name || selectedFile.fileName || "download";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
     } catch (error) {
-      console.error('Failed to download file:', error);
-      alert('ไม่สามารถดาวน์โหลดไฟล์ได้');
+      console.error("Failed to download file:", error);
+      alert("ไม่สามารถดาวน์โหลดไฟล์ได้");
     }
   };
 
@@ -108,7 +115,7 @@ export default function FilePreviewModal() {
     }
 
     switch (fileType) {
-      case 'image':
+      case "image":
         return (
           <div className="flex items-center justify-center bg-gray-50 rounded-lg p-4">
             <img
@@ -119,20 +126,16 @@ export default function FilePreviewModal() {
           </div>
         );
 
-      case 'video':
+      case "video":
         return (
           <div className="bg-gray-50 rounded-lg p-4">
-            <video
-              src={previewUrl}
-              controls
-              className="w-full max-h-[70vh]"
-            >
+            <video src={previewUrl} controls className="w-full max-h-[70vh]">
               เบราว์เซอร์ของคุณไม่รองรับการเล่นวิดีโอ
             </video>
           </div>
         );
 
-      case 'audio':
+      case "audio":
         return (
           <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-lg p-4">
             <Music className="w-24 h-24 mb-6 text-gray-400" />
@@ -142,7 +145,7 @@ export default function FilePreviewModal() {
           </div>
         );
 
-      case 'pdf':
+      case "pdf":
         return (
           <div className="bg-gray-50 rounded-lg">
             <iframe
@@ -153,7 +156,7 @@ export default function FilePreviewModal() {
           </div>
         );
 
-      case 'text':
+      case "text":
         return (
           <div className="bg-gray-50 rounded-lg p-4">
             <iframe
@@ -164,7 +167,7 @@ export default function FilePreviewModal() {
           </div>
         );
 
-      case 'document':
+      case "document":
         return (
           <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-lg p-4">
             <FileText className="w-24 h-24 mb-6 text-gray-400" />
@@ -197,12 +200,12 @@ export default function FilePreviewModal() {
   };
 
   const formatFileSize = (bytes) => {
-    if (!bytes) return '-';
-    if (bytes === 0) return '0 Bytes';
+    if (!bytes) return "-";
+    if (bytes === 0) return "0 Bytes";
     const k = 1024;
-    const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+    const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
-    return Math.round(bytes / Math.pow(k, i) * 100) / 100 + ' ' + sizes[i];
+    return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
   return (
@@ -211,7 +214,9 @@ export default function FilePreviewModal() {
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
             <div className="flex-1 min-w-0 mr-4">
-              <p className="truncate">{selectedFile?.name || selectedFile?.fileName}</p>
+              <p className="truncate">
+                {selectedFile?.name || selectedFile?.fileName}
+              </p>
               {selectedFile?.size && (
                 <p className="text-sm text-muted-foreground font-normal">
                   {formatFileSize(selectedFile.size)}
@@ -225,9 +230,7 @@ export default function FilePreviewModal() {
           </DialogTitle>
         </DialogHeader>
 
-        <div className="mt-4">
-          {renderPreview()}
-        </div>
+        <div className="mt-4">{renderPreview()}</div>
 
         {/* File Info */}
         {selectedFile && (
@@ -235,11 +238,15 @@ export default function FilePreviewModal() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-muted-foreground">ชื่อไฟล์</p>
-                <p className="font-medium">{selectedFile.name || selectedFile.fileName}</p>
+                <p className="font-medium">
+                  {selectedFile.name || selectedFile.fileName}
+                </p>
               </div>
               <div>
                 <p className="text-muted-foreground">ขนาด</p>
-                <p className="font-medium">{formatFileSize(selectedFile.size)}</p>
+                <p className="font-medium">
+                  {formatFileSize(selectedFile.size)}
+                </p>
               </div>
               {selectedFile.uploadedBy && (
                 <div>
@@ -251,7 +258,9 @@ export default function FilePreviewModal() {
                 <div>
                   <p className="text-muted-foreground">วันที่อัปโหลด</p>
                   <p className="font-medium">
-                    {new Date(selectedFile.uploadedAt).toLocaleDateString('th-TH')}
+                    {new Date(selectedFile.uploadedAt).toLocaleDateString(
+                      "th-TH",
+                    )}
                   </p>
                 </div>
               )}
@@ -262,4 +271,3 @@ export default function FilePreviewModal() {
     </Dialog>
   );
 }
-
