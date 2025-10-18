@@ -32,6 +32,8 @@ export default function AddTaskModal({ onTaskCreated }) {
   const { isAddTaskOpen, closeAddTask, addTaskDefaultTab } = useModal();
   const [activeTab, setActiveTab] = useState("normal");
   const [loading, setLoading] = useState(false);
+  const [isNormalDateOpen, setIsNormalDateOpen] = useState(false);
+  const [isRecurringDateOpen, setIsRecurringDateOpen] = useState(false);
 
   // Normal task form
   const [normalTask, setNormalTask] = useState({
@@ -124,6 +126,8 @@ export default function AddTaskModal({ onTaskCreated }) {
         dayOfMonth: 1,
       },
     });
+    setIsNormalDateOpen(false);
+    setIsRecurringDateOpen(false);
   }, []);
 
   const formatDateForApi = useCallback((date) => {
@@ -199,7 +203,7 @@ export default function AddTaskModal({ onTaskCreated }) {
         resetForms();
       } catch (error) {
         console.error("Failed to create task:", error);
-        alert("ไม่สามารถสร้างงานได้ กรุณาลองใหม่อีกครั้ง");
+        alert(error?.message || "ไม่สามารถสร้างงานได้ กรุณาลองใหม่อีกครั้ง");
       } finally {
         setLoading(false);
       }
@@ -244,6 +248,8 @@ export default function AddTaskModal({ onTaskCreated }) {
   const handleOpenChange = (open) => {
     if (!open) {
       closeAddTask();
+      setIsNormalDateOpen(false);
+      setIsRecurringDateOpen(false);
     }
   };
 
@@ -299,7 +305,11 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>วันที่ครบกำหนด *</Label>
-                  <Popover modal={false}>
+                  <Popover
+                    modal={false}
+                    open={isNormalDateOpen}
+                    onOpenChange={setIsNormalDateOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
@@ -315,13 +325,18 @@ export default function AddTaskModal({ onTaskCreated }) {
                           : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent align="start" sideOffset={8} side="bottom" avoidCollisions={false} className="w-auto p-0">
                       <Calendar
                         mode="single"
                         selected={normalTask.dueDate}
-                        onSelect={(date) =>
-                          setNormalTask({ ...normalTask, dueDate: date })
-                        }
+                        onSelect={(date) => {
+                          if (!date) {
+                            setNormalTask((prev) => ({ ...prev, dueDate: null }));
+                            return;
+                          }
+                          setNormalTask((prev) => ({ ...prev, dueDate: date }));
+                          setIsNormalDateOpen(false);
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
@@ -538,7 +553,11 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>วันที่เริ่ม *</Label>
-                  <Popover modal={false}>
+                  <Popover
+                    modal={false}
+                    open={isRecurringDateOpen}
+                    onOpenChange={setIsRecurringDateOpen}
+                  >
                     <PopoverTrigger asChild>
                       <Button
                         type="button"
@@ -554,16 +573,18 @@ export default function AddTaskModal({ onTaskCreated }) {
                           : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0">
+                    <PopoverContent align="start" sideOffset={8} side="bottom" avoidCollisions={false} className="w-auto p-0">
                       <Calendar
                         mode="single"
                         selected={recurringTask.startDate}
-                        onSelect={(date) =>
-                          setRecurringTask({
-                            ...recurringTask,
-                            startDate: date,
-                          })
-                        }
+                        onSelect={(date) => {
+                          if (!date) {
+                            setRecurringTask((prev) => ({ ...prev, startDate: null }));
+                            return;
+                          }
+                          setRecurringTask((prev) => ({ ...prev, startDate: date }));
+                          setIsRecurringDateOpen(false);
+                        }}
                         initialFocus
                       />
                     </PopoverContent>
