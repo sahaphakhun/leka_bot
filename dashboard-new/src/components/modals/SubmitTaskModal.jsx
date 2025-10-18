@@ -34,8 +34,6 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
   const [uploadProgress, setUploadProgress] = useState(0);
   const [isDragging, setIsDragging] = useState(false);
 
-  if (!selectedTask) return null;
-
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
     addFiles(selectedFiles);
@@ -87,6 +85,12 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     },
     [loading, addFiles],
   );
+
+  const shouldRender = isSubmitTaskOpen && !!selectedTask;
+
+  if (!shouldRender) {
+    return null;
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault();

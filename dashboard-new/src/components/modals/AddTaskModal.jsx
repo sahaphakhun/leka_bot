@@ -29,7 +29,7 @@ import { cn } from "../../lib/utils";
 
 export default function AddTaskModal({ onTaskCreated }) {
   const { groupId } = useAuth();
-  const { isAddTaskOpen, closeAddTask, selectedTask } = useModal();
+  const { isAddTaskOpen, closeAddTask, addTaskDefaultTab } = useModal();
   const [activeTab, setActiveTab] = useState("normal");
   const [loading, setLoading] = useState(false);
 
@@ -73,10 +73,10 @@ export default function AddTaskModal({ onTaskCreated }) {
 
   // Set default tab
   useEffect(() => {
-    if (selectedTask?.defaultTab) {
-      setActiveTab(selectedTask.defaultTab);
+    if (isAddTaskOpen) {
+      setActiveTab(addTaskDefaultTab || "normal");
     }
-  }, [selectedTask]);
+  }, [isAddTaskOpen, addTaskDefaultTab]);
 
   // Load members from API
   const loadMembers = useCallback(async () => {

@@ -1,11 +1,11 @@
-import { createContext, useContext, useState } from 'react';
+import { createContext, useContext, useState } from "react";
 
 const ModalContext = createContext();
 
 export const useModal = () => {
   const context = useContext(ModalContext);
   if (!context) {
-    throw new Error('useModal must be used within ModalProvider');
+    throw new Error("useModal must be used within ModalProvider");
   }
   return context;
 };
@@ -22,6 +22,7 @@ export const ModalProvider = ({ children }) => {
   const [isRecurringTaskOpen, setIsRecurringTaskOpen] = useState(false);
   const [isRecurringHistoryOpen, setIsRecurringHistoryOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [addTaskDefaultTab, setAddTaskDefaultTab] = useState("normal");
 
   // Modal data
   const [selectedTask, setSelectedTask] = useState(null);
@@ -31,14 +32,14 @@ export const ModalProvider = ({ children }) => {
   const [confirmDialogData, setConfirmDialogData] = useState(null);
 
   // Add Task Modal
-  const openAddTask = (defaultTab = 'normal') => {
-    setSelectedTask({ defaultTab });
+  const openAddTask = (defaultTab = "normal") => {
+    setAddTaskDefaultTab(defaultTab);
     setIsAddTaskOpen(true);
   };
 
   const closeAddTask = () => {
     setIsAddTaskOpen(false);
-    setSelectedTask(null);
+    setAddTaskDefaultTab("normal");
   };
 
   // Edit Task Modal
@@ -155,6 +156,7 @@ export const ModalProvider = ({ children }) => {
     setSelectedMember(null);
     setSelectedRecurring(null);
     setConfirmDialogData(null);
+    setAddTaskDefaultTab("normal");
   };
 
   const value = {
@@ -176,6 +178,7 @@ export const ModalProvider = ({ children }) => {
     selectedMember,
     selectedRecurring,
     confirmDialogData,
+    addTaskDefaultTab,
 
     // Actions
     openAddTask,
@@ -202,11 +205,8 @@ export const ModalProvider = ({ children }) => {
   };
 
   return (
-    <ModalContext.Provider value={value}>
-      {children}
-    </ModalContext.Provider>
+    <ModalContext.Provider value={value}>{children}</ModalContext.Provider>
   );
 };
 
 export default ModalContext;
-
