@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import {
@@ -79,13 +79,8 @@ export default function AddTaskModal({ onTaskCreated }) {
   }, [selectedTask]);
 
   // Load members from API
-  useEffect(() => {
-    if (isAddTaskOpen && groupId) {
-      loadMembers();
-    }
-  }, [isAddTaskOpen, groupId]);
-
-  const loadMembers = async () => {
+  const loadMembers = useCallback(async () => {
+    if (!groupId) return;
     try {
       const { getGroupMembers } = await import("../../services/api");
       const response = await getGroupMembers(groupId);
@@ -93,37 +88,15 @@ export default function AddTaskModal({ onTaskCreated }) {
     } catch (error) {
       console.error("Failed to load members:", error);
     }
-  };
+  }, [groupId]);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-
-    try {
-      const taskData = activeTab === "normal" ? normalTask : recurringTask;
-      const { createTask, createRecurringTask } = await import(
-        "../../services/api"
-      );
-
-      if (activeTab === "normal") {
-        await createTask(groupId, taskData);
-      } else {
-        await createRecurringTask(groupId, taskData);
-      }
-
-      // Success
-      if (onTaskCreated) onTaskCreated();
-      closeAddTask();
-      resetForms();
-    } catch (error) {
-      console.error("Failed to create task:", error);
-      alert("Failed to create task. Please try again.");
-    } finally {
-      setLoading(false);
+  useEffect(() => {
+    if (isAddTaskOpen) {
+      loadMembers();
     }
-  };
+  }, [isAddTaskOpen, loadMembers]);
 
-  const resetForms = () => {
+  const resetForms = useCallback(() => {
     setNormalTask({
       title: "",
       description: "",
@@ -151,7 +124,46 @@ export default function AddTaskModal({ onTaskCreated }) {
         dayOfMonth: 1,
       },
     });
-  };
+  }, []);
+
+  const handleSubmit = useCallback(
+    async (e) => {
+      e.preventDefault();
+      setLoading(true);
+
+      try {
+        const taskData = activeTab === "normal" ? normalTask : recurringTask;
+        const { createTask, createRecurringTask } = await import(
+          "../../services/api"
+        );
+
+        if (activeTab === "normal") {
+          await createTask(groupId, taskData);
+        } else {
+          await createRecurringTask(groupId, taskData);
+        }
+
+        // Success
+        if (onTaskCreated) onTaskCreated();
+        closeAddTask();
+        resetForms();
+      } catch (error) {
+        console.error("Failed to create task:", error);
+        alert("Failed to create task. Please try again.");
+      } finally {
+        setLoading(false);
+      }
+    },
+    [
+      activeTab,
+      normalTask,
+      recurringTask,
+      groupId,
+      onTaskCreated,
+      closeAddTask,
+      resetForms,
+    ],
+  );
 
   const handleAssigneeToggle = (userId, isNormal = true) => {
     const task = isNormal ? normalTask : recurringTask;
