@@ -19,7 +19,7 @@ echo "⚛️  Building Dashboard New (React)..."
 cd dashboard-new
 if [ ! -d "node_modules" ]; then
   echo "📦 Installing dashboard-new dependencies..."
-  npm ci
+  npm ci --include=dev
 fi
 npm run build
 cd ..

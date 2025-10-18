@@ -14,7 +14,7 @@ COPY dashboard-new/package*.json ./dashboard-new/
 
 # Install dependencies (include dev for build)
 RUN npm ci --include=dev
-RUN cd dashboard-new && npm ci
+RUN cd dashboard-new && npm ci --include=dev
 
 # Copy source code (ensure .dockerignore allows src and scripts)
 COPY . .

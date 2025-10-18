@@ -85,7 +85,10 @@ try {
         // Install dependencies if needed
         if (!fs.existsSync(path.join(dashboardNewDir, "node_modules"))) {
           console.log("📦 Installing dashboard-new dependencies...");
-          execSync("npm install", { cwd: dashboardNewDir, stdio: "inherit" });
+          execSync("npm ci --include=dev", {
+            cwd: dashboardNewDir,
+            stdio: "inherit",
+          });
         }
 
         // Build React app
