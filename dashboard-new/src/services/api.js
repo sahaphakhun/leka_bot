@@ -120,14 +120,13 @@ const apiCall = async (endpoint, options = {}) => {
 export const testConnection = async () => {
   try {
     debugLog("Testing API connection...");
-    const response = await fetch(
-      `${API_BASE_URL.startsWith("http") ? API_BASE_URL : window.location.origin + API_BASE_URL}/health`,
-      {
-        method: "GET",
-      },
-    );
+    // Use /health endpoint (not /api/health)
+    const healthUrl = window.location.origin + "/health";
+    const response = await fetch(healthUrl, {
+      method: "GET",
+    });
     const ok = response.ok;
-    debugLog("API Connection:", ok ? "✅ Connected" : "❌ Failed");
+    debugLog("API Connection:", ok ? "✅ Connected" : "❌ Failed", healthUrl);
     return ok;
   } catch (error) {
     console.error("❌ API Connection Test Failed:", error);
