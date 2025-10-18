@@ -4,432 +4,465 @@
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-card: var(--card);
-  --color-card-foreground: var(--card-foreground);
-  --color-popover: var(--popover);
-  --color-popover-foreground: var(--popover-foreground);
-  --color-primary: var(--primary);
-  --color-primary-foreground: var(--primary-foreground);
-  --color-secondary: var(--secondary);
-  --color-secondary-foreground: var(--secondary-foreground);
-  --color-muted: var(--muted);
-  --color-muted-foreground: var(--muted-foreground);
-  --color-accent: var(--accent);
-  --color-accent-foreground: var(--accent-foreground);
-  --color-destructive: var(--destructive);
-  --color-border: var(--border);
-  --color-input: var(--input);
-  --color-ring: var(--ring);
-  --color-chart-1: var(--chart-1);
-  --color-chart-2: var(--chart-2);
-  --color-chart-3: var(--chart-3);
-  --color-chart-4: var(--chart-4);
-  --color-chart-5: var(--chart-5);
-  --color-sidebar: var(--sidebar);
-  --color-sidebar-foreground: var(--sidebar-foreground);
-  --color-sidebar-primary: var(--sidebar-primary);
-  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
-  --color-sidebar-accent: var(--sidebar-accent);
-  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
-  --color-sidebar-border: var(--sidebar-border);
-  --color-sidebar-ring: var(--sidebar-ring);
+    --radius-sm: calc(var(--radius) - 4px);
+    --radius-md: calc(var(--radius) - 2px);
+    --radius-lg: var(--radius);
+    --radius-xl: calc(var(--radius) + 4px);
+    --color-background: var(--background);
+    --color-foreground: var(--foreground);
+    --color-card: var(--card);
+    --color-card-foreground: var(--card-foreground);
+    --color-popover: var(--popover);
+    --color-popover-foreground: var(--popover-foreground);
+    --color-primary: var(--primary);
+    --color-primary-foreground: var(--primary-foreground);
+    --color-secondary: var(--secondary);
+    --color-secondary-foreground: var(--secondary-foreground);
+    --color-muted: var(--muted);
+    --color-muted-foreground: var(--muted-foreground);
+    --color-accent: var(--accent);
+    --color-accent-foreground: var(--accent-foreground);
+    --color-destructive: var(--destructive);
+    --color-border: var(--border);
+    --color-input: var(--input);
+    --color-ring: var(--ring);
+    --color-chart-1: var(--chart-1);
+    --color-chart-2: var(--chart-2);
+    --color-chart-3: var(--chart-3);
+    --color-chart-4: var(--chart-4);
+    --color-chart-5: var(--chart-5);
+    --color-sidebar: var(--sidebar);
+    --color-sidebar-foreground: var(--sidebar-foreground);
+    --color-sidebar-primary: var(--sidebar-primary);
+    --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+    --color-sidebar-accent: var(--sidebar-accent);
+    --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+    --color-sidebar-border: var(--sidebar-border);
+    --color-sidebar-ring: var(--sidebar-ring);
 }
 
 :root {
-  --radius: 0.625rem;
-  
-  /* Bordio Color System */
-  --bordio-navy: #1A1D2E;
-  --bordio-navy-hover: #2A3D4E;
-  --bordio-blue: #4A90E2;
-  --bordio-blue-hover: #357ABD;
-  
-  /* Task Status Colors (Pastel) */
-  --new-task-bg: #E8D5F2;
-  --new-task-border: #9B59B6;
-  --scheduled-bg: #D5E8F7;
-  --scheduled-border: #3498DB;
-  --in-progress-bg: #D5F7E1;
-  --in-progress-border: #2ECC71;
-  --completed-bg: #E5E5E5;
-  --completed-border: #95A5A6;
-  --overdue-bg: #FFE5E5;
-  --overdue-border: #E74C3C;
-  
-  /* Base Colors */
-  --background: #F8F9FA;
-  --foreground: #2C3E50;
-  --card: #FFFFFF;
-  --card-foreground: #2C3E50;
-  --popover: #FFFFFF;
-  --popover-foreground: #2C3E50;
-  --primary: #4A90E2;
-  --primary-foreground: #FFFFFF;
-  --secondary: #F8F9FA;
-  --secondary-foreground: #2C3E50;
-  --muted: #E5E5E5;
-  --muted-foreground: #7F8C8D;
-  --accent: #4A90E2;
-  --accent-foreground: #FFFFFF;
-  --destructive: #E74C3C;
-  --border: #E5E5E5;
-  --input: #E5E5E5;
-  --ring: #4A90E2;
-  
-  /* Sidebar Colors (Bordio Navy) */
-  --sidebar: #1A1D2E;
-  --sidebar-foreground: #FFFFFF;
-  --sidebar-primary: #4A90E2;
-  --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #2A3D4E;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: rgba(255, 255, 255, 0.1);
-  --sidebar-ring: #4A90E2;
-  
-  /* Charts */
-  --chart-1: #4A90E2;
-  --chart-2: #2ECC71;
-  --chart-3: #F39C12;
-  --chart-4: #9B59B6;
-  --chart-5: #E74C3C;
+    --radius: 0.625rem;
+
+    /* Bordio Color System */
+    --bordio-navy: #1a1d2e;
+    --bordio-navy-hover: #2a3d4e;
+    --bordio-blue: #4a90e2;
+    --bordio-blue-hover: #357abd;
+
+    /* Task Status Colors (Pastel) */
+    --new-task-bg: #e8d5f2;
+    --new-task-border: #9b59b6;
+    --scheduled-bg: #d5e8f7;
+    --scheduled-border: #3498db;
+    --in-progress-bg: #d5f7e1;
+    --in-progress-border: #2ecc71;
+    --completed-bg: #e5e5e5;
+    --completed-border: #95a5a6;
+    --overdue-bg: #ffe5e5;
+    --overdue-border: #e74c3c;
+
+    /* Base Colors */
+    --background: #f8f9fa;
+    --foreground: #2c3e50;
+    --card: #ffffff;
+    --card-foreground: #2c3e50;
+    --popover: #ffffff;
+    --popover-foreground: #2c3e50;
+    --primary: #4a90e2;
+    --primary-foreground: #ffffff;
+    --secondary: #f8f9fa;
+    --secondary-foreground: #2c3e50;
+    --muted: #e5e5e5;
+    --muted-foreground: #7f8c8d;
+    --accent: #4a90e2;
+    --accent-foreground: #ffffff;
+    --destructive: #e74c3c;
+    --border: #e5e5e5;
+    --input: #e5e5e5;
+    --ring: #4a90e2;
+
+    /* Sidebar Colors (Bordio Navy) */
+    --sidebar: #1a1d2e;
+    --sidebar-foreground: #ffffff;
+    --sidebar-primary: #4a90e2;
+    --sidebar-primary-foreground: #ffffff;
+    --sidebar-accent: #2a3d4e;
+    --sidebar-accent-foreground: #ffffff;
+    --sidebar-border: rgba(255, 255, 255, 0.1);
+    --sidebar-ring: #4a90e2;
+
+    /* Charts */
+    --chart-1: #4a90e2;
+    --chart-2: #2ecc71;
+    --chart-3: #f39c12;
+    --chart-4: #9b59b6;
+    --chart-5: #e74c3c;
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.269 0 0);
-  --accent-foreground: oklch(0.985 0 0);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.556 0 0);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.205 0 0);
-  --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.269 0 0);
-  --sidebar-accent-foreground: oklch(0.985 0 0);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.556 0 0);
+    --background: oklch(0.145 0 0);
+    --foreground: oklch(0.985 0 0);
+    --card: oklch(0.205 0 0);
+    --card-foreground: oklch(0.985 0 0);
+    --popover: oklch(0.205 0 0);
+    --popover-foreground: oklch(0.985 0 0);
+    --primary: oklch(0.922 0 0);
+    --primary-foreground: oklch(0.205 0 0);
+    --secondary: oklch(0.269 0 0);
+    --secondary-foreground: oklch(0.985 0 0);
+    --muted: oklch(0.269 0 0);
+    --muted-foreground: oklch(0.708 0 0);
+    --accent: oklch(0.269 0 0);
+    --accent-foreground: oklch(0.985 0 0);
+    --destructive: oklch(0.704 0.191 22.216);
+    --border: oklch(1 0 0 / 10%);
+    --input: oklch(1 0 0 / 15%);
+    --ring: oklch(0.556 0 0);
+    --chart-1: oklch(0.488 0.243 264.376);
+    --chart-2: oklch(0.696 0.17 162.48);
+    --chart-3: oklch(0.769 0.188 70.08);
+    --chart-4: oklch(0.627 0.265 303.9);
+    --chart-5: oklch(0.645 0.246 16.439);
+    --sidebar: oklch(0.205 0 0);
+    --sidebar-foreground: oklch(0.985 0 0);
+    --sidebar-primary: oklch(0.488 0.243 264.376);
+    --sidebar-primary-foreground: oklch(0.985 0 0);
+    --sidebar-accent: oklch(0.269 0 0);
+    --sidebar-accent-foreground: oklch(0.985 0 0);
+    --sidebar-border: oklch(1 0 0 / 10%);
+    --sidebar-ring: oklch(0.556 0 0);
 }
 
 @layer base {
-  * {
-    @apply border-border outline-ring/50;
-  }
-  body {
-    @apply bg-background text-foreground;
-  }
+    * {
+        @apply border-border outline-ring/50;
+    }
+    body {
+        @apply bg-background text-foreground;
+    }
 }
-
-
 
 /* Bordio-style Components */
 
 /* Task Cards */
 .task-card {
-  background: var(--card);
-  border-radius: 6px;
-  padding: 12px;
-  cursor: pointer;
-  transition: all 0.2s ease;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+    background: var(--card);
+    border-radius: 6px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
 }
 
 .task-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
 }
 
 .task-card-new {
-  background: var(--new-task-bg);
-  border: 1px solid var(--new-task-border);
+    background: var(--new-task-bg);
+    border: 1px solid var(--new-task-border);
 }
 
 .task-card-scheduled {
-  background: var(--scheduled-bg);
-  border: 1px solid var(--scheduled-border);
+    background: var(--scheduled-bg);
+    border: 1px solid var(--scheduled-border);
 }
 
 .task-card-in-progress {
-  background: var(--in-progress-bg);
-  border: 1px solid var(--in-progress-border);
+    background: var(--in-progress-bg);
+    border: 1px solid var(--in-progress-border);
 }
 
 .task-card-completed {
-  background: var(--completed-bg);
-  border: 1px solid var(--completed-border);
+    background: var(--completed-bg);
+    border: 1px solid var(--completed-border);
 }
 
 .task-card-overdue {
-  background: var(--overdue-bg);
-  border: 1px solid var(--overdue-border);
+    background: var(--overdue-bg);
+    border: 1px solid var(--overdue-border);
 }
 
 /* Kanban Board */
 .kanban-board {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 16px;
-  padding: 16px;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 16px;
+    padding: 16px;
 }
 
 .kanban-column {
-  background: #F8F9FA;
-  border-radius: 8px;
-  padding: 12px;
-  min-height: 600px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    min-height: 600px;
 }
 
 .kanban-column-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 0;
-  margin-bottom: 12px;
-  font-weight: 600;
-  font-size: 14px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 8px 0;
+    margin-bottom: 12px;
+    font-weight: 600;
+    font-size: 14px;
 }
 
 .kanban-card {
-  margin-bottom: 8px;
-  cursor: grab;
+    margin-bottom: 8px;
+    cursor: grab;
 }
 
 .kanban-card:active {
-  cursor: grabbing;
+    cursor: grabbing;
 }
 
 /* Buttons */
 .btn-bordio {
-  background: var(--bordio-blue);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  padding: 8px 16px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
+    background: var(--bordio-blue);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 8px 16px;
+    font-size: 14px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .btn-bordio:hover {
-  background: var(--bordio-blue-hover);
-  box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
+    background: var(--bordio-blue-hover);
+    box-shadow: 0 4px 8px rgba(74, 144, 226, 0.3);
 }
 
 /* Sidebar */
 .sidebar-bordio {
-  width: 240px;
-  background: var(--bordio-navy);
-  color: white;
-  height: 100vh;
-  position: fixed;
-  left: 0;
-  top: 0;
-  padding: 16px 0;
-  overflow-y: auto;
+    width: 240px;
+    background: var(--bordio-navy);
+    color: white;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    padding: 16px 0;
+    overflow-y: auto;
 }
 
 .sidebar-item {
-  padding: 10px 20px;
-  color: white;
-  opacity: 0.8;
-  transition: all 0.2s ease;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 12px;
+    padding: 10px 20px;
+    color: white;
+    opacity: 0.8;
+    transition: all 0.2s ease;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 12px;
 }
 
 .sidebar-item:hover {
-  background: var(--bordio-navy-hover);
-  opacity: 1;
+    background: var(--bordio-navy-hover);
+    opacity: 1;
 }
 
 .sidebar-item.active {
-  background: var(--bordio-navy-hover);
-  border-left: 3px solid var(--bordio-blue);
-  opacity: 1;
+    background: var(--bordio-navy-hover);
+    border-left: 3px solid var(--bordio-blue);
+    opacity: 1;
 }
 
 /* Modal */
 .modal-bordio {
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
-  backdrop-filter: blur(2px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(2px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
 }
 
 .modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 900px;
-  max-height: 90vh;
-  overflow: hidden;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  animation: modalSlideIn 0.3s ease-out;
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 900px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    animation: modalSlideIn 0.3s ease-out;
 }
 
 @keyframes modalSlideIn {
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .modal-header {
-  padding: 20px 24px;
-  border-bottom: 1px solid var(--border);
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .modal-body {
-  padding: 24px;
-  max-height: calc(90vh - 140px);
-  overflow-y: auto;
+    padding: 24px;
+    max-height: calc(90vh - 140px);
+    overflow-y: auto;
 }
 
 .modal-footer {
-  padding: 16px 24px;
-  border-top: 1px solid var(--border);
-  display: flex;
-  justify-content: flex-end;
-  gap: 12px;
+    padding: 16px 24px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
 }
 
 /* Badges */
 .badge-bordio {
-  display: inline-flex;
-  align-items: center;
-  padding: 4px 10px;
-  border-radius: 12px;
-  font-size: 12px;
-  font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 12px;
+    font-weight: 500;
 }
 
 .badge-new {
-  background: var(--new-task-bg);
-  color: var(--new-task-border);
-  border: 1px solid var(--new-task-border);
+    background: var(--new-task-bg);
+    color: var(--new-task-border);
+    border: 1px solid var(--new-task-border);
 }
 
 .badge-scheduled {
-  background: var(--scheduled-bg);
-  color: var(--scheduled-border);
-  border: 1px solid var(--scheduled-border);
+    background: var(--scheduled-bg);
+    color: var(--scheduled-border);
+    border: 1px solid var(--scheduled-border);
 }
 
 .badge-in-progress {
-  background: var(--in-progress-bg);
-  color: var(--in-progress-border);
-  border: 1px solid var(--in-progress-border);
+    background: var(--in-progress-bg);
+    color: var(--in-progress-border);
+    border: 1px solid var(--in-progress-border);
 }
 
 .badge-completed {
-  background: var(--completed-bg);
-  color: var(--completed-border);
-  border: 1px solid var(--completed-border);
+    background: var(--completed-bg);
+    color: var(--completed-border);
+    border: 1px solid var(--completed-border);
 }
 
 /* Avatar */
 .avatar-bordio {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  object-fit: cover;
-  border: 2px solid white;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid white;
 }
 
 .avatar-sm {
-  width: 20px;
-  height: 20px;
+    width: 20px;
+    height: 20px;
 }
 
 .avatar-lg {
-  width: 48px;
-  height: 48px;
+    width: 48px;
+    height: 48px;
 }
 
 /* Calendar */
 .calendar-day {
-  border: 1px solid var(--border);
-  padding: 8px;
-  min-height: 120px;
+    border: 1px solid var(--border);
+    padding: 8px;
+    min-height: 120px;
 }
 
 .calendar-day-header {
-  font-weight: 600;
-  margin-bottom: 8px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
+    font-weight: 600;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
 
 .calendar-day-time {
-  font-size: 11px;
-  color: var(--muted-foreground);
+    font-size: 11px;
+    color: var(--muted-foreground);
+}
+
+/* Fix for Popover pointer-events when Dialog is open */
+/* Fix Radix Popper wrapper - allow click-through to children */
+[data-radix-popper-content-wrapper] {
+    pointer-events: none !important;
+}
+
+/* But allow the popover content itself to be clickable */
+[data-radix-popper-content-wrapper] > * {
+    pointer-events: auto !important;
+}
+
+/* Ensure popover content is always clickable */
+[data-slot="popover-content"] {
+    pointer-events: auto !important;
+}
+
+/* All children inside popover should be clickable */
+[data-slot="popover-content"] * {
+    pointer-events: auto !important;
+}
+
+/* Calendar specific fixes */
+.rdp-root,
+.rdp-root * {
+    pointer-events: auto !important;
+}
+
+/* Ensure buttons inside calendar work */
+.rdp-day_button,
+.rdp-button_previous,
+.rdp-button_next {
+    pointer-events: auto !important;
+    cursor: pointer !important;
 }
 
 /* Responsive */
 @media (max-width: 1024px) {
-  .kanban-board {
-    grid-template-columns: repeat(2, 1fr);
-  }
+    .kanban-board {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 @media (max-width: 768px) {
-  .sidebar-bordio {
-    width: 60px;
-  }
-  
-  .sidebar-item span {
-    display: none;
-  }
-  
-  .kanban-board {
-    grid-template-columns: 1fr;
-  }
-  
-  .modal-content {
-    width: 100%;
-    height: 100%;
-    max-height: 100vh;
-    border-radius: 0;
-  }
+    .sidebar-bordio {
+        width: 60px;
+    }
+
+    .sidebar-item span {
+        display: none;
+    }
+
+    .kanban-board {
+        grid-template-columns: 1fr;
+    }
+
+    .modal-content {
+        width: 100%;
+        height: 100%;
+        max-height: 100vh;
+        border-radius: 0;
+    }
 }
