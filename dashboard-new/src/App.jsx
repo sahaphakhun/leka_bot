@@ -206,8 +206,16 @@ function AppContent() {
   const loadMiniLeaderboard = useCallback(async () => {
     if (!groupId) return;
     try {
+      const periodMap = {
+        this_week: "weekly",
+        last_week: "weekly",
+        all: "all",
+      } as const;
+
+      const leaderboardPeriod = periodMap[statsPeriod] ?? "weekly";
+
       const response = await getLeaderboard(groupId, {
-        period: statsPeriod === "last_week" ? "weekly" : statsPeriod,
+        period: leaderboardPeriod,
         limit: 5,
       });
       const list = response?.data || response?.leaderboard || response;
