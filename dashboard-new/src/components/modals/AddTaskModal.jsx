@@ -306,7 +306,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <div className="space-y-2">
                   <Label>วันที่ครบกำหนด *</Label>
                   <Popover
-                    modal={false}
+                    modal={true}
                     open={isNormalDateOpen}
                     onOpenChange={setIsNormalDateOpen}
                   >
@@ -562,7 +562,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <div className="space-y-2">
                   <Label>วันที่เริ่ม *</Label>
                   <Popover
-                    modal={false}
+                    modal={true}
                     open={isRecurringDateOpen}
                     onOpenChange={setIsRecurringDateOpen}
                   >

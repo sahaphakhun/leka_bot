@@ -18,7 +18,7 @@ function PopoverContent({
   align = "start",
   side = "bottom",
   sideOffset = 8,
-  avoidCollisions = false,
+  avoidCollisions = true,
   ...props
 }) {
   return (
