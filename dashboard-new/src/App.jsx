@@ -68,6 +68,11 @@ function AppContent() {
   const [apiConnected, setApiConnected] = useState(null);
   const filesRefreshKey = 0;
 
+  const personalMode = isPersonalMode();
+  const groupMode = isGroupMode();
+  const userCanModify = canModify();
+  const authenticated = isAuthenticated();
+
   // Test API connection on mount
   useEffect(() => {
     const checkConnection = async () => {
@@ -90,14 +95,14 @@ function AppContent() {
   useEffect(() => {
     console.log(
       "🔍 URL Action Effect - isAuth:",
-      isAuthenticated(),
+      authenticated,
       "loading:",
       loading,
       "canModify:",
-      canModify(),
+      userCanModify,
     );
 
-    if (!isAuthenticated() || loading) {
+    if (!authenticated || loading) {
       console.log("⏳ Skipping - not ready yet");
       return;
     }
@@ -120,7 +125,7 @@ function AppContent() {
         "edit",
         "new-recurring-task",
       ];
-      if (requiresUserId.includes(action) && !canModify()) {
+      if (requiresUserId.includes(action) && !userCanModify) {
         console.warn("⚠️ Action requires userId (Personal Mode)");
         // Toast warning will be shown by modal itself
       }
@@ -182,10 +187,10 @@ function AppContent() {
       window.history.replaceState({}, "", newUrl);
     }
   }, [
-    isAuthenticated,
+    authenticated,
     loading,
     tasks,
-    canModify,
+    userCanModify,
     openAddTask,
     openEditTask,
     openTaskDetail,
@@ -231,9 +236,9 @@ function AppContent() {
     console.log("View Mode:", viewMode);
     console.log("User ID:", userId);
     console.log("Group ID:", groupId);
-    console.log("Is Personal Mode:", isPersonalMode());
-    console.log("Is Group Mode:", isGroupMode());
-    console.log("Can Modify:", canModify());
+    console.log("Is Personal Mode:", personalMode);
+    console.log("Is Group Mode:", groupMode);
+    console.log("Can Modify:", userCanModify);
 
     if (!groupId) {
       console.log("❌ No groupId, stopping");
@@ -264,7 +269,7 @@ function AppContent() {
         response.data || response.tasks || response,
       );
 
-      if (isPersonalMode() && userId) {
+      if (personalMode && userId) {
         console.log("🔍 Filtering tasks for user:", userId);
         normalizedTasks = normalizedTasks.filter((task) => {
           const isAssigned = task.assignedUsers?.some(
@@ -311,8 +316,9 @@ function AppContent() {
     groupId,
     userId,
     viewMode,
-    isPersonalMode,
-    isGroupMode,
+    personalMode,
+    groupMode,
+    userCanModify,
     setGroup,
     loadSampleData,
     loadMiniLeaderboard,
@@ -395,7 +401,7 @@ function AppContent() {
       );
     }
 
-    if (!isAuthenticated()) {
+    if (!authenticated) {
       const authError = getAuthError();
       return (
         <div className="flex items-center justify-center h-full">
