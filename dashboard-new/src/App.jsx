@@ -210,7 +210,7 @@ function AppContent() {
         this_week: "weekly",
         last_week: "weekly",
         all: "all",
-      } as const;
+      };
 
       const leaderboardPeriod = periodMap[statsPeriod] ?? "weekly";
 
