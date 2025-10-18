@@ -550,9 +550,12 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
           <div className="space-y-2">
             <Label>ผู้ตรวจงาน</Label>
             <Select
-              value={formData.reviewer}
+              value={formData.reviewer || "__none"}
               onValueChange={(value) =>
-                setFormData({ ...formData, reviewer: value })
+                setFormData({
+                  ...formData,
+                  reviewer: value === "__none" ? "" : value,
+                })
               }
               disabled={!hasPermission}
             >
@@ -560,7 +563,7 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                 <SelectValue placeholder="(ไม่ระบุ)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">ไม่ระบุ</SelectItem>
+                <SelectItem value="__none">(ไม่ระบุ)</SelectItem>
                 {members.map((member) => (
                   <SelectItem key={member.lineUserId} value={member.lineUserId}>
                     {member.displayName || member.name}

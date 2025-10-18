@@ -386,16 +386,19 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="space-y-2">
                 <Label>ผู้ตรวจงาน</Label>
                 <Select
-                  value={normalTask.reviewer}
+                  value={normalTask.reviewer || "__none"}
                   onValueChange={(value) =>
-                    setNormalTask({ ...normalTask, reviewer: value })
+                    setNormalTask({
+                      ...normalTask,
+                      reviewer: value === "__none" ? "" : value,
+                    })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="(ไม่ระบุ)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">ไม่ระบุ</SelectItem>
+                    <SelectItem value="__none">(ไม่ระบุ)</SelectItem>
                     {members.map((member) => (
                       <SelectItem
                         key={member.lineUserId}
@@ -627,16 +630,19 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="space-y-2">
                 <Label>ผู้ตรวจงาน</Label>
                 <Select
-                  value={recurringTask.reviewer}
+                  value={recurringTask.reviewer || "__none"}
                   onValueChange={(value) =>
-                    setRecurringTask({ ...recurringTask, reviewer: value })
+                    setRecurringTask({
+                      ...recurringTask,
+                      reviewer: value === "__none" ? "" : value,
+                    })
                   }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="(ไม่ระบุ)" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">ไม่ระบุ</SelectItem>
+                    <SelectItem value="__none">(ไม่ระบุ)</SelectItem>
                     {members.map((member) => (
                       <SelectItem
                         key={member.lineUserId}
