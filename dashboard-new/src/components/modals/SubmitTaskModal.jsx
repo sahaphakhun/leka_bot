@@ -215,8 +215,14 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     return "📎";
   };
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeSubmitTask();
+    }
+  };
+
   return (
-    <Dialog open={isSubmitTaskOpen} onOpenChange={closeSubmitTask}>
+    <Dialog open={isSubmitTaskOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>ส่งงาน</DialogTitle>

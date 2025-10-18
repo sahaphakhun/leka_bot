@@ -148,8 +148,14 @@ export default function EditTaskModal({ onTaskUpdated }) {
     setFormData({ ...formData, assignedUsers: [] });
   };
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeEditTask();
+    }
+  };
+
   return (
-    <Dialog open={isEditTaskOpen} onOpenChange={closeEditTask}>
+    <Dialog open={isEditTaskOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>แก้ไขงาน</DialogTitle>

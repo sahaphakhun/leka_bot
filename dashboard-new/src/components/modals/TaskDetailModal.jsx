@@ -202,8 +202,14 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
 
   const timeRemaining = calculateTimeRemaining();
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeTaskDetail();
+    }
+  };
+
   return (
-    <Dialog open={isTaskDetailOpen} onOpenChange={closeTaskDetail}>
+    <Dialog open={isTaskDetailOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">

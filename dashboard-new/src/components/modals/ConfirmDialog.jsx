@@ -1,4 +1,4 @@
-import { useModal } from '../../context/ModalContext';
+import { useModal } from "../../context/ModalContext";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -8,19 +8,20 @@ import {
   AlertDialogFooter,
   AlertDialogHeader,
   AlertDialogTitle,
-} from '../ui/alert-dialog';
+} from "../ui/alert-dialog";
 
 export default function ConfirmDialog() {
-  const { isConfirmDialogOpen, closeConfirmDialog, confirmDialogData } = useModal();
+  const { isConfirmDialogOpen, closeConfirmDialog, confirmDialogData } =
+    useModal();
 
   if (!confirmDialogData) return null;
 
   const {
-    title = 'ยืนยันการกระทำ',
-    description = 'คุณแน่ใจหรือไม่ว่าต้องการดำเนินการต่อ?',
-    confirmText = 'ยืนยัน',
-    cancelText = 'ยกเลิก',
-    variant = 'default',
+    title = "ยืนยันการกระทำ",
+    description = "คุณแน่ใจหรือไม่ว่าต้องการดำเนินการต่อ?",
+    confirmText = "ยืนยัน",
+    cancelText = "ยกเลิก",
+    variant = "default",
     onConfirm,
     onCancel,
   } = confirmDialogData;
@@ -35,8 +36,14 @@ export default function ConfirmDialog() {
     closeConfirmDialog();
   };
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeConfirmDialog();
+    }
+  };
+
   return (
-    <AlertDialog open={isConfirmDialogOpen} onOpenChange={closeConfirmDialog}>
+    <AlertDialog open={isConfirmDialogOpen} onOpenChange={handleOpenChange}>
       <AlertDialogContent>
         <AlertDialogHeader>
           <AlertDialogTitle>{title}</AlertDialogTitle>
@@ -48,7 +55,9 @@ export default function ConfirmDialog() {
           </AlertDialogCancel>
           <AlertDialogAction
             onClick={handleConfirm}
-            className={variant === 'destructive' ? 'bg-red-600 hover:bg-red-700' : ''}
+            className={
+              variant === "destructive" ? "bg-red-600 hover:bg-red-700" : ""
+            }
           >
             {confirmText}
           </AlertDialogAction>
@@ -57,4 +66,3 @@ export default function ConfirmDialog() {
     </AlertDialog>
   );
 }
-

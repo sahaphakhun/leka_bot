@@ -111,8 +111,14 @@ export default function InviteMemberModal({ onInvited }) {
   // Check permission
   const hasPermission = canModify();
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      handleClose();
+    }
+  };
+
   return (
-    <Dialog open={isInviteMemberOpen} onOpenChange={handleClose}>
+    <Dialog open={isInviteMemberOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

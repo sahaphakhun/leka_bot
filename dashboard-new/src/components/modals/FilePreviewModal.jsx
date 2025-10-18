@@ -208,8 +208,14 @@ export default function FilePreviewModal() {
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
   };
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeFilePreview();
+    }
+  };
+
   return (
-    <Dialog open={isFilePreviewOpen} onOpenChange={closeFilePreview}>
+    <Dialog open={isFilePreviewOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-5xl max-h-[95vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">

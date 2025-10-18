@@ -1,51 +1,63 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useModal } from '../../context/ModalContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Checkbox } from '../ui/checkbox';
-import { Calendar } from '../ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { CalendarIcon, X } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '../../lib/utils';
+import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Checkbox } from "../ui/checkbox";
+import { Calendar } from "../ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { CalendarIcon, X } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "../../lib/utils";
 
 export default function AddTaskModal({ onTaskCreated }) {
   const { groupId } = useAuth();
   const { isAddTaskOpen, closeAddTask, selectedTask } = useModal();
-  const [activeTab, setActiveTab] = useState('normal');
+  const [activeTab, setActiveTab] = useState("normal");
   const [loading, setLoading] = useState(false);
 
   // Normal task form
   const [normalTask, setNormalTask] = useState({
-    title: '',
-    description: '',
+    title: "",
+    description: "",
     dueDate: null,
-    dueTime: '',
-    priority: 'medium',
-    category: 'general',
+    dueTime: "",
+    priority: "medium",
+    category: "general",
     assignedUsers: [],
-    reviewer: '',
+    reviewer: "",
   });
 
   // Recurring task form
   const [recurringTask, setRecurringTask] = useState({
-    title: '',
-    description: '',
-    recurrence: 'weekly',
+    title: "",
+    description: "",
+    recurrence: "weekly",
     startDate: null,
-    time: '',
-    priority: 'medium',
-    category: 'general',
+    time: "",
+    priority: "medium",
+    category: "general",
     assignedUsers: [],
-    reviewer: '',
+    reviewer: "",
     customRecurrence: {
-      type: 'weekly',
+      type: "weekly",
       interval: 1,
       daysOfWeek: [],
       dayOfMonth: 1,
@@ -54,9 +66,9 @@ export default function AddTaskModal({ onTaskCreated }) {
 
   // Members list (should be loaded from API)
   const [members, setMembers] = useState([
-    { id: '1', name: 'John Doe', lineUserId: 'U001' },
-    { id: '2', name: 'Jane Smith', lineUserId: 'U002' },
-    { id: '3', name: 'Bob Johnson', lineUserId: 'U003' },
+    { id: "1", name: "John Doe", lineUserId: "U001" },
+    { id: "2", name: "Jane Smith", lineUserId: "U002" },
+    { id: "3", name: "Bob Johnson", lineUserId: "U003" },
   ]);
 
   // Set default tab
@@ -75,11 +87,11 @@ export default function AddTaskModal({ onTaskCreated }) {
 
   const loadMembers = async () => {
     try {
-      const { getGroupMembers } = await import('../../services/api');
+      const { getGroupMembers } = await import("../../services/api");
       const response = await getGroupMembers(groupId);
       setMembers(response.members || response);
     } catch (error) {
-      console.error('Failed to load members:', error);
+      console.error("Failed to load members:", error);
     }
   };
 
@@ -88,10 +100,12 @@ export default function AddTaskModal({ onTaskCreated }) {
     setLoading(true);
 
     try {
-      const taskData = activeTab === 'normal' ? normalTask : recurringTask;
-      const { createTask, createRecurringTask } = await import('../../services/api');
+      const taskData = activeTab === "normal" ? normalTask : recurringTask;
+      const { createTask, createRecurringTask } = await import(
+        "../../services/api"
+      );
 
-      if (activeTab === 'normal') {
+      if (activeTab === "normal") {
         await createTask(groupId, taskData);
       } else {
         await createRecurringTask(groupId, taskData);
@@ -102,8 +116,8 @@ export default function AddTaskModal({ onTaskCreated }) {
       closeAddTask();
       resetForms();
     } catch (error) {
-      console.error('Failed to create task:', error);
-      alert('Failed to create task. Please try again.');
+      console.error("Failed to create task:", error);
+      alert("Failed to create task. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -111,27 +125,27 @@ export default function AddTaskModal({ onTaskCreated }) {
 
   const resetForms = () => {
     setNormalTask({
-      title: '',
-      description: '',
+      title: "",
+      description: "",
       dueDate: null,
-      dueTime: '',
-      priority: 'medium',
-      category: 'general',
+      dueTime: "",
+      priority: "medium",
+      category: "general",
       assignedUsers: [],
-      reviewer: '',
+      reviewer: "",
     });
     setRecurringTask({
-      title: '',
-      description: '',
-      recurrence: 'weekly',
+      title: "",
+      description: "",
+      recurrence: "weekly",
       startDate: null,
-      time: '',
-      priority: 'medium',
-      category: 'general',
+      time: "",
+      priority: "medium",
+      category: "general",
       assignedUsers: [],
-      reviewer: '',
+      reviewer: "",
       customRecurrence: {
-        type: 'weekly',
+        type: "weekly",
         interval: 1,
         daysOfWeek: [],
         dayOfMonth: 1,
@@ -144,7 +158,7 @@ export default function AddTaskModal({ onTaskCreated }) {
     const setTask = isNormal ? setNormalTask : setRecurringTask;
 
     const assignedUsers = task.assignedUsers.includes(userId)
-      ? task.assignedUsers.filter(id => id !== userId)
+      ? task.assignedUsers.filter((id) => id !== userId)
       : [...task.assignedUsers, userId];
 
     setTask({ ...task, assignedUsers });
@@ -154,7 +168,7 @@ export default function AddTaskModal({ onTaskCreated }) {
     const task = isNormal ? normalTask : recurringTask;
     const setTask = isNormal ? setNormalTask : setRecurringTask;
 
-    setTask({ ...task, assignedUsers: members.map(m => m.lineUserId) });
+    setTask({ ...task, assignedUsers: members.map((m) => m.lineUserId) });
   };
 
   const handleClearAll = (isNormal = true) => {
@@ -164,14 +178,18 @@ export default function AddTaskModal({ onTaskCreated }) {
     setTask({ ...task, assignedUsers: [] });
   };
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeAddTask();
+    }
+  };
+
   return (
-    <Dialog open={isAddTaskOpen} onOpenChange={closeAddTask}>
+    <Dialog open={isAddTaskOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>เพิ่มงานใหม่</DialogTitle>
-          <DialogDescription>
-            สร้างงานใหม่หรืองานประจำ
-          </DialogDescription>
+          <DialogDescription>สร้างงานใหม่หรืองานประจำ</DialogDescription>
         </DialogHeader>
 
         <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -189,7 +207,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <Input
                   id="title"
                   value={normalTask.title}
-                  onChange={(e) => setNormalTask({ ...normalTask, title: e.target.value })}
+                  onChange={(e) =>
+                    setNormalTask({ ...normalTask, title: e.target.value })
+                  }
                   placeholder="ระบุชื่องาน"
                   required
                 />
@@ -201,7 +221,12 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <Textarea
                   id="description"
                   value={normalTask.description}
-                  onChange={(e) => setNormalTask({ ...normalTask, description: e.target.value })}
+                  onChange={(e) =>
+                    setNormalTask({
+                      ...normalTask,
+                      description: e.target.value,
+                    })
+                  }
                   placeholder="ระบุรายละเอียด"
                   rows={3}
                 />
@@ -217,18 +242,22 @@ export default function AddTaskModal({ onTaskCreated }) {
                         variant="outline"
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !normalTask.dueDate && "text-muted-foreground"
+                          !normalTask.dueDate && "text-muted-foreground",
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {normalTask.dueDate ? format(normalTask.dueDate, "PPP") : "เลือกวันที่"}
+                        {normalTask.dueDate
+                          ? format(normalTask.dueDate, "PPP")
+                          : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
                       <Calendar
                         mode="single"
                         selected={normalTask.dueDate}
-                        onSelect={(date) => setNormalTask({ ...normalTask, dueDate: date })}
+                        onSelect={(date) =>
+                          setNormalTask({ ...normalTask, dueDate: date })
+                        }
                         initialFocus
                       />
                     </PopoverContent>
@@ -241,7 +270,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                     id="dueTime"
                     type="time"
                     value={normalTask.dueTime}
-                    onChange={(e) => setNormalTask({ ...normalTask, dueTime: e.target.value })}
+                    onChange={(e) =>
+                      setNormalTask({ ...normalTask, dueTime: e.target.value })
+                    }
                   />
                 </div>
               </div>
@@ -252,7 +283,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <Label>ความสำคัญ</Label>
                   <Select
                     value={normalTask.priority}
-                    onValueChange={(value) => setNormalTask({ ...normalTask, priority: value })}
+                    onValueChange={(value) =>
+                      setNormalTask({ ...normalTask, priority: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -270,7 +303,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <Label>หมวดหมู่</Label>
                   <Select
                     value={normalTask.category}
-                    onValueChange={(value) => setNormalTask({ ...normalTask, category: value })}
+                    onValueChange={(value) =>
+                      setNormalTask({ ...normalTask, category: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -292,11 +327,18 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <div className="border rounded-lg p-4 space-y-3">
                   <div className="max-h-40 overflow-y-auto space-y-2">
                     {members.map((member) => (
-                      <div key={member.lineUserId} className="flex items-center space-x-2">
+                      <div
+                        key={member.lineUserId}
+                        className="flex items-center space-x-2"
+                      >
                         <Checkbox
                           id={`assignee-${member.lineUserId}`}
-                          checked={normalTask.assignedUsers.includes(member.lineUserId)}
-                          onCheckedChange={() => handleAssigneeToggle(member.lineUserId, true)}
+                          checked={normalTask.assignedUsers.includes(
+                            member.lineUserId,
+                          )}
+                          onCheckedChange={() =>
+                            handleAssigneeToggle(member.lineUserId, true)
+                          }
                         />
                         <label
                           htmlFor={`assignee-${member.lineUserId}`}
@@ -333,7 +375,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <Label>ผู้ตรวจงาน</Label>
                 <Select
                   value={normalTask.reviewer}
-                  onValueChange={(value) => setNormalTask({ ...normalTask, reviewer: value })}
+                  onValueChange={(value) =>
+                    setNormalTask({ ...normalTask, reviewer: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="(ไม่ระบุ)" />
@@ -341,7 +385,10 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <SelectContent>
                     <SelectItem value="">ไม่ระบุ</SelectItem>
                     {members.map((member) => (
-                      <SelectItem key={member.lineUserId} value={member.lineUserId}>
+                      <SelectItem
+                        key={member.lineUserId}
+                        value={member.lineUserId}
+                      >
                         {member.displayName || member.name}
                       </SelectItem>
                     ))}
@@ -355,7 +402,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                   ยกเลิก
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? 'กำลังสร้าง...' : 'สร้างงาน'}
+                  {loading ? "กำลังสร้าง..." : "สร้างงาน"}
                 </Button>
               </div>
             </form>
@@ -370,7 +417,12 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <Input
                   id="recurring-title"
                   value={recurringTask.title}
-                  onChange={(e) => setRecurringTask({ ...recurringTask, title: e.target.value })}
+                  onChange={(e) =>
+                    setRecurringTask({
+                      ...recurringTask,
+                      title: e.target.value,
+                    })
+                  }
                   placeholder="ระบุชื่องาน"
                   required
                 />
@@ -382,7 +434,12 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <Textarea
                   id="recurring-description"
                   value={recurringTask.description}
-                  onChange={(e) => setRecurringTask({ ...recurringTask, description: e.target.value })}
+                  onChange={(e) =>
+                    setRecurringTask({
+                      ...recurringTask,
+                      description: e.target.value,
+                    })
+                  }
                   placeholder="ระบุรายละเอียด"
                   rows={3}
                 />
@@ -393,7 +450,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <Label>รอบการทำซ้ำ *</Label>
                 <Select
                   value={recurringTask.recurrence}
-                  onValueChange={(value) => setRecurringTask({ ...recurringTask, recurrence: value })}
+                  onValueChange={(value) =>
+                    setRecurringTask({ ...recurringTask, recurrence: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue />
@@ -418,18 +477,25 @@ export default function AddTaskModal({ onTaskCreated }) {
                         variant="outline"
                         className={cn(
                           "w-full justify-start text-left font-normal",
-                          !recurringTask.startDate && "text-muted-foreground"
+                          !recurringTask.startDate && "text-muted-foreground",
                         )}
                       >
                         <CalendarIcon className="mr-2 h-4 w-4" />
-                        {recurringTask.startDate ? format(recurringTask.startDate, "PPP") : "เลือกวันที่"}
+                        {recurringTask.startDate
+                          ? format(recurringTask.startDate, "PPP")
+                          : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent className="w-auto p-0">
                       <Calendar
                         mode="single"
                         selected={recurringTask.startDate}
-                        onSelect={(date) => setRecurringTask({ ...recurringTask, startDate: date })}
+                        onSelect={(date) =>
+                          setRecurringTask({
+                            ...recurringTask,
+                            startDate: date,
+                          })
+                        }
                         initialFocus
                       />
                     </PopoverContent>
@@ -442,7 +508,12 @@ export default function AddTaskModal({ onTaskCreated }) {
                     id="recurring-time"
                     type="time"
                     value={recurringTask.time}
-                    onChange={(e) => setRecurringTask({ ...recurringTask, time: e.target.value })}
+                    onChange={(e) =>
+                      setRecurringTask({
+                        ...recurringTask,
+                        time: e.target.value,
+                      })
+                    }
                   />
                 </div>
               </div>
@@ -453,7 +524,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <Label>ความสำคัญ</Label>
                   <Select
                     value={recurringTask.priority}
-                    onValueChange={(value) => setRecurringTask({ ...recurringTask, priority: value })}
+                    onValueChange={(value) =>
+                      setRecurringTask({ ...recurringTask, priority: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -471,7 +544,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <Label>หมวดหมู่</Label>
                   <Select
                     value={recurringTask.category}
-                    onValueChange={(value) => setRecurringTask({ ...recurringTask, category: value })}
+                    onValueChange={(value) =>
+                      setRecurringTask({ ...recurringTask, category: value })
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -493,11 +568,18 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <div className="border rounded-lg p-4 space-y-3">
                   <div className="max-h-40 overflow-y-auto space-y-2">
                     {members.map((member) => (
-                      <div key={member.lineUserId} className="flex items-center space-x-2">
+                      <div
+                        key={member.lineUserId}
+                        className="flex items-center space-x-2"
+                      >
                         <Checkbox
                           id={`recurring-assignee-${member.lineUserId}`}
-                          checked={recurringTask.assignedUsers.includes(member.lineUserId)}
-                          onCheckedChange={() => handleAssigneeToggle(member.lineUserId, false)}
+                          checked={recurringTask.assignedUsers.includes(
+                            member.lineUserId,
+                          )}
+                          onCheckedChange={() =>
+                            handleAssigneeToggle(member.lineUserId, false)
+                          }
                         />
                         <label
                           htmlFor={`recurring-assignee-${member.lineUserId}`}
@@ -534,7 +616,9 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <Label>ผู้ตรวจงาน</Label>
                 <Select
                   value={recurringTask.reviewer}
-                  onValueChange={(value) => setRecurringTask({ ...recurringTask, reviewer: value })}
+                  onValueChange={(value) =>
+                    setRecurringTask({ ...recurringTask, reviewer: value })
+                  }
                 >
                   <SelectTrigger>
                     <SelectValue placeholder="(ไม่ระบุ)" />
@@ -542,7 +626,10 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <SelectContent>
                     <SelectItem value="">ไม่ระบุ</SelectItem>
                     {members.map((member) => (
-                      <SelectItem key={member.lineUserId} value={member.lineUserId}>
+                      <SelectItem
+                        key={member.lineUserId}
+                        value={member.lineUserId}
+                      >
                         {member.displayName || member.name}
                       </SelectItem>
                     ))}
@@ -556,7 +643,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                   ยกเลิก
                 </Button>
                 <Button type="submit" disabled={loading}>
-                  {loading ? 'กำลังสร้าง...' : 'สร้างงานประจำ'}
+                  {loading ? "กำลังสร้าง..." : "สร้างงานประจำ"}
                 </Button>
               </div>
             </form>
@@ -566,4 +653,3 @@ export default function AddTaskModal({ onTaskCreated }) {
     </Dialog>
   );
 }
-

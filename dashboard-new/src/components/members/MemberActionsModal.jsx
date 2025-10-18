@@ -183,8 +183,14 @@ export default function MemberActionsModal({ onUpdated }) {
     }
   };
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeMemberActions();
+    }
+  };
+
   return (
-    <Dialog open={isMemberActionsOpen} onOpenChange={closeMemberActions}>
+    <Dialog open={isMemberActionsOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">

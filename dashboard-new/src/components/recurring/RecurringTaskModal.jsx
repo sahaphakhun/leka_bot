@@ -196,8 +196,14 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
   // Check permission
   const hasPermission = canModify();
 
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeRecurringTask();
+    }
+  };
+
   return (
-    <Dialog open={isRecurringTaskOpen} onOpenChange={closeRecurringTask}>
+    <Dialog open={isRecurringTaskOpen} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
