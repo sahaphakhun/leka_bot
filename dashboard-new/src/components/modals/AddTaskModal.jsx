@@ -126,30 +126,80 @@ export default function AddTaskModal({ onTaskCreated }) {
     });
   }, []);
 
+  const formatDateForApi = useCallback((date) => {
+    if (!date) return null;
+    try {
+      return format(date, "yyyy-MM-dd");
+    } catch (err) {
+      console.warn("Failed to format date", err);
+      return null;
+    }
+  }, []);
+
   const handleSubmit = useCallback(
     async (e) => {
       e.preventDefault();
+
+      const currentTask = activeTab === "normal" ? normalTask : recurringTask;
+
+      if (!currentTask.title?.trim()) {
+        alert("กรุณาระบุชื่องาน");
+        return;
+      }
+
+      if (currentTask.assignedUsers.length === 0) {
+        alert("กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน");
+        return;
+      }
+
+      if (activeTab === "normal" && !normalTask.dueDate) {
+        alert("กรุณาเลือกวันที่ครบกำหนด");
+        return;
+      }
+
+      if (activeTab === "recurring" && !recurringTask.startDate) {
+        alert("กรุณาเลือกวันที่เริ่มต้น");
+        return;
+      }
+
       setLoading(true);
 
       try {
-        const taskData = activeTab === "normal" ? normalTask : recurringTask;
         const { createTask, createRecurringTask } = await import(
           "../../services/api"
         );
 
         if (activeTab === "normal") {
-          await createTask(groupId, taskData);
+          const payload = {
+            ...normalTask,
+            dueDate: formatDateForApi(normalTask.dueDate),
+            dueTime: normalTask.dueTime || null,
+            reviewer: normalTask.reviewer || null,
+            assignedUsers: [...new Set(normalTask.assignedUsers)],
+          };
+          await createTask(groupId, payload);
         } else {
-          await createRecurringTask(groupId, taskData);
+          const payload = {
+            ...recurringTask,
+            startDate: formatDateForApi(recurringTask.startDate),
+            time: recurringTask.time || null,
+            reviewer: recurringTask.reviewer || null,
+            assignedUsers: [...new Set(recurringTask.assignedUsers)],
+            customRecurrence: {
+              ...recurringTask.customRecurrence,
+              daysOfWeek:
+                recurringTask.customRecurrence?.daysOfWeek?.slice() || [],
+            },
+          };
+          await createRecurringTask(groupId, payload);
         }
 
-        // Success
         if (onTaskCreated) onTaskCreated();
         closeAddTask();
         resetForms();
       } catch (error) {
         console.error("Failed to create task:", error);
-        alert("Failed to create task. Please try again.");
+        alert("ไม่สามารถสร้างงานได้ กรุณาลองใหม่อีกครั้ง");
       } finally {
         setLoading(false);
       }
@@ -162,6 +212,7 @@ export default function AddTaskModal({ onTaskCreated }) {
       onTaskCreated,
       closeAddTask,
       resetForms,
+      formatDateForApi,
     ],
   );
 
@@ -251,6 +302,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
+                        type="button"
                         variant="outline"
                         className={cn(
                           "w-full justify-start text-left font-normal",
@@ -489,6 +541,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                   <Popover>
                     <PopoverTrigger asChild>
                       <Button
+                        type="button"
                         variant="outline"
                         className={cn(
                           "w-full justify-start text-left font-normal",
