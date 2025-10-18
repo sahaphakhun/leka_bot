@@ -1,49 +1,67 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useModal } from '../../context/ModalContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Checkbox } from '../ui/checkbox';
-import { Calendar } from '../ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '../../lib/utils';
+import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Checkbox } from "../ui/checkbox";
+import { Calendar } from "../ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { Alert, AlertDescription } from "../ui/alert";
+import { CalendarIcon, AlertCircle } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "../../lib/utils";
+import { showSuccess, showError, showWarning } from "../../lib/toast";
 
 export default function EditTaskModal({ onTaskUpdated }) {
-  const { groupId } = useAuth();
+  const { groupId, userId, canModify, hasPermission } = useAuth();
   const { isEditTaskOpen, closeEditTask, selectedTask } = useModal();
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState([]);
 
+  // Check permission
+  const canEdit = canModify();
+
   // Form state
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
+    title: "",
+    description: "",
     dueDate: null,
-    dueTime: '',
-    priority: 'medium',
-    category: 'general',
+    dueTime: "",
+    priority: "medium",
+    category: "general",
     assignedUsers: [],
-    reviewer: '',
+    reviewer: "",
   });
 
   // Load task data when modal opens
   useEffect(() => {
     if (isEditTaskOpen && selectedTask) {
       setFormData({
-        title: selectedTask.title || '',
-        description: selectedTask.description || '',
+        title: selectedTask.title || "",
+        description: selectedTask.description || "",
         dueDate: selectedTask.dueDate ? new Date(selectedTask.dueDate) : null,
-        dueTime: selectedTask.dueTime || '',
-        priority: selectedTask.priority || 'medium',
-        category: selectedTask.category || 'general',
-        assignedUsers: selectedTask.assignedUsers?.map(u => u.lineUserId || u) || [],
-        reviewer: selectedTask.reviewer || '',
+        dueTime: selectedTask.dueTime || "",
+        priority: selectedTask.priority || "medium",
+        category: selectedTask.category || "general",
+        assignedUsers:
+          selectedTask.assignedUsers?.map((u) => u.lineUserId || u) || [],
+        reviewer: selectedTask.reviewer || "",
       });
     }
   }, [isEditTaskOpen, selectedTask]);
@@ -57,28 +75,55 @@ export default function EditTaskModal({ onTaskUpdated }) {
 
   const loadMembers = async () => {
     try {
-      const { getGroupMembers } = await import('../../services/api');
+      const { getGroupMembers } = await import("../../services/api");
       const response = await getGroupMembers(groupId);
       setMembers(response.members || response);
     } catch (error) {
-      console.error('Failed to load members:', error);
+      console.error("Failed to load members:", error);
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Check permission
+    if (!hasPermission("edit_task")) {
+      showError(
+        "คุณไม่มีสิทธิ์แก้ไขงาน",
+        new Error("กรุณาเข้าผ่าน LINE ส่วนตัวเพื่อแก้ไขงาน"),
+      );
+      return;
+    }
+
+    // Validate required fields
+    if (!formData.title?.trim()) {
+      showWarning("กรุณาระบุชื่องาน");
+      return;
+    }
+
+    if (!formData.dueDate) {
+      showWarning("กรุณาเลือกวันที่ครบกำหนด");
+      return;
+    }
+
+    if (formData.assignedUsers.length === 0) {
+      showWarning("กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { updateTask } = await import('../../services/api');
+      const { updateTask } = await import("../../services/api");
       await updateTask(groupId, selectedTask.id, formData);
 
       // Success
+      showSuccess("แก้ไขงานสำเร็จ");
       if (onTaskUpdated) onTaskUpdated();
       closeEditTask();
     } catch (error) {
-      console.error('Failed to update task:', error);
-      alert('Failed to update task. Please try again.');
+      console.error("Failed to update task:", error);
+      showError("แก้ไขงานไม่สำเร็จ", error);
     } finally {
       setLoading(false);
     }
@@ -86,14 +131,17 @@ export default function EditTaskModal({ onTaskUpdated }) {
 
   const handleAssigneeToggle = (userId) => {
     const assignedUsers = formData.assignedUsers.includes(userId)
-      ? formData.assignedUsers.filter(id => id !== userId)
+      ? formData.assignedUsers.filter((id) => id !== userId)
       : [...formData.assignedUsers, userId];
 
     setFormData({ ...formData, assignedUsers });
   };
 
   const handleSelectAll = () => {
-    setFormData({ ...formData, assignedUsers: members.map(m => m.lineUserId) });
+    setFormData({
+      ...formData,
+      assignedUsers: members.map((m) => m.lineUserId),
+    });
   };
 
   const handleClearAll = () => {
@@ -105,10 +153,20 @@ export default function EditTaskModal({ onTaskUpdated }) {
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>แก้ไขงาน</DialogTitle>
-          <DialogDescription>
-            แก้ไขข้อมูลงาน
-          </DialogDescription>
+          <DialogDescription>แก้ไขข้อมูลงาน</DialogDescription>
         </DialogHeader>
+
+        {/* Permission Warning */}
+        {!canEdit && (
+          <Alert variant="warning" className="bg-amber-50 border-amber-200">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-amber-800">
+              ⚠️ <strong>โหมดดูอย่างเดียว</strong> - คุณไม่มีสิทธิ์แก้ไขงาน
+              <br />
+              กรุณาเข้าผ่าน LINE ส่วนตัว (ต้องการ userId) เพื่อแก้ไขงาน
+            </AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
@@ -117,9 +175,12 @@ export default function EditTaskModal({ onTaskUpdated }) {
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
               placeholder="ระบุชื่องาน"
               required
+              disabled={!canEdit}
             />
           </div>
 
@@ -129,9 +190,12 @@ export default function EditTaskModal({ onTaskUpdated }) {
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               placeholder="ระบุรายละเอียด"
               rows={3}
+              disabled={!canEdit}
             />
           </div>
 
@@ -145,18 +209,23 @@ export default function EditTaskModal({ onTaskUpdated }) {
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
-                      !formData.dueDate && "text-muted-foreground"
+                      !formData.dueDate && "text-muted-foreground",
                     )}
+                    disabled={!canEdit}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.dueDate ? format(formData.dueDate, "PPP") : "เลือกวันที่"}
+                    {formData.dueDate
+                      ? format(formData.dueDate, "PPP")
+                      : "เลือกวันที่"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
                     selected={formData.dueDate}
-                    onSelect={(date) => setFormData({ ...formData, dueDate: date })}
+                    onSelect={(date) =>
+                      setFormData({ ...formData, dueDate: date })
+                    }
                     initialFocus
                   />
                 </PopoverContent>
@@ -169,7 +238,10 @@ export default function EditTaskModal({ onTaskUpdated }) {
                 id="dueTime"
                 type="time"
                 value={formData.dueTime}
-                onChange={(e) => setFormData({ ...formData, dueTime: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, dueTime: e.target.value })
+                }
+                disabled={!canEdit}
               />
             </div>
           </div>
@@ -180,7 +252,10 @@ export default function EditTaskModal({ onTaskUpdated }) {
               <Label>ความสำคัญ</Label>
               <Select
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, priority: value })
+                }
+                disabled={!canEdit}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -198,7 +273,10 @@ export default function EditTaskModal({ onTaskUpdated }) {
               <Label>หมวดหมู่</Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, category: value })
+                }
+                disabled={!canEdit}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -220,11 +298,19 @@ export default function EditTaskModal({ onTaskUpdated }) {
             <div className="border rounded-lg p-4 space-y-3">
               <div className="max-h-40 overflow-y-auto space-y-2">
                 {members.map((member) => (
-                  <div key={member.lineUserId} className="flex items-center space-x-2">
+                  <div
+                    key={member.lineUserId}
+                    className="flex items-center space-x-2"
+                  >
                     <Checkbox
                       id={`assignee-${member.lineUserId}`}
-                      checked={formData.assignedUsers.includes(member.lineUserId)}
-                      onCheckedChange={() => handleAssigneeToggle(member.lineUserId)}
+                      checked={formData.assignedUsers.includes(
+                        member.lineUserId,
+                      )}
+                      onCheckedChange={() =>
+                        handleAssigneeToggle(member.lineUserId)
+                      }
+                      disabled={!canEdit}
                     />
                     <label
                       htmlFor={`assignee-${member.lineUserId}`}
@@ -241,6 +327,7 @@ export default function EditTaskModal({ onTaskUpdated }) {
                   variant="outline"
                   size="sm"
                   onClick={handleSelectAll}
+                  disabled={!canEdit}
                 >
                   เลือกทั้งหมด
                 </Button>
@@ -249,6 +336,7 @@ export default function EditTaskModal({ onTaskUpdated }) {
                   variant="outline"
                   size="sm"
                   onClick={handleClearAll}
+                  disabled={!canEdit}
                 >
                   ล้างทั้งหมด
                 </Button>
@@ -261,7 +349,10 @@ export default function EditTaskModal({ onTaskUpdated }) {
             <Label>ผู้ตรวจงาน</Label>
             <Select
               value={formData.reviewer}
-              onValueChange={(value) => setFormData({ ...formData, reviewer: value })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, reviewer: value })
+              }
+              disabled={!canEdit}
             >
               <SelectTrigger>
                 <SelectValue placeholder="(ไม่ระบุ)" />
@@ -280,10 +371,14 @@ export default function EditTaskModal({ onTaskUpdated }) {
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4">
             <Button type="button" variant="outline" onClick={closeEditTask}>
-              ยกเลิก
+              ปิด
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'กำลังบันทึก...' : 'บันทึก'}
+            <Button
+              type="submit"
+              disabled={loading || !canEdit}
+              title={!canEdit ? "ไม่มีสิทธิ์แก้ไขงาน" : ""}
+            >
+              {loading ? "กำลังบันทึก..." : "บันทึก"}
             </Button>
           </div>
         </form>
@@ -291,4 +386,3 @@ export default function EditTaskModal({ onTaskUpdated }) {
     </Dialog>
   );
 }
-

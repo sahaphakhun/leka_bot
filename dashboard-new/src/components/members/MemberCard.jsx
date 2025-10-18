@@ -1,10 +1,10 @@
-import { useAuth } from '../../context/AuthContext';
-import { useModal } from '../../context/ModalContext';
-import { Card, CardContent } from '../ui/card';
-import { Button } from '../ui/button';
-import { Badge } from '../ui/badge';
-import { Avatar, AvatarFallback, AvatarImage } from '../ui/avatar';
-import { MoreVertical, Shield, User } from 'lucide-react';
+import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+import { Card, CardContent } from "../ui/card";
+import { Button } from "../ui/button";
+import { Badge } from "../ui/badge";
+import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
+import { MoreVertical, Shield, User } from "lucide-react";
 
 export default function MemberCard({ member, onUpdate }) {
   const { userId } = useAuth();
@@ -12,11 +12,19 @@ export default function MemberCard({ member, onUpdate }) {
   const isCurrentUser = member.lineUserId === userId;
 
   const getRoleBadge = (role) => {
-    if (role === 'admin') {
+    if (role === "admin") {
       return (
         <Badge className="bg-purple-100 text-purple-800">
           <Shield className="w-3 h-3 mr-1" />
           ผู้ดูแล
+        </Badge>
+      );
+    }
+    if (role === "moderator") {
+      return (
+        <Badge className="bg-blue-100 text-blue-800">
+          <Shield className="w-3 h-3 mr-1" />
+          ผู้ควบคุม
         </Badge>
       );
     }
@@ -29,9 +37,9 @@ export default function MemberCard({ member, onUpdate }) {
   };
 
   const getStatusColor = (status) => {
-    if (status === 'active') return 'bg-green-500';
-    if (status === 'inactive') return 'bg-gray-400';
-    return 'bg-yellow-500';
+    if (status === "active") return "bg-green-500";
+    if (status === "inactive") return "bg-gray-400";
+    return "bg-yellow-500";
   };
 
   return (
@@ -43,12 +51,12 @@ export default function MemberCard({ member, onUpdate }) {
               <Avatar className="w-12 h-12">
                 <AvatarImage src={member.pictureUrl} />
                 <AvatarFallback>
-                  {(member.displayName || member.name || '?').charAt(0)}
+                  {(member.displayName || member.name || "?").charAt(0)}
                 </AvatarFallback>
               </Avatar>
               <div
                 className={`absolute bottom-0 right-0 w-3 h-3 rounded-full border-2 border-white ${getStatusColor(member.status)}`}
-                title={member.status === 'active' ? 'ออนไลน์' : 'ออฟไลน์'}
+                title={member.status === "active" ? "ออนไลน์" : "ออฟไลน์"}
               />
             </div>
             <div>
@@ -66,6 +74,7 @@ export default function MemberCard({ member, onUpdate }) {
               variant="ghost"
               size="sm"
               onClick={() => openMemberActions(member)}
+              title="จัดการสมาชิก"
             >
               <MoreVertical className="w-4 h-4" />
             </Button>
@@ -95,7 +104,8 @@ export default function MemberCard({ member, onUpdate }) {
         {/* Join Date */}
         {member.joinedAt && (
           <div className="mt-3 pt-3 border-t text-xs text-gray-500">
-            เข้าร่วมเมื่อ: {new Date(member.joinedAt).toLocaleDateString('th-TH')}
+            เข้าร่วมเมื่อ:{" "}
+            {new Date(member.joinedAt).toLocaleDateString("th-TH")}
           </div>
         )}
       </CardContent>

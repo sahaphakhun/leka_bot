@@ -1,37 +1,52 @@
-import { useState, useEffect } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useModal } from '../../context/ModalContext';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '../ui/dialog';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Label } from '../ui/label';
-import { Textarea } from '../ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Checkbox } from '../ui/checkbox';
-import { Calendar } from '../ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '../ui/popover';
-import { CalendarIcon } from 'lucide-react';
-import { format } from 'date-fns';
-import { cn } from '../../lib/utils';
+import { useState, useEffect } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
+import { Alert, AlertDescription } from "../ui/alert";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import { Textarea } from "../ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Checkbox } from "../ui/checkbox";
+import { Calendar } from "../ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
+import { CalendarIcon, Loader2, AlertCircle } from "lucide-react";
+import { format } from "date-fns";
+import { cn } from "../../lib/utils";
+import { showSuccess, showError, showWarning } from "../../lib/toast";
 
 export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
-  const { groupId } = useAuth();
-  const { isRecurringTaskOpen, closeRecurringTask, selectedRecurring } = useModal();
+  const { groupId, canModify } = useAuth();
+  const { isRecurringTaskOpen, closeRecurringTask, selectedRecurring } =
+    useModal();
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState([]);
 
   const [formData, setFormData] = useState({
-    title: '',
-    description: '',
-    recurrence: 'weekly',
+    title: "",
+    description: "",
+    recurrence: "weekly",
     startDate: null,
-    time: '09:00',
-    priority: 'medium',
-    category: 'general',
+    time: "09:00",
+    priority: "medium",
+    category: "general",
     assignedUsers: [],
-    reviewer: '',
+    reviewer: "",
     customRecurrence: {
-      type: 'weekly',
+      type: "weekly",
       interval: 1,
       daysOfWeek: [],
       dayOfMonth: 1,
@@ -45,17 +60,21 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
       if (selectedRecurring) {
         // Edit mode - load existing data
         setFormData({
-          title: selectedRecurring.title || '',
-          description: selectedRecurring.description || '',
-          recurrence: selectedRecurring.recurrence || 'weekly',
-          startDate: selectedRecurring.startDate ? new Date(selectedRecurring.startDate) : null,
-          time: selectedRecurring.time || '09:00',
-          priority: selectedRecurring.priority || 'medium',
-          category: selectedRecurring.category || 'general',
-          assignedUsers: selectedRecurring.assignedUsers?.map(u => u.lineUserId || u) || [],
-          reviewer: selectedRecurring.reviewer || '',
+          title: selectedRecurring.title || "",
+          description: selectedRecurring.description || "",
+          recurrence: selectedRecurring.recurrence || "weekly",
+          startDate: selectedRecurring.startDate
+            ? new Date(selectedRecurring.startDate)
+            : null,
+          time: selectedRecurring.time || "09:00",
+          priority: selectedRecurring.priority || "medium",
+          category: selectedRecurring.category || "general",
+          assignedUsers:
+            selectedRecurring.assignedUsers?.map((u) => u.lineUserId || u) ||
+            [],
+          reviewer: selectedRecurring.reviewer || "",
           customRecurrence: selectedRecurring.customRecurrence || {
-            type: 'weekly',
+            type: "weekly",
             interval: 1,
             daysOfWeek: [],
             dayOfMonth: 1,
@@ -71,34 +90,65 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
 
   const loadMembers = async () => {
     try {
-      const { getGroupMembers } = await import('../../services/api');
+      const { getGroupMembers } = await import("../../services/api");
       const response = await getGroupMembers(groupId);
       setMembers(response.members || response);
+      console.log("✅ Loaded members:", (response.members || response).length);
     } catch (error) {
-      console.error('Failed to load members:', error);
+      console.error("❌ Failed to load members:", error);
+      showWarning("ไม่สามารถโหลดรายชื่อสมาชิกได้");
     }
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Validation
+    if (!formData.title?.trim()) {
+      showWarning("กรุณากรอกชื่องาน");
+      return;
+    }
+
+    if (!formData.startDate) {
+      showWarning("กรุณาเลือกวันที่เริ่มต้น");
+      return;
+    }
+
+    if (formData.assignedUsers.length === 0) {
+      showWarning("กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน");
+      return;
+    }
+
+    if (!canModify()) {
+      showWarning("คุณไม่มีสิทธิ์สร้าง/แก้ไขงานประจำ");
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const { createRecurringTask, updateRecurringTask } = await import('../../services/api');
+      const { createRecurringTask, updateRecurringTask } = await import(
+        "../../services/api"
+      );
 
       if (isEditMode) {
         await updateRecurringTask(groupId, selectedRecurring.id, formData);
+        showSuccess("อัปเดตงานประจำสำเร็จ");
         if (onTaskUpdated) onTaskUpdated();
       } else {
         await createRecurringTask(groupId, formData);
+        showSuccess("สร้างงานประจำสำเร็จ");
         if (onTaskCreated) onTaskCreated();
       }
 
       closeRecurringTask();
       resetForm();
     } catch (error) {
-      console.error('Failed to save recurring task:', error);
-      alert('ไม่สามารถบันทึกงานประจำได้');
+      console.error("❌ Failed to save recurring task:", error);
+      showError(
+        isEditMode ? "ไม่สามารถอัปเดตงานประจำได้" : "ไม่สามารถสร้างงานประจำได้",
+        error,
+      );
     } finally {
       setLoading(false);
     }
@@ -106,17 +156,17 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
 
   const resetForm = () => {
     setFormData({
-      title: '',
-      description: '',
-      recurrence: 'weekly',
+      title: "",
+      description: "",
+      recurrence: "weekly",
       startDate: null,
-      time: '09:00',
-      priority: 'medium',
-      category: 'general',
+      time: "09:00",
+      priority: "medium",
+      category: "general",
       assignedUsers: [],
-      reviewer: '',
+      reviewer: "",
       customRecurrence: {
-        type: 'weekly',
+        type: "weekly",
         interval: 1,
         daysOfWeek: [],
         dayOfMonth: 1,
@@ -126,31 +176,51 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
 
   const handleAssigneeToggle = (userId) => {
     const assignedUsers = formData.assignedUsers.includes(userId)
-      ? formData.assignedUsers.filter(id => id !== userId)
+      ? formData.assignedUsers.filter((id) => id !== userId)
       : [...formData.assignedUsers, userId];
 
     setFormData({ ...formData, assignedUsers });
   };
 
   const handleSelectAll = () => {
-    setFormData({ ...formData, assignedUsers: members.map(m => m.lineUserId) });
+    setFormData({
+      ...formData,
+      assignedUsers: members.map((m) => m.lineUserId),
+    });
   };
 
   const handleClearAll = () => {
     setFormData({ ...formData, assignedUsers: [] });
   };
 
+  // Check permission
+  const hasPermission = canModify();
+
   return (
     <Dialog open={isRecurringTaskOpen} onOpenChange={closeRecurringTask}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>
-            {isEditMode ? 'แก้ไขงานประจำ' : 'สร้างงานประจำใหม่'}
+            {isEditMode ? "แก้ไขงานประจำ" : "สร้างงานประจำใหม่"}
           </DialogTitle>
           <DialogDescription>
-            {isEditMode ? 'แก้ไขข้อมูลงานประจำ' : 'สร้างงานที่จะทำซ้ำอัตโนมัติ'}
+            {isEditMode ? "แก้ไขข้อมูลงานประจำ" : "สร้างงานที่จะทำซ้ำอัตโนมัติ"}
           </DialogDescription>
         </DialogHeader>
+
+        {/* Permission Warning */}
+        {!hasPermission && (
+          <Alert variant="warning" className="bg-amber-50 border-amber-200">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription className="text-amber-800">
+              ⚠️ <strong>โหมดดูอย่างเดียว</strong> - คุณไม่มีสิทธิ์
+              {isEditMode ? "แก้ไข" : "สร้าง"}งานประจำ
+              <br />
+              กรุณาเข้าผ่าน LINE ส่วนตัว (ต้องการ userId) เพื่อ
+              {isEditMode ? "แก้ไข" : "สร้าง"}งานประจำ
+            </AlertDescription>
+          </Alert>
+        )}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Title */}
@@ -159,9 +229,12 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
             <Input
               id="title"
               value={formData.title}
-              onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, title: e.target.value })
+              }
               placeholder="ระบุชื่องาน"
               required
+              disabled={!hasPermission}
             />
           </div>
 
@@ -171,9 +244,12 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
             <Textarea
               id="description"
               value={formData.description}
-              onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+              onChange={(e) =>
+                setFormData({ ...formData, description: e.target.value })
+              }
               placeholder="ระบุรายละเอียด"
               rows={3}
+              disabled={!hasPermission}
             />
           </div>
 
@@ -182,7 +258,10 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
             <Label>รอบการทำซ้ำ *</Label>
             <Select
               value={formData.recurrence}
-              onValueChange={(value) => setFormData({ ...formData, recurrence: value })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, recurrence: value })
+              }
+              disabled={!hasPermission}
             >
               <SelectTrigger>
                 <SelectValue />
@@ -198,19 +277,25 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
           </div>
 
           {/* Custom Recurrence Settings */}
-          {formData.recurrence === 'custom' && (
+          {formData.recurrence === "custom" && (
             <div className="border rounded-lg p-4 space-y-4">
               <h4 className="font-medium">ตั้งค่ารอบการทำซ้ำ</h4>
-              
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>ประเภท</Label>
                   <Select
                     value={formData.customRecurrence.type}
-                    onValueChange={(value) => setFormData({
-                      ...formData,
-                      customRecurrence: { ...formData.customRecurrence, type: value }
-                    })}
+                    onValueChange={(value) =>
+                      setFormData({
+                        ...formData,
+                        customRecurrence: {
+                          ...formData.customRecurrence,
+                          type: value,
+                        },
+                      })
+                    }
+                    disabled={!hasPermission}
                   >
                     <SelectTrigger>
                       <SelectValue />
@@ -229,32 +314,52 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                     type="number"
                     min="1"
                     value={formData.customRecurrence.interval}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      customRecurrence: { ...formData.customRecurrence, interval: parseInt(e.target.value) }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        customRecurrence: {
+                          ...formData.customRecurrence,
+                          interval: parseInt(e.target.value),
+                        },
+                      })
+                    }
+                    disabled={!hasPermission}
                   />
                 </div>
               </div>
 
-              {formData.customRecurrence.type === 'weekly' && (
+              {formData.customRecurrence.type === "weekly" && (
                 <div className="space-y-2">
                   <Label>วันในสัปดาห์</Label>
                   <div className="grid grid-cols-7 gap-2">
-                    {['จ', 'อ', 'พ', 'พฤ', 'ศ', 'ส', 'อา'].map((day, index) => (
+                    {["จ", "อ", "พ", "พฤ", "ศ", "ส", "อา"].map((day, index) => (
                       <Button
                         key={index}
                         type="button"
-                        variant={formData.customRecurrence.daysOfWeek.includes(index) ? 'default' : 'outline'}
+                        variant={
+                          formData.customRecurrence.daysOfWeek.includes(index)
+                            ? "default"
+                            : "outline"
+                        }
                         size="sm"
                         className="w-full"
+                        disabled={!hasPermission}
                         onClick={() => {
-                          const days = formData.customRecurrence.daysOfWeek.includes(index)
-                            ? formData.customRecurrence.daysOfWeek.filter(d => d !== index)
-                            : [...formData.customRecurrence.daysOfWeek, index];
+                          const days =
+                            formData.customRecurrence.daysOfWeek.includes(index)
+                              ? formData.customRecurrence.daysOfWeek.filter(
+                                  (d) => d !== index,
+                                )
+                              : [
+                                  ...formData.customRecurrence.daysOfWeek,
+                                  index,
+                                ];
                           setFormData({
                             ...formData,
-                            customRecurrence: { ...formData.customRecurrence, daysOfWeek: days }
+                            customRecurrence: {
+                              ...formData.customRecurrence,
+                              daysOfWeek: days,
+                            },
                           });
                         }}
                       >
@@ -265,7 +370,7 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                 </div>
               )}
 
-              {formData.customRecurrence.type === 'monthly' && (
+              {formData.customRecurrence.type === "monthly" && (
                 <div className="space-y-2">
                   <Label>วันที่ในเดือน</Label>
                   <Input
@@ -273,10 +378,16 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                     min="1"
                     max="31"
                     value={formData.customRecurrence.dayOfMonth}
-                    onChange={(e) => setFormData({
-                      ...formData,
-                      customRecurrence: { ...formData.customRecurrence, dayOfMonth: parseInt(e.target.value) }
-                    })}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        customRecurrence: {
+                          ...formData.customRecurrence,
+                          dayOfMonth: parseInt(e.target.value),
+                        },
+                      })
+                    }
+                    disabled={!hasPermission}
                   />
                 </div>
               )}
@@ -293,19 +404,25 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                     variant="outline"
                     className={cn(
                       "w-full justify-start text-left font-normal",
-                      !formData.startDate && "text-muted-foreground"
+                      !formData.startDate && "text-muted-foreground",
                     )}
+                    disabled={!hasPermission}
                   >
                     <CalendarIcon className="mr-2 h-4 w-4" />
-                    {formData.startDate ? format(formData.startDate, "PPP") : "เลือกวันที่"}
+                    {formData.startDate
+                      ? format(formData.startDate, "PPP")
+                      : "เลือกวันที่"}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0">
                   <Calendar
                     mode="single"
                     selected={formData.startDate}
-                    onSelect={(date) => setFormData({ ...formData, startDate: date })}
+                    onSelect={(date) =>
+                      setFormData({ ...formData, startDate: date })
+                    }
                     initialFocus
+                    disabled={!hasPermission}
                   />
                 </PopoverContent>
               </Popover>
@@ -317,7 +434,10 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                 id="time"
                 type="time"
                 value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
+                onChange={(e) =>
+                  setFormData({ ...formData, time: e.target.value })
+                }
+                disabled={!hasPermission}
               />
             </div>
           </div>
@@ -328,7 +448,10 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
               <Label>ความสำคัญ</Label>
               <Select
                 value={formData.priority}
-                onValueChange={(value) => setFormData({ ...formData, priority: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, priority: value })
+                }
+                disabled={!hasPermission}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -346,7 +469,10 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
               <Label>หมวดหมู่</Label>
               <Select
                 value={formData.category}
-                onValueChange={(value) => setFormData({ ...formData, category: value })}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, category: value })
+                }
+                disabled={!hasPermission}
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -368,11 +494,19 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
             <div className="border rounded-lg p-4 space-y-3">
               <div className="max-h-40 overflow-y-auto space-y-2">
                 {members.map((member) => (
-                  <div key={member.lineUserId} className="flex items-center space-x-2">
+                  <div
+                    key={member.lineUserId}
+                    className="flex items-center space-x-2"
+                  >
                     <Checkbox
                       id={`assignee-${member.lineUserId}`}
-                      checked={formData.assignedUsers.includes(member.lineUserId)}
-                      onCheckedChange={() => handleAssigneeToggle(member.lineUserId)}
+                      checked={formData.assignedUsers.includes(
+                        member.lineUserId,
+                      )}
+                      onCheckedChange={() =>
+                        handleAssigneeToggle(member.lineUserId)
+                      }
+                      disabled={!hasPermission}
                     />
                     <label
                       htmlFor={`assignee-${member.lineUserId}`}
@@ -389,6 +523,7 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                   variant="outline"
                   size="sm"
                   onClick={handleSelectAll}
+                  disabled={!hasPermission}
                 >
                   เลือกทั้งหมด
                 </Button>
@@ -397,6 +532,7 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
                   variant="outline"
                   size="sm"
                   onClick={handleClearAll}
+                  disabled={!hasPermission}
                 >
                   ล้างทั้งหมด
                 </Button>
@@ -409,7 +545,10 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
             <Label>ผู้ตรวจงาน</Label>
             <Select
               value={formData.reviewer}
-              onValueChange={(value) => setFormData({ ...formData, reviewer: value })}
+              onValueChange={(value) =>
+                setFormData({ ...formData, reviewer: value })
+              }
+              disabled={!hasPermission}
             >
               <SelectTrigger>
                 <SelectValue placeholder="(ไม่ระบุ)" />
@@ -427,11 +566,19 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
 
           {/* Actions */}
           <div className="flex justify-end gap-2 pt-4">
-            <Button type="button" variant="outline" onClick={closeRecurringTask}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={closeRecurringTask}
+            >
               ยกเลิก
             </Button>
-            <Button type="submit" disabled={loading}>
-              {loading ? 'กำลังบันทึก...' : (isEditMode ? 'บันทึก' : 'สร้างงานประจำ')}
+            <Button type="submit" disabled={loading || !hasPermission}>
+              {loading
+                ? "กำลังบันทึก..."
+                : isEditMode
+                  ? "บันทึก"
+                  : "สร้างงานประจำ"}
             </Button>
           </div>
         </form>
@@ -439,4 +586,3 @@ export default function RecurringTaskModal({ onTaskCreated, onTaskUpdated }) {
     </Dialog>
   );
 }
-

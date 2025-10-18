@@ -227,11 +227,12 @@ export const AuthProvider = ({ children }) => {
 
   // Check if user has permission for specific action
   const hasPermission = (action) => {
-    // Actions ที่ต้องการ userId
+    // Actions ที่ต้องการ userId (Personal Mode เท่านั้น)
     const requiresUserId = [
       "create_task",
       "edit_task",
       "delete_task",
+      "submit_task", // ต้องการ userId เพื่อระบุว่าใครเป็นคนส่งงาน
       "create_recurring",
       "edit_recurring",
       "delete_recurring",
@@ -251,7 +252,6 @@ export const AuthProvider = ({ children }) => {
       "view_members",
       "view_leaderboard",
       "view_reports",
-      "submit_task", // อนุญาตให้ส่งงานได้เสมอ (เหมือน dashboard เก่า)
     ];
 
     // ตรวจสอบว่า authenticated หรือไม่

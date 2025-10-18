@@ -1,8 +1,26 @@
-import { Plus, Mail, Calendar as CalendarIcon, Wrench, CheckCircle } from 'lucide-react';
-import { DndContext, closestCorners, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import { SortableContext, verticalListSortingStrategy, useSortable } from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import TaskCard from '../common/TaskCard';
+import {
+  Plus,
+  Mail,
+  Calendar as CalendarIcon,
+  Wrench,
+  CheckCircle,
+} from "lucide-react";
+import {
+  DndContext,
+  closestCorners,
+  PointerSensor,
+  useSensor,
+  useSensors,
+} from "@dnd-kit/core";
+import {
+  SortableContext,
+  verticalListSortingStrategy,
+  useSortable,
+} from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
+import TaskCard from "../common/TaskCard";
+import { useAuth } from "../../context/AuthContext";
+import { showWarning } from "../../lib/toast";
 
 // Draggable Task Card Component
 const DraggableTaskCard = ({ task, onClick }) => {
@@ -34,12 +52,34 @@ const DraggableTaskCard = ({ task, onClick }) => {
   );
 };
 
-const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => {
+const KanbanView = ({
+  tasks = [],
+  onTaskUpdate,
+  onTaskClick,
+  onCreateTask,
+}) => {
+  const { canModify } = useAuth();
+
   const columns = [
-    { id: 'new', title: 'งานใหม่', icon: Mail, status: 'new' },
-    { id: 'scheduled', title: 'รอกำหนดส่ง', icon: CalendarIcon, status: 'scheduled' },
-    { id: 'in-progress', title: 'กำลังดำเนินการ', icon: Wrench, status: 'in-progress' },
-    { id: 'completed', title: 'เสร็จแล้ว', icon: CheckCircle, status: 'completed' }
+    { id: "new", title: "งานใหม่", icon: Mail, status: "new" },
+    {
+      id: "scheduled",
+      title: "รอกำหนดส่ง",
+      icon: CalendarIcon,
+      status: "scheduled",
+    },
+    {
+      id: "in-progress",
+      title: "กำลังดำเนินการ",
+      icon: Wrench,
+      status: "in-progress",
+    },
+    {
+      id: "completed",
+      title: "เสร็จแล้ว",
+      icon: CheckCircle,
+      status: "completed",
+    },
   ];
 
   const sensors = useSensors(
@@ -47,13 +87,13 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
       activationConstraint: {
         distance: 8, // 8px movement required before drag starts
       },
-    })
+    }),
   );
 
   const getTasksByStatus = (status) => {
-    return tasks.filter(task => {
+    return tasks.filter((task) => {
       // Normalize status (handle both 'in-progress' and 'in_progress')
-      const taskStatus = task.status?.replace('_', '-');
+      const taskStatus = task.status?.replace("_", "-");
       return taskStatus === status;
     });
   };
@@ -63,12 +103,20 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
 
     if (!over) return;
 
-    const activeTask = tasks.find(t => t.id === active.id);
+    // Check permission before allowing drag-and-drop
+    if (!canModify()) {
+      showWarning("คุณไม่มีสิทธิ์แก้ไขสถานะงาน - กรุณาเข้าผ่าน LINE ส่วนตัว");
+      return;
+    }
+
+    const activeTask = tasks.find((t) => t.id === active.id);
     if (!activeTask) return;
 
     // Get the column the task was dropped on
-    const overColumn = columns.find(col => 
-      over.id === col.id || getTasksByStatus(col.status).some(t => t.id === over.id)
+    const overColumn = columns.find(
+      (col) =>
+        over.id === col.id ||
+        getTasksByStatus(col.status).some((t) => t.id === over.id),
     );
 
     if (!overColumn) return;
@@ -76,13 +124,15 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
     // If the task status needs to change
     if (activeTask.status !== overColumn.status) {
       const newStatus = overColumn.status;
-      
+
       // Call the update callback if provided
       if (onTaskUpdate) {
         onTaskUpdate(activeTask.id, { status: newStatus });
       }
 
-      console.log(`Task ${activeTask.id} moved from ${activeTask.status} to ${newStatus}`);
+      console.log(
+        `Task ${activeTask.id} moved from ${activeTask.status} to ${newStatus}`,
+      );
     }
   };
 
@@ -97,7 +147,7 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
           {columns.map((column) => {
             const columnTasks = getTasksByStatus(column.status);
             const Icon = column.icon;
-            
+
             return (
               <div key={column.id} className="kanban-column">
                 <div className="kanban-column-header">
@@ -109,9 +159,9 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
                     {columnTasks.length} งาน
                   </span>
                 </div>
-                
+
                 <SortableContext
-                  items={columnTasks.map(t => t.id)}
+                  items={columnTasks.map((t) => t.id)}
                   strategy={verticalListSortingStrategy}
                   id={column.id}
                 >
@@ -123,11 +173,21 @@ const KanbanView = ({ tasks = [], onTaskUpdate, onTaskClick, onCreateTask }) => 
                         onClick={() => onTaskClick && onTaskClick(task)}
                       />
                     ))}
-                    
+
                     <button
                       type="button"
-                      onClick={() => onCreateTask && onCreateTask()}
-                      className="w-full py-2 text-sm text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors"
+                      onClick={() => {
+                        if (!canModify()) {
+                          showWarning(
+                            "คุณไม่มีสิทธิ์สร้างงาน - กรุณาเข้าผ่าน LINE ส่วนตัว",
+                          );
+                          return;
+                        }
+                        onCreateTask && onCreateTask();
+                      }}
+                      disabled={!canModify()}
+                      className="w-full py-2 text-sm text-blue-500 hover:text-blue-600 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      title={!canModify() ? "ไม่มีสิทธิ์สร้างงาน" : "สร้างงาน"}
                     >
                       + สร้างงาน
                     </button>

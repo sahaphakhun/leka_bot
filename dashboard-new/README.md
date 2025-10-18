@@ -1,52 +1,69 @@
-# Leka Bot - Bordio Style UI (v2.0)
+# Leka Bot - Dashboard ใหม่ (v2.0)
 
-A modern, professional task management interface inspired by **Bordio.com**, built with React and Tailwind CSS. Now with **full backend integration**, **drag-and-drop**, and **URL-based authentication**.
+Dashboard สำหรับจัดการงานที่ทันสมัย รองรับการเปิดจาก LINE bot พร้อมระบบสิทธิ์แบบ Personal และ Group Mode
 
 ![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)
 ![React](https://img.shields.io/badge/react-19.1.0-61dafb.svg)
 ![License](https://img.shields.io/badge/license-MIT-green.svg)
+![Progress](https://img.shields.io/badge/progress-58%25-yellow.svg)
 
 ## ✨ Features
 
 ### Core Features
-- 🎨 **90-95% Bordio-style Design** - Clean, modern interface matching Bordio's aesthetic
+- 🎨 **Modern UI/UX** - Clean, professional interface with React components
 - 📊 **Dashboard View** - Statistics, today's tasks, and recent activity
-- 📅 **Calendar View** - Weekly calendar with drag-and-drop support
-- ✅ **Task Management** - Table view and Kanban board
-- 🎯 **Multiple Views** - Dashboard, Calendar, Tasks, Team, Files, Reports
+- 📅 **Calendar View** - Weekly/monthly calendar with task management
+- ✅ **Task Management** - Create, edit, delete tasks with full validation
+- 🔄 **Recurring Tasks** - Automatic task creation (daily, weekly, monthly, custom)
+- 📎 **File Management** - Upload, download, and share files
+- 👥 **Member Management** - Invite members, manage roles and permissions
+- 🏆 **Leaderboard** - Track team performance and achievements
+- 📊 **Reports** - Analytics and statistics
 - 📱 **Responsive Design** - Works on desktop, tablet, and mobile
-- 🎭 **Status Colors** - Pastel color scheme for task statuses
-- 🚀 **Fast & Modern** - Built with Vite and React 19
 
-### New in v2.0 🎉
-- 🔐 **URL-Based Authentication** - Automatic userId and groupId from URL parameters
-- 📡 **Backend API Integration** - Full integration with Leka Bot API
-- 🎯 **Drag & Drop** - Real drag-and-drop in Kanban board with @dnd-kit
-- 🔄 **Real-time Updates** - Optimistic UI updates with API sync
-- 💾 **Data Persistence** - LocalStorage for auth parameters
-- 🔌 **Smart Fallback** - Automatic fallback to sample data if API fails
-- 📊 **Live Statistics** - Real-time task statistics from backend
+### LINE Integration 🎉
+- 📱 **Personal Mode** - Full access when opened from personal chat
+  - ✅ Create/Edit/Delete tasks
+  - ✅ Create recurring tasks
+  - ✅ Manage members
+  - ✅ Upload files
+  - ✅ Full permissions
+- 👥 **Group Mode** - Read-only when opened from group chat
+  - ✅ View all data
+  - ✅ Submit tasks
+  - ❌ Cannot create/edit (must use personal chat)
+- 🔐 **Smart Authentication** - Auto-detect mode from URL parameters
+- 💾 **Persistent Sessions** - Remember auth via localStorage
+- 🔔 **Toast Notifications** - Clear feedback for all actions
 
-## 🖼️ Screenshots
+## 📱 การเปิดจาก LINE
 
-### Dashboard View
-- Statistics cards with live task counts
-- Today's tasks overview
-- Recent activity timeline
+### วิธีที่ 1: แชทส่วนตัว (แนะนำ) ⭐
+```
+💬 เปิดแชทส่วนตัวกับบอท → กดปุ่ม "แดชบอร์ด"
+```
+✅ สิทธิ์เต็มรูปแบบ (Personal Mode)
 
-### Calendar View
-- Weekly calendar layout
-- Task cards on each day
-- Waiting list sidebar
-- Time tracking per day
+### วิธีที่ 2: แชทกลุ่ม
+```
+👥 เปิดแชทกลุ่ม → กดปุ่ม "แดชบอร์ด"
+```
+⚠️ โหมดดูอย่างเดียว (Group Mode)
 
-### Tasks View
-- **Table View**: Sortable task list with collapsible sections
-- **Kanban Board**: 4-column board with drag-and-drop (New, Scheduled, In Progress, Completed)
+**URL Pattern:**
+- Personal: `?userId=U123456789&groupId=C123456789`
+- Group: `?groupId=C123456789`
+
+📖 [อ่านเพิ่มเติม: LINE Integration Guide](./LINE_INTEGRATION.md)
 
 ## 🚀 Quick Start
 
-### Prerequisites
+### สำหรับผู้ใช้งาน
+📖 [Quick Start Guide](./QUICK_START.md) - เริ่มต้นใช้งานใน 3 นาที
+
+### สำหรับนักพัฒนา
+
+#### Prerequisites
 
 - Node.js 18+ 
 - pnpm (recommended) or npm
