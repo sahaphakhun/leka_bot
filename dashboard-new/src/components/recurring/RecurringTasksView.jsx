@@ -1,32 +1,43 @@
-import { useState, useEffect, useMemo } from 'react';
-import { useAuth } from '../../context/AuthContext';
-import { useModal } from '../../context/ModalContext';
-import { Button } from '../ui/button';
-import { Input } from '../ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '../ui/select';
-import { Badge } from '../ui/badge';
-import { Switch } from '../ui/switch';
-import { 
-  Plus, 
-  RefreshCw, 
-  Edit, 
-  Trash2, 
-  History, 
+import { useState, useEffect, useMemo } from "react";
+import { useAuth } from "../../context/AuthContext";
+import { useModal } from "../../context/ModalContext";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "../ui/select";
+import { Badge } from "../ui/badge";
+import { Switch } from "../ui/switch";
+import {
+  Plus,
+  RefreshCw,
+  Edit,
+  Trash2,
+  History,
   Search,
   Calendar,
-  Users
-} from 'lucide-react';
-import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
+  Users,
+  AlertCircle,
+  Clock,
+} from "lucide-react";
+import { format } from "date-fns";
+import { th } from "date-fns/locale";
+import { showSuccess, showError, showWarning } from "../../lib/toast";
 
 export default function RecurringTasksView({ refreshKey = 0 }) {
-  const { groupId } = useAuth();
-  const { openRecurringTask, openRecurringHistory, openConfirmDialog } = useModal();
+  const { groupId, canModify } = useAuth();
+  const { openRecurringTask, openRecurringHistory, openConfirmDialog } =
+    useModal();
   const [recurringTasks, setRecurringTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [recurrenceFilter, setRecurrenceFilter] = useState('all');
+  const [error, setError] = useState(null);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [recurrenceFilter, setRecurrenceFilter] = useState("all");
 
   useEffect(() => {
     loadRecurringTasks();
@@ -34,96 +45,77 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
 
   const loadRecurringTasks = async () => {
     setLoading(true);
+    setError(null);
     try {
-      const { listRecurringTasks } = await import('../../services/api');
+      const { listRecurringTasks } = await import("../../services/api");
       const data = await listRecurringTasks(groupId);
       // Ensure array and normalize minimal fields
-      const items = Array.isArray(data) ? data : (data?.items || []);
-      setRecurringTasks(items.map(t => ({
-        id: t.id,
-        title: t.title || t.name || 'Untitled',
-        recurrence: t.recurrence || t.frequency || 'custom',
-        isActive: !!(t.isActive ?? t.active ?? true),
-        nextRun: t.nextRun || t.nextSchedule || null,
-        createdCount: t.createdCount ?? t.count ?? 0,
-        assignedUsers: t.assignedUsers || t.assignees || [],
-      })));
+      const items = Array.isArray(data) ? data : data?.items || [];
+      setRecurringTasks(
+        items.map((t) => ({
+          id: t.id,
+          title: t.title || t.name || "Untitled",
+          recurrence: t.recurrence || t.frequency || "custom",
+          isActive: !!(t.isActive ?? t.active ?? true),
+          nextRun: t.nextRun || t.nextSchedule || null,
+          createdCount: t.createdCount ?? t.count ?? 0,
+          assignedUsers: t.assignedUsers || t.assignees || [],
+        })),
+      );
+      console.log("✅ Loaded recurring tasks:", items.length);
     } catch (error) {
-      console.error('Failed to load recurring tasks:', error);
-      // Sample data for development
-      setRecurringTasks([
-        {
-          id: '1',
-          title: 'รายงานประจำสัปดาห์',
-          recurrence: 'weekly',
-          isActive: true,
-          nextRun: '2025-10-19T09:00:00',
-          createdCount: 12,
-          assignedUsers: [
-            { lineUserId: 'U001', displayName: 'John Doe' },
-            { lineUserId: 'U002', displayName: 'Jane Smith' },
-          ],
-        },
-        {
-          id: '2',
-          title: 'ประชุมทีมรายเดือน',
-          recurrence: 'monthly',
-          isActive: true,
-          nextRun: '2025-11-01T14:00:00',
-          createdCount: 6,
-          assignedUsers: [
-            { lineUserId: 'U001', displayName: 'John Doe' },
-          ],
-        },
-        {
-          id: '3',
-          title: 'ตรวจสอบระบบรายวัน',
-          recurrence: 'daily',
-          isActive: false,
-          nextRun: null,
-          createdCount: 45,
-          assignedUsers: [
-            { lineUserId: 'U003', displayName: 'Bob Johnson' },
-          ],
-        },
-      ]);
+      console.error("❌ Failed to load recurring tasks:", error);
+      setError(error.message || "ไม่สามารถโหลดงานประจำได้");
+      setRecurringTasks([]);
+      showError("ไม่สามารถโหลดงานประจำได้", error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleToggleActive = async (task) => {
+    if (!canModify()) {
+      showWarning("คุณไม่มีสิทธิ์แก้ไขงานประจำ");
+      return;
+    }
+
     try {
-      const { toggleRecurringTask } = await import('../../services/api');
+      const { toggleRecurringTask } = await import("../../services/api");
       await toggleRecurringTask(groupId, task.id, !task.isActive);
+      showSuccess(task.isActive ? "ปิดการใช้งานแล้ว" : "เปิดการใช้งานแล้ว");
       loadRecurringTasks();
     } catch (error) {
-      console.error('Failed to toggle recurring task:', error);
-      alert('ไม่สามารถเปลี่ยนสถานะได้');
+      showError("ไม่สามารถเปลี่ยนสถานะได้", error);
+      console.error("Failed to toggle recurring task:", error);
+      alert("ไม่สามารถเปลี่ยนสถานะได้");
     }
   };
 
   const handleEdit = (task) => {
+    if (!canModify()) {
+      showWarning("คุณไม่มีสิทธิ์แก้ไขงานประจำ");
+      return;
+    }
     openRecurringTask(task);
   };
 
   const handleDelete = (task) => {
     openConfirmDialog({
-      title: 'ลบงานประจำ',
+      title: "ลบงานประจำ",
       description: `คุณแน่ใจหรือไม่ว่าต้องการลบงานประจำ "${task.title}"? การกระทำนี้ไม่สามารถย้อนกลับได้`,
-      confirmText: 'ลบ',
-      cancelText: 'ยกเลิก',
-      variant: 'destructive',
+      confirmText: "ลบ",
+      cancelText: "ยกเลิก",
+      variant: "destructive",
       onConfirm: async () => {
         try {
-          const { deleteRecurringTask } = await import('../../services/api');
+          const { deleteRecurringTask } = await import("../../services/api");
           await deleteRecurringTask(groupId, task.id);
           loadRecurringTasks();
         } catch (error) {
-          console.error('Failed to delete recurring task:', error);
-          alert('ไม่สามารถลบงานประจำได้');
+          console.error("Failed to delete recurring task:", error);
+          alert("ไม่สามารถลบงานประจำได้");
         }
-      }
+      },
     });
   };
 
@@ -133,22 +125,27 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
 
   const getRecurrenceLabel = (recurrence) => {
     const labels = {
-      daily: 'รายวัน',
-      weekly: 'รายสัปดาห์',
-      monthly: 'รายเดือน',
-      quarterly: 'รายไตรมาส',
-      custom: 'กำหนดเอง',
+      daily: "รายวัน",
+      weekly: "รายสัปดาห์",
+      monthly: "รายเดือน",
+      quarterly: "รายไตรมาส",
+      custom: "กำหนดเอง",
     };
     return labels[recurrence] || recurrence;
   };
 
-  const filteredTasks = recurringTasks.filter(task => {
-    const matchesSearch = (task.title || '').toLowerCase().includes((searchTerm || '').toLowerCase());
-    const matchesStatus = statusFilter === 'all' || 
-      (statusFilter === 'active' && task.isActive) ||
-      (statusFilter === 'inactive' && !task.isActive);
-    const matchesRecurrence = recurrenceFilter === 'all' || (task.recurrence || '').toLowerCase() === recurrenceFilter.toLowerCase();
-    
+  const filteredTasks = recurringTasks.filter((task) => {
+    const matchesSearch = (task.title || "")
+      .toLowerCase()
+      .includes((searchTerm || "").toLowerCase());
+    const matchesStatus =
+      statusFilter === "all" ||
+      (statusFilter === "active" && task.isActive) ||
+      (statusFilter === "inactive" && !task.isActive);
+    const matchesRecurrence =
+      recurrenceFilter === "all" ||
+      (task.recurrence || "").toLowerCase() === recurrenceFilter.toLowerCase();
+
     return matchesSearch && matchesStatus && matchesRecurrence;
   });
 
@@ -156,7 +153,10 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
     const total = recurringTasks.length;
     const active = recurringTasks.filter((task) => task.isActive).length;
     const paused = total - active;
-    const totalInstances = recurringTasks.reduce((sum, task) => sum + (task.createdCount || 0), 0);
+    const totalInstances = recurringTasks.reduce(
+      (sum, task) => sum + (task.createdCount || 0),
+      0,
+    );
     const nextTask = recurringTasks
       .map((task) => task.nextRun)
       .filter(Boolean)
@@ -178,6 +178,86 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500 mx-auto mb-4"></div>
           <p className="text-gray-600">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error State
+  if (error) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-center h-96">
+          <div className="text-center max-w-md">
+            <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              ไม่สามารถโหลดงานประจำได้
+            </h3>
+            <p className="text-gray-600 mb-6">{error}</p>
+            <div className="space-y-3">
+              <Button onClick={loadRecurringTasks} className="w-full">
+                <RefreshCw className="w-4 h-4 mr-2" />
+                ลองอีกครั้ง
+              </Button>
+              <p className="text-xs text-gray-500">
+                หากปัญหายังคงอยู่ กรุณาติดต่อผู้ดูแลระบบ
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Empty State (when no error but also no tasks)
+  if (!loading && !error && recurringTasks.length === 0) {
+    return (
+      <div className="p-6">
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold">งานประจำ</h1>
+            <p className="text-muted-foreground">จัดการงานที่ทำซ้ำอัตโนมัติ</p>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={loadRecurringTasks}>
+              <RefreshCw className="w-4 h-4 mr-2" />
+              รีเฟรช
+            </Button>
+            {canModify() ? (
+              <Button onClick={() => openRecurringTask(null)}>
+                <Plus className="w-4 h-4 mr-2" />
+                สร้างงานประจำ
+              </Button>
+            ) : (
+              <Button disabled variant="outline">
+                <Plus className="w-4 h-4 mr-2" />
+                สร้างงานประจำ (ไม่มีสิทธิ์)
+              </Button>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-center h-96 bg-white rounded-lg border-2 border-dashed border-gray-300">
+          <div className="text-center max-w-md px-6">
+            <Clock className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+            <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              ยังไม่มีงานประจำ
+            </h3>
+            <p className="text-gray-600 mb-6">
+              สร้างงานที่ทำซ้ำอัตโนมัติตามรอบเวลาที่กำหนด เช่น รายวัน รายสัปดาห์
+              หรือรายเดือน
+            </p>
+            {canModify() ? (
+              <Button onClick={() => openRecurringTask(null)}>
+                <Plus className="w-4 h-4 mr-2" />
+                สร้างงานประจำแรก
+              </Button>
+            ) : (
+              <p className="text-sm text-amber-600">
+                ⚠️ คุณไม่มีสิทธิ์สร้างงานประจำ
+              </p>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -207,22 +287,31 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
         <div className="rounded-xl border border-blue-100 bg-blue-50 p-5">
           <p className="text-xs text-blue-700">งานประจำทั้งหมด</p>
-          <p className="text-3xl font-semibold text-blue-700">{summary.total}</p>
+          <p className="text-3xl font-semibold text-blue-700">
+            {summary.total}
+          </p>
         </div>
         <div className="rounded-xl border border-green-100 bg-green-50 p-5">
           <p className="text-xs text-green-700">ใช้งานอยู่</p>
-          <p className="text-3xl font-semibold text-green-700">{summary.active}</p>
+          <p className="text-3xl font-semibold text-green-700">
+            {summary.active}
+          </p>
         </div>
         <div className="rounded-xl border border-amber-100 bg-amber-50 p-5">
           <p className="text-xs text-amber-700">หยุดชั่วคราว</p>
-          <p className="text-3xl font-semibold text-amber-700">{summary.paused}</p>
+          <p className="text-3xl font-semibold text-amber-700">
+            {summary.paused}
+          </p>
         </div>
         <div className="rounded-xl border border-purple-100 bg-purple-50 p-5">
           <p className="text-xs text-purple-700">งานที่สร้างสะสม</p>
-          <p className="text-3xl font-semibold text-purple-700">{summary.totalInstances}</p>
+          <p className="text-3xl font-semibold text-purple-700">
+            {summary.totalInstances}
+          </p>
           {summary.nextTask && (
             <p className="text-xs text-purple-600 mt-2">
-              งานครั้งถัดไป: {format(summary.nextTask, 'dd MMM yyyy HH:mm', { locale: th })}
+              งานครั้งถัดไป:{" "}
+              {format(summary.nextTask, "dd MMM yyyy HH:mm", { locale: th })}
             </p>
           )}
         </div>
@@ -308,7 +397,10 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
             <tbody className="bg-white divide-y divide-gray-200">
               {filteredTasks.length === 0 ? (
                 <tr>
-                  <td colSpan="7" className="px-6 py-12 text-center text-gray-500">
+                  <td
+                    colSpan="7"
+                    className="px-6 py-12 text-center text-gray-500"
+                  >
                     ไม่พบงานประจำ
                   </td>
                 </tr>
@@ -329,8 +421,14 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
                           checked={task.isActive}
                           onCheckedChange={() => handleToggleActive(task)}
                         />
-                        <Badge className={task.isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}>
-                          {task.isActive ? 'ใช้งานอยู่' : 'หยุดใช้งาน'}
+                        <Badge
+                          className={
+                            task.isActive
+                              ? "bg-green-100 text-green-800"
+                              : "bg-gray-100 text-gray-800"
+                          }
+                        >
+                          {task.isActive ? "ใช้งานอยู่" : "หยุดใช้งาน"}
                         </Badge>
                       </div>
                     </td>
@@ -339,10 +437,12 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
                         <div className="text-sm">
                           <div className="flex items-center gap-1 text-gray-900">
                             <Calendar className="w-3 h-3" />
-                            {format(new Date(task.nextRun), 'dd MMM yyyy', { locale: th })}
+                            {format(new Date(task.nextRun), "dd MMM yyyy", {
+                              locale: th,
+                            })}
                           </div>
                           <div className="text-gray-500">
-                            {format(new Date(task.nextRun), 'HH:mm')}
+                            {format(new Date(task.nextRun), "HH:mm")}
                           </div>
                         </div>
                       ) : (
@@ -356,11 +456,16 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
                       <div className="flex items-center gap-2 text-sm text-gray-600">
                         <Users className="w-4 h-4 text-gray-400" />
                         <span className="truncate">
-                          {(task.assignedUsers && task.assignedUsers.length > 0)
+                          {task.assignedUsers && task.assignedUsers.length > 0
                             ? task.assignedUsers
-                                .map((user) => user.displayName || user.name || user.lineUserId)
-                                .join(', ')
-                            : 'ไม่ระบุ'}
+                                .map(
+                                  (user) =>
+                                    user.displayName ||
+                                    user.name ||
+                                    user.lineUserId,
+                                )
+                                .join(", ")
+                            : "ไม่ระบุ"}
                         </span>
                       </div>
                     </td>

@@ -3,6 +3,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ModalProvider, useModal } from "./context/ModalContext";
 import Sidebar from "./components/layout/Sidebar";
 import MainLayout from "./components/layout/MainLayout";
+import ReadOnlyBanner from "./components/common/ReadOnlyBanner";
 import DashboardView from "./components/DashboardView";
 import CalendarView from "./components/calendar/CalendarView";
 import TasksView from "./components/tasks/TasksView";
@@ -43,6 +44,8 @@ function AppContent() {
     viewMode,
     isPersonalMode,
     isGroupMode,
+    canModify,
+    getAuthError,
   } = useAuth();
   const { openTaskDetail } = useModal();
   const [activeView, setActiveView] = useState("dashboard");
@@ -109,6 +112,7 @@ function AppContent() {
     console.log("Group ID:", groupId);
     console.log("Is Personal Mode:", isPersonalMode());
     console.log("Is Group Mode:", isGroupMode());
+    console.log("Can Modify:", canModify());
 
     if (!groupId) {
       console.log("❌ No groupId, stopping");
@@ -270,28 +274,34 @@ function AppContent() {
       );
     }
 
-    if (error && !isAuthenticated()) {
+    if (!isAuthenticated()) {
+      const authError = getAuthError();
       return (
         <div className="flex items-center justify-center h-full">
           <div className="text-center max-w-md p-6">
             <div className="text-6xl mb-4">🔒</div>
-            <h2 className="text-2xl font-bold mb-2">ต้องการการยืนยันตัวตน</h2>
+            <h2 className="text-2xl font-bold mb-2">
+              {authError?.title || "ต้องการการยืนยันตัวตน"}
+            </h2>
             <p className="text-gray-600 mb-4">
-              กรุณาเข้าถึงหน้านี้ผ่าน LINE bot พร้อม parameters ที่ถูกต้อง
+              {authError?.message ||
+                "กรุณาเข้าถึงหน้านี้ผ่าน LINE bot พร้อม parameters ที่ถูกต้อง"}
             </p>
-            <p className="text-sm text-gray-500 mb-2">
-              สำหรับ group dashboard: ?groupId=xxx
-            </p>
-            <p className="text-sm text-gray-500">
-              สำหรับ personal dashboard: ?userId=xxx&groupId=yyy
-            </p>
-            <div className="mt-4 p-3 bg-gray-100 rounded text-left text-xs">
-              <p>
-                <strong>URL parameters ปัจจุบัน:</strong>
+            {authError?.details && (
+              <p className="text-sm text-blue-600 mb-4">
+                💡 {authError.details}
               </p>
-              <p>userId: {userId || "ไม่มี"}</p>
-              <p>groupId: {groupId || "ไม่มี"}</p>
-              <p>viewMode: {viewMode || "ไม่มี"}</p>
+            )}
+            <div className="space-y-2 text-sm text-gray-500 mb-4">
+              <p className="font-semibold">วิธีการเข้าใช้งาน:</p>
+              <p>🏠 สำหรับ group dashboard: ?groupId=xxx</p>
+              <p>👤 สำหรับ personal dashboard: ?userId=xxx&groupId=yyy</p>
+            </div>
+            <div className="mt-4 p-3 bg-gray-100 rounded text-left text-xs font-mono">
+              <p className="font-bold mb-2">URL parameters ปัจจุบัน:</p>
+              <p>userId: {userId || "❌ ไม่มี"}</p>
+              <p>groupId: {groupId || "❌ ไม่มี"}</p>
+              <p>viewMode: {viewMode || "❌ ไม่มี"}</p>
             </div>
             {apiConnected === false && (
               <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
@@ -303,6 +313,23 @@ function AppContent() {
                 </p>
               </div>
             )}
+            <div className="mt-6">
+              <a
+                href="https://line.me/R/ti/p/@leka-bot"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+              >
+                <svg
+                  className="w-5 h-5 mr-2"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M19.365 9.863c.349 0 .63.285.63.631 0 .345-.281.63-.63.63H17.61v1.125h1.755c.349 0 .63.283.63.63 0 .344-.281.629-.63.629h-2.386c-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63h2.386c.346 0 .627.285.627.63 0 .349-.281.63-.63.63H17.61v1.125h1.755zm-3.855 3.016c0 .27-.174.51-.432.596-.064.021-.133.031-.199.031-.211 0-.391-.09-.51-.25l-2.443-3.317v2.94c0 .344-.279.629-.631.629-.346 0-.626-.285-.626-.629V8.108c0-.27.173-.51.43-.595.06-.023.136-.033.194-.033.195 0 .375.104.495.254l2.462 3.33V8.108c0-.345.282-.63.63-.63.345 0 .63.285.63.63v4.771zm-5.741 0c0 .344-.282.629-.631.629-.345 0-.627-.285-.627-.629V8.108c0-.345.282-.63.63-.63.346 0 .628.285.628.63v4.771zm-2.466.629H4.917c-.345 0-.63-.285-.63-.629V8.108c0-.345.285-.63.63-.63.348 0 .63.285.63.63v4.141h1.756c.348 0 .629.283.629.63 0 .344-.282.629-.629.629M24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.766.038 1.08l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314" />
+                </svg>
+                เปิดใน LINE
+              </a>
+            </div>
           </div>
         </div>
       );
@@ -347,33 +374,38 @@ function AppContent() {
   };
 
   return (
-    <div className="flex h-screen bg-background">
-      <Sidebar
-        activeView={activeView}
-        onViewChange={setActiveView}
-        groupInfo={groupInfo}
-        userId={userId}
-        viewMode={viewMode}
-      />
-      <MainLayout>
-        {renderView()}
-        <AddTaskModal onTaskCreated={handleTasksReload} />
-        <EditTaskModal onTaskUpdated={handleTasksReload} />
-        <TaskDetailModal
-          onTaskUpdated={handleTasksReload}
-          onTaskDeleted={handleTasksReload}
+    <div className="flex flex-col h-screen bg-background">
+      {/* Read-Only Banner */}
+      <ReadOnlyBanner />
+
+      <div className="flex flex-1 overflow-hidden">
+        <Sidebar
+          activeView={activeView}
+          onViewChange={setActiveView}
+          groupInfo={groupInfo}
+          userId={userId}
+          viewMode={viewMode}
         />
-        <SubmitTaskModal onTaskSubmitted={handleTasksReload} />
-        <FilePreviewModal />
-        <ConfirmDialog />
-        <RecurringTaskModal
-          onTaskCreated={handleRecurringRefresh}
-          onTaskUpdated={handleRecurringRefresh}
-        />
-        <RecurringHistoryModal />
-        <InviteMemberModal onInvited={handleMembersRefresh} />
-        <MemberActionsModal onUpdated={handleMembersRefresh} />
-      </MainLayout>
+        <MainLayout>
+          {renderView()}
+          <AddTaskModal onTaskCreated={handleTasksReload} />
+          <EditTaskModal onTaskUpdated={handleTasksReload} />
+          <TaskDetailModal
+            onTaskUpdated={handleTasksReload}
+            onTaskDeleted={handleTasksReload}
+          />
+          <SubmitTaskModal onTaskSubmitted={handleTasksReload} />
+          <FilePreviewModal />
+          <ConfirmDialog />
+          <RecurringTaskModal
+            onTaskCreated={handleRecurringRefresh}
+            onTaskUpdated={handleRecurringRefresh}
+          />
+          <RecurringHistoryModal />
+          <InviteMemberModal onInvited={handleMembersRefresh} />
+          <MemberActionsModal onUpdated={handleMembersRefresh} />
+        </MainLayout>
+      </div>
     </div>
   );
 }
