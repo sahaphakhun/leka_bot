@@ -88,7 +88,19 @@ function AppContent() {
 
   // Handle URL parameter actions (e.g., ?action=new-task)
   useEffect(() => {
-    if (!isAuthenticated() || loading) return;
+    console.log(
+      "🔍 URL Action Effect - isAuth:",
+      isAuthenticated(),
+      "loading:",
+      loading,
+      "canModify:",
+      canModify(),
+    );
+
+    if (!isAuthenticated() || loading) {
+      console.log("⏳ Skipping - not ready yet");
+      return;
+    }
 
     const urlParams = new URLSearchParams(window.location.search);
     const action = urlParams.get("action");
