@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ModalProvider, useModal } from "./context/ModalContext";
 import Sidebar from "./components/layout/Sidebar";
@@ -67,6 +67,11 @@ function AppContent() {
   const [statsPeriod, setStatsPeriod] = useState("this_week");
   const [apiConnected, setApiConnected] = useState(null);
   const filesRefreshKey = 0;
+
+  const setGroupRef = useRef(setGroup);
+  useEffect(() => {
+    setGroupRef.current = setGroup;
+  }, [setGroup]);
 
   const personalMode = isPersonalMode();
   const groupMode = isGroupMode();
@@ -256,7 +261,7 @@ function AppContent() {
         const group = await getGroup(groupId);
         console.log("✅ Group loaded:", group);
         setGroupInfo(group);
-        setGroup(group);
+        setGroupRef.current?.(group);
       } catch (err) {
         console.warn("⚠️ Failed to load group info:", err);
       }
@@ -319,7 +324,6 @@ function AppContent() {
     personalMode,
     groupMode,
     userCanModify,
-    setGroup,
     loadSampleData,
     loadMiniLeaderboard,
     statsPeriod,
