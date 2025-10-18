@@ -80,6 +80,11 @@ export default function AddTaskModal({ onTaskCreated }) {
     }
   }, [isAddTaskOpen, addTaskDefaultTab]);
 
+  useEffect(() => {
+    setIsNormalDateOpen(false);
+    setIsRecurringDateOpen(false);
+  }, [activeTab]);
+
   // Load members from API
   const loadMembers = useCallback(async () => {
     if (!groupId) return;
@@ -306,6 +311,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <div className="space-y-2">
                   <Label>วันที่ครบกำหนด *</Label>
                   <Popover
+                    modal={false}
                     open={isNormalDateOpen}
                     onOpenChange={setIsNormalDateOpen}
                   >
@@ -561,6 +567,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                 <div className="space-y-2">
                   <Label>วันที่เริ่ม *</Label>
                   <Popover
+                    modal={false}
                     open={isRecurringDateOpen}
                     onOpenChange={setIsRecurringDateOpen}
                   >
