@@ -1,4 +1,4 @@
-import { Clock, User } from "lucide-react";
+import { Clock } from "lucide-react";
 
 const normalizeStatus = (status) => {
   if (!status) return "pending";

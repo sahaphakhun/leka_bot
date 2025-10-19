@@ -23,7 +23,21 @@ import {
 } from "../ui/select";
 
 const DAY_HEADERS = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
-const completedStatuses = ["completed", "approved", "done", "submitted"];
+const COMPLETED_STATUSES = new Set([
+  "completed",
+  "approved",
+  "submitted",
+  "reviewed",
+  "auto_approved",
+  "done",
+]);
+const IN_PROGRESS_STATUSES = new Set([
+  "in_progress",
+  "in-progress",
+  "processing",
+  "review",
+]);
+const PENDING_STATUSES = new Set(["pending", "waiting", "scheduled", "new"]);
 
 const startOfDay = (date) => {
   const clone = new Date(date);
@@ -33,16 +47,24 @@ const startOfDay = (date) => {
 
 const getTaskDate = (task) => {
   if (task.dueDate) return new Date(task.dueDate);
+  if (task.dueTime) return new Date(task.dueTime);
   if (task.scheduledDate) return new Date(task.scheduledDate);
+  if (task.startTime) return new Date(task.startTime);
   return null;
 };
 
 const statusLabels = {
   new: "งานใหม่",
+  pending: "รอดำเนินการ",
   scheduled: "รอกำหนดส่ง",
   "in-progress": "กำลังดำเนินการ",
+  in_progress: "กำลังดำเนินการ",
   completed: "เสร็จแล้ว",
+  approved: "อนุมัติแล้ว",
+  submitted: "ส่งแล้ว",
+  reviewed: "ตรวจแล้ว",
   overdue: "เกินกำหนด",
+  cancelled: "ยกเลิก",
 };
 
 const CalendarView = ({ tasks = [] }) => {
@@ -107,7 +129,8 @@ const CalendarView = ({ tasks = [] }) => {
     return weeks;
   }, [currentDate]);
 
-  const isCompleted = (task) => completedStatuses.includes(task.status);
+  const isCompleted = (task) =>
+    COMPLETED_STATUSES.has((task.status || "").toLowerCase());
 
   const filteredTasks = useMemo(() => {
     return tasks.filter((task) => {
@@ -120,22 +143,19 @@ const CalendarView = ({ tasks = [] }) => {
       if (!matchesSearch) return false;
 
       if (filters.status !== "all") {
-        const normalizedStatus = (task.status || "").replace("_", "-");
+        const status = (task.status || "").toLowerCase();
         if (filters.status === "overdue") {
           const date = getTaskDate(task);
-          if (!date || date >= today || isCompleted(task)) return false;
-        } else if (filters.status === "in-progress") {
-          if (
-            !["in-progress", "in-progress", "in_progress"].includes(
-              normalizedStatus,
-            )
-          ) {
-            return false;
+          const isOverdueStatus = status === "overdue";
+          if (!isOverdueStatus) {
+            if (!date || date >= today || isCompleted(task)) return false;
           }
+        } else if (filters.status === "in_progress") {
+          if (!IN_PROGRESS_STATUSES.has(status)) return false;
+        } else if (filters.status === "pending") {
+          if (!PENDING_STATUSES.has(status)) return false;
         } else if (filters.status === "completed") {
-          if (!isCompleted(task)) return false;
-        } else if (normalizedStatus !== filters.status) {
-          return false;
+          if (!COMPLETED_STATUSES.has(status)) return false;
         }
       }
 
@@ -146,13 +166,6 @@ const CalendarView = ({ tasks = [] }) => {
 
       if (filters.assignee !== "all") {
         const assignees = new Set();
-        if (Array.isArray(task.assignees)) {
-          task.assignees.forEach((member) =>
-            assignees.add(
-              member.displayName || member.name || member.lineUserId,
-            ),
-          );
-        }
         if (Array.isArray(task.assignedUsers)) {
           task.assignedUsers.forEach((member) =>
             assignees.add(
@@ -200,11 +213,6 @@ const CalendarView = ({ tasks = [] }) => {
   const assigneeOptions = useMemo(() => {
     const names = new Set();
     tasks.forEach((task) => {
-      if (Array.isArray(task.assignees)) {
-        task.assignees.forEach((member) =>
-          names.add(member.displayName || member.name || member.lineUserId),
-        );
-      }
       if (Array.isArray(task.assignedUsers)) {
         task.assignedUsers.forEach((member) =>
           names.add(member.displayName || member.name || member.lineUserId),
@@ -434,9 +442,8 @@ const CalendarView = ({ tasks = [] }) => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">สถานะ: ทั้งหมด</SelectItem>
-              <SelectItem value="new">งานใหม่</SelectItem>
-              <SelectItem value="scheduled">รอกำหนดส่ง</SelectItem>
-              <SelectItem value="in-progress">กำลังดำเนินการ</SelectItem>
+              <SelectItem value="pending">รอดำเนินการ</SelectItem>
+              <SelectItem value="in_progress">กำลังดำเนินการ</SelectItem>
               <SelectItem value="completed">เสร็จแล้ว</SelectItem>
               <SelectItem value="overdue">เกินกำหนด</SelectItem>
             </SelectContent>
@@ -731,19 +738,13 @@ const CalendarView = ({ tasks = [] }) => {
                 </tr>
               ) : (
                 filteredTasks.map((task) => {
-                  const status = (task.status || "").replace("_", "-");
+                  const statusKey = (task.status || "").toLowerCase();
+                  const statusLabel =
+                    statusLabels[statusKey] ||
+                    statusLabels[statusKey.replace("_", "-")] ||
+                    statusKey;
                   const date = getTaskDate(task);
                   const assignees = [];
-                  if (Array.isArray(task.assignees)) {
-                    assignees.push(
-                      ...task.assignees.map(
-                        (member) =>
-                          member.displayName ||
-                          member.name ||
-                          member.lineUserId,
-                      ),
-                    );
-                  }
                   if (Array.isArray(task.assignedUsers)) {
                     assignees.push(
                       ...task.assignedUsers.map(
@@ -774,7 +775,7 @@ const CalendarView = ({ tasks = [] }) => {
                       </td>
                       <td className="py-3 px-4">
                         <span className="inline-flex items-center rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                          {statusLabels[status] || status}
+                          {statusLabel}
                         </span>
                       </td>
                       <td className="py-3 px-4 capitalize text-gray-600">

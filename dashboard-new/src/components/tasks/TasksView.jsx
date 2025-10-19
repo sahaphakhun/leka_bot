@@ -133,13 +133,6 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
 
       if (filters.assignee) {
         const assignedNames = new Set();
-        if (Array.isArray(task.assignees)) {
-          task.assignees.forEach((member) =>
-            assignedNames.add(
-              member.displayName || member.name || member.lineUserId,
-            ),
-          );
-        }
         if (Array.isArray(task.assignedUsers)) {
           task.assignedUsers.forEach((member) =>
             assignedNames.add(
@@ -177,7 +170,7 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             nextWeek.setDate(nextWeek.getDate() + 7);
             if (!(date >= startOfToday && date <= nextWeek)) return false;
           } else if (filters.due === "overdue") {
-            if (dateValue >= todayValue || task.status === "completed")
+            if (dateValue >= todayValue || completedStatuses.has(task.status))
               return false;
           }
         }

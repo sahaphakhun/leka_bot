@@ -708,15 +708,24 @@ const normalizeTaskStatus = (status) => {
   }
   if (normalized === "cancelled") return "cancelled";
   if (normalized === "overdue") return "overdue";
-  if (normalized === "scheduled") return "pending";
   return normalized;
 };
 
 export const normalizeTask = (task) => {
-  const assignedUsers =
+  let assignedUsers =
     Array.isArray(task.assignedUsers) && task.assignedUsers.length > 0
       ? task.assignedUsers
       : [];
+
+  if (assignedUsers.length === 0 && Array.isArray(task.assigneeLineUserIds)) {
+    assignedUsers = task.assigneeLineUserIds
+      .filter(Boolean)
+      .map((lineUserId) => ({
+        id: lineUserId,
+        lineUserId,
+        displayName: lineUserId,
+      }));
+  }
 
   const primaryAssignee = assignedUsers.length > 0 ? assignedUsers[0] : null;
 
@@ -744,6 +753,11 @@ export const normalizeTask = (task) => {
       : null,
     assignees: Array.isArray(task.assignees) ? task.assignees : [],
     assignedUsers,
+    assigneeLineUserIds: Array.isArray(task.assigneeLineUserIds)
+      ? task.assigneeLineUserIds
+      : Array.isArray(task.assignees)
+        ? task.assignees
+        : [],
     scheduledDate: startTime,
     startTime,
     dueDate: dueTime,

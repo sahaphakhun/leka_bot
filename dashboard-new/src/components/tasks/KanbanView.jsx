@@ -81,6 +81,19 @@ const KanbanView = ({
     if (!status) return "pending";
     const lowered = status.toLowerCase();
     if (lowered === "in-progress") return "in_progress";
+    if (lowered === "waiting" || lowered === "scheduled") return "pending";
+    if (
+      [
+        "approved",
+        "submitted",
+        "reviewed",
+        "auto_approved",
+        "done",
+        "cancelled",
+      ].includes(lowered)
+    ) {
+      return "completed";
+    }
     return lowered;
   };
 

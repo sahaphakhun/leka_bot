@@ -107,7 +107,9 @@ const DashboardView = ({
 
   const getTaskDate = (task) => {
     if (task.dueDate) return new Date(task.dueDate);
+    if (task.dueTime) return new Date(task.dueTime);
     if (task.scheduledDate) return new Date(task.scheduledDate);
+    if (task.startTime) return new Date(task.startTime);
     return null;
   };
 
@@ -230,27 +232,34 @@ const DashboardView = ({
   };
 
   const getAssigneeNames = (task) => {
-    const candidates = task.assignees || task.assignedUsers;
-    if (Array.isArray(candidates) && candidates.length > 0) {
-      return candidates
-        .map(
-          (member) =>
-            member.displayName ||
+    const names = [];
+    if (Array.isArray(task.assignedUsers)) {
+      task.assignedUsers.forEach((member) => {
+        names.push(
+          member.displayName ||
             member.name ||
             member.realName ||
             member.lineUserId,
-        )
-        .join(", ");
+        );
+      });
+    }
+    if (Array.isArray(task.assignees)) {
+      task.assignees.forEach((assignee) => {
+        if (typeof assignee === "string") {
+          names.push(assignee);
+        }
+      });
     }
     if (task.assignee) {
-      return (
+      names.push(
         task.assignee.name ||
-        task.assignee.displayName ||
-        task.assignee.lineUserId ||
-        "ไม่ระบุ"
+          task.assignee.displayName ||
+          task.assignee.lineUserId,
       );
     }
-    return "ไม่ระบุ";
+    const unique = names.filter(Boolean);
+    if (unique.length === 0) return "ไม่ระบุ";
+    return Array.from(new Set(unique)).join(", ");
   };
 
   const memberSummaryItems = useMemo(() => {
