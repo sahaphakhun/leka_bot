@@ -25,10 +25,11 @@ import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { CalendarIcon, X } from "lucide-react";
 import { format } from "date-fns";
+import { th } from "date-fns/locale";
 import { cn } from "../../lib/utils";
 
 export default function AddTaskModal({ onTaskCreated }) {
-  const { groupId } = useAuth();
+  const { groupId, userId } = useAuth();
   const { isAddTaskOpen, closeAddTask, addTaskDefaultTab } = useModal();
   const [activeTab, setActiveTab] = useState("normal");
   const [loading, setLoading] = useState(false);
@@ -179,12 +180,21 @@ export default function AddTaskModal({ onTaskCreated }) {
         );
 
         if (activeTab === "normal") {
+          // Combine date and time into a single DateTime string
+          const dueDate = formatDateForApi(normalTask.dueDate);
+          const dueTimeStr = normalTask.dueTime || "23:59";
+          const combinedDueTime = `${dueDate}T${dueTimeStr}:00.000+07:00`;
+
           const payload = {
-            ...normalTask,
-            dueDate: formatDateForApi(normalTask.dueDate),
-            dueTime: normalTask.dueTime || null,
-            reviewer: normalTask.reviewer || null,
-            assignedUsers: [...new Set(normalTask.assignedUsers)],
+            title: normalTask.title,
+            description: normalTask.description || "",
+            dueTime: combinedDueTime,
+            priority: normalTask.priority,
+            category: normalTask.category,
+            assigneeIds: [...new Set(normalTask.assignedUsers)], // Backend expects assigneeIds
+            reviewerUserId: normalTask.reviewer || null,
+            requireAttachment: false,
+            createdBy: userId, // Required by backend
           };
           await createTask(groupId, payload);
         } else {
@@ -218,6 +228,7 @@ export default function AddTaskModal({ onTaskCreated }) {
       normalTask,
       recurringTask,
       groupId,
+      userId,
       onTaskCreated,
       closeAddTask,
       resetForms,
@@ -309,7 +320,9 @@ export default function AddTaskModal({ onTaskCreated }) {
               {/* Due Date & Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>วันที่ครบกำหนด *</Label>
+                  <Label className="flex items-center gap-1">
+                    วันที่ครบกำหนด <span className="text-red-500">*</span>
+                  </Label>
                   <Popover
                     modal={false}
                     open={isNormalDateOpen}
@@ -320,21 +333,23 @@ export default function AddTaskModal({ onTaskCreated }) {
                         type="button"
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal",
+                          "w-full justify-start text-left font-normal h-10 hover:bg-accent transition-colors",
                           !normalTask.dueDate && "text-muted-foreground",
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                         {normalTask.dueDate
-                          ? format(normalTask.dueDate, "PPP")
+                          ? format(normalTask.dueDate, "d MMMM yyyy", {
+                              locale: th,
+                            })
                           : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
                       align="start"
-                      sideOffset={8}
+                      sideOffset={12}
                       side="bottom"
-                      className="w-auto p-0"
+                      className="w-auto p-0 shadow-xl border-2"
                     >
                       <Calendar
                         mode="single"
@@ -351,13 +366,19 @@ export default function AddTaskModal({ onTaskCreated }) {
                           setIsNormalDateOpen(false);
                         }}
                         initialFocus
+                        fromDate={new Date()}
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="dueTime">เวลา</Label>
+                  <Label htmlFor="dueTime" className="flex items-center gap-1">
+                    เวลา{" "}
+                    <span className="text-muted-foreground text-xs">
+                      (เริ่มต้น 23:59)
+                    </span>
+                  </Label>
                   <Input
                     id="dueTime"
                     type="time"
@@ -365,6 +386,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                     onChange={(e) =>
                       setNormalTask({ ...normalTask, dueTime: e.target.value })
                     }
+                    className="h-10"
                   />
                 </div>
               </div>
@@ -565,7 +587,9 @@ export default function AddTaskModal({ onTaskCreated }) {
               {/* Start Date & Time */}
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>วันที่เริ่ม *</Label>
+                  <Label className="flex items-center gap-1">
+                    วันที่เริ่ม <span className="text-red-500">*</span>
+                  </Label>
                   <Popover
                     modal={false}
                     open={isRecurringDateOpen}
@@ -576,21 +600,23 @@ export default function AddTaskModal({ onTaskCreated }) {
                         type="button"
                         variant="outline"
                         className={cn(
-                          "w-full justify-start text-left font-normal",
+                          "w-full justify-start text-left font-normal h-10 hover:bg-accent transition-colors",
                           !recurringTask.startDate && "text-muted-foreground",
                         )}
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
+                        <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
                         {recurringTask.startDate
-                          ? format(recurringTask.startDate, "PPP")
+                          ? format(recurringTask.startDate, "d MMMM yyyy", {
+                              locale: th,
+                            })
                           : "เลือกวันที่"}
                       </Button>
                     </PopoverTrigger>
                     <PopoverContent
                       align="start"
-                      sideOffset={8}
+                      sideOffset={12}
                       side="bottom"
-                      className="w-auto p-0"
+                      className="w-auto p-0 shadow-xl border-2"
                     >
                       <Calendar
                         mode="single"
@@ -610,13 +636,22 @@ export default function AddTaskModal({ onTaskCreated }) {
                           setIsRecurringDateOpen(false);
                         }}
                         initialFocus
+                        fromDate={new Date()}
                       />
                     </PopoverContent>
                   </Popover>
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="recurring-time">เวลา</Label>
+                  <Label
+                    htmlFor="recurring-time"
+                    className="flex items-center gap-1"
+                  >
+                    เวลา{" "}
+                    <span className="text-muted-foreground text-xs">
+                      (เริ่มต้น 09:00)
+                    </span>
+                  </Label>
                   <Input
                     id="recurring-time"
                     type="time"
@@ -627,6 +662,7 @@ export default function AddTaskModal({ onTaskCreated }) {
                         time: e.target.value,
                       })
                     }
+                    className="h-10"
                   />
                 </div>
               </div>
