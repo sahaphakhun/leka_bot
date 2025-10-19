@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Plus,
   Mail,
@@ -21,7 +22,7 @@ import {
 import { CSS } from "@dnd-kit/utilities";
 import TaskCard from "../common/TaskCard";
 import { useAuth } from "../../context/AuthContext";
-import { showWarning } from "../../lib/toast";
+import { showWarning, showSuccess, showError } from "../../lib/toast";
 
 // Draggable Task Card Component
 const DraggableTaskCard = ({ task, onClick }) => {
@@ -59,7 +60,8 @@ const KanbanView = ({
   onTaskClick,
   onCreateTask,
 }) => {
-  const { canModify } = useAuth();
+  const { canModify, groupId } = useAuth();
+  const [updating, setUpdating] = useState(false);
 
   const completedStatuses = new Set([
     "completed",
@@ -136,7 +138,7 @@ const KanbanView = ({
     return tasks.filter((task) => column.match(normalizeStatus(task.status)));
   };
 
-  const handleDragEnd = (event) => {
+  const handleDragEnd = async (event) => {
     const { active, over } = event;
 
     if (!over) return;
@@ -169,18 +171,49 @@ const KanbanView = ({
       if (overColumn.id === "overdue") newStatus = "overdue";
       if (overColumn.id === "completed") newStatus = "completed";
 
+      // Optimistic update - call parent callback immediately
       if (onTaskUpdate) {
         onTaskUpdate(activeTask.id, { status: newStatus });
       }
 
-      console.log(
-        `Task ${activeTask.id} moved from ${normalizedStatus} to ${newStatus}`,
-      );
+      // Persist to backend with loading overlay
+      setUpdating(true);
+      try {
+        const { updateTask } = await import("../../services/api");
+        await updateTask(groupId, activeTask.id, { status: newStatus });
+
+        showSuccess(`อัปเดตสถานะเป็น "${overColumn.title}" สำเร็จ`);
+        console.log(
+          `✅ Task ${activeTask.id} moved from ${normalizedStatus} to ${newStatus}`,
+        );
+      } catch (error) {
+        console.error("❌ Failed to update task status:", error);
+        showError("ไม่สามารถอัปเดตสถานะงานได้", error);
+
+        // Rollback on error - revert to original status
+        if (onTaskUpdate) {
+          onTaskUpdate(activeTask.id, { status: activeTask.status });
+        }
+      } finally {
+        setUpdating(false);
+      }
     }
   };
 
   return (
-    <div className="p-6">
+    <div className="p-6 relative">
+      {/* Loading overlay during update */}
+      {updating && (
+        <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
+          <div className="bg-white rounded-lg shadow-lg p-6 flex items-center gap-3">
+            <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-blue-500" />
+            <span className="text-gray-700 font-medium">
+              กำลังอัปเดตสถานะงาน...
+            </span>
+          </div>
+        </div>
+      )}
+
       <DndContext
         sensors={sensors}
         collisionDetection={closestCorners}
