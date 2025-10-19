@@ -545,6 +545,13 @@ export const updateUserProfile = async (userId, groupId, profileData = {}) => {
   });
 };
 
+export const getUserTasks = async (userId, params = {}) => {
+  if (!userId) return [];
+  const url = buildUrl(`/users/${userId}/tasks`, params);
+  const res = await apiCall(url);
+  return res?.data ?? res ?? [];
+};
+
 // ==================== Recurring Task APIs ====================
 
 export const listRecurringTasks = async (groupId) => {
@@ -956,6 +963,7 @@ export default {
   getUserScoreHistory,
   getUserAverageScore,
   getUserProfile,
+  getUserTasks,
   updateUserProfile,
   listRecurringTasks,
   getRecurringTask,

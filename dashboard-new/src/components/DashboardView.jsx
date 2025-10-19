@@ -38,7 +38,22 @@ const statusLabels = {
   overdue: "เกินกำหนด",
 };
 
-const completedStatuses = ["completed", "approved", "done", "submitted"];
+const completedStatuses = new Set([
+  "completed",
+  "approved",
+  "submitted",
+  "reviewed",
+  "auto_approved",
+  "done",
+  "cancelled",
+]);
+const inProgressStatuses = new Set([
+  "in-progress",
+  "in_progress",
+  "processing",
+  "review",
+]);
+const pendingStatuses = new Set(["pending", "waiting", "scheduled", "new"]);
 
 const rankEmojis = ["🥇", "🥈", "🥉"];
 
@@ -113,23 +128,29 @@ const DashboardView = ({
     return null;
   };
 
-  const isCompleted = (status) => completedStatuses.includes(status);
+  const isCompleted = (status) =>
+    status ? completedStatuses.has(status.toLowerCase()) : false;
 
   const statsData = useMemo(() => {
     const defaultStats = {
       totalTasks: tasks.length,
       completedTasks: tasks.filter((t) => isCompleted(t.status)).length,
-      pendingTasks: tasks.filter((t) => !isCompleted(t.status)).length,
+      pendingTasks: tasks.filter((t) =>
+        pendingStatuses.has((t.status || "").toLowerCase()),
+      ).length,
       inProgressTasks: tasks.filter((t) =>
-        ["in-progress", "in_progress"].includes(t.status),
+        inProgressStatuses.has((t.status || "").toLowerCase()),
       ).length,
       overdueTasks: tasks.filter((t) => {
         const date = getTaskDate(t);
         if (!date) return false;
         return date < today && !isCompleted(t.status);
       }).length,
-      newTasks: tasks.filter((t) => t.status === "new").length,
-      scheduledTasks: tasks.filter((t) => t.status === "scheduled").length,
+      newTasks: tasks.filter((t) => (t.status || "").toLowerCase() === "new")
+        .length,
+      scheduledTasks: tasks.filter(
+        (t) => (t.status || "").toLowerCase() === "scheduled",
+      ).length,
     };
     return { ...defaultStats, ...stats };
   }, [tasks, stats, today]);
