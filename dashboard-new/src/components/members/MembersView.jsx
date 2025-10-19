@@ -25,6 +25,9 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "../ui/dropdown-menu";
+import { SmartPagination } from "../ui/pagination";
+
+const ITEMS_PER_PAGE = 20;
 
 export default function MembersView({ refreshKey = 0 }) {
   const { groupId } = useAuth();
@@ -35,6 +38,7 @@ export default function MembersView({ refreshKey = 0 }) {
   const [roleFilter, setRoleFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [exporting, setExporting] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     loadMembers();
@@ -80,6 +84,20 @@ export default function MembersView({ refreshKey = 0 }) {
       return true;
     });
   }, [members, searchTerm, roleFilter, statusFilter]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, roleFilter, statusFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredMembers.length / ITEMS_PER_PAGE);
+
+  const paginatedMembers = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredMembers.slice(startIndex, endIndex);
+  }, [filteredMembers, currentPage]);
 
   const handleExportMembers = async (format) => {
     setExporting(true);
@@ -224,7 +242,7 @@ export default function MembersView({ refreshKey = 0 }) {
               : "ยังไม่มีสมาชิกในกลุ่ม"}
           </div>
         ) : (
-          filteredMembers.map((member) => (
+          paginatedMembers.map((member) => (
             <MemberCard
               key={member.lineUserId}
               member={member}
@@ -233,6 +251,18 @@ export default function MembersView({ refreshKey = 0 }) {
           ))
         )}
       </div>
+
+      {totalPages > 1 && (
+        <div className="mt-6">
+          <SmartPagination
+            currentPage={currentPage}
+            totalPages={totalPages}
+            onPageChange={setCurrentPage}
+            totalItems={filteredMembers.length}
+            itemsPerPage={ITEMS_PER_PAGE}
+          />
+        </div>
+      )}
     </div>
   );
 }
