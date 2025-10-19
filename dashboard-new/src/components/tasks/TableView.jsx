@@ -10,8 +10,38 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
     completed: false,
   });
 
-  const activeTasks = tasks.filter((t) => t.status !== "completed");
-  const completedTasks = tasks.filter((t) => t.status === "completed");
+  const completedStatuses = new Set([
+    "completed",
+    "approved",
+    "submitted",
+    "reviewed",
+    "auto_approved",
+    "cancelled",
+  ]);
+
+  const mapStatusKey = (status) => {
+    if (!status) return "pending";
+    const normalized = status.toLowerCase();
+    if (normalized === "in-progress") return "in_progress";
+    if (normalized === "waiting") return "pending";
+    if (
+      normalized === "approved" ||
+      normalized === "submitted" ||
+      normalized === "reviewed" ||
+      normalized === "auto_approved"
+    ) {
+      return "completed";
+    }
+    if (normalized === "cancelled") return "cancelled";
+    return normalized;
+  };
+
+  const activeTasks = tasks.filter(
+    (task) => !completedStatuses.has(task.status),
+  );
+  const completedTasks = tasks.filter((task) =>
+    completedStatuses.has(task.status),
+  );
 
   const toggleSection = (section) => {
     setExpandedSections((prev) => ({
@@ -23,16 +53,24 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
   const getStatusBadge = (status) => {
     const normalized = status?.replace("_", "-");
     const statusMap = {
-      new: { class: "bg-purple-100 text-purple-700", label: "งานใหม่" },
+      pending: { class: "bg-blue-100 text-blue-700", label: "รอดำเนินการ" },
       scheduled: { class: "bg-blue-100 text-blue-700", label: "รอกำหนดส่ง" },
       "in-progress": {
         class: "bg-amber-100 text-amber-700",
         label: "กำลังดำเนินการ",
       },
+      in_progress: {
+        class: "bg-amber-100 text-amber-700",
+        label: "กำลังดำเนินการ",
+      },
       completed: { class: "bg-green-100 text-green-700", label: "เสร็จแล้ว" },
+      approved: { class: "bg-green-100 text-green-700", label: "อนุมัติแล้ว" },
+      submitted: { class: "bg-green-100 text-green-700", label: "ส่งแล้ว" },
+      reviewed: { class: "bg-green-100 text-green-700", label: "ตรวจแล้ว" },
       overdue: { class: "bg-red-100 text-red-700", label: "เกินกำหนด" },
+      cancelled: { class: "bg-gray-200 text-gray-700", label: "ยกเลิก" },
     };
-    return statusMap[normalized] || statusMap["new"];
+    return statusMap[normalized] || statusMap.pending;
   };
 
   const formatTaskType = (type) => {
@@ -60,11 +98,6 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
 
   const getAssigneeNames = (task) => {
     const candidates = [];
-    if (Array.isArray(task.assignees)) {
-      task.assignees.forEach((member) =>
-        candidates.push(member.displayName || member.name || member.lineUserId),
-      );
-    }
     if (Array.isArray(task.assignedUsers)) {
       task.assignedUsers.forEach((member) =>
         candidates.push(member.displayName || member.name || member.lineUserId),
@@ -83,7 +116,7 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
   };
 
   const TaskRow = ({ task, onClick }) => {
-    const statusBadge = getStatusBadge(task.status);
+    const statusBadge = getStatusBadge(mapStatusKey(task.status));
 
     return (
       <div

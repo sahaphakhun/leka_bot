@@ -1,22 +1,42 @@
-import { useMemo, useState } from 'react';
-import { Plus, Table, LayoutGrid, RotateCcw, Filter } from 'lucide-react';
-import TableView from './TableView';
-import KanbanView from './KanbanView';
-import { useModal } from '../../context/ModalContext';
+import { useMemo, useState } from "react";
+import { Plus, Table, LayoutGrid, RotateCcw, Filter } from "lucide-react";
+import TableView from "./TableView";
+import KanbanView from "./KanbanView";
+import { useModal } from "../../context/ModalContext";
 
 const TasksView = ({ tasks = [], onTaskUpdate }) => {
-  const [viewMode, setViewMode] = useState('table'); // 'table' | 'kanban'
+  const completedStatuses = useMemo(
+    () =>
+      new Set([
+        "completed",
+        "approved",
+        "submitted",
+        "reviewed",
+        "auto_approved",
+      ]),
+    [],
+  );
+  const inProgressStatuses = useMemo(
+    () => new Set(["in_progress", "in-progress", "processing", "review"]),
+    [],
+  );
+  const pendingStatuses = useMemo(
+    () => new Set(["pending", "waiting", "scheduled", "new"]),
+    [],
+  );
+
+  const [viewMode, setViewMode] = useState("table"); // 'table' | 'kanban'
   const [filters, setFilters] = useState({
-    status: '',
-    priority: '',
-    assignee: '',
-    due: '',
-    search: '',
+    status: "",
+    priority: "",
+    assignee: "",
+    due: "",
+    search: "",
   });
   const { openAddTask, openTaskDetail } = useModal();
 
   const handleAddTask = () => {
-    openAddTask('normal');
+    openAddTask("normal");
   };
 
   const handleTaskClick = (task) => {
@@ -28,16 +48,17 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
   const assigneeOptions = useMemo(() => {
     const names = new Set();
     tasks.forEach((task) => {
-      if (Array.isArray(task.assignees)) {
-        task.assignees.forEach((member) =>
-          names.add(member.displayName || member.name || member.lineUserId)
-        );
-      } else if (Array.isArray(task.assignedUsers)) {
+      if (Array.isArray(task.assignedUsers)) {
         task.assignedUsers.forEach((member) =>
-          names.add(member.displayName || member.name || member.lineUserId)
+          names.add(member.displayName || member.name || member.lineUserId),
         );
-      } else if (task.assignee) {
-        names.add(task.assignee.name || task.assignee.displayName || task.assignee.lineUserId);
+      }
+      if (task.assignee) {
+        names.add(
+          task.assignee.name ||
+            task.assignee.displayName ||
+            task.assignee.lineUserId,
+        );
       }
     });
     return Array.from(names);
@@ -45,7 +66,9 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
 
   const getTaskDate = (task) => {
     if (task.dueDate) return new Date(task.dueDate);
+    if (task.dueTime) return new Date(task.dueTime);
     if (task.scheduledDate) return new Date(task.scheduledDate);
+    if (task.startTime) return new Date(task.startTime);
     return null;
   };
 
@@ -65,43 +88,70 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
     return tasks.filter((task) => {
       const matchesSearch =
         !filters.search ||
-        (task.title || '').toLowerCase().includes(filters.search.toLowerCase()) ||
-        (task.description || '').toLowerCase().includes(filters.search.toLowerCase());
+        (task.title || "")
+          .toLowerCase()
+          .includes(filters.search.toLowerCase()) ||
+        (task.description || "")
+          .toLowerCase()
+          .includes(filters.search.toLowerCase());
 
       if (!matchesSearch) return false;
 
       if (filters.status) {
-        if (filters.status === 'pending') {
-          if (!['new', 'scheduled'].includes(task.status)) return false;
-        } else if (filters.status === 'in_progress') {
-          if (!['in-progress', 'in_progress'].includes(task.status)) return false;
-        } else if (filters.status === 'completed') {
-          if (task.status !== 'completed') return false;
-        } else if (filters.status === 'overdue') {
+        const status = task.status;
+        if (filters.status === "pending" && !pendingStatuses.has(status)) {
+          return false;
+        }
+        if (
+          filters.status === "in_progress" &&
+          !inProgressStatuses.has(status)
+        ) {
+          return false;
+        }
+        if (filters.status === "completed" && !completedStatuses.has(status)) {
+          return false;
+        }
+        if (filters.status === "overdue") {
           const date = getTaskDate(task);
-          if (!date || date >= startOfToday || task.status === 'completed') return false;
+          const isOverdueStatus = status === "overdue";
+          if (!isOverdueStatus) {
+            if (
+              !date ||
+              date >= startOfToday ||
+              completedStatuses.has(status)
+            ) {
+              return false;
+            }
+          }
         }
       }
 
       if (filters.priority) {
-        if ((task.priority || '').toLowerCase() !== filters.priority) return false;
+        if ((task.priority || "").toLowerCase() !== filters.priority)
+          return false;
       }
 
       if (filters.assignee) {
         const assignedNames = new Set();
         if (Array.isArray(task.assignees)) {
           task.assignees.forEach((member) =>
-            assignedNames.add(member.displayName || member.name || member.lineUserId)
+            assignedNames.add(
+              member.displayName || member.name || member.lineUserId,
+            ),
           );
         }
         if (Array.isArray(task.assignedUsers)) {
           task.assignedUsers.forEach((member) =>
-            assignedNames.add(member.displayName || member.name || member.lineUserId)
+            assignedNames.add(
+              member.displayName || member.name || member.lineUserId,
+            ),
           );
         }
         if (task.assignee) {
           assignedNames.add(
-            task.assignee.name || task.assignee.displayName || task.assignee.lineUserId
+            task.assignee.name ||
+              task.assignee.displayName ||
+              task.assignee.lineUserId,
           );
         }
         if (!assignedNames.has(filters.assignee)) return false;
@@ -110,24 +160,25 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
       if (filters.due) {
         const date = getTaskDate(task);
         if (!date) {
-          if (filters.due !== 'unscheduled') return false;
+          if (filters.due !== "unscheduled") return false;
         } else {
           const dateValue = date.getTime();
           const todayValue = startOfToday.getTime();
-          if (filters.due === 'today') {
+          if (filters.due === "today") {
             if (!(date >= startOfToday && date <= endOfToday)) return false;
-          } else if (filters.due === 'tomorrow') {
+          } else if (filters.due === "tomorrow") {
             const tomorrow = new Date(startOfToday);
             tomorrow.setDate(tomorrow.getDate() + 1);
             const endTomorrow = new Date(tomorrow);
             endTomorrow.setHours(23, 59, 59, 999);
             if (!(date >= tomorrow && date <= endTomorrow)) return false;
-          } else if (filters.due === 'week') {
+          } else if (filters.due === "week") {
             const nextWeek = new Date(startOfToday);
             nextWeek.setDate(nextWeek.getDate() + 7);
             if (!(date >= startOfToday && date <= nextWeek)) return false;
-          } else if (filters.due === 'overdue') {
-            if (dateValue >= todayValue || task.status === 'completed') return false;
+          } else if (filters.due === "overdue") {
+            if (dateValue >= todayValue || task.status === "completed")
+              return false;
           }
         }
       }
@@ -138,25 +189,38 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
 
   const resetFilters = () => {
     setFilters({
-      status: '',
-      priority: '',
-      assignee: '',
-      due: '',
-      search: '',
+      status: "",
+      priority: "",
+      assignee: "",
+      due: "",
+      search: "",
     });
   };
 
   const summaryCounts = useMemo(() => {
     const total = filteredTasks.length;
-    const pending = filteredTasks.filter((task) => ['new', 'scheduled'].includes(task.status)).length;
-    const inProgress = filteredTasks.filter((task) => ['in-progress', 'in_progress'].includes(task.status)).length;
-    const completed = filteredTasks.filter((task) => task.status === 'completed').length;
+    const pending = filteredTasks.filter((task) =>
+      pendingStatuses.has(task.status),
+    ).length;
+    const inProgress = filteredTasks.filter((task) =>
+      inProgressStatuses.has(task.status),
+    ).length;
+    const completed = filteredTasks.filter((task) =>
+      completedStatuses.has(task.status),
+    ).length;
     const overdue = filteredTasks.filter((task) => {
+      if (task.status === "overdue") return true;
       const date = getTaskDate(task);
-      return date && date < startOfToday && task.status !== 'completed';
+      return date && date < startOfToday && !completedStatuses.has(task.status);
     }).length;
     return { total, pending, inProgress, completed, overdue };
-  }, [filteredTasks, startOfToday]);
+  }, [
+    filteredTasks,
+    startOfToday,
+    completedStatuses,
+    inProgressStatuses,
+    pendingStatuses,
+  ]);
 
   return (
     <div>
@@ -174,25 +238,25 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
               เพิ่มงาน
             </button>
           </div>
-          
+
           <div className="flex items-center gap-2">
             <button
-              onClick={() => setViewMode('table')}
+              onClick={() => setViewMode("table")}
               className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
-                viewMode === 'table'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white border border-border text-gray-700 hover:bg-gray-50'
+                viewMode === "table"
+                  ? "bg-blue-500 text-white"
+                  : "bg-white border border-border text-gray-700 hover:bg-gray-50"
               }`}
             >
               <Table size={16} />
               มุมมองตาราง
             </button>
             <button
-              onClick={() => setViewMode('kanban')}
+              onClick={() => setViewMode("kanban")}
               className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
-                viewMode === 'kanban'
-                  ? 'bg-blue-500 text-white'
-                  : 'bg-white border border-border text-gray-700 hover:bg-gray-50'
+                viewMode === "kanban"
+                  ? "bg-blue-500 text-white"
+                  : "bg-white border border-border text-gray-700 hover:bg-gray-50"
               }`}
             >
               <LayoutGrid size={16} />
@@ -210,11 +274,15 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-2">สถานะ</label>
+            <label className="block text-xs font-semibold text-gray-500 mb-2">
+              สถานะ
+            </label>
             <select
               className="w-full border border-border rounded-md px-3 py-2 text-sm"
               value={filters.status}
-              onChange={(e) => setFilters((prev) => ({ ...prev, status: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, status: e.target.value }))
+              }
             >
               <option value="">ทั้งหมด</option>
               <option value="pending">รอดำเนินการ</option>
@@ -224,11 +292,15 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-2">ความสำคัญ</label>
+            <label className="block text-xs font-semibold text-gray-500 mb-2">
+              ความสำคัญ
+            </label>
             <select
               className="w-full border border-border rounded-md px-3 py-2 text-sm"
               value={filters.priority}
-              onChange={(e) => setFilters((prev) => ({ ...prev, priority: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, priority: e.target.value }))
+              }
             >
               <option value="">ทั้งหมด</option>
               <option value="low">ต่ำ</option>
@@ -238,11 +310,15 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-2">ผู้รับผิดชอบ</label>
+            <label className="block text-xs font-semibold text-gray-500 mb-2">
+              ผู้รับผิดชอบ
+            </label>
             <select
               className="w-full border border-border rounded-md px-3 py-2 text-sm"
               value={filters.assignee}
-              onChange={(e) => setFilters((prev) => ({ ...prev, assignee: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, assignee: e.target.value }))
+              }
             >
               <option value="">ทั้งหมด</option>
               {assigneeOptions.map((name) => (
@@ -253,11 +329,15 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             </select>
           </div>
           <div>
-            <label className="block text-xs font-semibold text-gray-500 mb-2">กำหนดส่ง</label>
+            <label className="block text-xs font-semibold text-gray-500 mb-2">
+              กำหนดส่ง
+            </label>
             <select
               className="w-full border border-border rounded-md px-3 py-2 text-sm"
               value={filters.due}
-              onChange={(e) => setFilters((prev) => ({ ...prev, due: e.target.value }))}
+              onChange={(e) =>
+                setFilters((prev) => ({ ...prev, due: e.target.value }))
+              }
             >
               <option value="">ทั้งหมด</option>
               <option value="today">วันนี้</option>
@@ -275,7 +355,9 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             placeholder="ค้นหาชื่องานหรือรายละเอียด..."
             className="flex-1 border border-border rounded-md px-3 py-2 text-sm"
             value={filters.search}
-            onChange={(e) => setFilters((prev) => ({ ...prev, search: e.target.value }))}
+            onChange={(e) =>
+              setFilters((prev) => ({ ...prev, search: e.target.value }))
+            }
           />
           <button
             type="button"
@@ -292,25 +374,33 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
             <p className="text-xs text-blue-700">งานที่แสดง</p>
-            <p className="text-2xl font-semibold text-blue-700">{summaryCounts.total}</p>
+            <p className="text-2xl font-semibold text-blue-700">
+              {summaryCounts.total}
+            </p>
           </div>
           <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
             <p className="text-xs text-amber-700">รอดำเนินการ</p>
-            <p className="text-2xl font-semibold text-amber-700">{summaryCounts.pending + summaryCounts.inProgress}</p>
+            <p className="text-2xl font-semibold text-amber-700">
+              {summaryCounts.pending + summaryCounts.inProgress}
+            </p>
           </div>
           <div className="rounded-lg border border-green-100 bg-green-50 p-4">
             <p className="text-xs text-green-700">เสร็จแล้ว</p>
-            <p className="text-2xl font-semibold text-green-700">{summaryCounts.completed}</p>
+            <p className="text-2xl font-semibold text-green-700">
+              {summaryCounts.completed}
+            </p>
           </div>
           <div className="rounded-lg border border-red-100 bg-red-50 p-4">
             <p className="text-xs text-red-700">เกินกำหนด</p>
-            <p className="text-2xl font-semibold text-red-700">{summaryCounts.overdue}</p>
+            <p className="text-2xl font-semibold text-red-700">
+              {summaryCounts.overdue}
+            </p>
           </div>
         </div>
       </div>
 
       {/* Content */}
-      {viewMode === 'table' ? (
+      {viewMode === "table" ? (
         <TableView
           tasks={filteredTasks}
           onTaskUpdate={onTaskUpdate}

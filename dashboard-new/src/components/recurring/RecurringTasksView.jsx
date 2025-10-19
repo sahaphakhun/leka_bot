@@ -33,6 +33,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   const { openRecurringTask, openRecurringHistory, openConfirmDialog } =
     useModal();
   const [recurringTasks, setRecurringTasks] = useState([]);
+  const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [searchTerm, setSearchTerm] = useState("");
@@ -43,25 +44,46 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
     loadRecurringTasks();
   }, [groupId, refreshKey]);
 
+  useEffect(() => {
+    if (!groupId) return;
+    const fetchMembers = async () => {
+      try {
+        const { getGroupMembers } = await import("../../services/api");
+        const response = await getGroupMembers(groupId);
+        const list = Array.isArray(response?.data)
+          ? response.data
+          : Array.isArray(response?.members)
+            ? response.members
+            : Array.isArray(response)
+              ? response
+              : [];
+        setMembers(list);
+      } catch (memberError) {
+        console.warn("⚠️ ไม่สามารถโหลดรายชื่อสมาชิกได้", memberError);
+      }
+    };
+    fetchMembers();
+  }, [groupId]);
+
   const loadRecurringTasks = async () => {
     setLoading(true);
     setError(null);
     try {
+      if (!groupId) {
+        setRecurringTasks([]);
+        setLoading(false);
+        return;
+      }
       const { listRecurringTasks } = await import("../../services/api");
       const data = await listRecurringTasks(groupId);
-      // Ensure array and normalize minimal fields
-      const items = Array.isArray(data) ? data : data?.items || [];
-      setRecurringTasks(
-        items.map((t) => ({
-          id: t.id,
-          title: t.title || t.name || "Untitled",
-          recurrence: t.recurrence || t.frequency || "custom",
-          isActive: !!(t.isActive ?? t.active ?? true),
-          nextRun: t.nextRun || t.nextSchedule || null,
-          createdCount: t.createdCount ?? t.count ?? 0,
-          assignedUsers: t.assignedUsers || t.assignees || [],
-        })),
-      );
+      const items = Array.isArray(data)
+        ? data
+        : Array.isArray(data?.data)
+          ? data.data
+          : Array.isArray(data?.items)
+            ? data.items
+            : [];
+      setRecurringTasks(items);
       console.log("✅ Loaded recurring tasks:", items.length);
     } catch (error) {
       console.error("❌ Failed to load recurring tasks:", error);
@@ -96,7 +118,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
       showWarning("คุณไม่มีสิทธิ์แก้ไขงานประจำ");
       return;
     }
-    openRecurringTask(task);
+    openRecurringTask(task.original || task);
   };
 
   const handleDelete = (task) => {
@@ -120,8 +142,102 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   };
 
   const handleViewHistory = (task) => {
-    openRecurringHistory(task);
+    openRecurringHistory(task.original || task);
   };
+
+  const membersMap = useMemo(() => {
+    const map = new Map();
+    members.forEach((member) => {
+      const ids = [member.lineUserId, member.id, member.userId]
+        .filter(Boolean)
+        .map((id) => id.toString());
+      ids.forEach((id) => {
+        map.set(id, member);
+        map.set(id.toLowerCase(), member);
+      });
+    });
+    return map;
+  }, [members]);
+
+  const normalizedTasks = useMemo(() => {
+    const toDisplayUser = (lineId) => {
+      if (!lineId) return null;
+      const match =
+        membersMap.get(lineId) || membersMap.get(lineId.toLowerCase());
+      if (!match) {
+        return {
+          lineUserId: lineId,
+          displayName: lineId,
+        };
+      }
+      return match;
+    };
+
+    return recurringTasks.map((task) => {
+      const assigneeIds = Array.isArray(task.assigneeLineUserIds)
+        ? task.assigneeLineUserIds
+        : [];
+
+      const seen = new Set();
+      const assignedUsers = assigneeIds
+        .map((id) => toDisplayUser(id))
+        .filter(Boolean)
+        .map((member) => ({
+          id: member.id || member.userId || member.lineUserId,
+          lineUserId: member.lineUserId || member.id || member.userId,
+          displayName:
+            member.displayName ||
+            member.realName ||
+            member.name ||
+            member.lineUserId,
+        }))
+        .filter((member) => {
+          const key = member.lineUserId || member.id;
+          if (!key) return false;
+          const norm = key.toLowerCase();
+          if (seen.has(norm)) return false;
+          seen.add(norm);
+          return true;
+        });
+
+      return {
+        id: task.id,
+        title: task.title || task.name || "Untitled",
+        description: task.description || "",
+        recurrence: (
+          task.recurrence ||
+          task.frequency ||
+          "weekly"
+        ).toLowerCase(),
+        isActive: Boolean(task.active ?? task.isActive ?? true),
+        active: Boolean(task.active ?? task.isActive ?? true),
+        nextRunAt:
+          task.nextRunAt ||
+          task.nextRun ||
+          task.nextSchedule ||
+          task.nextDueTime ||
+          null,
+        lastRunAt: task.lastRunAt || task.lastRun || null,
+        totalInstances:
+          task.totalInstances ?? task.createdCount ?? task.count ?? 0,
+        assigneeLineUserIds: assigneeIds,
+        assignedUsers,
+        reviewerLineUserId: task.reviewerLineUserId || task.reviewer || null,
+        requireAttachment: Boolean(
+          task.requireAttachment ?? task.requiresAttachment ?? false,
+        ),
+        priority: (task.priority || "medium").toLowerCase(),
+        tags: Array.isArray(task.tags) ? task.tags : [],
+        weekDay: task.weekDay ?? task.dayOfWeek ?? null,
+        dayOfMonth: task.dayOfMonth ?? task.dateOfMonth ?? null,
+        timeOfDay: task.timeOfDay || task.initialTime || "09:00",
+        timezone: task.timezone || "Asia/Bangkok",
+        createdAt: task.createdAt || null,
+        updatedAt: task.updatedAt || null,
+        original: task,
+      };
+    });
+  }, [recurringTasks, membersMap]);
 
   const getRecurrenceLabel = (recurrence) => {
     const labels = {
@@ -134,7 +250,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
     return labels[recurrence] || recurrence;
   };
 
-  const filteredTasks = recurringTasks.filter((task) => {
+  const filteredTasks = normalizedTasks.filter((task) => {
     const matchesSearch = (task.title || "")
       .toLowerCase()
       .includes((searchTerm || "").toLowerCase());
@@ -150,15 +266,15 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   });
 
   const summary = useMemo(() => {
-    const total = recurringTasks.length;
-    const active = recurringTasks.filter((task) => task.isActive).length;
+    const total = normalizedTasks.length;
+    const active = normalizedTasks.filter((task) => task.isActive).length;
     const paused = total - active;
-    const totalInstances = recurringTasks.reduce(
-      (sum, task) => sum + (task.createdCount || 0),
+    const totalInstances = normalizedTasks.reduce(
+      (sum, task) => sum + (task.totalInstances || 0),
       0,
     );
-    const nextTask = recurringTasks
-      .map((task) => task.nextRun)
+    const nextTask = normalizedTasks
+      .map((task) => task.nextRunAt)
       .filter(Boolean)
       .map((date) => new Date(date))
       .sort((a, b) => a - b)[0];
@@ -210,7 +326,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   }
 
   // Empty State (when no error but also no tasks)
-  if (!loading && !error && recurringTasks.length === 0) {
+  if (!loading && !error && normalizedTasks.length === 0) {
     return (
       <div className="p-6">
         <div className="flex items-center justify-between mb-6">
@@ -362,7 +478,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
 
       {/* Results Count */}
       <div className="text-sm text-muted-foreground">
-        แสดง {filteredTasks.length} จาก {recurringTasks.length} งานประจำ
+        แสดง {filteredTasks.length} จาก {normalizedTasks.length} งานประจำ
       </div>
 
       {/* Table */}
@@ -420,6 +536,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
                         <Switch
                           checked={task.isActive}
                           onCheckedChange={() => handleToggleActive(task)}
+                          disabled={!canModify()}
                         />
                         <Badge
                           className={
@@ -433,16 +550,16 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
                       </div>
                     </td>
                     <td className="px-6 py-4">
-                      {task.nextRun ? (
+                      {task.nextRunAt ? (
                         <div className="text-sm">
                           <div className="flex items-center gap-1 text-gray-900">
                             <Calendar className="w-3 h-3" />
-                            {format(new Date(task.nextRun), "dd MMM yyyy", {
+                            {format(new Date(task.nextRunAt), "dd MMM yyyy", {
                               locale: th,
                             })}
                           </div>
                           <div className="text-gray-500">
-                            {format(new Date(task.nextRun), "HH:mm")}
+                            {format(new Date(task.nextRunAt), "HH:mm")}
                           </div>
                         </div>
                       ) : (
@@ -450,7 +567,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
                       )}
                     </td>
                     <td className="px-6 py-4">
-                      <span className="text-sm">{task.createdCount} งาน</span>
+                      <span className="text-sm">{task.totalInstances} งาน</span>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-2 text-sm text-gray-600">

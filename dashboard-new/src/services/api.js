@@ -693,32 +693,73 @@ export const getLineMembersLive = async (groupId) => {
 // ==================== Helper Functions ====================
 
 // Convert task from backend format to frontend format
+const normalizeTaskStatus = (status) => {
+  if (!status) return "pending";
+  const normalized = status.toLowerCase();
+  if (normalized === "in-progress") return "in_progress";
+  if (normalized === "waiting") return "pending";
+  if (
+    normalized === "done" ||
+    normalized === "approved" ||
+    normalized === "submitted" ||
+    normalized === "reviewed"
+  ) {
+    return normalized;
+  }
+  if (normalized === "cancelled") return "cancelled";
+  if (normalized === "overdue") return "overdue";
+  if (normalized === "scheduled") return "pending";
+  return normalized;
+};
+
 export const normalizeTask = (task) => {
+  const assignedUsers =
+    Array.isArray(task.assignedUsers) && task.assignedUsers.length > 0
+      ? task.assignedUsers
+      : [];
+
+  const primaryAssignee = assignedUsers.length > 0 ? assignedUsers[0] : null;
+
+  const dueTime = task.dueTime || task.dueDate || task.deadline || null;
+
+  const startTime = task.startTime || task.scheduledDate || null;
+
   return {
     id: task.id,
+    groupId: task.groupId,
     title: task.title || task.description || "Untitled",
-    description: task.description,
-    status: task.status || "new",
-    priority: task.priority || "medium",
-    assignee:
-      task.assignees && task.assignees.length > 0
-        ? {
-            name: task.assignees[0].displayName || task.assignees[0].lineUserId,
-            avatar: task.assignees[0].pictureUrl,
-            lineUserId: task.assignees[0].lineUserId,
-          }
-        : null,
-    assignees: task.assignees || [],
-    scheduledDate: task.scheduledDate || task.dueDate,
-    dueDate: task.dueDate,
-    estimatedTime: task.estimatedTime || task.timeEstimate,
-    tags: task.tags || [],
+    description: task.description || "",
+    status: normalizeTaskStatus(task.status),
+    priority: (task.priority || "medium").toLowerCase(),
+    assignee: primaryAssignee
+      ? {
+          name:
+            primaryAssignee.displayName ||
+            primaryAssignee.realName ||
+            primaryAssignee.name ||
+            primaryAssignee.lineUserId,
+          avatar: primaryAssignee.pictureUrl,
+          lineUserId: primaryAssignee.lineUserId || primaryAssignee.id,
+        }
+      : null,
+    assignees: Array.isArray(task.assignees) ? task.assignees : [],
+    assignedUsers,
+    scheduledDate: startTime,
+    startTime,
+    dueDate: dueTime,
+    dueTime,
+    estimatedTime: task.estimatedTime || task.timeEstimate || null,
+    tags: Array.isArray(task.tags) ? task.tags : [],
     createdBy: task.createdBy,
-    createdAt: task.createdAt,
-    updatedAt: task.updatedAt,
-    completedAt: task.completedAt,
-    files: task.files || [],
+    createdByUser: task.createdByUser || null,
+    createdAt: task.createdAt || null,
+    updatedAt: task.updatedAt || null,
+    completedAt: task.completedAt || null,
+    files: task.files || task.attachedFiles || [],
     type: task.type || "operational",
+    reviewerUserId: task.reviewerUserId || null,
+    workflow: task.workflow || null,
+    raw: task,
   };
 };
 
@@ -833,8 +874,10 @@ export const calculateStats = (tasks) => {
   const completedStatuses = new Set([
     "completed",
     "approved",
-    "done",
     "submitted",
+    "reviewed",
+    "auto_approved",
+    "done",
   ]);
   const inProgressStatuses = new Set([
     "in-progress",
@@ -842,7 +885,7 @@ export const calculateStats = (tasks) => {
     "processing",
     "review",
   ]);
-  const scheduledStatuses = new Set(["scheduled", "pending"]);
+  const pendingStatuses = new Set(["pending", "waiting", "scheduled"]);
 
   return {
     totalTasks: tasks.length,
@@ -852,11 +895,13 @@ export const calculateStats = (tasks) => {
     overdueTasks: tasks.filter((t) => {
       if (completedStatuses.has(t.status)) return false;
       if (!t.dueDate) return false;
-      return new Date(t.dueDate) < now;
+      return new Date(t.dueDate) < now || t.status === "overdue";
     }).length,
-    newTasks: tasks.filter((t) => t.status === "new").length,
-    scheduledTasks: tasks.filter((t) => scheduledStatuses.has(t.status)).length,
-    pendingTasks: tasks.filter((t) => !completedStatuses.has(t.status)).length,
+    newTasks: tasks.filter((t) => pendingStatuses.has(t.status)).length,
+    scheduledTasks: tasks.filter((t) => pendingStatuses.has(t.status)).length,
+    pendingTasks: tasks.filter(
+      (t) => pendingStatuses.has(t.status) || inProgressStatuses.has(t.status),
+    ).length,
   };
 };
 

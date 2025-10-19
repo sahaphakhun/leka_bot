@@ -4,6 +4,7 @@ import {
   Calendar as CalendarIcon,
   Wrench,
   CheckCircle,
+  AlertTriangle,
 } from "lucide-react";
 import {
   DndContext,
@@ -60,25 +61,53 @@ const KanbanView = ({
 }) => {
   const { canModify } = useAuth();
 
+  const completedStatuses = new Set([
+    "completed",
+    "approved",
+    "submitted",
+    "reviewed",
+    "auto_approved",
+    "cancelled",
+  ]);
+  const inProgressStatuses = new Set([
+    "in_progress",
+    "in-progress",
+    "processing",
+    "review",
+  ]);
+  const pendingStatuses = new Set(["pending", "waiting", "scheduled", "new"]);
+
+  const normalizeStatus = (status) => {
+    if (!status) return "pending";
+    const lowered = status.toLowerCase();
+    if (lowered === "in-progress") return "in_progress";
+    return lowered;
+  };
+
   const columns = [
-    { id: "new", title: "งานใหม่", icon: Mail, status: "new" },
     {
-      id: "scheduled",
-      title: "รอกำหนดส่ง",
-      icon: CalendarIcon,
-      status: "scheduled",
+      id: "pending",
+      title: "รอดำเนินการ",
+      icon: Mail,
+      match: (status) => pendingStatuses.has(status),
     },
     {
-      id: "in-progress",
+      id: "in_progress",
       title: "กำลังดำเนินการ",
       icon: Wrench,
-      status: "in-progress",
+      match: (status) => inProgressStatuses.has(status),
+    },
+    {
+      id: "overdue",
+      title: "เกินกำหนด",
+      icon: AlertTriangle,
+      match: (status) => status === "overdue",
     },
     {
       id: "completed",
       title: "เสร็จแล้ว",
       icon: CheckCircle,
-      status: "completed",
+      match: (status) => completedStatuses.has(status),
     },
   ];
 
@@ -90,12 +119,8 @@ const KanbanView = ({
     }),
   );
 
-  const getTasksByStatus = (status) => {
-    return tasks.filter((task) => {
-      // Normalize status (handle both 'in-progress' and 'in_progress')
-      const taskStatus = task.status?.replace("_", "-");
-      return taskStatus === status;
-    });
+  const getTasksByStatus = (column) => {
+    return tasks.filter((task) => column.match(normalizeStatus(task.status)));
   };
 
   const handleDragEnd = (event) => {
@@ -116,22 +141,27 @@ const KanbanView = ({
     const overColumn = columns.find(
       (col) =>
         over.id === col.id ||
-        getTasksByStatus(col.status).some((t) => t.id === over.id),
+        getTasksByStatus(col).some((t) => t.id === over.id),
     );
 
     if (!overColumn) return;
 
     // If the task status needs to change
-    if (activeTask.status !== overColumn.status) {
-      const newStatus = overColumn.status;
+    const normalizedStatus = normalizeStatus(activeTask.status);
 
-      // Call the update callback if provided
+    if (!overColumn.match(normalizeStatus(activeTask.status))) {
+      let newStatus = "pending";
+
+      if (overColumn.id === "in_progress") newStatus = "in_progress";
+      if (overColumn.id === "overdue") newStatus = "overdue";
+      if (overColumn.id === "completed") newStatus = "completed";
+
       if (onTaskUpdate) {
         onTaskUpdate(activeTask.id, { status: newStatus });
       }
 
       console.log(
-        `Task ${activeTask.id} moved from ${activeTask.status} to ${newStatus}`,
+        `Task ${activeTask.id} moved from ${normalizedStatus} to ${newStatus}`,
       );
     }
   };
@@ -145,7 +175,7 @@ const KanbanView = ({
       >
         <div className="kanban-board">
           {columns.map((column) => {
-            const columnTasks = getTasksByStatus(column.status);
+            const columnTasks = getTasksByStatus(column);
             const Icon = column.icon;
 
             return (
