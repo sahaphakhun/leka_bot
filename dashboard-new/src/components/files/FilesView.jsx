@@ -1,8 +1,9 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { SmartPagination } from "../ui/pagination";
 import {
   Select,
   SelectContent,
@@ -38,6 +39,8 @@ import {
 } from "../../lib/uploadProgress";
 import { showSuccess, showError, showWarning } from "../../lib/toast";
 
+const ITEMS_PER_PAGE = 20;
+
 export default function FilesView({ refreshKey = 0 }) {
   const { groupId, canModify } = useAuth();
   const { openFilePreview } = useModal();
@@ -50,6 +53,7 @@ export default function FilesView({ refreshKey = 0 }) {
   const [activeView, setActiveView] = useState("list");
   const [showUploadZone, setShowUploadZone] = useState(false);
   const [tasks, setTasks] = useState([]);
+  const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
     loadFiles();
@@ -181,28 +185,44 @@ export default function FilesView({ refreshKey = 0 }) {
     }
   };
 
-  const filteredFiles = files.filter((file) => {
-    const displayName =
-      file.name || file.originalName || file.filename || file.fileName || "";
-    const matchesSearch = displayName
-      .toLowerCase()
-      .includes((searchTerm || "").toLowerCase());
-    const matchesTask =
-      taskFilter === "all" ||
-      (taskFilter === "unassigned" && !file.taskId) ||
-      file.taskId === taskFilter;
-    const matchesType =
-      typeFilter === "all" ||
-      (file.type || "").toLowerCase() === (typeFilter || "").toLowerCase();
+  const filteredFiles = useMemo(() => {
+    return files.filter((file) => {
+      const displayName =
+        file.name || file.originalName || file.filename || file.fileName || "";
+      const matchesSearch = displayName
+        .toLowerCase()
+        .includes((searchTerm || "").toLowerCase());
+      const matchesTask =
+        taskFilter === "all" ||
+        (taskFilter === "unassigned" && !file.taskId) ||
+        file.taskId === taskFilter;
+      const matchesType =
+        typeFilter === "all" ||
+        (file.type || "").toLowerCase() === (typeFilter || "").toLowerCase();
 
-    return matchesSearch && matchesTask && matchesType;
-  });
+      return matchesSearch && matchesTask && matchesType;
+    });
+  }, [files, searchTerm, taskFilter, typeFilter]);
+
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, taskFilter, typeFilter]);
+
+  // Pagination calculations
+  const totalPages = Math.ceil(filteredFiles.length / ITEMS_PER_PAGE);
+
+  const paginatedFiles = useMemo(() => {
+    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return filteredFiles.slice(startIndex, endIndex);
+  }, [filteredFiles, currentPage]);
 
   const summaryText = `แสดง ${filteredFiles.length} จาก ${files.length} ไฟล์`;
 
-  const groupFilesByTask = () => {
+  const groupFilesByTask = useMemo(() => {
     const grouped = {};
-    filteredFiles.forEach((file) => {
+    paginatedFiles.forEach((file) => {
       const taskId = file.taskId || "unassigned";
       if (!grouped[taskId]) {
         grouped[taskId] = {
@@ -214,7 +234,7 @@ export default function FilesView({ refreshKey = 0 }) {
       grouped[taskId].files.push(file);
     });
     return Object.values(grouped);
-  };
+  }, [paginatedFiles]);
 
   if (loading) {
     return (
@@ -447,29 +467,62 @@ export default function FilesView({ refreshKey = 0 }) {
 
         <TabsContent value="list">
           <FileListView
-            files={filteredFiles}
+            files={paginatedFiles}
             onPreview={handleFilePreview}
             onDownload={handleFileDownload}
             onDelete={handleFileDelete}
           />
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <SmartPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredFiles.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="grid">
           <FileGridView
-            files={filteredFiles}
+            files={paginatedFiles}
             onPreview={handleFilePreview}
             onDownload={handleFileDownload}
             onDelete={handleFileDelete}
           />
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <SmartPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredFiles.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
+            </div>
+          )}
         </TabsContent>
 
         <TabsContent value="folder">
           <FileFolderView
-            groupedFiles={groupFilesByTask()}
+            groupedFiles={groupFilesByTask}
             onPreview={handleFilePreview}
             onDownload={handleFileDownload}
             onDelete={handleFileDelete}
           />
+          {totalPages > 1 && (
+            <div className="mt-6">
+              <SmartPagination
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={setCurrentPage}
+                totalItems={filteredFiles.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
+            </div>
+          )}
         </TabsContent>
       </Tabs>
     </div>
