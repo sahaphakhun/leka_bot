@@ -1,9 +1,24 @@
+import { useMemo } from "react";
+
 // Simple chart component using HTML/CSS (can be replaced with Chart.js later)
 export default function ReportChart({ type, data }) {
-  if (type === "line" || type === "bar") {
-    const labels = Array.isArray(data?.labels) ? data.labels : [];
-    const datasets = Array.isArray(data?.datasets) ? data.datasets : [];
+  const labels = useMemo(
+    () => (Array.isArray(data?.labels) ? data.labels : []),
+    [data?.labels],
+  );
 
+  const datasets = useMemo(
+    () => (Array.isArray(data?.datasets) ? data.datasets : []),
+    [data?.datasets],
+  );
+
+  const maxValue = useMemo(() => {
+    if (datasets.length === 0) return 0;
+    const allValues = datasets.flatMap((dataset) => dataset?.data || []);
+    return Math.max(0, ...allValues, 0);
+  }, [datasets]);
+
+  if (type === "line" || type === "bar") {
     if (labels.length === 0 || datasets.length === 0) {
       return (
         <div className="w-full h-64 flex items-center justify-center bg-gray-50 rounded text-sm text-muted-foreground">
@@ -11,9 +26,6 @@ export default function ReportChart({ type, data }) {
         </div>
       );
     }
-
-    const allValues = datasets.flatMap((dataset) => dataset?.data || []);
-    const maxValue = Math.max(0, ...allValues, 0);
 
     return (
       <div className="w-full h-64 flex items-end justify-around gap-2 p-4 bg-gray-50 rounded">
