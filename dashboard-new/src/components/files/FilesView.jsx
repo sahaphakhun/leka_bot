@@ -56,35 +56,48 @@ export default function FilesView({ refreshKey = 0 }) {
   const [currentPage, setCurrentPage] = useState(1);
 
   useEffect(() => {
-    loadFiles();
-    loadTasks();
+    loadData();
   }, [groupId, refreshKey]);
 
-  const loadFiles = async () => {
+  const loadData = async () => {
     setLoading(true);
     setError(null);
+
     try {
-      const response = await getGroupFiles(groupId);
-      setFiles(response.data || response);
-      console.log("✅ Loaded files:", (response.data || response).length);
+      // Load files and tasks in parallel
+      const [filesResponse, tasksResponse] = await Promise.all([
+        getGroupFiles(groupId),
+        fetchTasks(groupId).catch((err) => {
+          console.warn("⚠️ Failed to load tasks (non-critical):", err);
+          return { data: [], tasks: [] }; // Return empty array on error
+        }),
+      ]);
+
+      setFiles(filesResponse.data || filesResponse);
+      setTasks(tasksResponse.data || tasksResponse.tasks || []);
+
+      console.log(
+        "✅ Loaded files:",
+        (filesResponse.data || filesResponse).length,
+      );
+      console.log(
+        "✅ Loaded tasks:",
+        (tasksResponse.data || tasksResponse.tasks || []).length,
+      );
     } catch (error) {
       console.error("❌ Failed to load files:", error);
       setError(error.message || "ไม่สามารถโหลดไฟล์ได้");
       setFiles([]);
+      setTasks([]);
       showError("ไม่สามารถโหลดไฟล์ได้", error);
     } finally {
       setLoading(false);
     }
   };
 
-  const loadTasks = async () => {
-    try {
-      const response = await fetchTasks(groupId);
-      setTasks(response.data || response.tasks || []);
-    } catch (error) {
-      console.error("⚠️ Failed to load tasks:", error);
-      // ไม่แสดง toast เพราะไม่ critical
-    }
+  const loadFiles = async () => {
+    // Kept for manual refresh - calls loadData
+    await loadData();
   };
 
   const formatFileSize = (bytes) => {

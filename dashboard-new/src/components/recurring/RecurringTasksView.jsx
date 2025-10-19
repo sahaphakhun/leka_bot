@@ -41,58 +41,77 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   const [recurrenceFilter, setRecurrenceFilter] = useState("all");
 
   useEffect(() => {
-    loadRecurringTasks();
+    loadData();
   }, [groupId, refreshKey]);
 
-  useEffect(() => {
-    if (!groupId) return;
-    const fetchMembers = async () => {
-      try {
-        const { getGroupMembers } = await import("../../services/api");
-        const response = await getGroupMembers(groupId);
-        const list = Array.isArray(response?.data)
-          ? response.data
-          : Array.isArray(response?.members)
-            ? response.members
-            : Array.isArray(response)
-              ? response
-              : [];
-        setMembers(list);
-      } catch (memberError) {
-        console.warn("⚠️ ไม่สามารถโหลดรายชื่อสมาชิกได้", memberError);
-      }
-    };
-    fetchMembers();
-  }, [groupId]);
-
-  const loadRecurringTasks = async () => {
+  const loadData = async () => {
     setLoading(true);
     setError(null);
+
     try {
       if (!groupId) {
         setRecurringTasks([]);
+        setMembers([]);
         setLoading(false);
         return;
       }
-      const { listRecurringTasks } = await import("../../services/api");
-      const data = await listRecurringTasks(groupId);
-      const items = Array.isArray(data)
-        ? data
-        : Array.isArray(data?.data)
-          ? data.data
-          : Array.isArray(data?.items)
-            ? data.items
+
+      // Load recurring tasks and members in parallel
+      const [tasksData, membersResponse] = await Promise.all([
+        (async () => {
+          const { listRecurringTasks } = await import("../../services/api");
+          return await listRecurringTasks(groupId);
+        })(),
+        (async () => {
+          try {
+            const { getGroupMembers } = await import("../../services/api");
+            return await getGroupMembers(groupId);
+          } catch (memberError) {
+            console.warn(
+              "⚠️ Failed to load members (non-critical):",
+              memberError,
+            );
+            return { data: [], members: [] }; // Return empty on error
+          }
+        })(),
+      ]);
+
+      // Process recurring tasks
+      const items = Array.isArray(tasksData)
+        ? tasksData
+        : Array.isArray(tasksData?.data)
+          ? tasksData.data
+          : Array.isArray(tasksData?.items)
+            ? tasksData.items
             : [];
       setRecurringTasks(items);
+
+      // Process members
+      const membersList = Array.isArray(membersResponse?.data)
+        ? membersResponse.data
+        : Array.isArray(membersResponse?.members)
+          ? membersResponse.members
+          : Array.isArray(membersResponse)
+            ? membersResponse
+            : [];
+      setMembers(membersList);
+
       console.log("✅ Loaded recurring tasks:", items.length);
+      console.log("✅ Loaded members:", membersList.length);
     } catch (error) {
       console.error("❌ Failed to load recurring tasks:", error);
       setError(error.message || "ไม่สามารถโหลดงานประจำได้");
       setRecurringTasks([]);
+      setMembers([]);
       showError("ไม่สามารถโหลดงานประจำได้", error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadRecurringTasks = async () => {
+    // Kept for manual refresh - calls loadData
+    await loadData();
   };
 
   const handleToggleActive = async (task) => {
