@@ -16,13 +16,11 @@ import {
   Upload,
   RefreshCw,
   Search,
-  LayoutList,
   LayoutGrid,
   FolderOpen,
   AlertCircle,
   FileX,
 } from "lucide-react";
-import FileListView from "./FileListView";
 import FileGridView from "./FileGridView";
 import FileFolderView from "./FileFolderView";
 import FileUploadZone from "./FileUploadZone";
@@ -107,7 +105,7 @@ export default function FilesView({ refreshKey = 0 }) {
   const [activeView, setActiveView] = useState(() => {
     // Load saved view preference from localStorage
     const saved = localStorage.getItem("filesViewMode");
-    return saved && ["list", "grid", "folder"].includes(saved) ? saved : "list";
+    return saved && ["grid", "folder"].includes(saved) ? saved : "grid";
   });
   const [showUploadZone, setShowUploadZone] = useState(false);
   const [tasks, setTasks] = useState([]);
@@ -541,28 +539,16 @@ export default function FilesView({ refreshKey = 0 }) {
         }}
       >
         <TabsList>
-          <TabsTrigger value="list" className="flex items-center gap-2">
-            <LayoutList className="w-4 h-4" />
-            รายการ
-          </TabsTrigger>
           <TabsTrigger value="grid" className="flex items-center gap-2">
             <LayoutGrid className="w-4 h-4" />
             กริด
           </TabsTrigger>
           <TabsTrigger value="folder" className="flex items-center gap-2">
             <FolderOpen className="w-4 h-4" />
-            ตามงาน
+            แยกตามงาน
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="list">
-          <FileListView
-            files={paginatedFiles}
-            onPreview={handleFilePreview}
-            onDownload={handleFileDownload}
-            onDelete={handleFileDelete}
-          />
-        </TabsContent>
         <TabsContent value="grid">
           <FileGridView
             files={paginatedFiles}
