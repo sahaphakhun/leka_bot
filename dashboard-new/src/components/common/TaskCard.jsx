@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { Clock } from "lucide-react";
 
 const normalizeStatus = (status) => {
@@ -15,7 +16,7 @@ const normalizeStatus = (status) => {
   return normalized;
 };
 
-const TaskCard = ({ task, onClick }) => {
+const TaskCard = memo(({ task, onClick }) => {
   const getStatusClass = (status) => {
     const statusMap = {
       pending: "task-card-new",
@@ -69,6 +70,8 @@ const TaskCard = ({ task, onClick }) => {
       </div>
     </div>
   );
-};
+});
+
+TaskCard.displayName = "TaskCard";
 
 export default TaskCard;

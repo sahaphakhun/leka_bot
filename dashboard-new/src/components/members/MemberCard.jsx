@@ -1,3 +1,4 @@
+import { memo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { Card, CardContent } from "../ui/card";
@@ -6,7 +7,7 @@ import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
 import { MoreVertical, Shield, User } from "lucide-react";
 
-export default function MemberCard({ member, onUpdate }) {
+const MemberCard = memo(({ member, onUpdate }) => {
   const { userId } = useAuth();
   const { openMemberActions } = useModal();
   const isCurrentUser = member.lineUserId === userId;
@@ -111,4 +112,8 @@ export default function MemberCard({ member, onUpdate }) {
       </CardContent>
     </Card>
   );
-}
+});
+
+MemberCard.displayName = "MemberCard";
+
+export default MemberCard;
