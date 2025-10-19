@@ -1,6 +1,7 @@
 import * as React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { DayPicker } from "react-day-picker";
+import { th } from "date-fns/locale";
 
 import { cn } from "@/lib/utils";
 import { buttonVariants } from "@/components/ui/button";
@@ -9,6 +10,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }) {
   return (
     <DayPicker
       showOutsideDays={showOutsideDays}
+      locale={th}
       className={cn("p-4", className)}
       style={{ pointerEvents: "auto" }}
       classNames={{
@@ -25,9 +27,9 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }) {
         nav_button_previous: "absolute left-2",
         nav_button_next: "absolute right-2",
         table: "w-full border-collapse",
-        head_row: "flex mb-1",
+        head_row: "flex mb-1 w-full",
         head_cell:
-          "text-muted-foreground rounded-md w-10 font-semibold text-xs uppercase tracking-wide",
+          "text-muted-foreground rounded-md w-10 font-semibold text-xs uppercase tracking-wide flex-1 flex items-center justify-center",
         row: "flex w-full mt-1",
         cell: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
