@@ -32,6 +32,7 @@ import {
   getGroupStats,
   getLeaderboard,
   testConnection,
+  normalizeStatsSummary,
 } from "./services/api";
 import "./App.css";
 
@@ -382,7 +383,14 @@ function AppContent() {
           period: statsPeriod,
         });
         console.log("✅ Group stats loaded:", statsResponse);
-        setGroupStats(statsResponse?.data || statsResponse);
+        const normalizedGroupStats =
+          statsResponse?.data || statsResponse || null;
+        setGroupStats(normalizedGroupStats);
+
+        const normalizedSummary = normalizeStatsSummary(statsResponse);
+        if (normalizedSummary) {
+          setStats((prev) => ({ ...prev, ...normalizedSummary }));
+        }
       } catch (statsError) {
         console.warn("⚠️ Failed to load group stats:", statsError);
         setGroupStats(null);

@@ -729,22 +729,134 @@ export const normalizeTasks = (tasks) => {
 };
 
 // Calculate task statistics
+const parseNumberStat = (value) => {
+  if (value === null || value === undefined) return null;
+  const number = Number(value);
+  return Number.isNaN(number) ? null : number;
+};
+
+const pickStatValue = (stats, keys) => {
+  for (const key of keys) {
+    const value = parseNumberStat(stats?.[key]);
+    if (value !== null) {
+      return value;
+    }
+  }
+  return null;
+};
+
+export const normalizeStatsSummary = (rawStats) => {
+  if (!rawStats || typeof rawStats !== "object") return null;
+
+  const stats =
+    rawStats.stats ??
+    rawStats.data?.stats ??
+    rawStats.data ??
+    rawStats.summary ??
+    rawStats;
+
+  if (!stats || typeof stats !== "object") return null;
+
+  const normalized = {
+    totalTasks:
+      pickStatValue(stats, [
+        "totalTasks",
+        "total_tasks",
+        "total",
+        "totalCount",
+        "tasksTotal",
+      ]) ?? 0,
+    completedTasks:
+      pickStatValue(stats, [
+        "completedTasks",
+        "completed_tasks",
+        "completed",
+        "completedCount",
+        "tasksCompleted",
+        "done",
+      ]) ?? 0,
+    overdueTasks:
+      pickStatValue(stats, [
+        "overdueTasks",
+        "overdue_tasks",
+        "overdue",
+        "overdueCount",
+        "tasksOverdue",
+      ]) ?? 0,
+    pendingTasks: pickStatValue(stats, [
+      "pendingTasks",
+      "pending_tasks",
+      "pending",
+      "pendingCount",
+      "tasksPending",
+      "incomplete",
+      "processing",
+    ]),
+    inProgressTasks: pickStatValue(stats, [
+      "inProgressTasks",
+      "in_progress",
+      "inProgress",
+      "processingTasks",
+      "processing",
+    ]),
+    scheduledTasks: pickStatValue(stats, [
+      "scheduledTasks",
+      "scheduled",
+      "tasksScheduled",
+      "waiting",
+    ]),
+    newTasks: pickStatValue(stats, ["newTasks", "new", "tasksNew"]),
+  };
+
+  Object.keys(normalized).forEach((key) => {
+    if (normalized[key] === null) {
+      delete normalized[key];
+    }
+  });
+
+  if (
+    normalized.pendingTasks === undefined &&
+    typeof normalized.totalTasks === "number" &&
+    typeof normalized.completedTasks === "number"
+  ) {
+    normalized.pendingTasks = Math.max(
+      normalized.totalTasks - normalized.completedTasks,
+      0,
+    );
+  }
+
+  return normalized;
+};
+
 export const calculateStats = (tasks) => {
   const now = new Date();
+  const completedStatuses = new Set([
+    "completed",
+    "approved",
+    "done",
+    "submitted",
+  ]);
+  const inProgressStatuses = new Set([
+    "in-progress",
+    "in_progress",
+    "processing",
+    "review",
+  ]);
+  const scheduledStatuses = new Set(["scheduled", "pending"]);
 
   return {
     totalTasks: tasks.length,
-    completedTasks: tasks.filter((t) => t.status === "completed").length,
-    inProgressTasks: tasks.filter(
-      (t) => t.status === "in-progress" || t.status === "in_progress",
-    ).length,
+    completedTasks: tasks.filter((t) => completedStatuses.has(t.status)).length,
+    inProgressTasks: tasks.filter((t) => inProgressStatuses.has(t.status))
+      .length,
     overdueTasks: tasks.filter((t) => {
-      if (t.status === "completed") return false;
+      if (completedStatuses.has(t.status)) return false;
       if (!t.dueDate) return false;
       return new Date(t.dueDate) < now;
     }).length,
     newTasks: tasks.filter((t) => t.status === "new").length,
-    scheduledTasks: tasks.filter((t) => t.status === "scheduled").length,
+    scheduledTasks: tasks.filter((t) => scheduledStatuses.has(t.status)).length,
+    pendingTasks: tasks.filter((t) => !completedStatuses.has(t.status)).length,
   };
 };
 
@@ -806,4 +918,5 @@ export default {
   normalizeTask,
   normalizeTasks,
   calculateStats,
+  normalizeStatsSummary,
 };

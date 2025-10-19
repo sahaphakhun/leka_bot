@@ -117,6 +117,7 @@ const DashboardView = ({
     const defaultStats = {
       totalTasks: tasks.length,
       completedTasks: tasks.filter((t) => isCompleted(t.status)).length,
+      pendingTasks: tasks.filter((t) => !isCompleted(t.status)).length,
       inProgressTasks: tasks.filter((t) =>
         ["in-progress", "in_progress"].includes(t.status),
       ).length,
@@ -131,8 +132,14 @@ const DashboardView = ({
     return { ...defaultStats, ...stats };
   }, [tasks, stats, today]);
 
-  const processingTasksCount =
-    statsData.inProgressTasks + statsData.scheduledTasks + statsData.newTasks;
+  const totalInProgress =
+    (statsData.inProgressTasks || 0) +
+    (statsData.scheduledTasks || 0) +
+    (statsData.newTasks || 0);
+  const pendingTasksCount =
+    statsData.pendingTasks !== undefined
+      ? statsData.pendingTasks
+      : Math.max(totalInProgress, 0);
 
   const upcomingTasks = useMemo(() => {
     return tasks
@@ -336,11 +343,11 @@ const DashboardView = ({
       bgColor: "bg-blue-100/80",
     },
     {
-      title: "อยู่ระหว่างดำเนินการ",
-      value: processingTasksCount,
+      title: "รอดำเนินการ",
+      value: pendingTasksCount,
       icon: Timer,
-      color: "text-indigo-600",
-      bgColor: "bg-indigo-100/80",
+      color: "text-orange-600",
+      bgColor: "bg-orange-100/80",
     },
     {
       title: "เสร็จสิ้นแล้ว",
