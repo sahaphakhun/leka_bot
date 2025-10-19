@@ -4,10 +4,64 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
 const DEBUG = import.meta.env.VITE_DEBUG === "true" || import.meta.env.DEV;
 
+// Retry configuration
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const REQUEST_TIMEOUT = 30000; // 30 seconds
+
 // Debug logger
 const debugLog = (...args) => {
   if (DEBUG) {
     console.log("[API Debug]", ...args);
+  }
+};
+
+// Sleep utility for retry delays
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// Calculate exponential backoff delay
+const getRetryDelay = (attemptNumber) => {
+  return INITIAL_RETRY_DELAY * Math.pow(2, attemptNumber - 1);
+};
+
+// Check if error is retryable
+const isRetryableError = (error) => {
+  // Network errors
+  if (error.message?.includes("Failed to fetch")) return true;
+  if (error.message?.includes("NetworkError")) return true;
+  if (error.message?.includes("timeout")) return true;
+
+  // HTTP status codes that should be retried
+  if (error.status === 408) return true; // Request Timeout
+  if (error.status === 429) return true; // Too Many Requests
+  if (error.status >= 500) return true; // Server errors
+
+  return false;
+};
+
+// Fetch with timeout
+const fetchWithTimeout = (url, options = {}, timeout = REQUEST_TIMEOUT) => {
+  return Promise.race([
+    fetch(url, options),
+    new Promise((_, reject) =>
+      setTimeout(() => reject(new Error("Request timeout")), timeout),
+    ),
+  ]);
+};
+
+// Handle authentication errors
+const handleAuthError = (status) => {
+  if (status === 401 || status === 403) {
+    debugLog("Auth error detected, redirecting to login...");
+    // Clear any stored auth data
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("leka_userId");
+      localStorage.removeItem("leka_groupId");
+      // Redirect to login or show auth modal
+      if (window.location.pathname !== "/") {
+        window.location.href = "/?auth_required=true";
+      }
+    }
   }
 };
 
@@ -27,10 +81,12 @@ const buildUrl = (endpoint, params = {}) => {
   return url.toString();
 };
 
-// Helper function for API calls
-const apiCall = async (endpoint, options = {}) => {
+// Helper function for API calls with retry logic
+const apiCall = async (endpoint, options = {}, retryCount = 0) => {
   const startTime = Date.now();
-  debugLog("API Call:", {
+  const attempt = retryCount + 1;
+
+  debugLog(`API Call (attempt ${attempt}/${MAX_RETRIES}):`, {
     endpoint,
     method: options.method || "GET",
     hasBody: !!options.body,
@@ -47,7 +103,7 @@ const apiCall = async (endpoint, options = {}) => {
       delete headers["Content-Type"];
     }
 
-    const response = await fetch(endpoint, {
+    const response = await fetchWithTimeout(endpoint, {
       ...options,
       headers,
     });
@@ -58,6 +114,7 @@ const apiCall = async (endpoint, options = {}) => {
       status: response.status,
       ok: response.ok,
       duration: `${duration}ms`,
+      attempt,
     });
 
     if (!response.ok) {
@@ -80,7 +137,19 @@ const apiCall = async (endpoint, options = {}) => {
         status: response.status,
         message: error.message,
         data: errorData,
+        attempt,
       });
+
+      // Handle authentication errors immediately
+      handleAuthError(response.status);
+
+      // Retry if applicable
+      if (isRetryableError(error) && retryCount < MAX_RETRIES - 1) {
+        const delay = getRetryDelay(attempt);
+        debugLog(`⏳ Retrying after ${delay}ms...`);
+        await sleep(delay);
+        return apiCall(endpoint, options, retryCount + 1);
+      }
 
       throw error;
     }
@@ -89,29 +158,36 @@ const apiCall = async (endpoint, options = {}) => {
     debugLog("✅ API Success:", {
       endpoint,
       dataKeys: Object.keys(data),
+      attempt,
     });
 
     return data;
   } catch (error) {
-    if (
-      error.message.includes("Failed to fetch") ||
-      error.message.includes("NetworkError")
-    ) {
-      console.error("🌐 Network Error:", {
-        endpoint,
-        message:
-          "ไม่สามารถเชื่อมต่อกับ API ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต",
-        originalError: error.message,
-      });
+    // Enhanced error messages
+    if (error.message?.includes("Failed to fetch")) {
       error.message =
-        "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาลองใหม่อีกครั้ง";
+        "ไม่สามารถเชื่อมต่อกับเซิร์ฟเวอร์ได้ กรุณาตรวจสอบการเชื่อมต่ออินเทอร์เน็ต";
+    } else if (error.message?.includes("NetworkError")) {
+      error.message = "เกิดข้อผิดพลาดทางเครือข่าย กรุณาลองใหม่อีกครั้ง";
+    } else if (error.message?.includes("timeout")) {
+      error.message = "คำขอใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง";
     }
 
     console.error("❌ API call failed:", {
       endpoint,
       error: error.message,
-      stack: error.stack,
+      attempt,
+      willRetry: isRetryableError(error) && retryCount < MAX_RETRIES - 1,
     });
+
+    // Retry if applicable
+    if (isRetryableError(error) && retryCount < MAX_RETRIES - 1) {
+      const delay = getRetryDelay(attempt);
+      debugLog(`⏳ Retrying after ${delay}ms... (network/timeout error)`);
+      await sleep(delay);
+      return apiCall(endpoint, options, retryCount + 1);
+    }
+
     throw error;
   }
 };
@@ -645,23 +721,47 @@ export const getGroupRecurringStats = async (groupId) => {
 
 // ==================== Report APIs ====================
 
-export const getReports = async (groupId, params = {}) => {
-  try {
-    const url = buildUrl(`/groups/${groupId}/reports`, params);
-    const res = await apiCall(url);
-    return res?.data ?? res;
-  } catch (error) {
-    console.warn("⚠️ getReports fallback to summary/by-users:", error);
-    const [summary, byUsers] = await Promise.all([
-      getReportsSummary(groupId, params).catch(() => null),
-      getReportsByUsers(groupId, params).catch(() => []),
-    ]);
+const normalizeReportParams = (params = {}) => {
+  const output = {};
 
-    return {
-      summary,
-      byMember: byUsers,
-    };
+  const range = params.dateRange;
+  if (range === "week" || range === "weekly") {
+    output.period = "weekly";
+  } else if (range === "month" || range === "monthly") {
+    output.period = "monthly";
+  } else if (range === "custom") {
+    if (params.startDate) output.startDate = params.startDate;
+    if (params.endDate) output.endDate = params.endDate;
+  } else if (range === "quarter" || range === "year") {
+    output.period = "monthly";
   }
+
+  if (Array.isArray(params.members) && params.members.length > 0) {
+    output.userId = params.members[0];
+  }
+
+  if (params.startDate && !output.startDate && range !== "custom") {
+    output.startDate = params.startDate;
+  }
+
+  if (params.endDate && !output.endDate && range !== "custom") {
+    output.endDate = params.endDate;
+  }
+
+  return output;
+};
+
+export const getReports = async (groupId, params = {}) => {
+  const query = normalizeReportParams(params);
+  const [summary, byUsers] = await Promise.all([
+    getReportsSummary(groupId, query).catch(() => null),
+    getReportsByUsers(groupId, query).catch(() => []),
+  ]);
+
+  return {
+    summary,
+    byMember: byUsers,
+  };
 };
 
 export const getReportsSummary = async (groupId, params = {}) => {
