@@ -575,27 +575,35 @@ const CalendarView = ({ tasks = [] }) => {
                       )}
                     </div>
 
-                    <div className="mt-2 space-y-1">
-                      {dayTasks.slice(0, 3).map((task) => {
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {dayTasks.slice(0, 4).map((task) => {
                         const variant = getStatusVariant(task);
                         const colorClass =
                           variant === "completed"
-                            ? "bg-green-100 text-green-700"
+                            ? "bg-green-500 text-white border-green-600"
                             : variant === "overdue"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-blue-100 text-blue-700";
+                              ? "bg-red-500 text-white border-red-600"
+                              : "bg-blue-500 text-white border-blue-600";
+
+                        // สร้างชื่อย่อของงาน (แสดงคำแรก หรือ 2-3 ตัวอักษรแรก)
+                        const shortTitle =
+                          task.title.length > 12
+                            ? task.title.substring(0, 10) + ".."
+                            : task.title;
+
                         return (
                           <span
                             key={task.id}
-                            className={`flex items-center gap-1 truncate rounded px-2 py-1 text-[11px] font-medium ${colorClass}`}
+                            className={`inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border ${colorClass} shadow-sm`}
+                            title={task.title}
                           >
-                            {task.title}
+                            {shortTitle}
                           </span>
                         );
                       })}
-                      {dayTasks.length > 3 && (
-                        <span className="text-[11px] text-muted-foreground">
-                          +{dayTasks.length - 3} งาน
+                      {dayTasks.length > 4 && (
+                        <span className="inline-flex items-center rounded-full bg-gray-200 text-gray-700 px-2 py-0.5 text-[10px] font-semibold border border-gray-300">
+                          +{dayTasks.length - 4}
                         </span>
                       )}
                     </div>
@@ -647,28 +655,35 @@ const CalendarView = ({ tasks = [] }) => {
                       )}
                     </div>
                     {dayTasks.length > 0 && (
-                      <div className="space-y-1">
-                        {dayTasks.slice(0, 2).map((task) => {
+                      <div className="flex flex-wrap gap-1.5">
+                        {dayTasks.slice(0, 5).map((task) => {
                           const variant = getStatusVariant(task);
                           const colorClass =
                             variant === "completed"
-                              ? "bg-green-100 text-green-700"
+                              ? "bg-green-500 text-white border-green-600"
                               : variant === "overdue"
-                                ? "bg-red-100 text-red-700"
-                                : "bg-blue-100 text-blue-700";
+                                ? "bg-red-500 text-white border-red-600"
+                                : "bg-blue-500 text-white border-blue-600";
+
+                          const shortTitle =
+                            task.title.length > 15
+                              ? task.title.substring(0, 13) + ".."
+                              : task.title;
+
                           return (
-                            <div
+                            <span
                               key={task.id}
-                              className={`rounded px-3 py-2 text-sm font-medium ${colorClass}`}
+                              className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold border ${colorClass} shadow-sm`}
+                              title={task.title}
                             >
-                              {task.title}
-                            </div>
+                              {shortTitle}
+                            </span>
                           );
                         })}
-                        {dayTasks.length > 2 && (
-                          <p className="text-sm text-muted-foreground pl-3">
-                            +{dayTasks.length - 2} งานอื่นๆ
-                          </p>
+                        {dayTasks.length > 5 && (
+                          <span className="inline-flex items-center rounded-full bg-gray-200 text-gray-700 px-2.5 py-1 text-xs font-semibold border border-gray-300">
+                            +{dayTasks.length - 5}
+                          </span>
                         )}
                       </div>
                     )}
