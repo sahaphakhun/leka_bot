@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { Button } from "../ui/button";
@@ -55,11 +55,7 @@ export default function FilesView({ refreshKey = 0 }) {
   const [tasks, setTasks] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
-  useEffect(() => {
-    loadData();
-  }, [groupId, refreshKey]);
-
-  const loadData = async () => {
+  const loadData = useCallback(async () => {
     setLoading(true);
     setError(null);
 
@@ -93,97 +89,110 @@ export default function FilesView({ refreshKey = 0 }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [groupId]);
 
-  const loadFiles = async () => {
+  useEffect(() => {
+    loadData();
+  }, [loadData, refreshKey]);
+
+  const loadFiles = useCallback(async () => {
     // Kept for manual refresh - calls loadData
     await loadData();
-  };
+  }, [loadData]);
 
-  const formatFileSize = (bytes) => {
+  const formatFileSize = useCallback((bytes) => {
     if (!bytes) return "0 Bytes";
     const k = 1024;
     const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return `${(bytes / Math.pow(k, i)).toFixed(i === 0 ? 0 : 1)} ${sizes[i]}`;
-  };
+  }, []);
 
-  const handleFileUpload = async (uploadedFiles, onProgress) => {
-    if (!canModify()) {
-      showWarning("คุณไม่มีสิทธิ์อัปโหลดไฟล์");
-      return;
-    }
-
-    try {
-      const fileArray = Array.from(uploadedFiles || []);
-      if (fileArray.length === 0) {
+  const handleFileUpload = useCallback(
+    async (uploadedFiles, onProgress) => {
+      if (!canModify()) {
+        showWarning("คุณไม่มีสิทธิ์อัปโหลดไฟล์");
         return;
       }
-      const totalSize = fileArray.reduce(
-        (sum, file) => sum + (file?.size || 0),
-        0,
-      );
-      const subtitle =
-        fileArray.length > 0
-          ? `${fileArray.length} ไฟล์ • รวม ${formatFileSize(totalSize)}`
-          : "กำลังอัปโหลดไฟล์...";
 
-      showUploadProgress({
-        title: "📤 กำลังอัปโหลดไฟล์",
-        subtitle,
-      });
-
-      await uploadFilesWithProgress(
-        groupId,
-        fileArray,
-        {},
-        ({ loaded, total, lengthComputable }) => {
-          updateUploadProgress({ loaded, total, lengthComputable });
-          if (typeof onProgress === "function") {
-            onProgress({ loaded, total, lengthComputable });
-          }
-        },
-      );
-
-      updateUploadProgress({
-        percent: 100,
-        detail:
+      try {
+        const fileArray = Array.from(uploadedFiles || []);
+        if (fileArray.length === 0) {
+          return;
+        }
+        const totalSize = fileArray.reduce(
+          (sum, file) => sum + (file?.size || 0),
+          0,
+        );
+        const subtitle =
           fileArray.length > 0
-            ? `${formatFileSize(totalSize)} / ${formatFileSize(totalSize)}`
-            : "อัปโหลดเสร็จสมบูรณ์",
-      });
-      showSuccess(`อัปโหลดไฟล์สำเร็จ ${fileArray.length} ไฟล์`);
-      loadFiles();
-      setShowUploadZone(false);
-    } catch (error) {
-      console.error("Failed to upload files:", error);
-      showError("ไม่สามารถอัปโหลดไฟล์ได้", error);
-    } finally {
-      hideUploadProgress();
-    }
-  };
+            ? `${fileArray.length} ไฟล์ • รวม ${formatFileSize(totalSize)}`
+            : "กำลังอัปโหลดไฟล์...";
 
-  const handleFileDelete = async (fileId) => {
-    if (!canModify()) {
-      showWarning("คุณไม่มีสิทธิ์ลบไฟล์");
-      return;
-    }
+        showUploadProgress({
+          title: "📤 กำลังอัปโหลดไฟล์",
+          subtitle,
+        });
 
-    try {
-      await deleteFile(groupId, fileId);
-      showSuccess("ลบไฟล์สำเร็จ");
-      loadFiles();
-    } catch (error) {
-      console.error("Failed to delete file:", error);
-      showError("ไม่สามารถลบไฟล์ได้", error);
-    }
-  };
+        await uploadFilesWithProgress(
+          groupId,
+          fileArray,
+          {},
+          ({ loaded, total, lengthComputable }) => {
+            updateUploadProgress({ loaded, total, lengthComputable });
+            if (typeof onProgress === "function") {
+              onProgress({ loaded, total, lengthComputable });
+            }
+          },
+        );
 
-  const handleFilePreview = (file) => {
-    openFilePreview(file);
-  };
+        updateUploadProgress({
+          percent: 100,
+          detail:
+            fileArray.length > 0
+              ? `${formatFileSize(totalSize)} / ${formatFileSize(totalSize)}`
+              : "อัปโหลดเสร็จสมบูรณ์",
+        });
+        showSuccess(`อัปโหลดไฟล์สำเร็จ ${fileArray.length} ไฟล์`);
+        loadFiles();
+        setShowUploadZone(false);
+      } catch (error) {
+        console.error("Failed to upload files:", error);
+        showError("ไม่สามารถอัปโหลดไฟล์ได้", error);
+      } finally {
+        hideUploadProgress();
+      }
+    },
+    [canModify, formatFileSize, groupId],
+  );
 
-  const handleFileDownload = async (file) => {
+  const handleFileDelete = useCallback(
+    async (fileId) => {
+      if (!canModify()) {
+        showWarning("คุณไม่มีสิทธิ์ลบไฟล์");
+        return;
+      }
+
+      try {
+        await deleteFile(groupId, fileId);
+        showSuccess("ลบไฟล์สำเร็จ");
+        loadFiles();
+      } catch (error) {
+        console.error("Failed to delete file:", error);
+        showError("ไม่สามารถลบไฟล์ได้", error);
+      }
+    },
+    [canModify, groupId, loadFiles],
+  );
+
+  const handleFilePreview = useCallback(
+    (file) => {
+      openFilePreview(file);
+    },
+    [openFilePreview],
+  );
+
+  const handleFileDownload = useCallback(async (file) => {
     try {
       const link = document.createElement("a");
       link.href = file.url;
@@ -196,7 +205,7 @@ export default function FilesView({ refreshKey = 0 }) {
       console.error("Failed to download file:", error);
       showError("ไม่สามารถดาวน์โหลดไฟล์ได้", error);
     }
-  };
+  }, []);
 
   const filteredFiles = useMemo(() => {
     return files.filter((file) => {
