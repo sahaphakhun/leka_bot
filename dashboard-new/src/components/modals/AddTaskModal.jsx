@@ -67,12 +67,10 @@ export default function AddTaskModal({ onTaskCreated }) {
     },
   });
 
-  // Members list (should be loaded from API)
-  const [members, setMembers] = useState([
-    { id: "1", name: "John Doe", lineUserId: "U001" },
-    { id: "2", name: "Jane Smith", lineUserId: "U002" },
-    { id: "3", name: "Bob Johnson", lineUserId: "U003" },
-  ]);
+  // Members list - loaded from API
+  const [members, setMembers] = useState([]);
+  const [loadingMembers, setLoadingMembers] = useState(false);
+  const [membersError, setMembersError] = useState(null);
 
   // Set default tab
   useEffect(() => {
@@ -89,12 +87,21 @@ export default function AddTaskModal({ onTaskCreated }) {
   // Load members from API
   const loadMembers = useCallback(async () => {
     if (!groupId) return;
+
+    setLoadingMembers(true);
+    setMembersError(null);
+
     try {
       const { getGroupMembers } = await import("../../services/api");
       const response = await getGroupMembers(groupId);
-      setMembers(response.members || response);
+      const membersList = response.members || response || [];
+      setMembers(Array.isArray(membersList) ? membersList : []);
     } catch (error) {
       console.error("Failed to load members:", error);
+      setMembersError(error.message || "ไม่สามารถโหลดรายชื่อสมาชิกได้");
+      setMembers([]);
+    } finally {
+      setLoadingMembers(false);
     }
   }, [groupId]);
 
@@ -439,48 +446,77 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="space-y-2">
                 <Label>ผู้รับผิดชอบ *</Label>
                 <div className="border rounded-lg p-4 space-y-3">
-                  <div className="max-h-40 overflow-y-auto space-y-2">
-                    {members.map((member) => (
-                      <div
-                        key={member.lineUserId}
-                        className="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          id={`assignee-${member.lineUserId}`}
-                          checked={normalTask.assignedUsers.includes(
-                            member.lineUserId,
-                          )}
-                          onCheckedChange={() =>
-                            handleAssigneeToggle(member.lineUserId, true)
-                          }
-                        />
-                        <label
-                          htmlFor={`assignee-${member.lineUserId}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {member.displayName || member.name}
-                        </label>
+                  {loadingMembers ? (
+                    <div className="flex items-center justify-center py-8 text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                        <span className="text-sm">
+                          กำลังโหลดรายชื่อสมาชิก...
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSelectAll(true)}
-                    >
-                      เลือกทั้งหมด
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleClearAll(true)}
-                    >
-                      ล้างทั้งหมด
-                    </Button>
-                  </div>
+                    </div>
+                  ) : membersError ? (
+                    <div className="py-4 text-center space-y-2">
+                      <p className="text-sm text-destructive">{membersError}</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={loadMembers}
+                      >
+                        ลองอีกครั้ง
+                      </Button>
+                    </div>
+                  ) : members.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      ไม่พบสมาชิกในกลุ่ม
+                    </p>
+                  ) : (
+                    <>
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {members.map((member) => (
+                          <div
+                            key={member.lineUserId}
+                            className="flex items-center space-x-2"
+                          >
+                            <Checkbox
+                              id={`assignee-${member.lineUserId}`}
+                              checked={normalTask.assignedUsers.includes(
+                                member.lineUserId,
+                              )}
+                              onCheckedChange={() =>
+                                handleAssigneeToggle(member.lineUserId, true)
+                              }
+                            />
+                            <label
+                              htmlFor={`assignee-${member.lineUserId}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {member.displayName || member.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSelectAll(true)}
+                        >
+                          เลือกทั้งหมด
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleClearAll(true)}
+                        >
+                          ล้างทั้งหมด
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
@@ -715,48 +751,77 @@ export default function AddTaskModal({ onTaskCreated }) {
               <div className="space-y-2">
                 <Label>ผู้รับผิดชอบ *</Label>
                 <div className="border rounded-lg p-4 space-y-3">
-                  <div className="max-h-40 overflow-y-auto space-y-2">
-                    {members.map((member) => (
-                      <div
-                        key={member.lineUserId}
-                        className="flex items-center space-x-2"
-                      >
-                        <Checkbox
-                          id={`recurring-assignee-${member.lineUserId}`}
-                          checked={recurringTask.assignedUsers.includes(
-                            member.lineUserId,
-                          )}
-                          onCheckedChange={() =>
-                            handleAssigneeToggle(member.lineUserId, false)
-                          }
-                        />
-                        <label
-                          htmlFor={`recurring-assignee-${member.lineUserId}`}
-                          className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                        >
-                          {member.displayName || member.name}
-                        </label>
+                  {loadingMembers ? (
+                    <div className="flex items-center justify-center py-8 text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
+                        <span className="text-sm">
+                          กำลังโหลดรายชื่อสมาชิก...
+                        </span>
                       </div>
-                    ))}
-                  </div>
-                  <div className="flex gap-2 pt-2 border-t">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleSelectAll(false)}
-                    >
-                      เลือกทั้งหมด
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleClearAll(false)}
-                    >
-                      ล้างทั้งหมด
-                    </Button>
-                  </div>
+                    </div>
+                  ) : membersError ? (
+                    <div className="py-4 text-center space-y-2">
+                      <p className="text-sm text-destructive">{membersError}</p>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={loadMembers}
+                      >
+                        ลองอีกครั้ง
+                      </Button>
+                    </div>
+                  ) : members.length === 0 ? (
+                    <p className="text-sm text-muted-foreground text-center py-4">
+                      ไม่พบสมาชิกในกลุ่ม
+                    </p>
+                  ) : (
+                    <>
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {members.map((member) => (
+                          <div
+                            key={member.lineUserId}
+                            className="flex items-center space-x-2"
+                          >
+                            <Checkbox
+                              id={`recurring-assignee-${member.lineUserId}`}
+                              checked={recurringTask.assignedUsers.includes(
+                                member.lineUserId,
+                              )}
+                              onCheckedChange={() =>
+                                handleAssigneeToggle(member.lineUserId, false)
+                              }
+                            />
+                            <label
+                              htmlFor={`recurring-assignee-${member.lineUserId}`}
+                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
+                            >
+                              {member.displayName || member.name}
+                            </label>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="flex gap-2 pt-2 border-t">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleSelectAll(false)}
+                        >
+                          เลือกทั้งหมด
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleClearAll(false)}
+                        >
+                          ล้างทั้งหมด
+                        </Button>
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
 
