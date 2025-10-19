@@ -1,7 +1,10 @@
 import { ChevronDown, ChevronRight } from "lucide-react";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { showWarning } from "../../lib/toast";
+import { SmartPagination } from "../ui/pagination";
+
+const ITEMS_PER_PAGE = 20;
 
 const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
   const { canModify } = useAuth();
@@ -9,6 +12,8 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
     active: true,
     completed: false,
   });
+  const [activePage, setActivePage] = useState(1);
+  const [completedPage, setCompletedPage] = useState(1);
 
   const completedStatuses = new Set([
     "completed",
@@ -42,6 +47,22 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
   const completedTasks = tasks.filter((task) =>
     completedStatuses.has(task.status),
   );
+
+  // Pagination logic for active tasks
+  const activeTotalPages = Math.ceil(activeTasks.length / ITEMS_PER_PAGE);
+  const paginatedActiveTasks = useMemo(() => {
+    const startIndex = (activePage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return activeTasks.slice(startIndex, endIndex);
+  }, [activeTasks, activePage]);
+
+  // Pagination logic for completed tasks
+  const completedTotalPages = Math.ceil(completedTasks.length / ITEMS_PER_PAGE);
+  const paginatedCompletedTasks = useMemo(() => {
+    const startIndex = (completedPage - 1) * ITEMS_PER_PAGE;
+    const endIndex = startIndex + ITEMS_PER_PAGE;
+    return completedTasks.slice(startIndex, endIndex);
+  }, [completedTasks, completedPage]);
 
   const toggleSection = (section) => {
     setExpandedSections((prev) => ({
@@ -179,11 +200,28 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
               <div className="text-right">ผู้รับผิดชอบ</div>
             </div>
 
-            {activeTasks.map((task) => (
-              <TaskRow key={task.id} task={task} onClick={onTaskClick} />
-            ))}
+            {paginatedActiveTasks.length > 0 ? (
+              paginatedActiveTasks.map((task) => (
+                <TaskRow key={task.id} task={task} onClick={onTaskClick} />
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-muted-foreground">
+                ไม่มีงานที่ยังเปิดอยู่
+              </div>
+            )}
 
-            <div className="px-4 py-3">
+            {/* Pagination for Active Tasks */}
+            {activeTotalPages > 1 && (
+              <SmartPagination
+                currentPage={activePage}
+                totalPages={activeTotalPages}
+                onPageChange={setActivePage}
+                totalItems={activeTasks.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
+            )}
+
+            <div className="px-4 py-3 border-t">
               <button
                 type="button"
                 onClick={() => {
@@ -231,9 +269,26 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
               <div className="text-right">ผู้รับผิดชอบ</div>
             </div>
 
-            {completedTasks.map((task) => (
-              <TaskRow key={task.id} task={task} onClick={onTaskClick} />
-            ))}
+            {paginatedCompletedTasks.length > 0 ? (
+              paginatedCompletedTasks.map((task) => (
+                <TaskRow key={task.id} task={task} onClick={onTaskClick} />
+              ))
+            ) : (
+              <div className="px-4 py-8 text-center text-muted-foreground">
+                ไม่มีงานที่เสร็จแล้ว
+              </div>
+            )}
+
+            {/* Pagination for Completed Tasks */}
+            {completedTotalPages > 1 && (
+              <SmartPagination
+                currentPage={completedPage}
+                totalPages={completedTotalPages}
+                onPageChange={setCompletedPage}
+                totalItems={completedTasks.length}
+                itemsPerPage={ITEMS_PER_PAGE}
+              />
+            )}
           </>
         )}
       </div>
