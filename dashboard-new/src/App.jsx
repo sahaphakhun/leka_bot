@@ -1,29 +1,66 @@
-import { useState, useEffect, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useCallback,
+  useRef,
+  lazy,
+  Suspense,
+} from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { ModalProvider, useModal } from "./context/ModalContext";
+
+// Eager load - Critical for initial render
 import Sidebar from "./components/layout/Sidebar";
 import MainLayout from "./components/layout/MainLayout";
 import ReadOnlyBanner from "./components/common/ReadOnlyBanner";
+import InstallPWA from "./components/common/InstallPWA";
 import DashboardView from "./components/DashboardView";
-import CalendarView from "./components/calendar/CalendarView";
-import TasksView from "./components/tasks/TasksView";
-import RecurringTasksView from "./components/recurring/RecurringTasksView";
-import FilesView from "./components/files/FilesView";
-import MembersView from "./components/members/MembersView";
-import ReportsView from "./components/reports/ReportsView";
-import ProfileView from "./components/profile/ProfileView";
-import SubmitMultipleView from "./components/submit/SubmitMultipleView";
-import LeaderboardView from "./components/leaderboard/LeaderboardView";
-import AddTaskModal from "./components/modals/AddTaskModal";
-import EditTaskModal from "./components/modals/EditTaskModal";
-import TaskDetailModal from "./components/modals/TaskDetailModal";
-import SubmitTaskModal from "./components/modals/SubmitTaskModal";
-import FilePreviewModal from "./components/modals/FilePreviewModal";
-import ConfirmDialog from "./components/modals/ConfirmDialog";
-import RecurringTaskModal from "./components/recurring/RecurringTaskModal";
-import RecurringHistoryModal from "./components/recurring/RecurringHistoryModal";
-import InviteMemberModal from "./components/members/InviteMemberModal";
-import MemberActionsModal from "./components/members/MemberActionsModal";
+
+// Lazy load - Views (loaded on demand)
+const CalendarView = lazy(() => import("./components/calendar/CalendarView"));
+const TasksView = lazy(() => import("./components/tasks/TasksView"));
+const RecurringTasksView = lazy(
+  () => import("./components/recurring/RecurringTasksView"),
+);
+const FilesView = lazy(() => import("./components/files/FilesView"));
+const MembersView = lazy(() => import("./components/members/MembersView"));
+const ReportsView = lazy(() => import("./components/reports/ReportsView"));
+const ProfileView = lazy(() => import("./components/profile/ProfileView"));
+const SubmitMultipleView = lazy(
+  () => import("./components/submit/SubmitMultipleView"),
+);
+const LeaderboardView = lazy(
+  () => import("./components/leaderboard/LeaderboardView"),
+);
+const ActivityLogsView = lazy(
+  () => import("./components/activity/ActivityLogsView"),
+);
+
+// Lazy load - Modals (loaded when opened)
+const AddTaskModal = lazy(() => import("./components/modals/AddTaskModal"));
+const EditTaskModal = lazy(() => import("./components/modals/EditTaskModal"));
+const TaskDetailModal = lazy(
+  () => import("./components/modals/TaskDetailModal"),
+);
+const SubmitTaskModal = lazy(
+  () => import("./components/modals/SubmitTaskModal"),
+);
+const FilePreviewModal = lazy(
+  () => import("./components/modals/FilePreviewModal"),
+);
+const ConfirmDialog = lazy(() => import("./components/modals/ConfirmDialog"));
+const RecurringTaskModal = lazy(
+  () => import("./components/recurring/RecurringTaskModal"),
+);
+const RecurringHistoryModal = lazy(
+  () => import("./components/recurring/RecurringHistoryModal"),
+);
+const InviteMemberModal = lazy(
+  () => import("./components/members/InviteMemberModal"),
+);
+const MemberActionsModal = lazy(
+  () => import("./components/members/MemberActionsModal"),
+);
 import {
   fetchTasks,
   normalizeTasks,
@@ -558,6 +595,16 @@ function AppContent() {
       );
     }
 
+    // Loading fallback component
+    const LoadingFallback = () => (
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
+          <p className="text-sm text-gray-600">กำลังโหลด...</p>
+        </div>
+      </div>
+    );
+
     switch (activeView) {
       case "dashboard":
         return (
@@ -574,23 +621,65 @@ function AppContent() {
           />
         );
       case "calendar":
-        return <CalendarView tasks={tasks} onTaskUpdate={handleTaskUpdate} />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <CalendarView tasks={tasks} onTaskUpdate={handleTaskUpdate} />
+          </Suspense>
+        );
       case "tasks":
-        return <TasksView tasks={tasks} onTaskUpdate={handleTaskUpdate} />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <TasksView tasks={tasks} onTaskUpdate={handleTaskUpdate} />
+          </Suspense>
+        );
       case "recurring":
-        return <RecurringTasksView refreshKey={recurringRefreshKey} />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <RecurringTasksView refreshKey={recurringRefreshKey} />
+          </Suspense>
+        );
       case "files":
-        return <FilesView refreshKey={filesRefreshKey} />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <FilesView refreshKey={filesRefreshKey} />
+          </Suspense>
+        );
       case "team":
-        return <MembersView refreshKey={membersRefreshKey} />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <MembersView refreshKey={membersRefreshKey} />
+          </Suspense>
+        );
       case "leaderboard":
-        return <LeaderboardView />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <LeaderboardView />
+          </Suspense>
+        );
       case "reports":
-        return <ReportsView />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ReportsView />
+          </Suspense>
+        );
       case "profile":
-        return <ProfileView />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ProfileView />
+          </Suspense>
+        );
       case "submit":
-        return <SubmitMultipleView />;
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <SubmitMultipleView />
+          </Suspense>
+        );
+      case "activity":
+        return (
+          <Suspense fallback={<LoadingFallback />}>
+            <ActivityLogsView />
+          </Suspense>
+        );
       default:
         return <DashboardView tasks={tasks} stats={stats} />;
     }
@@ -600,6 +689,9 @@ function AppContent() {
     <div className="flex flex-col h-screen bg-background">
       {/* Read-Only Banner */}
       <ReadOnlyBanner />
+
+      {/* PWA Install Prompt */}
+      <InstallPWA />
 
       <div className="flex flex-1 overflow-hidden">
         <Sidebar
@@ -611,22 +703,24 @@ function AppContent() {
         />
         <MainLayout>
           {renderView()}
-          <AddTaskModal onTaskCreated={handleTasksReload} />
-          <EditTaskModal onTaskUpdated={handleTasksReload} />
-          <TaskDetailModal
-            onTaskUpdated={handleTasksReload}
-            onTaskDeleted={handleTasksReload}
-          />
-          <SubmitTaskModal onTaskSubmitted={handleTasksReload} />
-          <FilePreviewModal />
-          <ConfirmDialog />
-          <RecurringTaskModal
-            onTaskCreated={handleRecurringRefresh}
-            onTaskUpdated={handleRecurringRefresh}
-          />
-          <RecurringHistoryModal />
-          <InviteMemberModal onInvited={handleMembersRefresh} />
-          <MemberActionsModal onUpdated={handleMembersRefresh} />
+          <Suspense fallback={null}>
+            <AddTaskModal onTaskCreated={handleTasksReload} />
+            <EditTaskModal onTaskUpdated={handleTasksReload} />
+            <TaskDetailModal
+              onTaskUpdated={handleTasksReload}
+              onTaskDeleted={handleTasksReload}
+            />
+            <SubmitTaskModal onTaskSubmitted={handleTasksReload} />
+            <FilePreviewModal />
+            <ConfirmDialog />
+            <RecurringTaskModal
+              onTaskCreated={handleRecurringRefresh}
+              onTaskUpdated={handleRecurringRefresh}
+            />
+            <RecurringHistoryModal />
+            <InviteMemberModal onInvited={handleMembersRefresh} />
+            <MemberActionsModal onUpdated={handleMembersRefresh} />
+          </Suspense>
         </MainLayout>
       </div>
     </div>

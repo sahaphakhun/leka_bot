@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import TaskCard from "./common/TaskCard";
 import { useAuth } from "../context/AuthContext";
+import { showError, showSuccess } from "../lib/toast";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -93,9 +94,10 @@ const DashboardView = ({
     try {
       const { exportDashboardData } = await import("../services/exportService");
       await exportDashboardData(tasks, statsData, format);
+      showSuccess("ส่งออกข้อมูล Dashboard สำเร็จ");
     } catch (error) {
       console.error("Failed to export dashboard:", error);
-      alert("ไม่สามารถส่งออกข้อมูลได้");
+      showError("ไม่สามารถส่งออกข้อมูลได้", error);
     } finally {
       setExporting(false);
     }

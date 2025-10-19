@@ -43,7 +43,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
     const validFiles = newFiles.filter((file) => {
       // Check file size (max 10MB)
       if (file.size > 10 * 1024 * 1024) {
-        alert(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
+        showWarning(`ไฟล์ ${file.name} มีขนาดใหญ่เกิน 10MB`);
         return false;
       }
       return true;
@@ -123,12 +123,11 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
 
     try {
       const formData = new FormData();
-      formData.append("taskId", selectedTask.id);
-      formData.append("notes", notes);
-      formData.append("submittedBy", userId);
+      formData.append("userId", userId);
+      formData.append("comment", notes || "");
 
       files.forEach((file) => {
-        formData.append("files", file);
+        formData.append("attachments", file);
       });
 
       const totalSize = files.reduce((sum, file) => sum + (file?.size || 0), 0);
@@ -146,6 +145,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
         groupId,
         selectedTask.id,
         formData,
+        userId,
         ({ loaded, total, lengthComputable }) => {
           if (lengthComputable && total > 0) {
             const pct = Math.round((loaded / total) * 100);

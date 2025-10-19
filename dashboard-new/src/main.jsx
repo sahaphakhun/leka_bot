@@ -3,10 +3,27 @@ import { createRoot } from "react-dom/client";
 import { Toaster } from "react-hot-toast";
 import "./index.css";
 import App from "./App.jsx";
+import ErrorBoundary from "./components/common/ErrorBoundary";
+import AsyncErrorBoundary from "./components/common/AsyncErrorBoundary";
 
 createRoot(document.getElementById("root")).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary
+      errorMessage="ขออภัย แดชบอร์ดเกิดข้อผิดพลาด กรุณารีเฟรชหน้าเว็บ"
+      helpText="หากปัญหายังคงอยู่ กรุณาติดต่อผู้ดูแลระบบหรือลองเข้าผ่าน LINE อีกครั้ง"
+      showReportButton={true}
+      onError={(error, errorInfo) => {
+        // Log to console in development
+        if (import.meta.env.DEV) {
+          console.error("App Error:", error, errorInfo);
+        }
+        // TODO: Send to error tracking service (Sentry)
+      }}
+    >
+      <AsyncErrorBoundary>
+        <App />
+      </AsyncErrorBoundary>
+    </ErrorBoundary>
     <Toaster
       position="top-right"
       reverseOrder={false}

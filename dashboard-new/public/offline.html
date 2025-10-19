@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ออฟไลน์ - Leka Bot Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #fff;
+      padding: 20px;
+    }
+
+    .offline-container {
+      text-align: center;
+      max-width: 500px;
+    }
+
+    .offline-icon {
+      width: 120px;
+      height: 120px;
+      margin: 0 auto 30px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(10px);
+      border: 2px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .offline-icon svg {
+      width: 60px;
+      height: 60px;
+      stroke: #fff;
+      stroke-width: 2;
+      fill: none;
+    }
+
+    h1 {
+      font-size: 32px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+
+    p {
+      font-size: 18px;
+      line-height: 1.6;
+      margin-bottom: 12px;
+      opacity: 0.9;
+    }
+
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      background: rgba(255, 255, 255, 0.15);
+      padding: 12px 24px;
+      border-radius: 24px;
+      margin: 24px 0;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      background: #ef4444;
+      border-radius: 50%;
+      animation: pulse 2s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.5;
+        transform: scale(1.2);
+      }
+    }
+
+    .retry-btn {
+      display: inline-block;
+      background: #fff;
+      color: #667eea;
+      padding: 14px 32px;
+      border-radius: 8px;
+      text-decoration: none;
+      font-weight: 600;
+      font-size: 16px;
+      margin-top: 24px;
+      cursor: pointer;
+      border: none;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: all 0.3s ease;
+    }
+
+    .retry-btn:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+    }
+
+    .retry-btn:active {
+      transform: translateY(0);
+    }
+
+    .tips {
+      margin-top: 40px;
+      padding: 24px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 12px;
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .tips h2 {
+      font-size: 20px;
+      margin-bottom: 16px;
+      font-weight: 600;
+    }
+
+    .tips ul {
+      list-style: none;
+      text-align: left;
+    }
+
+    .tips li {
+      padding: 8px 0;
+      padding-left: 28px;
+      position: relative;
+      opacity: 0.9;
+      font-size: 15px;
+    }
+
+    .tips li:before {
+      content: "✓";
+      position: absolute;
+      left: 0;
+      font-weight: bold;
+      color: #10b981;
+    }
+
+    @media (max-width: 480px) {
+      h1 {
+        font-size: 24px;
+      }
+
+      p {
+        font-size: 16px;
+      }
+
+      .offline-icon {
+        width: 100px;
+        height: 100px;
+      }
+
+      .offline-icon svg {
+        width: 50px;
+        height: 50px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="offline-container">
+    <div class="offline-icon">
+      <svg viewBox="0 0 24 24">
+        <path d="M1 9l2 2c4.97-4.97 13.03-4.97 18 0l2-2C16.93 2.93 7.08 2.93 1 9z"/>
+        <path d="M5 13l2 2c3.31-3.31 8.69-3.31 12 0l2-2c-4.28-4.28-11.72-4.28-16 0z"/>
+        <path d="M9 17l3 3 3-3c-1.65-1.66-4.34-1.66-6 0z"/>
+        <line x1="1" y1="1" x2="23" y2="23" stroke-width="2"/>
+      </svg>
+    </div>
+
+    <h1>คุณออฟไลน์อยู่</h1>
+    <p>ไม่สามารถเชื่อมต่ออินเทอร์เน็ตได้</p>
+
+    <div class="status">
+      <span class="status-dot"></span>
+      <span>ไม่มีการเชื่อมต่อ</span>
+    </div>
+
+    <button class="retry-btn" onclick="location.reload()">
+      ลองอีกครั้ง
+    </button>
+
+    <div class="tips">
+      <h2>💡 เคล็ดลับ</h2>
+      <ul>
+        <li>ตรวจสอบการเชื่อมต่อ Wi-Fi หรือข้อมูลมือถือ</li>
+        <li>ลองเปิดเครื่องบิน mode แล้วปิดใหม่</li>
+        <li>ตรวจสอบว่าคุณอยู่ในพื้นที่ที่มีสัญญาณ</li>
+        <li>รีสตาร์ทเราเตอร์หรืออุปกรณ์ของคุณ</li>
+      </ul>
+    </div>
+  </div>
+
+  <script>
+    // Auto-retry when online
+    window.addEventListener('online', () => {
+      console.log('Connection restored, reloading...');
+      setTimeout(() => {
+        location.reload();
+      }, 1000);
+    });
+
+    // Check connection status
+    function checkConnection() {
+      if (navigator.onLine) {
+        location.reload();
+      }
+    }
+
+    // Check every 5 seconds
+    setInterval(checkConnection, 5000);
+  </script>
+</body>
+</html>

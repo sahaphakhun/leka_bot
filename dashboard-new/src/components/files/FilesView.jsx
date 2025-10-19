@@ -31,6 +31,8 @@ import {
   fetchTasks,
   getGroupFiles,
   deleteFile,
+  downloadFile,
+  previewFile,
 } from "../../services/api";
 import {
   showUploadProgress,
@@ -41,8 +43,60 @@ import { showSuccess, showError, showWarning } from "../../lib/toast";
 
 const ITEMS_PER_PAGE = 20;
 
+const deriveFileType = (mimeType = "") => {
+  if (mimeType.startsWith("image/")) return "image";
+  if (mimeType.startsWith("video/")) return "video";
+  if (mimeType.startsWith("audio/")) return "audio";
+  if (
+    mimeType.startsWith("application/pdf") ||
+    mimeType.includes("msword") ||
+    mimeType.includes("wordprocessingml") ||
+    mimeType.includes("spreadsheetml") ||
+    mimeType.includes("ms-excel") ||
+    mimeType.includes("presentation") ||
+    mimeType.includes("text")
+  ) {
+    return "document";
+  }
+  return "other";
+};
+
+const normaliseMemberName = (member) =>
+  member?.displayName ||
+  member?.realName ||
+  member?.name ||
+  member?.lineUserId ||
+  "-";
+
+const normaliseFileRecord = (file) => {
+  const linkedTasks = Array.isArray(file?.linkedTasks) ? file.linkedTasks : [];
+  const firstTask = linkedTasks[0] || null;
+  const fallbackTaskName = Array.isArray(file?.taskNames)
+    ? file.taskNames[0]
+    : null;
+
+  return {
+    id: file.id,
+    name: file.originalName || file.fileName || file.name || "ไฟล์ไม่มีชื่อ",
+    type: deriveFileType(file.mimeType),
+    mimeType: file.mimeType || "",
+    size: file.size || 0,
+    uploadedAt: file.uploadedAt || null,
+    taskId: firstTask?.id || null,
+    taskTitle:
+      firstTask?.title || fallbackTaskName || (firstTask ? firstTask.id : null),
+    uploadedBy: normaliseMemberName(file.uploadedByUser),
+    raw: file,
+  };
+};
+
+const normaliseTaskRecord = (task) => ({
+  id: task.id,
+  title: task.title || task.name || "ไม่ทราบชื่องาน",
+});
+
 export default function FilesView({ refreshKey = 0 }) {
-  const { groupId, canModify } = useAuth();
+  const { groupId, userId, canModify } = useAuth();
   const { openFilePreview } = useModal();
   const [files, setFiles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -50,42 +104,51 @@ export default function FilesView({ refreshKey = 0 }) {
   const [searchTerm, setSearchTerm] = useState("");
   const [taskFilter, setTaskFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
-  const [activeView, setActiveView] = useState("list");
+  const [activeView, setActiveView] = useState(() => {
+    // Load saved view preference from localStorage
+    const saved = localStorage.getItem("filesViewMode");
+    return saved && ["list", "grid", "folder"].includes(saved) ? saved : "list";
+  });
   const [showUploadZone, setShowUploadZone] = useState(false);
   const [tasks, setTasks] = useState([]);
   const [currentPage, setCurrentPage] = useState(1);
 
   const loadData = useCallback(async () => {
+    if (!groupId) {
+      setFiles([]);
+      setTasks([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      // Load files and tasks in parallel
       const [filesResponse, tasksResponse] = await Promise.all([
         getGroupFiles(groupId),
         fetchTasks(groupId).catch((err) => {
           console.warn("⚠️ Failed to load tasks (non-critical):", err);
-          return { data: [], tasks: [] }; // Return empty array on error
+          return { data: [] };
         }),
       ]);
 
-      setFiles(filesResponse.data || filesResponse);
-      setTasks(tasksResponse.data || tasksResponse.tasks || []);
+      const rawFiles =
+        filesResponse?.data || filesResponse?.files || filesResponse || [];
+      const normalisedFiles = rawFiles.map(normaliseFileRecord);
+      setFiles(normalisedFiles);
+      console.log("✅ Loaded files:", normalisedFiles.length);
 
-      console.log(
-        "✅ Loaded files:",
-        (filesResponse.data || filesResponse).length,
-      );
-      console.log(
-        "✅ Loaded tasks:",
-        (tasksResponse.data || tasksResponse.tasks || []).length,
-      );
-    } catch (error) {
-      console.error("❌ Failed to load files:", error);
-      setError(error.message || "ไม่สามารถโหลดไฟล์ได้");
+      const rawTasks = tasksResponse?.data || tasksResponse?.tasks || [];
+      const normalisedTasks = rawTasks.map(normaliseTaskRecord);
+      setTasks(normalisedTasks);
+      console.log("✅ Loaded tasks:", normalisedTasks.length);
+    } catch (err) {
+      console.error("❌ Failed to load files:", err);
+      setError(err.message || "ไม่สามารถโหลดไฟล์ได้");
       setFiles([]);
       setTasks([]);
-      showError("ไม่สามารถโหลดไฟล์ได้", error);
+      showError("ไม่สามารถโหลดไฟล์ได้", err);
     } finally {
       setLoading(false);
     }
@@ -96,7 +159,6 @@ export default function FilesView({ refreshKey = 0 }) {
   }, [loadData, refreshKey]);
 
   const loadFiles = useCallback(async () => {
-    // Kept for manual refresh - calls loadData
     await loadData();
   }, [loadData]);
 
@@ -110,7 +172,7 @@ export default function FilesView({ refreshKey = 0 }) {
 
   const handleFileUpload = useCallback(
     async (uploadedFiles, onProgress) => {
-      if (!canModify()) {
+      if (!canModify() || !userId) {
         showWarning("คุณไม่มีสิทธิ์อัปโหลดไฟล์");
         return;
       }
@@ -137,7 +199,7 @@ export default function FilesView({ refreshKey = 0 }) {
         await uploadFilesWithProgress(
           groupId,
           fileArray,
-          {},
+          { userId },
           ({ loaded, total, lengthComputable }) => {
             updateUploadProgress({ loaded, total, lengthComputable });
             if (typeof onProgress === "function") {
@@ -156,14 +218,14 @@ export default function FilesView({ refreshKey = 0 }) {
         showSuccess(`อัปโหลดไฟล์สำเร็จ ${fileArray.length} ไฟล์`);
         loadFiles();
         setShowUploadZone(false);
-      } catch (error) {
-        console.error("Failed to upload files:", error);
-        showError("ไม่สามารถอัปโหลดไฟล์ได้", error);
+      } catch (err) {
+        console.error("Failed to upload files:", err);
+        showError("ไม่สามารถอัปโหลดไฟล์ได้", err);
       } finally {
         hideUploadProgress();
       }
     },
-    [canModify, formatFileSize, groupId],
+    [canModify, formatFileSize, groupId, loadFiles, userId],
   );
 
   const handleFileDelete = useCallback(
@@ -174,43 +236,52 @@ export default function FilesView({ refreshKey = 0 }) {
       }
 
       try {
-        await deleteFile(groupId, fileId);
+        await deleteFile(null, fileId);
         showSuccess("ลบไฟล์สำเร็จ");
         loadFiles();
-      } catch (error) {
-        console.error("Failed to delete file:", error);
-        showError("ไม่สามารถลบไฟล์ได้", error);
+      } catch (err) {
+        console.error("Failed to delete file:", err);
+        showError("ไม่สามารถลบไฟล์ได้", err);
       }
     },
-    [canModify, groupId, loadFiles],
+    [canModify, loadFiles],
   );
 
   const handleFilePreview = useCallback(
-    (file) => {
-      openFilePreview(file);
+    async (file) => {
+      try {
+        const previewUrl = await previewFile(groupId, file.id);
+        openFilePreview({ ...file, previewUrl });
+      } catch (err) {
+        console.error("Failed to preview file:", err);
+        showError("ไม่สามารถแสดงตัวอย่างไฟล์ได้", err);
+      }
     },
-    [openFilePreview],
+    [groupId, openFilePreview],
   );
 
-  const handleFileDownload = useCallback(async (file) => {
-    try {
-      const link = document.createElement("a");
-      link.href = file.url;
-      link.download = file.name;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      showSuccess("เริ่มดาวน์โหลดไฟล์");
-    } catch (error) {
-      console.error("Failed to download file:", error);
-      showError("ไม่สามารถดาวน์โหลดไฟล์ได้", error);
-    }
-  }, []);
+  const handleFileDownload = useCallback(
+    async (file) => {
+      try {
+        const url = await downloadFile(groupId, file.id);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = file.name;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        showSuccess("เริ่มดาวน์โหลดไฟล์");
+      } catch (err) {
+        console.error("Failed to download file:", err);
+        showError("ไม่สามารถดาวน์โหลดไฟล์ได้", err);
+      }
+    },
+    [groupId],
+  );
 
   const filteredFiles = useMemo(() => {
     return files.filter((file) => {
-      const displayName =
-        file.name || file.originalName || file.filename || file.fileName || "";
+      const displayName = file.name || "";
       const matchesSearch = displayName
         .toLowerCase()
         .includes((searchTerm || "").toLowerCase());
@@ -226,13 +297,11 @@ export default function FilesView({ refreshKey = 0 }) {
     });
   }, [files, searchTerm, taskFilter, typeFilter]);
 
-  // Reset to page 1 when filters change
   useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm, taskFilter, typeFilter]);
 
-  // Pagination calculations
-  const totalPages = Math.ceil(filteredFiles.length / ITEMS_PER_PAGE);
+  const totalPages = Math.ceil(filteredFiles.length / ITEMS_PER_PAGE) || 1;
 
   const paginatedFiles = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -243,20 +312,26 @@ export default function FilesView({ refreshKey = 0 }) {
   const summaryText = `แสดง ${filteredFiles.length} จาก ${files.length} ไฟล์`;
 
   const groupFilesByTask = useMemo(() => {
-    const grouped = {};
+    const groupedMap = new Map();
+
     paginatedFiles.forEach((file) => {
       const taskId = file.taskId || "unassigned";
-      if (!grouped[taskId]) {
-        grouped[taskId] = {
+      if (!groupedMap.has(taskId)) {
+        groupedMap.set(taskId, {
           taskId,
-          taskTitle: file.taskTitle || "ไม่ระบุงาน",
+          taskTitle:
+            file.taskTitle ||
+            (taskId === "unassigned"
+              ? "ไฟล์ที่ไม่ได้ผูกกับงาน"
+              : tasks.find((t) => t.id === taskId)?.title || "ไม่ทราบงาน"),
           files: [],
-        };
+        });
       }
-      grouped[taskId].files.push(file);
+      groupedMap.get(taskId).files.push(file);
     });
-    return Object.values(grouped);
-  }, [paginatedFiles]);
+
+    return Array.from(groupedMap.values());
+  }, [paginatedFiles, tasks]);
 
   if (loading) {
     return (
@@ -269,7 +344,6 @@ export default function FilesView({ refreshKey = 0 }) {
     );
   }
 
-  // Error State
   if (error) {
     return (
       <div className="p-6">
@@ -295,7 +369,6 @@ export default function FilesView({ refreshKey = 0 }) {
     );
   }
 
-  // Empty State (no files)
   if (!loading && !error && files.length === 0) {
     return (
       <div className="p-6 space-y-6">
@@ -310,7 +383,10 @@ export default function FilesView({ refreshKey = 0 }) {
               รีเฟรช
             </Button>
             {canModify() ? (
-              <Button onClick={() => setShowUploadZone(!showUploadZone)}>
+              <Button
+                onClick={() => setShowUploadZone(true)}
+                disabled={!userId}
+              >
                 <Upload className="w-4 h-4 mr-2" />
                 อัปโหลดไฟล์
               </Button>
@@ -340,7 +416,10 @@ export default function FilesView({ refreshKey = 0 }) {
               อัปโหลดไฟล์แรกของคุณเพื่อเริ่มต้นใช้งานคลังไฟล์
             </p>
             {canModify() ? (
-              <Button onClick={() => setShowUploadZone(true)}>
+              <Button
+                onClick={() => setShowUploadZone(true)}
+                disabled={!userId}
+              >
                 <Upload className="w-4 h-4 mr-2" />
                 อัปโหลดไฟล์แรก
               </Button>
@@ -357,7 +436,6 @@ export default function FilesView({ refreshKey = 0 }) {
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
       <div className="flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">คลังไฟล์</h1>
@@ -369,9 +447,12 @@ export default function FilesView({ refreshKey = 0 }) {
             รีเฟรช
           </Button>
           {canModify() ? (
-            <Button onClick={() => setShowUploadZone(!showUploadZone)}>
+            <Button
+              onClick={() => setShowUploadZone((prev) => !prev)}
+              disabled={!userId}
+            >
               <Upload className="w-4 h-4 mr-2" />
-              อัปโหลดไฟล์
+              {showUploadZone ? "ปิดกล่องอัปโหลด" : "อัปโหลดไฟล์"}
             </Button>
           ) : (
             <Button disabled variant="outline">
@@ -382,7 +463,6 @@ export default function FilesView({ refreshKey = 0 }) {
         </div>
       </div>
 
-      {/* Upload Zone */}
       {showUploadZone && (
         <FileUploadZone
           onFilesUploaded={handleFileUpload}
@@ -390,102 +470,90 @@ export default function FilesView({ refreshKey = 0 }) {
         />
       )}
 
-      {/* Filters */}
-      <div className="bg-white rounded-lg p-4 shadow-sm">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          {/* Search */}
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-            <Input
-              placeholder="ค้นหาไฟล์..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
+      <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+        <div className="flex flex-col md:flex-row md:items-center gap-4 w-full">
+          <div className="flex-1">
+            <label className="text-sm font-medium text-gray-600 block mb-1">
+              ค้นหาไฟล์
+            </label>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+              <Input
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="พิมพ์ชื่อไฟล์..."
+                className="pl-9"
+              />
+            </div>
           </div>
 
-          {/* Task Filter */}
-          <Select value={taskFilter} onValueChange={setTaskFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="เลือกงาน" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">งาน: ทั้งหมด</SelectItem>
-              <SelectItem value="unassigned">ไฟล์ทั่วไป (ไม่ผูกงาน)</SelectItem>
-              {tasks.map((task) => (
-                <SelectItem key={task.id} value={task.id}>
-                  {task.title}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="w-full md:w-56">
+            <label className="text-sm font-medium text-gray-600 block mb-1">
+              งาน
+            </label>
+            <Select value={taskFilter} onValueChange={setTaskFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="เลือกงาน" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทุกงาน</SelectItem>
+                <SelectItem value="unassigned">ไม่ผูกกับงาน</SelectItem>
+                {tasks.map((task) => (
+                  <SelectItem key={task.id} value={task.id}>
+                    {task.title}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
 
-          {/* Type Filter */}
-          <Select value={typeFilter} onValueChange={setTypeFilter}>
-            <SelectTrigger>
-              <SelectValue placeholder="เลือกประเภทไฟล์" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">ประเภท: ทั้งหมด</SelectItem>
-              <SelectItem value="image">รูปภาพ</SelectItem>
-              <SelectItem value="document">เอกสาร</SelectItem>
-              <SelectItem value="video">วิดีโอ</SelectItem>
-              <SelectItem value="audio">เสียง</SelectItem>
-              <SelectItem value="other">อื่นๆ</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="w-full md:w-48">
+            <label className="text-sm font-medium text-gray-600 block mb-1">
+              ประเภทไฟล์
+            </label>
+            <Select value={typeFilter} onValueChange={setTypeFilter}>
+              <SelectTrigger>
+                <SelectValue placeholder="เลือกประเภท" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">ทั้งหมด</SelectItem>
+                <SelectItem value="image">รูปภาพ</SelectItem>
+                <SelectItem value="document">เอกสาร</SelectItem>
+                <SelectItem value="video">วิดีโอ</SelectItem>
+                <SelectItem value="audio">เสียง</SelectItem>
+                <SelectItem value="other">อื่นๆ</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </div>
+
+        <div className="text-sm text-gray-500 self-start md:self-auto">
+          {summaryText}
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground">ไฟล์ทั้งหมด</p>
-          <p className="text-2xl font-bold">{files.length}</p>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground">รูปภาพ</p>
-          <p className="text-2xl font-bold">
-            {files.filter((f) => f.type === "image").length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground">เอกสาร</p>
-          <p className="text-2xl font-bold">
-            {files.filter((f) => f.type === "document").length}
-          </p>
-        </div>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <p className="text-sm text-muted-foreground">อื่นๆ</p>
-          <p className="text-2xl font-bold">
-            {
-              files.filter((f) => f.type !== "image" && f.type !== "document")
-                .length
-            }
-          </p>
-        </div>
-      </div>
-
-      {/* View Tabs */}
-      <Tabs value={activeView} onValueChange={setActiveView}>
-        <div className="flex items-center justify-between mb-4">
-          <TabsList>
-            <TabsTrigger value="list">
-              <LayoutList className="w-4 h-4 mr-2" />
-              รายการ
-            </TabsTrigger>
-            <TabsTrigger value="grid">
-              <LayoutGrid className="w-4 h-4 mr-2" />
-              กริด
-            </TabsTrigger>
-            <TabsTrigger value="folder">
-              <FolderOpen className="w-4 h-4 mr-2" />
-              จัดกลุ่มตามงาน
-            </TabsTrigger>
-          </TabsList>
-
-          <p className="text-sm text-muted-foreground">{summaryText}</p>
-        </div>
+      <Tabs
+        value={activeView}
+        onValueChange={(value) => {
+          setActiveView(value);
+          // Save view preference to localStorage
+          localStorage.setItem("filesViewMode", value);
+        }}
+      >
+        <TabsList>
+          <TabsTrigger value="list" className="flex items-center gap-2">
+            <LayoutList className="w-4 h-4" />
+            รายการ
+          </TabsTrigger>
+          <TabsTrigger value="grid" className="flex items-center gap-2">
+            <LayoutGrid className="w-4 h-4" />
+            กริด
+          </TabsTrigger>
+          <TabsTrigger value="folder" className="flex items-center gap-2">
+            <FolderOpen className="w-4 h-4" />
+            ตามงาน
+          </TabsTrigger>
+        </TabsList>
 
         <TabsContent value="list">
           <FileListView
@@ -494,19 +562,7 @@ export default function FilesView({ refreshKey = 0 }) {
             onDownload={handleFileDownload}
             onDelete={handleFileDelete}
           />
-          {totalPages > 1 && (
-            <div className="mt-6">
-              <SmartPagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={filteredFiles.length}
-                itemsPerPage={ITEMS_PER_PAGE}
-              />
-            </div>
-          )}
         </TabsContent>
-
         <TabsContent value="grid">
           <FileGridView
             files={paginatedFiles}
@@ -514,19 +570,7 @@ export default function FilesView({ refreshKey = 0 }) {
             onDownload={handleFileDownload}
             onDelete={handleFileDelete}
           />
-          {totalPages > 1 && (
-            <div className="mt-6">
-              <SmartPagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={filteredFiles.length}
-                itemsPerPage={ITEMS_PER_PAGE}
-              />
-            </div>
-          )}
         </TabsContent>
-
         <TabsContent value="folder">
           <FileFolderView
             groupedFiles={groupFilesByTask}
@@ -534,19 +578,16 @@ export default function FilesView({ refreshKey = 0 }) {
             onDownload={handleFileDownload}
             onDelete={handleFileDelete}
           />
-          {totalPages > 1 && (
-            <div className="mt-6">
-              <SmartPagination
-                currentPage={currentPage}
-                totalPages={totalPages}
-                onPageChange={setCurrentPage}
-                totalItems={filteredFiles.length}
-                itemsPerPage={ITEMS_PER_PAGE}
-              />
-            </div>
-          )}
         </TabsContent>
       </Tabs>
+
+      {filteredFiles.length > ITEMS_PER_PAGE && (
+        <SmartPagination
+          currentPage={currentPage}
+          totalPages={totalPages}
+          onPageChange={setCurrentPage}
+        />
+      )}
     </div>
   );
 }

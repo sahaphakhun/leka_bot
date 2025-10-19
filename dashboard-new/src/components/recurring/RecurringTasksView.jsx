@@ -126,9 +126,8 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
       showSuccess(task.isActive ? "ปิดการใช้งานแล้ว" : "เปิดการใช้งานแล้ว");
       loadRecurringTasks();
     } catch (error) {
-      showError("ไม่สามารถเปลี่ยนสถานะได้", error);
       console.error("Failed to toggle recurring task:", error);
-      alert("ไม่สามารถเปลี่ยนสถานะได้");
+      showError("ไม่สามารถเปลี่ยนสถานะได้", error);
     }
   };
 
@@ -151,10 +150,11 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
         try {
           const { deleteRecurringTask } = await import("../../services/api");
           await deleteRecurringTask(groupId, task.id);
+          showSuccess("ลบงานประจำสำเร็จ");
           loadRecurringTasks();
         } catch (error) {
           console.error("Failed to delete recurring task:", error);
-          alert("ไม่สามารถลบงานประจำได้");
+          showError("ไม่สามารถลบงานประจำได้", error);
         }
       },
     });

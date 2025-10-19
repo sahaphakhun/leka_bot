@@ -10,6 +10,8 @@ import {
   Film,
   Music,
 } from "lucide-react";
+import { showError, showSuccess } from "../../lib/toast";
+import PDFViewer from "../common/PDFViewer";
 
 export default function FilePreviewModal() {
   const { isFilePreviewOpen, closeFilePreview, selectedFile } = useModal();
@@ -85,9 +87,10 @@ export default function FilePreviewModal() {
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      showSuccess("เริ่มดาวน์โหลดไฟล์");
     } catch (error) {
       console.error("Failed to download file:", error);
-      alert("ไม่สามารถดาวน์โหลดไฟล์ได้");
+      showError("ไม่สามารถดาวน์โหลดไฟล์ได้", error);
     }
   };
 
@@ -147,11 +150,14 @@ export default function FilePreviewModal() {
 
       case "pdf":
         return (
-          <div className="bg-gray-50 rounded-lg">
-            <iframe
-              src={previewUrl}
-              className="w-full h-[70vh] rounded-lg"
-              title="PDF Preview"
+          <div
+            className="bg-gray-900 rounded-lg overflow-hidden"
+            style={{ height: "70vh" }}
+          >
+            <PDFViewer
+              url={previewUrl}
+              fileName={selectedFile.name || selectedFile.fileName}
+              onClose={closeFilePreview}
             />
           </div>
         );

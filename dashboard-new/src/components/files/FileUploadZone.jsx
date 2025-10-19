@@ -4,8 +4,8 @@ import { Progress } from "../ui/progress";
 import { Upload, X, AlertCircle } from "lucide-react";
 import { showError, showWarning } from "../../lib/toast";
 
-// File validation constants
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+// File validation constants - NO SIZE LIMIT per user request
+// const MAX_FILE_SIZE = 10 * 1024 * 1024; // REMOVED - no file size limit
 const ALLOWED_EXTENSIONS = [
   "jpg",
   "jpeg",
@@ -56,6 +56,8 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
   const [isDragging, setIsDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedBytes, setUploadedBytes] = useState(0);
+  const [totalBytes, setTotalBytes] = useState(0);
   const [validationErrors, setValidationErrors] = useState([]);
 
   const formatFileSize = (bytes) => {
@@ -69,13 +71,7 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
   const validateFile = (file) => {
     const errors = [];
 
-    // Check file size
-    if (file.size > MAX_FILE_SIZE) {
-      errors.push(
-        `ไฟล์ "${file.name}" มีขนาด ${formatFileSize(file.size)} ใหญ่เกินขนาดที่อนุญาต (สูงสุด 10MB)`,
-      );
-      return { valid: false, errors };
-    }
+    // NO FILE SIZE CHECK - removed per user request (unlimited file size)
 
     // Check file extension
     const extension = file.name.split(".").pop().toLowerCase();
@@ -164,18 +160,22 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
 
   const handleUpload = async () => {
     if (files.length === 0) {
-      alert("กรุณาเลือกไฟล์");
+      showWarning("กรุณาเลือกไฟล์ก่อนอัปโหลด");
       return;
     }
 
     setUploading(true);
     setUploadProgress(0);
+    setUploadedBytes(0);
+    setTotalBytes(0);
 
     try {
       await onFilesUploaded(files, ({ loaded, total, lengthComputable }) => {
         if (lengthComputable && total > 0) {
           const pct = Math.round((loaded / total) * 100);
           setUploadProgress(pct);
+          setUploadedBytes(loaded);
+          setTotalBytes(total);
         } else {
           setUploadProgress((prev) => (prev >= 95 ? prev : prev + 5));
         }
@@ -187,10 +187,12 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
       setTimeout(() => {
         setFiles([]);
         setUploadProgress(0);
+        setUploadedBytes(0);
+        setTotalBytes(0);
       }, 500);
     } catch (error) {
       console.error("Upload failed:", error);
-      alert("ไม่สามารถอัปโหลดไฟล์ได้");
+      showError("ไม่สามารถอัปโหลดไฟล์ได้", error);
       setUploadProgress(0);
     } finally {
       setUploading(false);
@@ -336,14 +338,32 @@ export default function FileUploadZone({ onFilesUploaded, onCancel }) {
         </div>
       )}
 
-      {/* Upload Progress */}
+      {/* Upload Progress - Enhanced with detailed info */}
       {uploading && uploadProgress > 0 && (
-        <div className="space-y-2">
-          <div className="flex items-center justify-between text-sm">
-            <span>กำลังอัปโหลด...</span>
-            <span>{uploadProgress}%</span>
+        <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600" />
+              <span className="text-sm font-medium text-blue-900">
+                กำลังอัปโหลด...
+              </span>
+            </div>
+            <span className="text-lg font-bold text-blue-700">
+              {uploadProgress}%
+            </span>
           </div>
-          <Progress value={uploadProgress} className="h-2" />
+          <Progress value={uploadProgress} className="h-3" />
+          {totalBytes > 0 && (
+            <div className="flex items-center justify-between text-xs text-blue-700">
+              <span>ขนาดที่อัปโหลดแล้ว</span>
+              <span className="font-mono font-medium">
+                {formatFileSize(uploadedBytes)} / {formatFileSize(totalBytes)}
+              </span>
+            </div>
+          )}
+          <div className="text-xs text-blue-600">
+            {files.length} ไฟล์ • รอสักครู่...
+          </div>
         </div>
       )}
 

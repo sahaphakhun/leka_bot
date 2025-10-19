@@ -1,9 +1,9 @@
 // User Service - จัดการผู้ใช้และกลุ่ม
 
-import { Repository } from 'typeorm';
-import { AppDataSource } from '@/utils/database';
-import { User, Group, GroupMember } from '@/models';
-import { config } from '@/utils/config';
+import { Repository } from "typeorm";
+import { AppDataSource } from "@/utils/database";
+import { User, Group, GroupMember } from "@/models";
+import { config } from "@/utils/config";
 
 export class UserService {
   private userRepository: Repository<User>;
@@ -19,16 +19,19 @@ export class UserService {
   /**
    * อัปเดตการตั้งค่าผู้ใช้ (เช่น ปฏิทินส่วนบุคคล)
    */
-  public async updateUserSettings(userId: string, settings: Partial<User['settings']>): Promise<User> {
+  public async updateUserSettings(
+    userId: string,
+    settings: Partial<User["settings"]>,
+  ): Promise<User> {
     try {
       const user = await this.userRepository.findOneBy({ id: userId });
       if (!user) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
       user.settings = { ...(user.settings || {}), ...(settings || {}) } as any;
       return await this.userRepository.save(user);
     } catch (error) {
-      console.error('❌ Error updating user settings:', error);
+      console.error("❌ Error updating user settings:", error);
       throw error;
     }
   }
@@ -42,7 +45,7 @@ export class UserService {
     try {
       return await this.userRepository.findOneBy({ lineUserId });
     } catch (error) {
-      console.error('❌ Error finding user by LINE ID:', error);
+      console.error("❌ Error finding user by LINE ID:", error);
       throw error;
     }
   }
@@ -64,12 +67,12 @@ export class UserService {
         realName: data.realName,
         email: data.email,
         timezone: data.timezone || config.app.defaultTimezone,
-        isVerified: !!data.email
+        isVerified: !!data.email,
       });
 
       return await this.userRepository.save(user);
     } catch (error) {
-      console.error('❌ Error creating user:', error);
+      console.error("❌ Error creating user:", error);
       throw error;
     }
   }
@@ -81,7 +84,7 @@ export class UserService {
     try {
       return await this.userRepository.findOneBy({ id: userId });
     } catch (error) {
-      console.error('❌ Error finding user by ID:', error);
+      console.error("❌ Error finding user by ID:", error);
       throw error;
     }
   }
@@ -89,15 +92,18 @@ export class UserService {
   /**
    * อัปเดตข้อมูลผู้ใช้
    */
-  public async updateUser(userId: string, updates: Partial<User>): Promise<User> {
+  public async updateUser(
+    userId: string,
+    updates: Partial<User>,
+  ): Promise<User> {
     try {
       const user = await this.userRepository.findOneBy({ id: userId });
       if (!user) {
-        throw new Error('User not found');
+        throw new Error("User not found");
       }
 
       Object.assign(user, updates);
-      
+
       // ถ้ามี email ให้ตั้งเป็น verified
       if (updates.email) {
         user.isVerified = true;
@@ -105,7 +111,7 @@ export class UserService {
 
       return await this.userRepository.save(user);
     } catch (error) {
-      console.error('❌ Error updating user:', error);
+      console.error("❌ Error updating user:", error);
       throw error;
     }
   }
@@ -117,7 +123,7 @@ export class UserService {
     try {
       return await this.updateUser(userId, { email, isVerified: true });
     } catch (error) {
-      console.error('❌ Error verifying user email:', error);
+      console.error("❌ Error verifying user email:", error);
       throw error;
     }
   }
@@ -131,7 +137,7 @@ export class UserService {
     try {
       return await this.groupRepository.findOneBy({ lineGroupId });
     } catch (error) {
-      console.error('❌ Error finding group by LINE ID:', error);
+      console.error("❌ Error finding group by LINE ID:", error);
       throw error;
     }
   }
@@ -141,7 +147,7 @@ export class UserService {
     try {
       return await this.groupRepository.findOneBy({ id });
     } catch (error) {
-      console.error('❌ Error finding group by ID:', error);
+      console.error("❌ Error finding group by ID:", error);
       throw error;
     }
   }
@@ -152,10 +158,10 @@ export class UserService {
   public async getAllGroups(): Promise<Group[]> {
     try {
       return await this.groupRepository.find({
-        order: { createdAt: 'DESC' }
+        order: { createdAt: "DESC" },
       });
     } catch (error) {
-      console.error('❌ Error getting all groups:', error);
+      console.error("❌ Error getting all groups:", error);
       throw error;
     }
   }
@@ -163,17 +169,20 @@ export class UserService {
   /**
    * อัปเดตชื่อกลุ่ม
    */
-  public async updateGroupName(groupId: string, newName: string): Promise<Group> {
+  public async updateGroupName(
+    groupId: string,
+    newName: string,
+  ): Promise<Group> {
     try {
       const group = await this.groupRepository.findOneBy({ id: groupId });
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error("Group not found");
       }
 
       group.name = newName;
       return await this.groupRepository.save(group);
     } catch (error) {
-      console.error('❌ Error updating group name:', error);
+      console.error("❌ Error updating group name:", error);
       throw error;
     }
   }
@@ -195,13 +204,13 @@ export class UserService {
           reminderIntervals: config.app.defaultReminders,
           enableLeaderboard: true,
           defaultReminders: config.app.defaultReminders,
-          workingHours: config.app.workingHours
-        }
+          workingHours: config.app.workingHours,
+        },
       });
 
       return await this.groupRepository.save(group);
     } catch (error) {
-      console.error('❌ Error creating group:', error);
+      console.error("❌ Error creating group:", error);
       throw error;
     }
   }
@@ -209,17 +218,20 @@ export class UserService {
   /**
    * อัปเดตการตั้งค่ากลุ่ม
    */
-  public async updateGroupSettings(groupId: string, settings: Partial<Group['settings']>): Promise<Group> {
+  public async updateGroupSettings(
+    groupId: string,
+    settings: Partial<Group["settings"]>,
+  ): Promise<Group> {
     try {
       const group = await this.groupRepository.findOneBy({ id: groupId });
       if (!group) {
-        throw new Error('Group not found');
+        throw new Error("Group not found");
       }
 
       group.settings = { ...group.settings, ...settings };
       return await this.groupRepository.save(group);
     } catch (error) {
-      console.error('❌ Error updating group settings:', error);
+      console.error("❌ Error updating group settings:", error);
       throw error;
     }
   }
@@ -232,10 +244,10 @@ export class UserService {
       // อัปเดตชื่อกลุ่มเป็น inactive
       await this.groupRepository.update(
         { lineGroupId },
-        { name: `[INACTIVE] ${new Date().toISOString()}` }
+        { name: `[INACTIVE] ${new Date().toISOString()}` },
       );
     } catch (error) {
-      console.error('❌ Error deactivating group:', error);
+      console.error("❌ Error deactivating group:", error);
       throw error;
     }
   }
@@ -245,11 +257,14 @@ export class UserService {
   /**
    * ค้นหาสมาชิกภาพในกลุ่ม
    */
-  public async findGroupMembership(userId: string, groupId: string): Promise<GroupMember | null> {
+  public async findGroupMembership(
+    userId: string,
+    groupId: string,
+  ): Promise<GroupMember | null> {
     try {
       return await this.groupMemberRepository.findOneBy({ userId, groupId });
     } catch (error) {
-      console.error('❌ Error finding group membership:', error);
+      console.error("❌ Error finding group membership:", error);
       throw error;
     }
   }
@@ -258,20 +273,20 @@ export class UserService {
    * เพิ่มสมาชิกเข้ากลุ่ม
    */
   public async addGroupMember(
-    groupId: string, 
-    userId: string, 
-    role: 'admin' | 'member' = 'admin'
+    groupId: string,
+    userId: string,
+    role: "admin" | "member" = "admin",
   ): Promise<GroupMember> {
     try {
       const membership = this.groupMemberRepository.create({
         groupId,
         userId,
-        role
+        role,
       });
 
       return await this.groupMemberRepository.save(membership);
     } catch (error) {
-      console.error('❌ Error adding group member:', error);
+      console.error("❌ Error adding group member:", error);
       throw error;
     }
   }
@@ -279,11 +294,14 @@ export class UserService {
   /**
    * ลบสมาชิกออกจากกลุ่ม
    */
-  public async removeGroupMember(groupId: string, userId: string): Promise<void> {
+  public async removeGroupMember(
+    groupId: string,
+    userId: string,
+  ): Promise<void> {
     try {
       await this.groupMemberRepository.delete({ groupId, userId });
     } catch (error) {
-      console.error('❌ Error removing group member:', error);
+      console.error("❌ Error removing group member:", error);
       throw error;
     }
   }
@@ -292,20 +310,23 @@ export class UserService {
    * อัปเดตบทบาทสมาชิก
    */
   public async updateMemberRole(
-    groupId: string, 
-    userId: string, 
-    role: 'admin' | 'member'
+    groupId: string,
+    userId: string,
+    role: "admin" | "member",
   ): Promise<GroupMember> {
     try {
-      const membership = await this.groupMemberRepository.findOneBy({ groupId, userId });
+      const membership = await this.groupMemberRepository.findOneBy({
+        groupId,
+        userId,
+      });
       if (!membership) {
-        throw new Error('Membership not found');
+        throw new Error("Membership not found");
       }
 
       membership.role = role;
       return await this.groupMemberRepository.save(membership);
     } catch (error) {
-      console.error('❌ Error updating member role:', error);
+      console.error("❌ Error updating member role:", error);
       throw error;
     }
   }
@@ -314,11 +335,16 @@ export class UserService {
    * ดึงสมาชิกในกลุ่ม
    * @param groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
    */
-  public async getGroupMembers(groupId: string): Promise<Array<User & { role: string }>> {
+  public async getGroupMembers(
+    groupId: string,
+  ): Promise<Array<User & { role: string }>> {
     try {
       // รองรับทั้ง LINE Group ID และ internal UUID
       let group = null as Group | null;
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          groupId,
+        );
       group = isUuid
         ? await this.groupRepository.findOneBy({ id: groupId as any })
         : await this.groupRepository.findOneBy({ lineGroupId: groupId as any });
@@ -328,16 +354,16 @@ export class UserService {
 
       const members = await this.groupMemberRepository.find({
         where: { groupId: group.id },
-        relations: ['user'],
-        order: { joinedAt: 'ASC' }
+        relations: ["user"],
+        order: { joinedAt: "ASC" },
       });
 
-      return members.map(member => ({
+      return members.map((member) => ({
         ...member.user,
-        role: member.role
+        role: member.role,
       }));
     } catch (error) {
-      console.error('❌ Error getting group members:', error);
+      console.error("❌ Error getting group members:", error);
       throw error;
     }
   }
@@ -346,20 +372,22 @@ export class UserService {
    * ดึงกลุ่มที่ผู้ใช้เป็นสมาชิก
    * @param userId - Database User ID (UUID)
    */
-  public async getUserGroups(userId: string): Promise<Array<Group & { role: string }>> {
+  public async getUserGroups(
+    userId: string,
+  ): Promise<Array<Group & { role: string }>> {
     try {
       const memberships = await this.groupMemberRepository.find({
         where: { userId },
-        relations: ['group'],
-        order: { joinedAt: 'ASC' }
+        relations: ["group"],
+        order: { joinedAt: "ASC" },
       });
 
-      return memberships.map(membership => ({
+      return memberships.map((membership) => ({
         ...membership.group,
-        role: membership.role
+        role: membership.role,
       }));
     } catch (error) {
-      console.error('❌ Error getting user groups:', error);
+      console.error("❌ Error getting user groups:", error);
       throw error;
     }
   }
@@ -379,7 +407,9 @@ export class UserService {
       }
 
       // ค้นหา Group entity จาก LINE Group ID
-      const group = await this.groupRepository.findOneBy({ lineGroupId: groupId });
+      const group = await this.groupRepository.findOneBy({
+        lineGroupId: groupId,
+      });
       if (!group) {
         console.log(`⚠️ Group not found for LINE ID: ${groupId}`);
         return false;
@@ -389,12 +419,12 @@ export class UserService {
       const membership = await this.groupMemberRepository.findOneBy({
         userId: user.id,
         groupId: group.id,
-        role: 'admin'
+        role: "admin",
       });
 
       return !!membership;
     } catch (error) {
-      console.error('❌ Error checking admin status:', error);
+      console.error("❌ Error checking admin status:", error);
       return false;
     }
   }
@@ -407,14 +437,14 @@ export class UserService {
       const users = await this.userRepository.find({
         where: {
           lineUserId: {
-            $in: lineUserIds
-          } as any
-        }
+            $in: lineUserIds,
+          } as any,
+        },
       });
 
       return users;
     } catch (error) {
-      console.error('❌ Error resolving LINE users:', error);
+      console.error("❌ Error resolving LINE users:", error);
       throw error;
     }
   }
@@ -432,7 +462,10 @@ export class UserService {
     try {
       // ค้นหา Group entity จาก LINE Group ID หรือ UUID
       let group = null as Group | null;
-      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(groupId);
+      const isUuid =
+        /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+          groupId,
+        );
       group = isUuid
         ? await this.groupRepository.findOneBy({ id: groupId as any })
         : await this.groupRepository.findOneBy({ lineGroupId: groupId as any });
@@ -441,33 +474,35 @@ export class UserService {
       }
 
       const totalMembers = await this.groupMemberRepository.count({
-        where: { groupId: group.id }
+        where: { groupId: group.id },
       });
 
       const memberships = await this.groupMemberRepository.find({
         where: { groupId: group.id },
-        relations: ['user']
+        relations: ["user"],
       });
 
-      const verifiedMembers = memberships.filter(m => m.user.isVerified).length;
-      const adminCount = memberships.filter(m => m.role === 'admin').length;
-      
+      const verifiedMembers = memberships.filter(
+        (m) => m.user.isVerified,
+      ).length;
+      const adminCount = memberships.filter((m) => m.role === "admin").length;
+
       const thisMonth = new Date();
       thisMonth.setDate(1);
       thisMonth.setHours(0, 0, 0, 0);
-      
+
       const joinedThisMonth = memberships.filter(
-        m => m.joinedAt >= thisMonth
+        (m) => m.joinedAt >= thisMonth,
       ).length;
 
       return {
         totalMembers,
         verifiedMembers,
         adminCount,
-        joinedThisMonth
+        joinedThisMonth,
       };
     } catch (error) {
-      console.error('❌ Error getting group stats:', error);
+      console.error("❌ Error getting group stats:", error);
       throw error;
     }
   }
@@ -475,12 +510,253 @@ export class UserService {
   /**
    * ตรวจสอบว่าผู้ใช้เป็น admin ในกลุ่มหรือไม่
    */
-  public async isUserAdminInGroup(userId: string, groupId: string): Promise<boolean> {
+  public async isUserAdminInGroup(
+    userId: string,
+    groupId: string,
+  ): Promise<boolean> {
     try {
       return await this.isGroupAdmin(userId, groupId);
     } catch (error) {
-      console.error('❌ Error checking if user is admin in group:', error);
+      console.error("❌ Error checking if user is admin in group:", error);
       return false;
+    }
+  }
+
+  // Bulk Operations
+
+  /**
+   * ลบสมาชิกหลายคนพร้อมกัน (Bulk Delete)
+   * @param groupId - Group ID (UUID)
+   * @param memberIds - Array of LINE User IDs
+   * @returns Result with success count and errors
+   */
+  public async bulkRemoveMembers(
+    groupId: string,
+    memberIds: string[],
+  ): Promise<{
+    successCount: number;
+    failedCount: number;
+    errors: Array<{ memberId: string; error: string }>;
+  }> {
+    const results = {
+      successCount: 0,
+      failedCount: 0,
+      errors: [] as Array<{ memberId: string; error: string }>,
+    };
+
+    try {
+      // ค้นหา Group entity จาก UUID
+      const group = await this.groupRepository.findOneBy({ id: groupId });
+      if (!group) {
+        throw new Error("Group not found");
+      }
+
+      // ลบทีละคน เพื่อจัดการ error แยกกัน
+      for (const lineUserId of memberIds) {
+        try {
+          // หา User entity จาก LINE User ID
+          const user = await this.userRepository.findOneBy({ lineUserId });
+          if (!user) {
+            results.failedCount++;
+            results.errors.push({
+              memberId: lineUserId,
+              error: "User not found",
+            });
+            continue;
+          }
+
+          // ลบสมาชิกภาพ
+          await this.groupMemberRepository.delete({
+            groupId: group.id,
+            userId: user.id,
+          });
+
+          results.successCount++;
+          console.log(`✅ Removed member ${lineUserId} from group ${groupId}`);
+        } catch (error) {
+          results.failedCount++;
+          results.errors.push({
+            memberId: lineUserId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          console.error(`❌ Failed to remove member ${lineUserId}:`, error);
+        }
+      }
+
+      console.log(
+        `📊 Bulk remove complete: ${results.successCount} success, ${results.failedCount} failed`,
+      );
+      return results;
+    } catch (error) {
+      console.error("❌ Error in bulk remove members:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * อัปเดตบทบาทสมาชิกหลายคนพร้อมกัน (Bulk Update Role)
+   * @param groupId - Group ID (UUID)
+   * @param memberIds - Array of LINE User IDs
+   * @param newRole - New role to assign
+   * @returns Result with success count and errors
+   */
+  public async bulkUpdateMemberRole(
+    groupId: string,
+    memberIds: string[],
+    newRole: "admin" | "member",
+  ): Promise<{
+    successCount: number;
+    failedCount: number;
+    errors: Array<{ memberId: string; error: string }>;
+  }> {
+    const results = {
+      successCount: 0,
+      failedCount: 0,
+      errors: [] as Array<{ memberId: string; error: string }>,
+    };
+
+    try {
+      // ค้นหา Group entity จาก UUID
+      const group = await this.groupRepository.findOneBy({ id: groupId });
+      if (!group) {
+        throw new Error("Group not found");
+      }
+
+      // อัปเดตทีละคน
+      for (const lineUserId of memberIds) {
+        try {
+          // หา User entity จาก LINE User ID
+          const user = await this.userRepository.findOneBy({ lineUserId });
+          if (!user) {
+            results.failedCount++;
+            results.errors.push({
+              memberId: lineUserId,
+              error: "User not found",
+            });
+            continue;
+          }
+
+          // อัปเดตบทบาท
+          const membership = await this.groupMemberRepository.findOneBy({
+            groupId: group.id,
+            userId: user.id,
+          });
+
+          if (!membership) {
+            results.failedCount++;
+            results.errors.push({
+              memberId: lineUserId,
+              error: "Membership not found",
+            });
+            continue;
+          }
+
+          membership.role = newRole;
+          await this.groupMemberRepository.save(membership);
+
+          results.successCount++;
+          console.log(`✅ Updated member ${lineUserId} role to ${newRole}`);
+        } catch (error) {
+          results.failedCount++;
+          results.errors.push({
+            memberId: lineUserId,
+            error: error instanceof Error ? error.message : "Unknown error",
+          });
+          console.error(`❌ Failed to update member ${lineUserId}:`, error);
+        }
+      }
+
+      console.log(
+        `📊 Bulk update role complete: ${results.successCount} success, ${results.failedCount} failed`,
+      );
+      return results;
+    } catch (error) {
+      console.error("❌ Error in bulk update member role:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate email verification token
+   * @param userId - User ID
+   * @param email - Email address to verify
+   * @returns Verification token
+   */
+  public async generateEmailVerificationToken(
+    userId: string,
+    email: string,
+  ): Promise<string> {
+    try {
+      const user = await this.userRepository.findOneBy({ id: userId });
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      // Generate random token
+      const crypto = require("crypto");
+      const token = crypto.randomBytes(32).toString("hex");
+
+      // Store token in user settings (expires in 24 hours)
+      const settings = user.settings || {};
+      settings.emailVerification = {
+        email,
+        token,
+        expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString(),
+      };
+
+      user.settings = settings;
+      await this.userRepository.save(user);
+
+      console.log(`✅ Generated email verification token for user ${userId}`);
+      return token;
+    } catch (error) {
+      console.error("❌ Error generating email verification token:", error);
+      throw error;
+    }
+  }
+
+  /**
+   * Verify email with token
+   * @param userId - User ID
+   * @param token - Verification token
+   */
+  public async verifyEmail(userId: string, token: string): Promise<void> {
+    try {
+      const user = await this.userRepository.findOneBy({ id: userId });
+      if (!user) {
+        throw new Error("User not found");
+      }
+
+      const settings = user.settings || {};
+      const verification = settings.emailVerification;
+
+      if (!verification) {
+        throw new Error("No verification pending");
+      }
+
+      if (verification.token !== token) {
+        throw new Error("Invalid verification token");
+      }
+
+      const expiresAt = new Date(verification.expiresAt);
+      if (expiresAt < new Date()) {
+        throw new Error("Verification token expired");
+      }
+
+      // Update user email and mark as verified
+      user.email = verification.email;
+      user.isVerified = true;
+
+      // Clear verification data
+      delete settings.emailVerification;
+      user.settings = settings;
+
+      await this.userRepository.save(user);
+
+      console.log(`✅ Email verified for user ${userId}`);
+    } catch (error) {
+      console.error("❌ Error verifying email:", error);
+      throw error;
     }
   }
 }

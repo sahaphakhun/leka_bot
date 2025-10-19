@@ -1,6 +1,7 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
+import { showError, showSuccess, showWarning } from "../../lib/toast";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +24,11 @@ import {
 import { Checkbox } from "../ui/checkbox";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { CalendarIcon, X } from "lucide-react";
+import { CalendarIcon, X, Search } from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "../../lib/utils";
+import CustomRecurrenceUI from "./CustomRecurrenceUI";
 
 export default function AddTaskModal({ onTaskCreated }) {
   const { groupId, userId } = useAuth();
@@ -72,6 +74,9 @@ export default function AddTaskModal({ onTaskCreated }) {
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState(null);
 
+  // Search for members
+  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+
   // Set default tab
   useEffect(() => {
     if (isAddTaskOpen) {
@@ -111,6 +116,16 @@ export default function AddTaskModal({ onTaskCreated }) {
     }
   }, [isAddTaskOpen, loadMembers]);
 
+  // Filter members based on search query
+  const filteredMembers = useMemo(() => {
+    if (!memberSearchQuery.trim()) return members;
+    const query = memberSearchQuery.toLowerCase();
+    return members.filter((member) => {
+      const name = member.displayName || member.name || "";
+      return name.toLowerCase().includes(query);
+    });
+  }, [members, memberSearchQuery]);
+
   const resetForms = useCallback(() => {
     setNormalTask({
       title: "",
@@ -141,6 +156,7 @@ export default function AddTaskModal({ onTaskCreated }) {
     });
     setIsNormalDateOpen(false);
     setIsRecurringDateOpen(false);
+    setMemberSearchQuery("");
   }, []);
 
   const formatDateForApi = useCallback((date) => {
@@ -160,22 +176,22 @@ export default function AddTaskModal({ onTaskCreated }) {
       const currentTask = activeTab === "normal" ? normalTask : recurringTask;
 
       if (!currentTask.title?.trim()) {
-        alert("กรุณาระบุชื่องาน");
+        showWarning("กรุณาระบุชื่องาน");
         return;
       }
 
       if (currentTask.assignedUsers.length === 0) {
-        alert("กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน");
+        showWarning("กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน");
         return;
       }
 
       if (activeTab === "normal" && !normalTask.dueDate) {
-        alert("กรุณาเลือกวันที่ครบกำหนด");
+        showWarning("กรุณาเลือกวันที่ครบกำหนด");
         return;
       }
 
       if (activeTab === "recurring" && !recurringTask.startDate) {
-        alert("กรุณาเลือกวันที่เริ่มต้น");
+        showWarning("กรุณาเลือกวันที่เริ่มต้น");
         return;
       }
 
@@ -220,12 +236,15 @@ export default function AddTaskModal({ onTaskCreated }) {
           await createRecurringTask(groupId, payload);
         }
 
+        showSuccess(
+          activeTab === "normal" ? "สร้างงานสำเร็จ" : "สร้างงานประจำสำเร็จ",
+        );
         if (onTaskCreated) onTaskCreated();
         closeAddTask();
         resetForms();
       } catch (error) {
         console.error("Failed to create task:", error);
-        alert(error?.message || "ไม่สามารถสร้างงานได้ กรุณาลองใหม่อีกครั้ง");
+        showError(error?.message || "ไม่สามารถสร้างงานได้", error);
       } finally {
         setLoading(false);
       }
@@ -473,30 +492,51 @@ export default function AddTaskModal({ onTaskCreated }) {
                     </p>
                   ) : (
                     <>
-                      <div className="max-h-40 overflow-y-auto space-y-2">
-                        {members.map((member) => (
-                          <div
-                            key={member.lineUserId}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              id={`assignee-${member.lineUserId}`}
-                              checked={normalTask.assignedUsers.includes(
-                                member.lineUserId,
-                              )}
-                              onCheckedChange={() =>
-                                handleAssigneeToggle(member.lineUserId, true)
-                              }
-                            />
-                            <label
-                              htmlFor={`assignee-${member.lineUserId}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {member.displayName || member.name}
-                            </label>
-                          </div>
-                        ))}
+                      {/* Search Input */}
+                      <div className="relative mb-3">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="text"
+                          placeholder="ค้นหาชื่อสมาชิก..."
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
                       </div>
+
+                      {/* Members List */}
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {filteredMembers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            ไม่พบสมาชิกที่ชื่อ "{memberSearchQuery}"
+                          </p>
+                        ) : (
+                          filteredMembers.map((member) => (
+                            <div
+                              key={member.lineUserId}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox
+                                id={`assignee-${member.lineUserId}`}
+                                checked={normalTask.assignedUsers.includes(
+                                  member.lineUserId,
+                                )}
+                                onCheckedChange={() =>
+                                  handleAssigneeToggle(member.lineUserId, true)
+                                }
+                              />
+                              <label
+                                htmlFor={`assignee-${member.lineUserId}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {member.displayName || member.name}
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Quick Actions */}
                       <div className="flex gap-2 pt-2 border-t">
                         <Button
                           type="button"
@@ -619,6 +659,19 @@ export default function AddTaskModal({ onTaskCreated }) {
                   </SelectContent>
                 </Select>
               </div>
+
+              {/* Custom Recurrence UI */}
+              {recurringTask.recurrence === "custom" && (
+                <CustomRecurrenceUI
+                  value={recurringTask.customRecurrence}
+                  onChange={(value) =>
+                    setRecurringTask({
+                      ...recurringTask,
+                      customRecurrence: value,
+                    })
+                  }
+                />
+              )}
 
               {/* Start Date & Time */}
               <div className="grid grid-cols-2 gap-4">
@@ -778,30 +831,51 @@ export default function AddTaskModal({ onTaskCreated }) {
                     </p>
                   ) : (
                     <>
-                      <div className="max-h-40 overflow-y-auto space-y-2">
-                        {members.map((member) => (
-                          <div
-                            key={member.lineUserId}
-                            className="flex items-center space-x-2"
-                          >
-                            <Checkbox
-                              id={`recurring-assignee-${member.lineUserId}`}
-                              checked={recurringTask.assignedUsers.includes(
-                                member.lineUserId,
-                              )}
-                              onCheckedChange={() =>
-                                handleAssigneeToggle(member.lineUserId, false)
-                              }
-                            />
-                            <label
-                              htmlFor={`recurring-assignee-${member.lineUserId}`}
-                              className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                            >
-                              {member.displayName || member.name}
-                            </label>
-                          </div>
-                        ))}
+                      {/* Search Input */}
+                      <div className="relative mb-3">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="text"
+                          placeholder="ค้นหาชื่อสมาชิก..."
+                          value={memberSearchQuery}
+                          onChange={(e) => setMemberSearchQuery(e.target.value)}
+                          className="pl-10"
+                        />
                       </div>
+
+                      {/* Members List */}
+                      <div className="max-h-40 overflow-y-auto space-y-2">
+                        {filteredMembers.length === 0 ? (
+                          <p className="text-sm text-muted-foreground text-center py-4">
+                            ไม่พบสมาชิกที่ชื่อ "{memberSearchQuery}"
+                          </p>
+                        ) : (
+                          filteredMembers.map((member) => (
+                            <div
+                              key={member.lineUserId}
+                              className="flex items-center space-x-2"
+                            >
+                              <Checkbox
+                                id={`recurring-assignee-${member.lineUserId}`}
+                                checked={recurringTask.assignedUsers.includes(
+                                  member.lineUserId,
+                                )}
+                                onCheckedChange={() =>
+                                  handleAssigneeToggle(member.lineUserId, false)
+                                }
+                              />
+                              <label
+                                htmlFor={`recurring-assignee-${member.lineUserId}`}
+                                className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70 cursor-pointer"
+                              >
+                                {member.displayName || member.name}
+                              </label>
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Quick Actions */}
                       <div className="flex gap-2 pt-2 border-t">
                         <Button
                           type="button"

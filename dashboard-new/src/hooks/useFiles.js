@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export function useFiles(groupId) {
   const [files, setFiles] = useState([]);
@@ -15,11 +15,12 @@ export function useFiles(groupId) {
     setLoading(true);
     setError(null);
     try {
-      const { getFiles } = await import('../services/api');
-      const response = await getFiles(groupId);
-      setFiles(response.files || response);
+      const { getGroupFiles } = await import("../services/api");
+      const response = await getGroupFiles(groupId);
+      const items = response?.data || response?.files || response || [];
+      setFiles(items);
     } catch (err) {
-      console.error('Failed to load files:', err);
+      console.error("Failed to load files:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -28,23 +29,25 @@ export function useFiles(groupId) {
 
   const uploadFile = async (file, taskId) => {
     try {
-      const { uploadFile: apiUploadFile } = await import('../services/fileService');
+      const { uploadFile: apiUploadFile } = await import(
+        "../services/fileService"
+      );
       const result = await apiUploadFile(groupId, file, taskId);
       await loadFiles();
       return result;
     } catch (err) {
-      console.error('Failed to upload file:', err);
+      console.error("Failed to upload file:", err);
       throw err;
     }
   };
 
   const deleteFile = async (fileId) => {
     try {
-      const { deleteFile: apiDeleteFile } = await import('../services/api');
-      await apiDeleteFile(groupId, fileId);
+      const { deleteFile: apiDeleteFile } = await import("../services/api");
+      await apiDeleteFile(null, fileId);
       await loadFiles();
     } catch (err) {
-      console.error('Failed to delete file:', err);
+      console.error("Failed to delete file:", err);
       throw err;
     }
   };

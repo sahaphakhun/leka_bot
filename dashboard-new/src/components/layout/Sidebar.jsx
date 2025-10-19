@@ -1,40 +1,42 @@
-import { 
-  Home, 
-  Calendar, 
-  CheckSquare, 
-  Repeat, 
-  FileText, 
-  Users, 
-  BarChart3, 
+import {
+  Home,
+  Calendar,
+  CheckSquare,
+  Repeat,
+  FileText,
+  Users,
+  BarChart3,
   Trophy,
   Send,
   UserCircle,
-  LogOut
-} from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
+  LogOut,
+  Activity,
+} from "lucide-react";
+import { useAuth } from "../../context/AuthContext";
 
 const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
   const { logout } = useAuth();
 
   const menuItems = [
-    { id: 'dashboard', icon: Home, label: 'ภาพรวม' },
-    { id: 'calendar', icon: Calendar, label: 'ปฏิทินงาน' },
-    { id: 'tasks', icon: CheckSquare, label: 'งานทั้งหมด' },
-    { id: 'recurring', icon: Repeat, label: 'งานประจำ' },
-    { id: 'files', icon: FileText, label: 'คลังไฟล์' },
-    { id: 'team', icon: Users, label: 'สมาชิกกลุ่ม' },
-    { id: 'leaderboard', icon: Trophy, label: 'อันดับ' },
-    { id: 'reports', icon: BarChart3, label: 'รายงาน' },
-    { id: 'submit', icon: Send, label: 'ส่งงาน' },
+    { id: "dashboard", icon: Home, label: "ภาพรวม" },
+    { id: "calendar", icon: Calendar, label: "ปฏิทินงาน" },
+    { id: "tasks", icon: CheckSquare, label: "งานทั้งหมด" },
+    { id: "recurring", icon: Repeat, label: "งานประจำ" },
+    { id: "files", icon: FileText, label: "คลังไฟล์" },
+    { id: "team", icon: Users, label: "สมาชิกกลุ่ม" },
+    { id: "leaderboard", icon: Trophy, label: "อันดับ" },
+    { id: "reports", icon: BarChart3, label: "รายงาน" },
+    { id: "activity", icon: Activity, label: "Activity Logs" },
+    { id: "submit", icon: Send, label: "ส่งงาน" },
   ];
 
   const bottomItems = [
-    { id: 'profile', icon: UserCircle, label: 'โปรไฟล์ของฉัน' },
-    { id: 'logout', icon: LogOut, label: 'ออกจากระบบ' },
+    { id: "profile", icon: UserCircle, label: "โปรไฟล์ของฉัน" },
+    { id: "logout", icon: LogOut, label: "ออกจากระบบ" },
   ];
 
   const handleMenuClick = (id) => {
-    if (id === 'logout') {
+    if (id === "logout") {
       logout();
       return;
     }
@@ -52,7 +54,10 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
           <div className="flex flex-col">
             <span className="text-white font-semibold text-lg">Leka Bot</span>
             {groupInfo && (
-              <span className="text-white/60 text-xs truncate max-w-[140px]" title={groupInfo.name}>
+              <span
+                className="text-white/60 text-xs truncate max-w-[140px]"
+                title={groupInfo.name}
+              >
                 {groupInfo.name}
               </span>
             )}
@@ -67,7 +72,10 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
             <div className="w-6 h-6 bg-blue-400 rounded-full flex items-center justify-center text-white text-xs font-semibold">
               U
             </div>
-            <span className="text-white/80 text-xs truncate flex-1" title={userId}>
+            <span
+              className="text-white/80 text-xs truncate flex-1"
+              title={userId}
+            >
               {userId.substring(0, 8)}...
             </span>
           </div>
@@ -79,7 +87,7 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
         {menuItems.map((item) => (
           <div
             key={item.id}
-            className={`sidebar-item ${activeView === item.id ? 'active' : ''}`}
+            className={`sidebar-item ${activeView === item.id ? "active" : ""}`}
             onClick={() => handleMenuClick(item.id)}
           >
             <item.icon size={20} />
@@ -93,7 +101,7 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
         {bottomItems.map((item) => (
           <div
             key={item.id}
-            className={`sidebar-item ${activeView === item.id ? 'active' : ''}`}
+            className={`sidebar-item ${activeView === item.id ? "active" : ""}`}
             onClick={() => handleMenuClick(item.id)}
           >
             <item.icon size={20} />

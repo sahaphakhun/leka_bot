@@ -258,8 +258,23 @@ export const completeTask = async (groupIdOrTaskId, maybeTaskId) => {
   return apiCall(endpoint, { method: "POST" });
 };
 
-export const submitTask = async (groupId, taskId, submitData = {}) => {
-  const endpoint = `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`;
+const resolveStoredUserId = () => {
+  if (typeof localStorage === "undefined") return null;
+  return localStorage.getItem("leka_userId");
+};
+
+const buildEndpointWithUserId = (endpoint, userId) => {
+  const resolvedUserId = userId || resolveStoredUserId();
+  if (!resolvedUserId) {
+    return endpoint;
+  }
+  const separator = endpoint.includes("?") ? "&" : "?";
+  return `${endpoint}${separator}userId=${encodeURIComponent(resolvedUserId)}`;
+};
+
+export const submitTask = async (groupId, taskId, submitData = {}, userId) => {
+  const baseEndpoint = `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`;
+  const endpoint = buildEndpointWithUserId(baseEndpoint, userId);
 
   if (submitData instanceof FormData) {
     const response = await fetch(endpoint, {
@@ -290,16 +305,16 @@ export const submitTaskWithProgress = (
   groupId,
   taskId,
   formData,
+  userId,
   onProgress,
 ) => {
   return new Promise((resolve, reject) => {
     try {
+      const baseEndpoint = `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`;
+      const endpoint = buildEndpointWithUserId(baseEndpoint, userId);
+
       const xhr = new XMLHttpRequest();
-      xhr.open(
-        "POST",
-        `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`,
-        true,
-      );
+      xhr.open("POST", endpoint, true);
       xhr.responseType = "json";
 
       if (typeof onProgress === "function") {
@@ -438,6 +453,75 @@ export const removeMember = async (groupId, memberId) => {
   });
 };
 
+/**
+ * Bulk delete members
+ * @param {string} groupId - Group ID
+ * @param {string[]} memberIds - Array of LINE User IDs
+ * @returns {Promise<{success: boolean, deletedCount: number, failedCount: number, errors: Array}>}
+ */
+export const bulkDeleteMembers = async (groupId, memberIds) => {
+  const response = await apiCall(
+    `${API_BASE_URL}/groups/${groupId}/members/bulk-delete`,
+    {
+      method: "POST",
+      body: JSON.stringify({ memberIds }),
+    },
+  );
+  return response?.data || response;
+};
+
+/**
+ * Bulk update member roles
+ * @param {string} groupId - Group ID
+ * @param {string[]} memberIds - Array of LINE User IDs
+ * @param {string} role - New role ('admin' or 'member')
+ * @returns {Promise<{success: boolean, updatedCount: number, failedCount: number, errors: Array}>}
+ */
+export const bulkUpdateMemberRole = async (groupId, memberIds, role) => {
+  const response = await apiCall(
+    `${API_BASE_URL}/groups/${groupId}/members/bulk-update-role`,
+    {
+      method: "POST",
+      body: JSON.stringify({ memberIds, role }),
+    },
+  );
+  return response?.data || response;
+};
+
+/**
+ * Send email verification
+ * @param {string} userId - LINE User ID
+ * @param {string} email - Email address
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export const sendEmailVerification = async (userId, email) => {
+  const response = await apiCall(
+    `${API_BASE_URL}/users/${userId}/email/send-verification`,
+    {
+      method: "POST",
+      body: JSON.stringify({ email }),
+    },
+  );
+  return response?.data || response;
+};
+
+/**
+ * Verify email with token
+ * @param {string} userId - LINE User ID
+ * @param {string} token - Verification token
+ * @returns {Promise<{success: boolean, message: string}>}
+ */
+export const verifyEmail = async (userId, token) => {
+  const response = await apiCall(
+    `${API_BASE_URL}/users/${userId}/email/verify`,
+    {
+      method: "POST",
+      body: JSON.stringify({ token }),
+    },
+  );
+  return response;
+};
+
 export const getLeaderboard = async (groupId, params = {}) => {
   const url = buildUrl(`/groups/${groupId}/leaderboard`, params);
   const res = await apiCall(url);
@@ -465,19 +549,22 @@ export const getTaskFiles = async (groupId, taskId) => {
   return apiCall(`${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/files`);
 };
 
-export const downloadFile = async (groupId, fileId) => {
-  return `${API_BASE_URL}/groups/${groupId}/files/${fileId}/download`;
+export const downloadFile = async (_groupId, fileId) => {
+  return `${API_BASE_URL}/files/${fileId}/download`;
 };
 
-export const previewFile = async (groupId, fileId) => {
-  return `${API_BASE_URL}/groups/${groupId}/files/${fileId}/preview`;
+export const previewFile = async (_groupId, fileId) => {
+  return `${API_BASE_URL}/files/${fileId}/preview`;
 };
 
 export const uploadFile = async (groupId, formData) => {
-  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/files`, {
-    method: "POST",
-    body: formData, // Don't set Content-Type, let browser set it with boundary
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/groups/${groupId}/files/upload`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
 
   if (!response.ok) {
     const error = await response
@@ -494,7 +581,7 @@ export const uploadFiles = async (groupId, files = [], metadata = {}) => {
 
   files.forEach((file) => {
     if (file) {
-      formData.append("files", file);
+      formData.append("attachments", file);
     }
   });
 
@@ -504,10 +591,13 @@ export const uploadFiles = async (groupId, files = [], metadata = {}) => {
     }
   });
 
-  const response = await fetch(`${API_BASE_URL}/groups/${groupId}/files`, {
-    method: "POST",
-    body: formData,
-  });
+  const response = await fetch(
+    `${API_BASE_URL}/groups/${groupId}/files/upload`,
+    {
+      method: "POST",
+      body: formData,
+    },
+  );
 
   if (!response.ok) {
     const error = await response
@@ -519,8 +609,8 @@ export const uploadFiles = async (groupId, files = [], metadata = {}) => {
   return await response.json();
 };
 
-export const deleteFile = async (groupId, fileId) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/files/${fileId}`, {
+export const deleteFile = async (_groupId, fileId) => {
+  return apiCall(`${API_BASE_URL}/files/${fileId}`, {
     method: "DELETE",
   });
 };
@@ -546,7 +636,7 @@ export const uploadFilesWithProgress = (
   return new Promise((resolve, reject) => {
     try {
       const formData = new FormData();
-      files.forEach((file) => file && formData.append("files", file));
+      files.forEach((file) => file && formData.append("attachments", file));
       Object.entries(metadata || {}).forEach(([key, value]) => {
         if (value !== undefined && value !== null) {
           formData.append(key, value);
@@ -554,7 +644,7 @@ export const uploadFilesWithProgress = (
       });
 
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", `${API_BASE_URL}/groups/${groupId}/files`, true);
+      xhr.open("POST", `${API_BASE_URL}/groups/${groupId}/files/upload`, true);
       xhr.responseType = "json";
 
       if (typeof onProgress === "function") {
@@ -1178,4 +1268,73 @@ export default {
   normalizeTasks,
   calculateStats,
   normalizeStatsSummary,
+};
+
+// ==================== Activity Logs ====================
+
+/**
+ * Get activity logs with filters
+ * @param {string} groupId - Group ID
+ * @param {Object} params - Query parameters
+ * @returns {Promise<{logs: Array, total: number}>}
+ */
+export const getActivityLogs = async (groupId, params = {}) => {
+  const queryParams = new URLSearchParams();
+
+  if (params.userId) queryParams.append("userId", params.userId);
+  if (params.action) queryParams.append("action", params.action);
+  if (params.resourceType)
+    queryParams.append("resourceType", params.resourceType);
+  if (params.resourceId) queryParams.append("resourceId", params.resourceId);
+  if (params.startDate) queryParams.append("startDate", params.startDate);
+  if (params.endDate) queryParams.append("endDate", params.endDate);
+  if (params.limit) queryParams.append("limit", params.limit);
+  if (params.offset) queryParams.append("offset", params.offset);
+  if (params.search) queryParams.append("search", params.search);
+
+  const queryString = queryParams.toString();
+  const url = `${API_BASE_URL}/groups/${groupId}/activity-logs${queryString ? `?${queryString}` : ""}`;
+
+  const response = await apiCall(url);
+  return {
+    logs: response?.data || [],
+    total: response?.pagination?.total || 0,
+  };
+};
+
+/**
+ * Get activity statistics
+ * @param {string} groupId - Group ID
+ * @param {number} days - Number of days to look back (default: 30)
+ * @returns {Promise<Object>}
+ */
+export const getActivityStats = async (groupId, days = 30) => {
+  const response = await apiCall(
+    `${API_BASE_URL}/groups/${groupId}/activity-logs/stats?days=${days}`,
+  );
+  return response?.data || {};
+};
+
+/**
+ * Get unique actions in group
+ * @param {string} groupId - Group ID
+ * @returns {Promise<Array<string>>}
+ */
+export const getUniqueActions = async (groupId) => {
+  const response = await apiCall(
+    `${API_BASE_URL}/groups/${groupId}/activity-logs/actions`,
+  );
+  return response?.data || [];
+};
+
+/**
+ * Get unique resource types in group
+ * @param {string} groupId - Group ID
+ * @returns {Promise<Array<string>>}
+ */
+export const getUniqueResourceTypes = async (groupId) => {
+  const response = await apiCall(
+    `${API_BASE_URL}/groups/${groupId}/activity-logs/resource-types`,
+  );
+  return response?.data || [];
 };

@@ -1,19 +1,31 @@
-import api from './api';
+import api from "./api";
 
-export async function uploadFile(groupId, file, taskId = null) {
+const resolveUserId = (provided) => {
+  if (provided) return provided;
+  if (typeof localStorage === "undefined") return null;
+  return localStorage.getItem("leka_userId");
+};
+
+export async function uploadFile(groupId, file, taskId = null, userId) {
   const formData = new FormData();
-  formData.append('file', file);
-  if (taskId) formData.append('taskId', taskId);
+  formData.append("attachments", file);
+  if (taskId) formData.append("taskId", taskId);
 
-  const response = await api.post(`/groups/${groupId}/files`, formData, {
-    headers: { 'Content-Type': 'multipart/form-data' },
+  const resolvedUserId = resolveUserId(userId);
+  if (resolvedUserId) {
+    formData.append("userId", resolvedUserId);
+  }
+
+  const response = await api.post(`/groups/${groupId}/files/upload`, formData, {
+    headers: { "Content-Type": "multipart/form-data" },
   });
   return response.data;
 }
 
 export async function getFiles(groupId, filters = {}) {
-  const params = new URLSearchParams(filters);
-  const response = await api.get(`/groups/${groupId}/files?${params}`);
+  const response = await api.get(`/groups/${groupId}/files`, {
+    params: filters,
+  });
   return response.data;
 }
 
@@ -22,19 +34,19 @@ export async function getFilesByTask(groupId, taskId) {
   return response.data;
 }
 
-export async function deleteFile(groupId, fileId) {
-  const response = await api.delete(`/groups/${groupId}/files/${fileId}`);
+export async function deleteFile(_groupId, fileId) {
+  const response = await api.delete(`/files/${fileId}`);
   return response.data;
 }
 
-export async function downloadFile(groupId, fileId) {
-  const response = await api.get(`/groups/${groupId}/files/${fileId}/download`, {
-    responseType: 'blob',
+export async function downloadFile(_groupId, fileId) {
+  const response = await api.get(`/files/${fileId}/download`, {
+    responseType: "blob",
   });
   return response.data;
 }
 
-export async function getFilePreview(groupId, fileId) {
-  const response = await api.get(`/groups/${groupId}/files/${fileId}/preview`);
+export async function getFilePreview(_groupId, fileId) {
+  const response = await api.get(`/files/${fileId}/preview`);
   return response.data;
 }

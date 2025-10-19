@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { showError, showSuccess } from "../../lib/toast";
 import { useAuth } from "../../context/AuthContext";
 import {
   Card,
@@ -43,10 +44,10 @@ export default function ProfileSettings({ profile, onUpdate }) {
       const { updateUserProfile } = await import("../../services/api");
       await updateUserProfile(userId, groupId, settings);
       if (onUpdate) onUpdate();
-      alert("บันทึกการตั้งค่าเรียบร้อยแล้ว");
+      showSuccess("บันทึกการตั้งค่าเรียบร้อยแล้ว");
     } catch (error) {
       console.error("Failed to update profile:", error);
-      alert("ไม่สามารถบันทึกการตั้งค่าได้");
+      showError("ไม่สามารถบันทึกการตั้งค่าได้", error);
     } finally {
       setLoading(false);
     }
