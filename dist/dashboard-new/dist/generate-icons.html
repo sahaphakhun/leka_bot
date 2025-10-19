@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>PWA Icon Generator</title>
+</head>
+<body>
+  <h2>PWA Icons - Placeholder Generator</h2>
+  <div id="output"></div>
+  
+  <script>
+    const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+    const output = document.getElementById('output');
+    
+    sizes.forEach(size => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      
+      // Background gradient (blue to purple)
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#3b82f6');
+      gradient.addColorStop(1, '#8b5cf6');
+      ctx.fillStyle = gradient;
+      ctx.fillRect(0, 0, size, size);
+      
+      // Add rounded corners
+      ctx.globalCompositeOperation = 'destination-in';
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, size * 0.2);
+      ctx.fill();
+      
+      // Add "L" text
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.fillStyle = '#ffffff';
+      ctx.font = `bold ${size * 0.6}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('L', size / 2, size / 2);
+      
+      // Download link
+      canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `icon-${size}.png`;
+        link.textContent = `Download icon-${size}.png`;
+        link.style.display = 'block';
+        link.style.marginBottom = '10px';
+        output.appendChild(link);
+      });
+    });
+    
+    // Create badge icon
+    const badgeCanvas = document.createElement('canvas');
+    badgeCanvas.width = 72;
+    badgeCanvas.height = 72;
+    const badgeCtx = badgeCanvas.getContext('2d');
+    
+    const badgeGradient = badgeCtx.createLinearGradient(0, 0, 72, 72);
+    badgeGradient.addColorStop(0, '#3b82f6');
+    badgeGradient.addColorStop(1, '#8b5cf6');
+    badgeCtx.fillStyle = badgeGradient;
+    badgeCtx.fillRect(0, 0, 72, 72);
+    
+    badgeCtx.fillStyle = '#ffffff';
+    badgeCtx.font = 'bold 40px Arial';
+    badgeCtx.textAlign = 'center';
+    badgeCtx.textBaseline = 'middle';
+    badgeCtx.fillText('L', 36, 36);
+    
+    badgeCanvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'badge-72.png';
+      link.textContent = 'Download badge-72.png';
+      link.style.display = 'block';
+      link.style.marginBottom = '10px';
+      output.appendChild(link);
+    });
+    
+    // Add note
+    const note = document.createElement('p');
+    note.innerHTML = '<strong>Note:</strong> Open this file in a browser and click each link to download the icons.';
+    note.style.marginTop = '20px';
+    note.style.padding = '10px';
+    note.style.backgroundColor = '#f0f0f0';
+    output.appendChild(note);
+  </script>
+</body>
+</html>

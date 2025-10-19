@@ -1,4 +1,4 @@
-import { User, Group, GroupMember } from '@/models';
+import { User, Group, GroupMember } from "@/models";
 export declare class UserService {
     private userRepository;
     private groupRepository;
@@ -7,7 +7,7 @@ export declare class UserService {
     /**
      * อัปเดตการตั้งค่าผู้ใช้ (เช่น ปฏิทินส่วนบุคคล)
      */
-    updateUserSettings(userId: string, settings: Partial<User['settings']>): Promise<User>;
+    updateUserSettings(userId: string, settings: Partial<User["settings"]>): Promise<User>;
     /**
      * ค้นหาผู้ใช้จาก LINE User ID
      */
@@ -59,7 +59,7 @@ export declare class UserService {
     /**
      * อัปเดตการตั้งค่ากลุ่ม
      */
-    updateGroupSettings(groupId: string, settings: Partial<Group['settings']>): Promise<Group>;
+    updateGroupSettings(groupId: string, settings: Partial<Group["settings"]>): Promise<Group>;
     /**
      * ปิดใช้งานกลุ่ม (เมื่อบอทออกจากกลุ่ม)
      */
@@ -71,7 +71,7 @@ export declare class UserService {
     /**
      * เพิ่มสมาชิกเข้ากลุ่ม
      */
-    addGroupMember(groupId: string, userId: string, role?: 'admin' | 'member'): Promise<GroupMember>;
+    addGroupMember(groupId: string, userId: string, role?: "admin" | "member"): Promise<GroupMember>;
     /**
      * ลบสมาชิกออกจากกลุ่ม
      */
@@ -79,7 +79,7 @@ export declare class UserService {
     /**
      * อัปเดตบทบาทสมาชิก
      */
-    updateMemberRole(groupId: string, userId: string, role: 'admin' | 'member'): Promise<GroupMember>;
+    updateMemberRole(groupId: string, userId: string, role: "admin" | "member"): Promise<GroupMember>;
     /**
      * ดึงสมาชิกในกลุ่ม
      * @param groupId - LINE Group ID (เช่น "C5d6c442ec0b3287f71787fdd9437e520")
@@ -118,5 +118,47 @@ export declare class UserService {
      * ตรวจสอบว่าผู้ใช้เป็น admin ในกลุ่มหรือไม่
      */
     isUserAdminInGroup(userId: string, groupId: string): Promise<boolean>;
+    /**
+     * ลบสมาชิกหลายคนพร้อมกัน (Bulk Delete)
+     * @param groupId - Group ID (UUID)
+     * @param memberIds - Array of LINE User IDs
+     * @returns Result with success count and errors
+     */
+    bulkRemoveMembers(groupId: string, memberIds: string[]): Promise<{
+        successCount: number;
+        failedCount: number;
+        errors: Array<{
+            memberId: string;
+            error: string;
+        }>;
+    }>;
+    /**
+     * อัปเดตบทบาทสมาชิกหลายคนพร้อมกัน (Bulk Update Role)
+     * @param groupId - Group ID (UUID)
+     * @param memberIds - Array of LINE User IDs
+     * @param newRole - New role to assign
+     * @returns Result with success count and errors
+     */
+    bulkUpdateMemberRole(groupId: string, memberIds: string[], newRole: "admin" | "member"): Promise<{
+        successCount: number;
+        failedCount: number;
+        errors: Array<{
+            memberId: string;
+            error: string;
+        }>;
+    }>;
+    /**
+     * Generate email verification token
+     * @param userId - User ID
+     * @param email - Email address to verify
+     * @returns Verification token
+     */
+    generateEmailVerificationToken(userId: string, email: string): Promise<string>;
+    /**
+     * Verify email with token
+     * @param userId - User ID
+     * @param token - Verification token
+     */
+    verifyEmail(userId: string, token: string): Promise<void>;
 }
 //# sourceMappingURL=UserService.d.ts.map

@@ -125,6 +125,7 @@ class Dashboard {
   init() {
     // ปิด modal ทั้งหมดเมื่อเริ่มต้นเพื่อป้องกันการแสดงผลที่ไม่ต้องการ
     this.closeAllModals();
+    this.ensureUploadOverlay();
     
     this.bindEvents();
     this.loadInitialData();
@@ -636,19 +637,124 @@ class Dashboard {
   // Upload Overlay Helpers
   // ==================== 
 
+  ensureUploadOverlay() {
+    if (typeof document === 'undefined') return;
+
+    const styleId = 'upload-overlay-style';
+    if (!document.getElementById(styleId)) {
+      const style = document.createElement('style');
+      style.id = styleId;
+      style.textContent = `
+        #uploadOverlay {
+          position: fixed;
+          top: 20px;
+          right: 20px;
+          z-index: 2100;
+          width: 320px;
+          pointer-events: none;
+          display: none;
+        }
+        #uploadOverlay.upload-visible {
+          display: block;
+        }
+        #uploadOverlay .upload-card {
+          pointer-events: auto;
+          background: #0f172a;
+          color: #f8fafc;
+          border-radius: 12px;
+          padding: 16px 18px;
+          box-shadow: 0 10px 30px rgba(15, 23, 42, 0.35);
+          border: 1px solid rgba(148, 163, 184, 0.2);
+          font-family: 'Noto Sans Thai', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        #uploadOverlay .upload-title {
+          font-size: 0.95rem;
+          font-weight: 600;
+          margin-bottom: 4px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+        #uploadOverlay .upload-subtitle {
+          font-size: 0.8rem;
+          color: rgba(226, 232, 240, 0.75);
+          margin-bottom: 12px;
+        }
+        #uploadOverlay .upload-progress-track {
+          background: rgba(148, 163, 184, 0.2);
+          border-radius: 9999px;
+          height: 6px;
+          overflow: hidden;
+          position: relative;
+        }
+        #uploadOverlay .upload-progress-bar {
+          background: linear-gradient(90deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+          height: 100%;
+          width: 0%;
+          border-radius: 9999px;
+          transition: width 0.2s ease;
+        }
+        #uploadOverlay .upload-progress-bar.indeterminate {
+          width: 40%;
+          animation: uploadOverlayIndeterminate 1.1s ease-in-out infinite;
+        }
+        @keyframes uploadOverlayIndeterminate {
+          0% { transform: translateX(-120%); }
+          50% { transform: translateX(0%); }
+          100% { transform: translateX(180%); }
+        }
+        #uploadOverlay .upload-footer {
+          margin-top: 12px;
+          display: flex;
+          justify-content: space-between;
+          align-items: center;
+          font-size: 0.78rem;
+          color: rgba(226, 232, 240, 0.8);
+        }
+        #uploadOverlay .upload-percent {
+          font-weight: 600;
+          color: #93c5fd;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    if (!document.getElementById('uploadOverlay')) {
+      const overlay = document.createElement('div');
+      overlay.id = 'uploadOverlay';
+      overlay.innerHTML = `
+        <div class="upload-card">
+          <div class="upload-title">📤 กำลังอัปโหลดไฟล์</div>
+          <div class="upload-subtitle" id="uploadSubtitle"></div>
+          <div class="upload-progress-track">
+            <div class="upload-progress-bar indeterminate" id="uploadProgressBar"></div>
+          </div>
+          <div class="upload-footer">
+            <span class="upload-percent" id="uploadPercent">0%</span>
+            <span id="uploadDetail">กำลังเตรียมไฟล์...</span>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(overlay);
+    }
+  }
+
   showUploadOverlay({ title = 'กำลังอัปโหลดไฟล์...', subtitle = 'โปรดรอสักครู่' } = {}) {
+    this.ensureUploadOverlay();
     const overlay = document.getElementById('uploadOverlay');
     const subtitleEl = document.getElementById('uploadSubtitle');
     const percentEl = document.getElementById('uploadPercent');
     const bar = document.getElementById('uploadProgressBar');
     const detailEl = document.getElementById('uploadDetail');
     if (!overlay) return;
+    const titleEl = overlay.querySelector('.upload-title');
+    if (titleEl) titleEl.textContent = title || '📤 กำลังอัปโหลดไฟล์';
     subtitleEl.textContent = subtitle;
     percentEl.textContent = '0%';
     bar.style.width = '0%';
     bar.classList.add('indeterminate');
     detailEl.textContent = 'กำลังเตรียมไฟล์...';
-    overlay.classList.remove('hidden');
+    overlay.classList.add('upload-visible');
   }
 
   updateUploadOverlay({ loaded = 0, total = 0, lengthComputable = false, detail = '' } = {}) {
@@ -667,12 +773,16 @@ class Dashboard {
       bar.classList.add('indeterminate');
       bar.style.width = '40%';
     }
-    if (detail) detailEl.textContent = detail;
+    if (detail) {
+      detailEl.textContent = detail;
+    } else if (lengthComputable && total > 0 && detailEl) {
+      detailEl.textContent = `${this.formatFileSize(loaded)} / ${this.formatFileSize(total)}`;
+    }
   }
 
   hideUploadOverlay() {
     const overlay = document.getElementById('uploadOverlay');
-    if (overlay) overlay.classList.add('hidden');
+    if (overlay) overlay.classList.remove('upload-visible');
   }
 
   // Low-level uploader with progress (XHR)

@@ -4123,13 +4123,19 @@ class ApiController {
         search: search as string,
       });
 
+      const limitNum = parseInt(limit as string, 10);
+      const offsetNum = parseInt(offset as string, 10);
+      const page = Math.floor(offsetNum / limitNum) + 1;
+      const totalPages = Math.ceil(total / limitNum);
+
       const response: PaginatedResponse<any> = {
         success: true,
         data: logs,
         pagination: {
+          page,
+          limit: limitNum,
           total,
-          limit: parseInt(limit as string, 10),
-          offset: parseInt(offset as string, 10),
+          totalPages,
         },
       };
 

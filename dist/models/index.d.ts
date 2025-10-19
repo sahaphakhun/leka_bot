@@ -35,6 +35,11 @@ export declare class User {
     settings: {
         googleCalendarId?: string;
         googleRefreshToken?: string;
+        emailVerification?: {
+            email: string;
+            token: string;
+            expiresAt: string;
+        };
     };
     groupMemberships: GroupMember[];
     createdTasks: Task[];
@@ -45,7 +50,7 @@ export declare class GroupMember {
     id: string;
     groupId: string;
     userId: string;
-    role: 'admin' | 'member';
+    role: "admin" | "member";
     joinedAt: Date;
     group: Group;
     user: User;
@@ -55,8 +60,8 @@ export declare class Task {
     groupId: string;
     title: string;
     description?: string;
-    status: 'pending' | 'in_progress' | 'submitted' | 'reviewed' | 'approved' | 'completed' | 'rejected' | 'cancelled' | 'overdue';
-    priority: 'low' | 'medium' | 'high';
+    status: "pending" | "in_progress" | "submitted" | "reviewed" | "approved" | "completed" | "rejected" | "cancelled" | "overdue";
+    priority: "low" | "medium" | "high";
     tags: string[];
     startTime?: Date;
     dueTime: Date;
@@ -71,7 +76,7 @@ export declare class Task {
     remindersSent: {
         type: string;
         sentAt: Date;
-        channels: ('line' | 'email')[];
+        channels: ("line" | "email")[];
     }[];
     customReminders?: string[];
     googleEventId?: string;
@@ -90,7 +95,7 @@ export declare class Task {
         }>;
         review?: {
             reviewerUserId: string;
-            status: 'not_requested' | 'pending' | 'approved' | 'rejected';
+            status: "not_requested" | "pending" | "approved" | "rejected";
             reviewRequestedAt?: Date;
             reviewDueAt?: Date;
             reviewedAt?: Date;
@@ -99,13 +104,13 @@ export declare class Task {
         };
         approval?: {
             creatorUserId: string;
-            status: 'not_requested' | 'pending' | 'approved';
+            status: "not_requested" | "pending" | "approved";
             approvalRequestedAt?: Date;
             approvedAt?: Date;
             creatorComment?: string;
         };
         history?: Array<{
-            action: 'create' | 'submit' | 'review' | 'approve' | 'reject' | 'revise_due' | 'complete';
+            action: "create" | "submit" | "review" | "approve" | "reject" | "revise_due" | "complete";
             byUserId: string;
             at: Date;
             note?: string;
@@ -132,8 +137,8 @@ export declare class File {
     uploadedBy: string;
     tags: string[];
     isPublic: boolean;
-    folderStatus: 'in_progress' | 'completed';
-    attachmentType?: 'initial' | 'submission';
+    folderStatus: "in_progress" | "completed";
+    attachmentType?: "initial" | "submission";
     uploadedAt: Date;
     group: Group;
     uploadedByUser: User;
@@ -144,8 +149,8 @@ export declare class KPIRecord {
     userId: string;
     groupId: string;
     taskId: string;
-    type: 'assignee_early' | 'assignee_ontime' | 'assignee_late' | 'creator_completion' | 'creator_ontime_bonus' | 'streak_bonus' | 'penalty_overdue';
-    role: 'assignee' | 'creator' | 'bonus' | 'penalty';
+    type: "assignee_early" | "assignee_ontime" | "assignee_late" | "creator_completion" | "creator_ontime_bonus" | "streak_bonus" | "penalty_overdue";
+    role: "assignee" | "creator" | "bonus" | "penalty";
     points: number;
     metadata?: Record<string, any>;
     eventDate: Date;
@@ -164,9 +169,9 @@ export declare class RecurringTask {
     assigneeLineUserIds: string[];
     reviewerLineUserId?: string;
     requireAttachment: boolean;
-    priority: 'low' | 'medium' | 'high';
+    priority: "low" | "medium" | "high";
     tags: string[];
-    recurrence: 'weekly' | 'monthly' | 'quarterly';
+    recurrence: "weekly" | "monthly" | "quarterly";
     weekDay?: number;
     dayOfMonth?: number;
     timeOfDay: string;
@@ -179,5 +184,23 @@ export declare class RecurringTask {
     createdByLineUserId: string;
     createdAt: Date;
     updatedAt: Date;
+}
+export declare class ActivityLog {
+    id: string;
+    groupId: string;
+    userId?: string;
+    action: string;
+    resourceType: string;
+    resourceId?: string;
+    details?: {
+        oldValue?: any;
+        newValue?: any;
+        [key: string]: any;
+    };
+    ipAddress?: string;
+    userAgent?: string;
+    createdAt: Date;
+    group: Group;
+    user?: User;
 }
 //# sourceMappingURL=index.d.ts.map

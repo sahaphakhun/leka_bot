@@ -1,6 +1,6 @@
-import { AppDataSource } from '../index';
-import { ActivityLog } from '../models';
-import { Repository, Between, In, Like } from 'typeorm';
+import { AppDataSource } from "../utils/database";
+import { ActivityLog } from "../models";
+import { Repository, Between, In, Like } from "typeorm";
 
 export interface LogActivityParams {
   groupId: string;
@@ -63,7 +63,7 @@ export class ActivityLogService {
 
       return await this.repository.save(log);
     } catch (error) {
-      console.error('❌ Failed to log activity:', error);
+      console.error("❌ Failed to log activity:", error);
       // Don't throw - logging failures shouldn't break the main operation
       return null as any;
     }
@@ -90,52 +90,54 @@ export class ActivityLogService {
     } = params;
 
     const queryBuilder = this.repository
-      .createQueryBuilder('log')
-      .leftJoinAndSelect('log.user', 'user')
-      .where('log.groupId = :groupId', { groupId });
+      .createQueryBuilder("log")
+      .leftJoinAndSelect("log.user", "user")
+      .where("log.groupId = :groupId", { groupId });
 
     // Filter by user
     if (userId) {
-      queryBuilder.andWhere('log.userId = :userId', { userId });
+      queryBuilder.andWhere("log.userId = :userId", { userId });
     }
 
     // Filter by action
     if (action) {
-      queryBuilder.andWhere('log.action = :action', { action });
+      queryBuilder.andWhere("log.action = :action", { action });
     }
 
     // Filter by resource type
     if (resourceType) {
-      queryBuilder.andWhere('log.resourceType = :resourceType', { resourceType });
+      queryBuilder.andWhere("log.resourceType = :resourceType", {
+        resourceType,
+      });
     }
 
     // Filter by resource ID
     if (resourceId) {
-      queryBuilder.andWhere('log.resourceId = :resourceId', { resourceId });
+      queryBuilder.andWhere("log.resourceId = :resourceId", { resourceId });
     }
 
     // Filter by date range
     if (startDate && endDate) {
-      queryBuilder.andWhere('log.createdAt BETWEEN :startDate AND :endDate', {
+      queryBuilder.andWhere("log.createdAt BETWEEN :startDate AND :endDate", {
         startDate,
         endDate,
       });
     } else if (startDate) {
-      queryBuilder.andWhere('log.createdAt >= :startDate', { startDate });
+      queryBuilder.andWhere("log.createdAt >= :startDate", { startDate });
     } else if (endDate) {
-      queryBuilder.andWhere('log.createdAt <= :endDate', { endDate });
+      queryBuilder.andWhere("log.createdAt <= :endDate", { endDate });
     }
 
     // Search in action, resourceType, or user display name
     if (search) {
       queryBuilder.andWhere(
-        '(log.action ILIKE :search OR log.resourceType ILIKE :search OR user.displayName ILIKE :search)',
-        { search: `%${search}%` }
+        "(log.action ILIKE :search OR log.resourceType ILIKE :search OR user.displayName ILIKE :search)",
+        { search: `%${search}%` },
       );
     }
 
     // Order by newest first
-    queryBuilder.orderBy('log.createdAt', 'DESC');
+    queryBuilder.orderBy("log.createdAt", "DESC");
 
     // Get total count
     const total = await queryBuilder.getCount();
@@ -152,7 +154,10 @@ export class ActivityLogService {
   /**
    * Get activity statistics
    */
-  async getActivityStats(groupId: string, days: number = 30): Promise<ActivityStats> {
+  async getActivityStats(
+    groupId: string,
+    days: number = 30,
+  ): Promise<ActivityStats> {
     const startDate = new Date();
     startDate.setDate(startDate.getDate() - days);
 
@@ -161,7 +166,7 @@ export class ActivityLogService {
         groupId,
         createdAt: Between(startDate, new Date()) as any,
       },
-      relations: ['user'],
+      relations: ["user"],
     });
 
     const stats: ActivityStats = {
@@ -205,7 +210,7 @@ export class ActivityLogService {
     groupId: string,
     resourceType: string,
     resourceId: string,
-    limit: number = 20
+    limit: number = 20,
   ): Promise<ActivityLog[]> {
     return await this.repository.find({
       where: {
@@ -213,9 +218,9 @@ export class ActivityLogService {
         resourceType,
         resourceId,
       },
-      relations: ['user'],
+      relations: ["user"],
       order: {
-        createdAt: 'DESC',
+        createdAt: "DESC",
       },
       take: limit,
     });
@@ -227,16 +232,16 @@ export class ActivityLogService {
   async getUserLogs(
     groupId: string,
     userId: string,
-    limit: number = 50
+    limit: number = 50,
   ): Promise<ActivityLog[]> {
     return await this.repository.find({
       where: {
         groupId,
         userId,
       },
-      relations: ['user'],
+      relations: ["user"],
       order: {
-        createdAt: 'DESC',
+        createdAt: "DESC",
       },
       take: limit,
     });
@@ -245,7 +250,10 @@ export class ActivityLogService {
   /**
    * Delete old logs (cleanup)
    */
-  async deleteOldLogs(groupId: string, daysToKeep: number = 90): Promise<number> {
+  async deleteOldLogs(
+    groupId: string,
+    daysToKeep: number = 90,
+  ): Promise<number> {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
 
@@ -253,8 +261,8 @@ export class ActivityLogService {
       .createQueryBuilder()
       .delete()
       .from(ActivityLog)
-      .where('groupId = :groupId', { groupId })
-      .andWhere('createdAt < :cutoffDate', { cutoffDate })
+      .where("groupId = :groupId", { groupId })
+      .andWhere("createdAt < :cutoffDate", { cutoffDate })
       .execute();
 
     return result.affected || 0;
@@ -265,9 +273,9 @@ export class ActivityLogService {
    */
   async getUniqueActions(groupId: string): Promise<string[]> {
     const logs = await this.repository
-      .createQueryBuilder('log')
-      .select('DISTINCT log.action', 'action')
-      .where('log.groupId = :groupId', { groupId })
+      .createQueryBuilder("log")
+      .select("DISTINCT log.action", "action")
+      .where("log.groupId = :groupId", { groupId })
       .getRawMany();
 
     return logs.map((log) => log.action);
@@ -278,9 +286,9 @@ export class ActivityLogService {
    */
   async getUniqueResourceTypes(groupId: string): Promise<string[]> {
     const logs = await this.repository
-      .createQueryBuilder('log')
-      .select('DISTINCT log.resourceType', 'resourceType')
-      .where('log.groupId = :groupId', { groupId })
+      .createQueryBuilder("log")
+      .select("DISTINCT log.resourceType", "resourceType")
+      .where("log.groupId = :groupId", { groupId })
       .getRawMany();
 
     return logs.map((log) => log.resourceType);

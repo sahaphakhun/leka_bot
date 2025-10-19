@@ -94,6 +94,11 @@ export class User {
   settings: {
     googleCalendarId?: string;
     googleRefreshToken?: string;
+    emailVerification?: {
+      email: string;
+      token: string;
+      expiresAt: string;
+    };
   };
 
   @OneToMany(() => GroupMember, (member) => member.user)
