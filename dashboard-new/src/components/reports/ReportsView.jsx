@@ -21,7 +21,7 @@ import {
 import ReportFilters from "./ReportFilters";
 import ReportChart from "./ReportChart";
 import ReportExport from "./ReportExport";
-import { showSuccess, showError, showWarning } from "../../lib/toast";
+import { showError } from "../../lib/toast";
 
 export default function ReportsView() {
   const { groupId } = useAuth();
@@ -46,8 +46,9 @@ export default function ReportsView() {
     setError(null);
     try {
       const { getReports } = await import("../../services/api");
-      const response = await getReports(groupId, filters);
-      setReportData(response.data || response);
+      const reportData = await getReports(groupId, filters);
+      // Data is already normalized by API service
+      setReportData(reportData);
       console.log("✅ Loaded reports data");
     } catch (error) {
       console.error("❌ Failed to load reports:", error);

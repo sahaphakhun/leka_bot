@@ -721,6 +721,83 @@ export const getGroupRecurringStats = async (groupId) => {
 
 // ==================== Report APIs ====================
 
+// Helper: Normalize report summary data
+const normalizeReportSummary = (summarySource) => {
+  if (!summarySource) {
+    return {
+      periodStart: null,
+      periodEnd: null,
+      totalTasks: 0,
+      completedTasks: 0,
+      inProgressTasks: 0,
+      overdueTasks: 0,
+      completionRate: 0,
+      avgCompletionTime: 0,
+    };
+  }
+
+  const totals = summarySource.totals || summarySource || {};
+  const totalTasks =
+    totals.totalAssigned ??
+    totals.total ??
+    (totals.completed || 0) +
+      (totals.overdue || 0) +
+      (totals.late || 0) +
+      (totals.ontime || 0) +
+      (totals.early || 0);
+  const completed = Number(totals.completed || 0);
+  const overdue = Number(totals.overdue || 0);
+  const completionRate = Number(totals.completionRate || 0);
+  const avgCompletionTime = Number(
+    totals.avgCompletionTime || totals.avgCompletionHours || 0,
+  );
+
+  const inProgressEstimate = Math.max(totalTasks - completed - overdue, 0);
+
+  return {
+    periodStart: summarySource.periodStart || null,
+    periodEnd: summarySource.periodEnd || null,
+    totalTasks,
+    completedTasks: completed,
+    inProgressTasks: inProgressEstimate,
+    overdueTasks: overdue,
+    completionRate: Math.round(completionRate * 10) / 10,
+    avgCompletionTime,
+  };
+};
+
+// Helper: Normalize member/user report rows
+const normalizeMemberReportRows = (rows) => {
+  if (!Array.isArray(rows)) return [];
+
+  return rows.map((row) => {
+    const completed = Number(row.completed || 0);
+    const overdue = Number(row.overdue || 0);
+    const late = Number(row.late || 0);
+    const early = Number(row.early || 0);
+    const ontime = Number(row.ontime || 0);
+
+    const assigned =
+      Number(row.assigned) ||
+      Number(row.totalAssigned) ||
+      completed + overdue + late + ontime + early ||
+      completed;
+
+    const rate =
+      assigned > 0 ? Math.round((completed / assigned) * 1000) / 10 : 0;
+
+    return {
+      name: row.displayName || row.name || row.userName || "ไม่ทราบชื่อ",
+      userId: row.userId || row.lineUserId || row.id,
+      assigned,
+      completed,
+      overdue,
+      rate,
+      trend: rate >= 70 ? "up" : "down",
+    };
+  });
+};
+
 const normalizeReportParams = (params = {}) => {
   const output = {};
 
@@ -753,14 +830,29 @@ const normalizeReportParams = (params = {}) => {
 
 export const getReports = async (groupId, params = {}) => {
   const query = normalizeReportParams(params);
-  const [summary, byUsers] = await Promise.all([
+  const [summaryRaw, byUsersRaw] = await Promise.all([
     getReportsSummary(groupId, query).catch(() => null),
     getReportsByUsers(groupId, query).catch(() => []),
   ]);
 
+  // Normalize data before returning
+  const summary = normalizeReportSummary(summaryRaw);
+  const byMember = normalizeMemberReportRows(byUsersRaw);
+
+  // Include trends if available (otherwise empty)
+  const trends = summaryRaw?.trends || {
+    labels: [],
+    tasksCreated: [],
+    tasksCompleted: [],
+  };
+
   return {
     summary,
-    byMember: byUsers,
+    byMember,
+    trends,
+    byCategory: Array.isArray(summaryRaw?.byCategory)
+      ? summaryRaw.byCategory
+      : [],
   };
 };
 
