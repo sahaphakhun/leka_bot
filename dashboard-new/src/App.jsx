@@ -3,6 +3,7 @@ import {
   useEffect,
   useCallback,
   useRef,
+  useMemo,
   lazy,
   Suspense,
 } from "react";
@@ -36,19 +37,19 @@ const ActivityLogsView = lazy(
   () => import("./components/activity/ActivityLogsView"),
 );
 
-// Lazy load - Modals (loaded when opened)
-const AddTaskModal = lazy(() => import("./components/modals/AddTaskModal"));
-const EditTaskModal = lazy(() => import("./components/modals/EditTaskModal"));
-const TaskDetailModal = lazy(
-  () => import("./components/modals/TaskDetailModal"),
-);
+// Eager load - Critical modals (commonly used, preload immediately)
+import AddTaskModal from "./components/modals/AddTaskModal";
+import EditTaskModal from "./components/modals/EditTaskModal";
+import TaskDetailModal from "./components/modals/TaskDetailModal";
+import ConfirmDialog from "./components/modals/ConfirmDialog";
+
+// Lazy load - Less critical modals (loaded on demand)
 const SubmitTaskModal = lazy(
   () => import("./components/modals/SubmitTaskModal"),
 );
 const FilePreviewModal = lazy(
   () => import("./components/modals/FilePreviewModal"),
 );
-const ConfirmDialog = lazy(() => import("./components/modals/ConfirmDialog"));
 const RecurringTaskModal = lazy(
   () => import("./components/recurring/RecurringTaskModal"),
 );
@@ -138,7 +139,7 @@ function AppContent() {
   const authenticated = isAuthenticated();
   const urlActionStateRef = useRef({ lastKey: null });
 
-  // Test API connection on mount
+  // Test API connection on mount + Prefetch critical components
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -154,6 +155,15 @@ function AppContent() {
       }
     };
     checkConnection();
+
+    // Prefetch lazy-loaded components after initial render
+    const prefetchTimer = setTimeout(() => {
+      import("./utils/prefetch").then(({ prefetchCriticalComponents }) => {
+        prefetchCriticalComponents();
+      });
+    }, 1000); // Wait 1s after mount to avoid blocking initial render
+
+    return () => clearTimeout(prefetchTimer);
   }, []);
 
   // Handle URL parameter actions (e.g., ?action=new-task)
@@ -595,14 +605,14 @@ function AppContent() {
       );
     }
 
-    // Loading fallback component
-    const LoadingFallback = () => (
-      <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-3"></div>
-          <p className="text-sm text-gray-600">กำลังโหลด...</p>
+    // Loading fallback component (memoized to prevent re-renders)
+    const LoadingFallback = useMemo(
+      () => () => (
+        <div className="flex items-center justify-center h-full">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>
-      </div>
+      ),
+      [],
     );
 
     switch (activeView) {
