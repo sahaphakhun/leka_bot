@@ -1,7 +1,30 @@
 export async function exportReport(reportData, filters, format) {
-  // This would typically call an API endpoint
-  // For now, we'll implement client-side export
+  // Try to use backend API first, fallback to client-side export
+  try {
+    const groupId =
+      typeof localStorage !== "undefined"
+        ? localStorage.getItem("leka_groupId")
+        : null;
 
+    if (groupId && (format === "pdf" || format === "excel")) {
+      // Use backend API for PDF and Excel
+      const { exportReports } = await import("./api");
+      const exportUrl = await exportReports(groupId, { ...filters, format });
+
+      // Download the file
+      const link = document.createElement("a");
+      link.href = exportUrl;
+      link.download = `report_${Date.now()}.${format === "pdf" ? "pdf" : "xlsx"}`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return;
+    }
+  } catch (error) {
+    console.warn("Backend export failed, falling back to client-side:", error);
+  }
+
+  // Fallback to client-side export
   switch (format) {
     case "pdf":
       return exportToPDF(reportData, filters);

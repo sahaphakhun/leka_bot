@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect } from "react";
 
 export function useRecurringTasks(groupId) {
   const [recurringTasks, setRecurringTasks] = useState([]);
@@ -15,11 +15,11 @@ export function useRecurringTasks(groupId) {
     setLoading(true);
     setError(null);
     try {
-      const { getRecurringTasks } = await import('../services/recurringService');
-      const tasks = await getRecurringTasks(groupId);
+      const { listRecurringTasks } = await import("../services/api");
+      const tasks = await listRecurringTasks(groupId);
       setRecurringTasks(tasks);
     } catch (err) {
-      console.error('Failed to load recurring tasks:', err);
+      console.error("Failed to load recurring tasks:", err);
       setError(err.message);
     } finally {
       setLoading(false);
@@ -28,44 +28,52 @@ export function useRecurringTasks(groupId) {
 
   const createRecurringTask = async (taskData) => {
     try {
-      const { createRecurringTask: apiCreate } = await import('../services/recurringService');
+      const { createRecurringTask: apiCreate } = await import(
+        "../services/api"
+      );
       await apiCreate(groupId, taskData);
       await loadRecurringTasks();
     } catch (err) {
-      console.error('Failed to create recurring task:', err);
+      console.error("Failed to create recurring task:", err);
       throw err;
     }
   };
 
   const updateRecurringTask = async (taskId, taskData) => {
     try {
-      const { updateRecurringTask: apiUpdate } = await import('../services/recurringService');
+      const { updateRecurringTask: apiUpdate } = await import(
+        "../services/api"
+      );
       await apiUpdate(groupId, taskId, taskData);
       await loadRecurringTasks();
     } catch (err) {
-      console.error('Failed to update recurring task:', err);
+      console.error("Failed to update recurring task:", err);
       throw err;
     }
   };
 
   const deleteRecurringTask = async (taskId) => {
     try {
-      const { deleteRecurringTask: apiDelete } = await import('../services/recurringService');
+      const { deleteRecurringTask: apiDelete } = await import(
+        "../services/api"
+      );
       await apiDelete(groupId, taskId);
       await loadRecurringTasks();
     } catch (err) {
-      console.error('Failed to delete recurring task:', err);
+      console.error("Failed to delete recurring task:", err);
       throw err;
     }
   };
 
   const toggleRecurringTask = async (taskId, enabled) => {
     try {
-      const { toggleRecurringTask: apiToggle } = await import('../services/recurringService');
+      const { toggleRecurringTask: apiToggle } = await import(
+        "../services/api"
+      );
       await apiToggle(groupId, taskId, enabled);
       await loadRecurringTasks();
     } catch (err) {
-      console.error('Failed to toggle recurring task:', err);
+      console.error("Failed to toggle recurring task:", err);
       throw err;
     }
   };

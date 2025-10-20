@@ -58,7 +58,18 @@ export default function MembersView({ refreshKey = 0 }) {
       setLoading(true);
       setError(null);
       try {
-        const { getGroupMembers } = await import("../../services/api");
+        const { getGroupMembers, getLineMembers } = await import(
+          "../../services/api"
+        );
+
+        // Try to sync with LINE first
+        try {
+          await getLineMembers(groupId);
+        } catch (lineSyncError) {
+          console.warn("LINE sync failed (non-critical):", lineSyncError);
+        }
+
+        // Load members from database
         const response = await getGroupMembers(groupId);
         const rawMembers =
           response?.data || response?.members || response || [];

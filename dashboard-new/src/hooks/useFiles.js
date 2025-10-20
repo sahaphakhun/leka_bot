@@ -29,9 +29,7 @@ export function useFiles(groupId) {
 
   const uploadFile = async (file, taskId) => {
     try {
-      const { uploadFile: apiUploadFile } = await import(
-        "../services/fileService"
-      );
+      const { uploadFile: apiUploadFile } = await import("../services/api");
       const result = await apiUploadFile(groupId, file, taskId);
       await loadFiles();
       return result;

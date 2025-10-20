@@ -127,34 +127,17 @@ const getAssigneeNames = (task) => {
   return unique.length > 0 ? Array.from(new Set(unique)).join(", ") : "ไม่ระบุ";
 };
 
-const createFormData = (userId, comment, files) => {
+const submitTaskDashboard = async (taskId, userId, comment, files, groupId) => {
+  const { submitTask } = await import("../../services/api");
+
+  // Create FormData for submission
   const formData = new FormData();
-  formData.append("userId", userId);
   formData.append("comment", comment || "");
   files.forEach((file) => formData.append("attachments", file));
-  return formData;
-};
 
-const submitTaskDashboard = async (taskId, userId, comment, files) => {
-  const response = await fetch(`/api/dashboard/tasks/${taskId}/submit`, {
-    method: "POST",
-    body: createFormData(userId, comment, files),
-  });
-
-  let payload;
-  try {
-    payload = await response.json();
-  } catch (error) {
-    payload = null;
-  }
-
-  if (!response.ok || !payload?.success) {
-    const message =
-      payload?.error || payload?.message || `HTTP ${response.status}`;
-    throw new Error(message);
-  }
-
-  return payload?.data || null;
+  // Use api.js submitTask function
+  const result = await submitTask(groupId, taskId, formData, userId);
+  return result?.data || result || null;
 };
 
 export default function SubmitMultipleView() {
@@ -321,7 +304,7 @@ export default function SubmitMultipleView() {
     for (let i = 0; i < selectedTasks.length; i += 1) {
       const task = selectedTasks[i];
       try {
-        await submitTaskDashboard(task.id, userId, comment, files);
+        await submitTaskDashboard(task.id, userId, comment, files, groupId);
         results.push({ taskId: task.id, success: true });
       } catch (taskError) {
         console.error(`❌ ส่งงาน ${task.id} ไม่สำเร็จ`, taskError);

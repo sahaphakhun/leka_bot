@@ -81,7 +81,17 @@ export default function InviteMemberModal({ onInvited }) {
 
     setLoading(true);
     try {
-      const { sendInviteEmail } = await import("../../services/api");
+      const { sendInviteEmail, getLineMembers } = await import(
+        "../../services/api"
+      );
+
+      // Sync with LINE before sending invite
+      try {
+        await getLineMembers(groupId);
+      } catch (lineSyncError) {
+        console.warn("LINE sync failed (non-critical):", lineSyncError);
+      }
+
       await sendInviteEmail(groupId, email, message);
       showSuccess("ส่งคำเชิญทางอีเมลสำเร็จ");
       console.log("✅ Sent invite email to:", email);
