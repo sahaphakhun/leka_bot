@@ -10,9 +10,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { RefreshCw, UserPlus, Search } from "lucide-react";
+import { RefreshCw, UserPlus, Search, Download } from "lucide-react";
 import MemberCard from "./MemberCard";
 import { SmartPagination } from "../ui/pagination";
+import { exportMembers } from "../../services/exportService";
 
 const ITEMS_PER_PAGE = 20;
 
@@ -37,7 +38,7 @@ const normaliseMember = (member) => {
 
 export default function MembersView({ refreshKey = 0 }) {
   const { groupId, canModify } = useAuth();
-  const { openInviteMember } = useModal();
+  const { openInviteMember, openMemberActions } = useModal();
   const [members, setMembers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -115,6 +116,17 @@ export default function MembersView({ refreshKey = 0 }) {
     );
   }
 
+  const handleExportMembers = async () => {
+    if (members.length === 0) {
+      return;
+    }
+    try {
+      await exportMembers(members, "csv");
+    } catch (err) {
+      console.error("Failed to export members:", err);
+    }
+  };
+
   if (error) {
     return (
       <div className="p-6">
@@ -152,6 +164,14 @@ export default function MembersView({ refreshKey = 0 }) {
           >
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleExportMembers}
+            disabled={members.length === 0}
+          >
+            <Download className="w-4 h-4 mr-2" />
+            ส่งออก CSV
           </Button>
           {canModify() && (
             <Button onClick={openInviteMember}>
@@ -223,7 +243,12 @@ export default function MembersView({ refreshKey = 0 }) {
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
           {paginatedMembers.map((member) => (
-            <MemberCard key={member.lineUserId} member={member} />
+            <MemberCard
+              key={member.lineUserId || member.id}
+              member={member}
+              canManage={canModify()}
+              onManage={() => openMemberActions(member)}
+            />
           ))}
         </div>
       )}

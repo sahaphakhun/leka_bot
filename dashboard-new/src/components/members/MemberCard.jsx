@@ -2,9 +2,10 @@ import { memo } from "react";
 import { Card, CardContent } from "../ui/card";
 import { Badge } from "../ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Shield, User } from "lucide-react";
+import { Shield, User, MoreHorizontal } from "lucide-react";
+import { Button } from "../ui/button";
 
-const MemberCard = memo(({ member }) => {
+const MemberCard = memo(({ member, onManage, canManage }) => {
   const memberName = member.displayName || member.name || "ไม่ระบุชื่อ";
 
   const getRoleBadge = (role) => {
@@ -27,7 +28,7 @@ const MemberCard = memo(({ member }) => {
   return (
     <Card className="hover:shadow-md transition-shadow">
       <CardContent className="p-4">
-        <div className="flex items-start justify-between mb-3">
+        <div className="flex items-start justify-between mb-3 gap-2">
           <div className="flex items-center gap-3">
             <div className="relative">
               <Avatar className="w-12 h-12">
@@ -40,6 +41,17 @@ const MemberCard = memo(({ member }) => {
               {getRoleBadge(member.role)}
             </div>
           </div>
+          {canManage && onManage && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="text-gray-500 hover:text-gray-800"
+              onClick={onManage}
+              aria-label="จัดการสมาชิก"
+            >
+              <MoreHorizontal className="w-5 h-5" />
+            </Button>
+          )}
         </div>
 
         <div className="grid grid-cols-2 gap-2 pt-3 border-t text-center">
@@ -57,7 +69,8 @@ const MemberCard = memo(({ member }) => {
 
         {member.joinedAt && (
           <div className="mt-3 pt-3 border-t text-xs text-gray-500">
-            เข้าร่วมเมื่อ: {new Date(member.joinedAt).toLocaleDateString("th-TH")}
+            เข้าร่วมเมื่อ:{" "}
+            {new Date(member.joinedAt).toLocaleDateString("th-TH")}
           </div>
         )}
       </CardContent>
