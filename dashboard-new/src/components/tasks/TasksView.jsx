@@ -218,10 +218,12 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
   return (
     <div>
       {/* Header */}
-      <div className="px-6 py-4 bg-white border-b border-border">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <h1 className="text-2xl font-semibold">จัดการงานทั้งหมด</h1>
+      <div className="px-3 md:px-6 py-3 md:py-4 bg-white border-b border-border">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 md:gap-4 w-full sm:w-auto">
+            <h1 className="text-xl md:text-2xl font-semibold">
+              จัดการงานทั้งหมด
+            </h1>
             <button
               type="button"
               onClick={handleAddTask}
@@ -232,40 +234,42 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 w-full sm:w-auto">
             <button
               onClick={() => setViewMode("table")}
-              className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
+              className={`flex-1 sm:flex-none px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium flex items-center justify-center gap-1 md:gap-2 transition-colors ${
                 viewMode === "table"
                   ? "bg-blue-500 text-white"
                   : "bg-white border border-border text-gray-700 hover:bg-gray-50"
               }`}
             >
               <Table size={16} />
-              มุมมองตาราง
+              <span className="hidden sm:inline">มุมมองตาราง</span>
+              <span className="sm:hidden">ตาราง</span>
             </button>
             <button
               onClick={() => setViewMode("kanban")}
-              className={`px-4 py-2 rounded-md text-sm font-medium flex items-center gap-2 transition-colors ${
+              className={`flex-1 sm:flex-none px-3 md:px-4 py-2 rounded-md text-xs md:text-sm font-medium flex items-center justify-center gap-1 md:gap-2 transition-colors ${
                 viewMode === "kanban"
                   ? "bg-blue-500 text-white"
                   : "bg-white border border-border text-gray-700 hover:bg-gray-50"
               }`}
             >
               <LayoutGrid size={16} />
-              กระดานคัมบัน
+              <span className="hidden sm:inline">กระดานคัมบัน</span>
+              <span className="sm:hidden">คัมบัน</span>
             </button>
           </div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="px-6 py-4 border-b border-border bg-white">
-        <div className="flex items-center gap-2 mb-4 text-sm font-semibold text-gray-600">
+      <div className="px-3 md:px-6 py-3 md:py-4 border-b border-border bg-white">
+        <div className="flex items-center gap-2 mb-3 md:mb-4 text-xs md:text-sm font-semibold text-gray-600">
           <Filter className="w-4 h-4" />
           ตัวกรองงาน
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
           <div>
             <label className="block text-xs font-semibold text-gray-500 mb-2">
               สถานะ
@@ -363,29 +367,29 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
         </div>
       </div>
 
-      <div className="px-6 py-4 bg-white border-b border-border">
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div className="rounded-lg border border-blue-100 bg-blue-50 p-4">
+      <div className="px-3 md:px-6 py-3 md:py-4 bg-white border-b border-border">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+          <div className="rounded-lg border border-blue-100 bg-blue-50 p-2 md:p-4">
             <p className="text-xs text-blue-700">งานที่แสดง</p>
-            <p className="text-2xl font-semibold text-blue-700">
+            <p className="text-xl md:text-2xl font-semibold text-blue-700">
               {summaryCounts.total}
             </p>
           </div>
-          <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+          <div className="rounded-lg border border-amber-100 bg-amber-50 p-2 md:p-4">
             <p className="text-xs text-amber-700">รอดำเนินการ</p>
-            <p className="text-2xl font-semibold text-amber-700">
+            <p className="text-xl md:text-2xl font-semibold text-amber-700">
               {summaryCounts.pending + summaryCounts.inProgress}
             </p>
           </div>
-          <div className="rounded-lg border border-green-100 bg-green-50 p-4">
+          <div className="rounded-lg border border-green-100 bg-green-50 p-2 md:p-4">
             <p className="text-xs text-green-700">เสร็จแล้ว</p>
-            <p className="text-2xl font-semibold text-green-700">
+            <p className="text-xl md:text-2xl font-semibold text-green-700">
               {summaryCounts.completed}
             </p>
           </div>
-          <div className="rounded-lg border border-red-100 bg-red-50 p-4">
+          <div className="rounded-lg border border-red-100 bg-red-50 p-2 md:p-4">
             <p className="text-xs text-red-700">เกินกำหนด</p>
-            <p className="text-2xl font-semibold text-red-700">
+            <p className="text-xl md:text-2xl font-semibold text-red-700">
               {summaryCounts.overdue}
             </p>
           </div>

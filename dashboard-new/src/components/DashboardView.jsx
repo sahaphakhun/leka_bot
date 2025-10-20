@@ -398,12 +398,12 @@ const DashboardView = ({
   ];
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-4 md:p-6 space-y-4 md:space-y-6">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-3 md:gap-4">
         <div className="space-y-2">
-          <div className="flex flex-wrap items-center gap-3">
-            <h1 className="text-2xl font-bold">แดชบอร์ดหลัก</h1>
+          <div className="flex flex-wrap items-center gap-2 md:gap-3">
+            <h1 className="text-xl md:text-2xl font-bold">แดชบอร์ดหลัก</h1>
             <span
               className={`px-3 py-1 rounded-full text-xs font-semibold ${
                 isPersonalMode()
@@ -419,7 +419,7 @@ const DashboardView = ({
               </span>
             )}
           </div>
-          <p className="text-muted-foreground">
+          <p className="text-sm md:text-base text-muted-foreground">
             {isPersonalMode()
               ? "ภาพรวมงานของฉันในกลุ่ม LINE"
               : "ติดตามสถานะงานและผลงานของกลุ่มแบบเรียลไทม์"}
@@ -518,8 +518,8 @@ const DashboardView = ({
       )}
 
       {/* Stats period selector */}
-      <div className="bg-white border border-gray-100 rounded-xl px-4 py-3 flex flex-wrap items-center justify-between gap-4 shadow-sm">
-        <div className="text-sm text-muted-foreground">
+      <div className="bg-white border border-gray-100 rounded-xl px-3 md:px-4 py-3 flex flex-wrap items-center justify-between gap-3 md:gap-4 shadow-sm">
+        <div className="text-xs md:text-sm text-muted-foreground">
           ปรับช่วงข้อมูลสถิติเพื่อดูแนวโน้มล่าสุดของทีม
         </div>
         <div className="flex flex-wrap gap-2">
@@ -548,20 +548,26 @@ const DashboardView = ({
       </div>
 
       {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-2 xl:grid-cols-4 gap-3 md:gap-4">
         {statCards.map((stat, index) => {
           const Icon = stat.icon;
           return (
             <div
               key={index}
-              className="bg-white rounded-xl p-5 shadow-sm border border-gray-100 flex items-center justify-between"
+              className="bg-white rounded-xl p-3 md:p-5 shadow-sm border border-gray-100 flex items-center justify-between"
             >
               <div>
-                <p className="text-sm text-muted-foreground">{stat.title}</p>
-                <p className="text-3xl font-semibold mt-1">{stat.value}</p>
+                <p className="text-xs md:text-sm text-muted-foreground">
+                  {stat.title}
+                </p>
+                <p className="text-2xl md:text-3xl font-semibold mt-1">
+                  {stat.value}
+                </p>
               </div>
-              <div className={`${stat.bgColor} ${stat.color} p-3 rounded-full`}>
-                <Icon className="w-6 h-6" />
+              <div
+                className={`${stat.bgColor} ${stat.color} p-2 md:p-3 rounded-full`}
+              >
+                <Icon className="w-5 h-5 md:w-6 md:h-6" />
               </div>
             </div>
           );
@@ -570,7 +576,7 @@ const DashboardView = ({
 
       {/* Secondary summary */}
       {memberSummaryItems.length > 0 && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
           {memberSummaryItems.map((item, index) => {
             const SummaryIcon = item.icon || Users;
             return (
@@ -589,22 +595,22 @@ const DashboardView = ({
         </div>
       )}
 
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2 space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 md:gap-6">
+        <div className="lg:col-span-2 space-y-4 md:space-y-6">
           {/* Upcoming tasks */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b flex items-center justify-between">
+            <div className="px-3 md:px-5 py-3 md:py-4 border-b flex items-center justify-between">
               <div>
-                <h2 className="text-lg font-semibold">
+                <h2 className="text-base md:text-lg font-semibold">
                   งานใกล้ครบกำหนด (7 วัน)
                 </h2>
-                <p className="text-sm text-muted-foreground">
+                <p className="text-xs md:text-sm text-muted-foreground hidden sm:block">
                   จัดลำดับความสำคัญของงานที่ต้องดำเนินการต่อ
                 </p>
               </div>
-              <CalendarDays className="w-6 h-6 text-blue-500" />
+              <CalendarDays className="w-5 h-5 md:w-6 md:h-6 text-blue-500" />
             </div>
-            <div className="p-5">
+            <div className="p-3 md:p-5">
               {upcomingTasks.length === 0 ? (
                 <div className="text-center text-muted-foreground py-6 text-sm">
                   ไม่มีงานที่กำหนดส่งใน 7 วันข้างหน้า
@@ -616,9 +622,9 @@ const DashboardView = ({
                       <button
                         type="button"
                         onClick={() => onTaskSelect(task)}
-                        className="w-full text-left bg-gray-50 hover:bg-gray-100 transition rounded-lg px-4 py-3 border border-gray-100"
+                        className="w-full text-left bg-gray-50 hover:bg-gray-100 transition rounded-lg px-3 md:px-4 py-2 md:py-3 border border-gray-100"
                       >
-                        <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-center justify-between gap-2 md:gap-4">
                           <p className="font-medium text-sm md:text-base line-clamp-1">
                             {task.title}
                           </p>
@@ -626,9 +632,11 @@ const DashboardView = ({
                             {formatDateTime(task)}
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3 mt-2 text-xs text-muted-foreground">
-                          <span>ผู้รับผิดชอบ: {getAssigneeNames(task)}</span>
-                          <span className="flex items-center gap-1">
+                        <div className="flex flex-wrap items-center gap-2 md:gap-3 mt-2 text-xs text-muted-foreground">
+                          <span className="line-clamp-1">
+                            ผู้รับผิดชอบ: {getAssigneeNames(task)}
+                          </span>
+                          <span className="flex items-center gap-1 whitespace-nowrap">
                             <Clock className="w-3 h-3" />
                             {statusLabels[task.status] || task.status}
                           </span>
@@ -642,13 +650,15 @@ const DashboardView = ({
           </div>
 
           {/* Today's tasks and overdue */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6">
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-              <div className="px-5 py-4 border-b flex items-center justify-between">
-                <h2 className="text-lg font-semibold">งานของวันนี้</h2>
+              <div className="px-3 md:px-5 py-3 md:py-4 border-b flex items-center justify-between">
+                <h2 className="text-base md:text-lg font-semibold">
+                  งานของวันนี้
+                </h2>
                 <Clock className="w-5 h-5 text-indigo-500" />
               </div>
-              <div className="p-5">
+              <div className="p-3 md:p-5">
                 {todayTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     วันนี้ยังไม่มีงานที่ต้องทำ
@@ -668,13 +678,13 @@ const DashboardView = ({
             </div>
 
             <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-              <div className="px-5 py-4 border-b flex items-center justify-between">
-                <h2 className="text-lg font-semibold text-red-600">
+              <div className="px-3 md:px-5 py-3 md:py-4 border-b flex items-center justify-between">
+                <h2 className="text-base md:text-lg font-semibold text-red-600">
                   งานที่เกินกำหนด
                 </h2>
                 <AlertCircle className="w-5 h-5 text-red-500" />
               </div>
-              <div className="p-5">
+              <div className="p-3 md:p-5">
                 {overdueTasks.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-4">
                     เยี่ยมมาก! ไม่มีงานที่ค้างเกินกำหนด
@@ -709,16 +719,18 @@ const DashboardView = ({
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* Mini leaderboard */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b">
-              <h2 className="text-lg font-semibold">อันดับยอดเยี่ยม</h2>
-              <p className="text-sm text-muted-foreground">
+            <div className="px-3 md:px-5 py-3 md:py-4 border-b">
+              <h2 className="text-base md:text-lg font-semibold">
+                อันดับยอดเยี่ยม
+              </h2>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 Top 3 สมาชิกที่ทำผลงานโดดเด่นช่วงนี้
               </p>
             </div>
-            <div className="p-5">
+            <div className="p-3 md:p-5">
               {miniLeaderboard.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   ยังไม่มีข้อมูลอันดับ กรุณาซิงก์จากเมนู "อันดับ"
@@ -749,13 +761,15 @@ const DashboardView = ({
 
           {/* Recent activity */}
           <div className="bg-white rounded-xl border border-gray-100 shadow-sm">
-            <div className="px-5 py-4 border-b">
-              <h2 className="text-lg font-semibold">กิจกรรมล่าสุด</h2>
-              <p className="text-sm text-muted-foreground">
+            <div className="px-3 md:px-5 py-3 md:py-4 border-b">
+              <h2 className="text-base md:text-lg font-semibold">
+                กิจกรรมล่าสุด
+              </h2>
+              <p className="text-xs md:text-sm text-muted-foreground">
                 งานที่มีการอัปเดตหรือสร้างล่าสุด
               </p>
             </div>
-            <div className="p-5 space-y-3">
+            <div className="p-3 md:p-5 space-y-2 md:space-y-3">
               {recentTasks.length === 0 ? (
                 <p className="text-sm text-muted-foreground text-center py-4">
                   ยังไม่มีกิจกรรมล่าสุด

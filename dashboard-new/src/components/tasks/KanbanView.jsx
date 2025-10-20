@@ -201,7 +201,7 @@ const KanbanView = ({
   };
 
   return (
-    <div className="p-6 relative">
+    <div className="p-3 md:p-6 relative">
       {/* Loading overlay during update */}
       {updating && (
         <div className="absolute inset-0 bg-white/50 backdrop-blur-sm z-50 flex items-center justify-center rounded-lg">
