@@ -605,9 +605,9 @@ function AppContent() {
       );
     }
 
-    // Loading fallback component (memoized to prevent re-renders)
-    const LoadingFallback = useMemo(
-      () => () => (
+    // Loading fallback component (lightweight)
+    const LoadingFallback = useCallback(
+      () => (
         <div className="flex items-center justify-center h-full">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
         </div>

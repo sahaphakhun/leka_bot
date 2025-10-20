@@ -26,8 +26,13 @@
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
+          // Fix: Use correct path for deployed app (relative to base path)
+          const swPath = document.querySelector('base')?.href
+            ? new URL('sw.js', document.querySelector('base').href).pathname
+            : './sw.js';
+
           navigator.serviceWorker
-            .register('/sw.js')
+            .register(swPath)
             .then((registration) => {
               console.log('[PWA] Service Worker registered:', registration.scope);
 
