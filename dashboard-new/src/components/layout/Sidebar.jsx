@@ -73,10 +73,14 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
       {isMobile && (
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="fixed top-4 left-4 z-50 p-2 bg-bordio-navy text-white rounded-lg shadow-lg lg:hidden"
+          className="fixed top-4 left-4 z-50 p-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 lg:hidden border-2 border-white/20"
           aria-label="Toggle menu"
         >
-          {isOpen ? <X size={24} /> : <Menu size={24} />}
+          {isOpen ? (
+            <X size={24} strokeWidth={2.5} />
+          ) : (
+            <Menu size={24} strokeWidth={2.5} />
+          )}
         </button>
       )}
 
