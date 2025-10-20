@@ -521,6 +521,16 @@ function AppContent() {
     }
   };
 
+  // Loading fallback component (lightweight) - Must be at component level, not inside renderView
+  const LoadingFallback = useCallback(
+    () => (
+      <div className="flex items-center justify-center h-full">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
+      </div>
+    ),
+    [],
+  );
+
   const renderView = () => {
     if (loading) {
       return (
@@ -604,16 +614,6 @@ function AppContent() {
         </div>
       );
     }
-
-    // Loading fallback component (lightweight)
-    const LoadingFallback = useCallback(
-      () => (
-        <div className="flex items-center justify-center h-full">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        </div>
-      ),
-      [],
-    );
 
     switch (activeView) {
       case "dashboard":
