@@ -45,7 +45,6 @@ export default function AddTaskModal({ onTaskCreated }) {
     dueDate: null,
     dueTime: "",
     priority: "medium",
-    category: "general",
     assignedUsers: [],
     reviewer: "",
   });
@@ -58,7 +57,6 @@ export default function AddTaskModal({ onTaskCreated }) {
     startDate: null,
     time: "",
     priority: "medium",
-    category: "general",
     assignedUsers: [],
     reviewer: "",
     customRecurrence: {
@@ -133,7 +131,6 @@ export default function AddTaskModal({ onTaskCreated }) {
       dueDate: null,
       dueTime: "",
       priority: "medium",
-      category: "general",
       assignedUsers: [],
       reviewer: "",
     });
@@ -144,7 +141,6 @@ export default function AddTaskModal({ onTaskCreated }) {
       startDate: null,
       time: "",
       priority: "medium",
-      category: "general",
       assignedUsers: [],
       reviewer: "",
       customRecurrence: {
@@ -213,7 +209,7 @@ export default function AddTaskModal({ onTaskCreated }) {
             description: normalTask.description || "",
             dueTime: combinedDueTime,
             priority: normalTask.priority,
-            category: normalTask.category,
+            // category: normalTask.category, // ❌ Backend ไม่รองรับ field นี้
             assigneeIds: [...new Set(normalTask.assignedUsers)], // Backend expects assigneeIds
             reviewerUserId: normalTask.reviewer || null,
             requireAttachment: false,
@@ -233,6 +229,8 @@ export default function AddTaskModal({ onTaskCreated }) {
                 recurringTask.customRecurrence?.daysOfWeek?.slice() || [],
             },
           };
+          // ลบ category ออกเพราะ backend ไม่รองรับ
+          delete payload.category;
           await createRecurringTask(groupId, payload);
         }
 
@@ -417,48 +415,25 @@ export default function AddTaskModal({ onTaskCreated }) {
                 </div>
               </div>
 
-              {/* Priority & Category */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>ความสำคัญ</Label>
-                  <Select
-                    value={normalTask.priority}
-                    onValueChange={(value) =>
-                      setNormalTask({ ...normalTask, priority: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">ต่ำ</SelectItem>
-                      <SelectItem value="medium">ปานกลาง</SelectItem>
-                      <SelectItem value="high">สูง</SelectItem>
-                      <SelectItem value="urgent">ด่วน</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>หมวดหมู่</Label>
-                  <Select
-                    value={normalTask.category}
-                    onValueChange={(value) =>
-                      setNormalTask({ ...normalTask, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">ทั่วไป</SelectItem>
-                      <SelectItem value="meeting">การประชุม</SelectItem>
-                      <SelectItem value="report">รายงาน</SelectItem>
-                      <SelectItem value="project">โครงการ</SelectItem>
-                      <SelectItem value="maintenance">บำรุงรักษา</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label>ความสำคัญ</Label>
+                <Select
+                  value={normalTask.priority}
+                  onValueChange={(value) =>
+                    setNormalTask({ ...normalTask, priority: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">ต่ำ</SelectItem>
+                    <SelectItem value="medium">ปานกลาง</SelectItem>
+                    <SelectItem value="high">สูง</SelectItem>
+                    <SelectItem value="urgent">ด่วน</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Assigned Users */}
@@ -756,48 +731,25 @@ export default function AddTaskModal({ onTaskCreated }) {
                 </div>
               </div>
 
-              {/* Priority & Category */}
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>ความสำคัญ</Label>
-                  <Select
-                    value={recurringTask.priority}
-                    onValueChange={(value) =>
-                      setRecurringTask({ ...recurringTask, priority: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="low">ต่ำ</SelectItem>
-                      <SelectItem value="medium">ปานกลาง</SelectItem>
-                      <SelectItem value="high">สูง</SelectItem>
-                      <SelectItem value="urgent">ด่วน</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>หมวดหมู่</Label>
-                  <Select
-                    value={recurringTask.category}
-                    onValueChange={(value) =>
-                      setRecurringTask({ ...recurringTask, category: value })
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="general">ทั่วไป</SelectItem>
-                      <SelectItem value="meeting">การประชุม</SelectItem>
-                      <SelectItem value="report">รายงาน</SelectItem>
-                      <SelectItem value="project">โครงการ</SelectItem>
-                      <SelectItem value="maintenance">บำรุงรักษา</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
+              {/* Priority */}
+              <div className="space-y-2">
+                <Label>ความสำคัญ</Label>
+                <Select
+                  value={recurringTask.priority}
+                  onValueChange={(value) =>
+                    setRecurringTask({ ...recurringTask, priority: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="low">ต่ำ</SelectItem>
+                    <SelectItem value="medium">ปานกลาง</SelectItem>
+                    <SelectItem value="high">สูง</SelectItem>
+                    <SelectItem value="urgent">ด่วน</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
 
               {/* Assigned Users */}
