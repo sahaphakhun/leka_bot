@@ -211,7 +211,7 @@ export default function ReportsView() {
               {summary.inProgressTasks}
             </div>
             <p className="text-xs text-muted-foreground">
-              เฉลี่ย {summary.avgCompletionTime} วัน/งาน
+              เฉลี่ย {Number(summary.avgCompletionTime ?? 0).toFixed(1)} ชม./งาน
             </p>
           </CardContent>
         </Card>

@@ -249,9 +249,16 @@ const DashboardView = ({
       month: "short",
       day: "numeric",
     });
-    const timeString =
-      task.dueTime || task.time ? ` เวลา ${task.dueTime || task.time}` : "";
-    return `${dateString}${timeString}`;
+    const hasTime = Boolean(task.dueTime || task.time);
+    if (!hasTime) {
+      return dateString;
+    }
+
+    const timeString = date.toLocaleTimeString("th-TH", {
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    return `${dateString} เวลา ${timeString}`;
   };
 
   const getAssigneeNames = (task) => {
