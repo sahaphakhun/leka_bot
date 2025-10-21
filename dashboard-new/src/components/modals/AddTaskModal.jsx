@@ -295,7 +295,7 @@ export default function AddTaskModal({ onTaskCreated }) {
 
   return (
     <Dialog open={isAddTaskOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto w-[95vw] sm:w-full">
         <DialogHeader>
           <DialogTitle>เพิ่มงานใหม่</DialogTitle>
           <DialogDescription>สร้างงานใหม่หรืองานประจำ</DialogDescription>
