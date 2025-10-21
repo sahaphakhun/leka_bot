@@ -30,8 +30,12 @@ export default function FilePreviewModal() {
   const detectFileType = () => {
     if (!selectedFile) return;
 
-    const fileName = selectedFile.name || selectedFile.fileName || "";
-    const ext = fileName.split(".").pop().toLowerCase();
+    const fileName =
+      selectedFile.name ||
+      selectedFile.fileName ||
+      selectedFile.originalName ||
+      "";
+    const ext = fileName ? fileName.split(".").pop()?.toLowerCase() : "";
 
     const imageExts = ["jpg", "jpeg", "png", "gif", "webp", "svg", "bmp"];
     const videoExts = ["mp4", "webm", "ogg", "mov", "avi"];
@@ -83,7 +87,11 @@ export default function FilePreviewModal() {
     try {
       const link = document.createElement("a");
       link.href = previewUrl || selectedFile.url;
-      link.download = selectedFile.name || selectedFile.fileName || "download";
+      link.download =
+        selectedFile.name ||
+        selectedFile.fileName ||
+        selectedFile.originalName ||
+        "download";
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -123,7 +131,9 @@ export default function FilePreviewModal() {
           <div className="flex items-center justify-center bg-gray-50 rounded-lg p-4">
             <img
               src={previewUrl}
-              alt={selectedFile.name}
+              alt={
+                selectedFile?.name || selectedFile?.fileName || "Image preview"
+              }
               className="max-w-full max-h-[70vh] object-contain"
             />
           </div>
@@ -156,7 +166,12 @@ export default function FilePreviewModal() {
           >
             <PDFViewer
               url={previewUrl}
-              fileName={selectedFile.name || selectedFile.fileName}
+              fileName={
+                selectedFile?.name ||
+                selectedFile?.fileName ||
+                selectedFile?.originalName ||
+                "document.pdf"
+              }
               onClose={closeFilePreview}
             />
           </div>
@@ -177,7 +192,12 @@ export default function FilePreviewModal() {
         return (
           <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-lg p-4">
             <FileText className="w-24 h-24 mb-6 text-gray-400" />
-            <p className="text-lg font-medium mb-2">{selectedFile.name}</p>
+            <p className="text-lg font-medium mb-2">
+              {selectedFile?.name ||
+                selectedFile?.fileName ||
+                selectedFile?.originalName ||
+                "ไฟล์เอกสาร"}
+            </p>
             <p className="text-sm text-gray-600 mb-6">
               ไฟล์เอกสาร - คลิกดาวน์โหลดเพื่อเปิดด้วยโปรแกรมที่เหมาะสม
             </p>
@@ -192,7 +212,12 @@ export default function FilePreviewModal() {
         return (
           <div className="flex flex-col items-center justify-center h-96 bg-gray-50 rounded-lg p-4">
             <FileText className="w-24 h-24 mb-6 text-gray-400" />
-            <p className="text-lg font-medium mb-2">{selectedFile.name}</p>
+            <p className="text-lg font-medium mb-2">
+              {selectedFile?.name ||
+                selectedFile?.fileName ||
+                selectedFile?.originalName ||
+                "ไฟล์"}
+            </p>
             <p className="text-sm text-gray-600 mb-6">
               ไม่สามารถแสดงตัวอย่างไฟล์ประเภทนี้ได้
             </p>
@@ -227,7 +252,10 @@ export default function FilePreviewModal() {
           <DialogTitle className="flex items-center justify-between">
             <div className="flex-1 min-w-0 mr-4">
               <p className="truncate">
-                {selectedFile?.name || selectedFile?.fileName}
+                {selectedFile?.name ||
+                  selectedFile?.fileName ||
+                  selectedFile?.originalName ||
+                  "ไฟล์"}
               </p>
               {selectedFile?.size && (
                 <p className="text-sm text-muted-foreground font-normal">

@@ -1,8 +1,15 @@
 import { useState } from "react";
 import { useAuth } from "../../context/AuthContext";
+import { usePermissions } from "../../context/PermissionContext";
 import { useModal } from "../../context/ModalContext";
 import { showSuccess, showError, showWarning } from "../../lib/toast";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "../ui/dialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "../ui/dialog";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { Progress } from "../ui/progress";
@@ -25,7 +32,15 @@ import { format, formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
 
 export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
-  const { groupId, userId, canModify, hasPermission } = useAuth();
+  const { groupId, userId } = useAuth();
+  const {
+    canEditTask,
+    canDeleteTask,
+    canSubmitTask,
+    canReviewTask,
+    canReopenTask,
+    getTaskPermissions,
+  } = usePermissions();
   const {
     isTaskDetailOpen,
     closeTaskDetail,
@@ -37,6 +52,9 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
   const [loading, setLoading] = useState(false);
 
   if (!selectedTask) return null;
+
+  // ดึงสิทธิ์สำหรับ task นี้
+  const permissions = getTaskPermissions(selectedTask);
 
   const getPriorityColor = (priority) => {
     const colors = {
@@ -92,8 +110,8 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
   };
 
   const handleEdit = () => {
-    if (!canModify()) {
-      showWarning("คุณไม่มีสิทธิ์แก้ไขงาน");
+    if (!permissions.canEdit) {
+      showWarning("คุณไม่มีสิทธิ์แก้ไขงาน - สามารถแก้ไขได้เฉพาะงานที่คุณสร้าง");
       return;
     }
     closeTaskDetail();
@@ -101,8 +119,8 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
   };
 
   const handleDelete = () => {
-    if (!canModify()) {
-      showWarning("คุณไม่มีสิทธิ์ลบงาน");
+    if (!permissions.canDelete) {
+      showWarning("คุณไม่มีสิทธิ์ลบงาน - สามารถลบได้เฉพาะงานที่คุณสร้าง");
       return;
     }
 
@@ -132,13 +150,19 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
   };
 
   const handleSubmit = () => {
+    if (!permissions.canSubmit) {
+      showWarning("คุณไม่มีสิทธิ์ส่งงาน - สามารถส่งได้เฉพาะงานที่คุณรับผิดชอบ");
+      return;
+    }
     closeTaskDetail();
     openSubmitTask(selectedTask);
   };
 
   const handleApprove = async () => {
-    if (!canModify()) {
-      showWarning("คุณไม่มีสิทธิ์อนุมัติงาน");
+    if (!permissions.canReview) {
+      showWarning(
+        "คุณไม่มีสิทธิ์อนุมัติงาน - สามารถอนุมัติได้เฉพาะงานที่คุณเป็นผู้ตรวจ",
+      );
       return;
     }
 
@@ -158,8 +182,10 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
   };
 
   const handleReopen = async () => {
-    if (!canModify()) {
-      showWarning("คุณไม่มีสิทธิ์เปิดงานใหม่");
+    if (!permissions.canReopen) {
+      showWarning(
+        "คุณไม่มีสิทธิ์เปิดงานใหม่ - สามารถเปิดได้เฉพาะงานที่คุณสร้างหรือเป็นผู้ตรวจ",
+      );
       return;
     }
 
@@ -215,28 +241,34 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
           <DialogTitle className="flex items-center justify-between">
             <span>รายละเอียดงาน</span>
             <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleEdit}
-                disabled={!canModify()}
-                title={!canModify() ? "ไม่มีสิทธิ์แก้ไขงาน" : "แก้ไขงาน"}
-              >
-                <Edit className="w-4 h-4 mr-1" />
-                แก้ไข
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleDelete}
-                disabled={loading || !canModify()}
-                title={!canModify() ? "ไม่มีสิทธิ์ลบงาน" : "ลบงาน"}
-              >
-                <Trash2 className="w-4 h-4 mr-1" />
-                ลบ
-              </Button>
+              {permissions.canEdit && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleEdit}
+                  title="แก้ไขงาน"
+                >
+                  <Edit className="w-4 h-4 mr-1" />
+                  แก้ไข
+                </Button>
+              )}
+              {permissions.canDelete && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleDelete}
+                  disabled={loading}
+                  title="ลบงาน"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" />
+                  ลบ
+                </Button>
+              )}
             </div>
           </DialogTitle>
+          <DialogDescription className="sr-only">
+            ดูรายละเอียด แก้ไข และจัดการงาน
+          </DialogDescription>
         </DialogHeader>
 
         <div className="space-y-6">
@@ -464,19 +496,19 @@ export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
           {/* Actions */}
           <Separator />
           <div className="flex gap-2">
-            {selectedTask.status !== "completed" && (
+            {selectedTask.status !== "completed" && permissions.canSubmit && (
               <Button onClick={handleSubmit} disabled={loading}>
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 ส่งงาน
               </Button>
             )}
-            {selectedTask.status === "submitted" && (
+            {selectedTask.status === "submitted" && permissions.canReview && (
               <Button onClick={handleApprove} disabled={loading}>
                 <CheckCircle2 className="w-4 h-4 mr-2" />
                 อนุมัติงาน
               </Button>
             )}
-            {selectedTask.status === "completed" && (
+            {selectedTask.status === "completed" && permissions.canReopen && (
               <Button
                 onClick={handleReopen}
                 variant="outline"

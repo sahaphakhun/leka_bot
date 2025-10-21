@@ -415,6 +415,11 @@ export const getGroup = async (groupId) => {
   return res?.data ?? res;
 };
 
+export const getUserGroups = async (userId) => {
+  const res = await apiCall(`${API_BASE_URL}/users/${userId}/groups`);
+  return res?.data ?? res?.groups ?? [];
+};
+
 export const getGroupMembers = async (groupId) => {
   const res = await apiCall(`${API_BASE_URL}/groups/${groupId}/members`);
   return res?.data ?? res?.members ?? [];

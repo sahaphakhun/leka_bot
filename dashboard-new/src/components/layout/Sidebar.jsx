@@ -17,8 +17,16 @@ import {
 } from "lucide-react";
 import { useAuth } from "../../context/AuthContext";
 import { useIsMobile } from "../../hooks/use-mobile";
+import GroupSelector from "../common/GroupSelector";
+import ViewModeBadge from "../common/ViewModeBadge";
 
-const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
+const Sidebar = ({
+  activeView,
+  onViewChange,
+  groupInfo,
+  userId,
+  onGroupChange,
+}) => {
   const { logout } = useAuth();
   const isMobile = useIsMobile();
   const [isOpen, setIsOpen] = useState(false);
@@ -118,6 +126,16 @@ const Sidebar = ({ activeView, onViewChange, groupInfo, userId }) => {
               )}
             </div>
           </div>
+        </div>
+
+        {/* View Mode Badge */}
+        <div className="px-5 py-2 mb-2">
+          <ViewModeBadge showTooltip={true} />
+        </div>
+
+        {/* Group Selector (Personal Mode only) */}
+        <div className="px-5 py-2 mb-2">
+          <GroupSelector onGroupChange={onGroupChange} />
         </div>
 
         {/* User Badge (if userId present) */}

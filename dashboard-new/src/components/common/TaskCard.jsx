@@ -48,15 +48,18 @@ const TaskCard = memo(({ task, onClick }) => {
       <div className="flex items-center justify-between mt-3">
         <div className="flex items-center gap-2">
           {task.assignee && (
-            <div className="avatar-bordio avatar-sm">
-              <img
-                src={
-                  task.assignee.avatar ||
-                  `https://ui-avatars.com/api/?name=${task.assignee.name}&background=4A90E2&color=fff`
-                }
-                alt={task.assignee.name}
-                className="w-full h-full rounded-full"
-              />
+            <div className="w-5 h-5 rounded-full bg-blue-500 flex items-center justify-center text-white text-xs font-semibold">
+              {task.assignee.avatar ? (
+                <img
+                  src={task.assignee.avatar}
+                  alt={task.assignee.name}
+                  className="w-full h-full rounded-full object-cover"
+                />
+              ) : (
+                <span>
+                  {(task.assignee.name || "?").charAt(0).toUpperCase()}
+                </span>
+              )}
             </div>
           )}
         </div>

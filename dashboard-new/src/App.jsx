@@ -8,6 +8,7 @@ import {
   Suspense,
 } from "react";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { PermissionProvider } from "./context/PermissionContext";
 import { ModalProvider, useModal } from "./context/ModalContext";
 
 // Eager load - Critical for initial render
@@ -491,6 +492,16 @@ function AppContent() {
     setRecurringRefreshKey((prev) => prev + 1);
   }, []);
 
+  // Handle group change from GroupSelector
+  const handleGroupChange = useCallback(
+    (newGroupId) => {
+      console.log("📍 Group changed to:", newGroupId);
+      // Reload data for new group
+      loadData();
+    },
+    [loadData],
+  );
+
   // Handle task update (for drag-and-drop)
   const handleTaskUpdate = async (taskId, updates) => {
     if (!groupId) return;
@@ -710,6 +721,7 @@ function AppContent() {
           groupInfo={groupInfo}
           userId={userId}
           viewMode={viewMode}
+          onGroupChange={handleGroupChange}
         />
         <MainLayout>
           {renderView()}
@@ -740,9 +752,11 @@ function AppContent() {
 function App() {
   return (
     <AuthProvider>
-      <ModalProvider>
-        <AppContent />
-      </ModalProvider>
+      <PermissionProvider>
+        <ModalProvider>
+          <AppContent />
+        </ModalProvider>
+      </PermissionProvider>
     </AuthProvider>
   );
 }
