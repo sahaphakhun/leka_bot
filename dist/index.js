@@ -20,6 +20,7 @@ const apiController_1 = require("./controllers/apiController");
 const dashboardController_1 = require("./controllers/dashboardController");
 const projectController_1 = require("./controllers/projectController");
 const fileBackupRoutes_1 = __importDefault(require("./routes/fileBackupRoutes"));
+const dashboardRedirects_1 = __importDefault(require("./routes/dashboardRedirects"));
 const LineService_1 = require("./services/LineService");
 const CronService_1 = require("./services/CronService");
 const logger_1 = require("./utils/logger");
@@ -111,6 +112,8 @@ class Server {
                 return express_1.default.urlencoded({ extended: true })(req, res, next);
             });
         });
+        // Dashboard Redirects (ต้องมาก่อน static files)
+        this.app.use('/dashboard', dashboardRedirects_1.default);
         // Static files สำหรับ dashboard และ uploads
         const uploadsCandidates = [
             path_1.default.join(__dirname, "uploads"),

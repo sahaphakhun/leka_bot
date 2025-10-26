@@ -1,0 +1,24 @@
+{
+  "name": "Leka Bot Dashboard",
+  "short_name": "Leka Bot",
+  "description": "ระบบจัดการงานและสมาชิกสำหรับ Leka Bot",
+  "start_url": "/dashboard-new/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#3b82f6",
+  "orientation": "portrait-primary",
+  "scope": "/dashboard-new/",
+  "lang": "th",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/dashboard-new/favicon.ico",
+      "sizes": "48x48",
+      "type": "image/x-icon",
+      "purpose": "any"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "related_applications": [],
+  "prefer_related_applications": false
+}

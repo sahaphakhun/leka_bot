@@ -139,6 +139,7 @@ function AppContent() {
   const userCanModify = canModify();
   const authenticated = isAuthenticated();
   const urlActionStateRef = useRef({ lastKey: null });
+  const initialViewSetRef = useRef(false);
 
   // Test API connection on mount + Prefetch critical components
   useEffect(() => {
@@ -165,6 +166,97 @@ function AppContent() {
     }, 1000); // Wait 1s after mount to avoid blocking initial render
 
     return () => clearTimeout(prefetchTimer);
+  }, []);
+
+  // Handle initial view from URL parameters (hash or query)
+  useEffect(() => {
+    if (initialViewSetRef.current) return;
+    
+    // Hash to View mapping (for backward compatibility with old dashboard)
+    const hashToView = {
+      'dashboard': 'dashboard',
+      'calendar': 'calendar',
+      'tasks': 'tasks',
+      'files': 'files',
+      'team': 'team',
+      'members': 'team', // alias
+      'leaderboard': 'leaderboard',
+      'reports': 'reports',
+      'profile': 'profile',
+      'submit': 'submit',
+      'recurring': 'recurring',
+      'activity': 'activity',
+    };
+    
+    // Check for hash navigation first (legacy support)
+    const hash = window.location.hash.substring(1); // Remove #
+    if (hash && hashToView[hash]) {
+      console.log('📍 Hash navigation detected:', hash, '→', hashToView[hash]);
+      setActiveView(hashToView[hash]);
+      initialViewSetRef.current = true;
+      
+      // Clean up URL - replace hash with query parameter
+      const params = new URLSearchParams(window.location.search);
+      params.set('view', hashToView[hash]);
+      const newUrl = `${window.location.pathname}?${params.toString()}`;
+      window.history.replaceState({}, '', newUrl);
+      return;
+    }
+    
+    // Check for view query parameter
+    const params = new URLSearchParams(window.location.search);
+    const viewParam = params.get('view');
+    
+    const validViews = [
+      'dashboard', 'calendar', 'tasks', 'recurring', 
+      'files', 'team', 'leaderboard', 'reports', 
+      'profile', 'submit', 'activity'
+    ];
+    
+    if (viewParam && validViews.includes(viewParam)) {
+      console.log('📍 View parameter detected:', viewParam);
+      setActiveView(viewParam);
+      initialViewSetRef.current = true;
+    }
+  }, []);
+
+  // Listen for hash changes (legacy support)
+  useEffect(() => {
+    const handleHashChange = () => {
+      const hash = window.location.hash.substring(1);
+      
+      const hashToView = {
+        'dashboard': 'dashboard',
+        'calendar': 'calendar',
+        'tasks': 'tasks',
+        'files': 'files',
+        'team': 'team',
+        'members': 'team',
+        'leaderboard': 'leaderboard',
+        'reports': 'reports',
+        'profile': 'profile',
+        'submit': 'submit',
+        'recurring': 'recurring',
+        'activity': 'activity',
+      };
+      
+      if (hash && hashToView[hash]) {
+        console.log('📍 Hash changed:', hash, '→', hashToView[hash]);
+        setActiveView(hashToView[hash]);
+        
+        // Update URL to use query parameter instead
+        const params = new URLSearchParams(window.location.search);
+        params.set('view', hashToView[hash]);
+        const newUrl = `${window.location.pathname}?${params.toString()}`;
+        window.history.replaceState({}, '', newUrl);
+      }
+    };
+    
+    window.addEventListener('hashchange', handleHashChange);
+    
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange);
+    };
   }, []);
 
   // Handle URL parameter actions (e.g., ?action=new-task)

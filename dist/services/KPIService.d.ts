@@ -1,6 +1,6 @@
-import { KPIRecord, Task } from '@/models';
-import { Leaderboard } from '@/types';
-import { Task as TaskEntity } from '@/models';
+import { KPIRecord, Task } from "@/models";
+import { Leaderboard } from "@/types";
+import { Task as TaskEntity } from "@/models";
 export declare class KPIService {
     private kpiRepository;
     private taskRepository;
@@ -17,7 +17,7 @@ export declare class KPIService {
     getReportSummary(groupId: string, options?: {
         startDate?: Date;
         endDate?: Date;
-        period?: 'weekly' | 'monthly';
+        period?: "weekly" | "monthly";
         userId?: string;
     }): Promise<{
         periodStart: Date;
@@ -37,7 +37,7 @@ export declare class KPIService {
     getReportByUsers(groupId: string, options?: {
         startDate?: Date;
         endDate?: Date;
-        period?: 'weekly' | 'monthly';
+        period?: "weekly" | "monthly";
     }): Promise<Array<{
         userId: string;
         displayName: string;
@@ -50,7 +50,7 @@ export declare class KPIService {
     /**
      * บันทึกการทำงานเสร็จ
      */
-    recordTaskCompletion(task: Task | TaskEntity, completionType: 'early' | 'ontime' | 'late'): Promise<KPIRecord | null>;
+    recordTaskCompletion(task: Task | TaskEntity, completionType: "early" | "ontime" | "late"): Promise<KPIRecord | null>;
     /**
      * บันทึก KPI เมื่องานเกินเวลา (0 คะแนน)
      * เพื่อป้องกันการเล่นระบบโดยไม่ส่งงาน
@@ -63,12 +63,12 @@ export declare class KPIService {
     /**
      * คำนวณประเภทการทำงานเสร็จ
      */
-    calculateCompletionType(task: Task | TaskEntity): 'early' | 'ontime' | 'late';
+    calculateCompletionType(task: Task | TaskEntity): "early" | "ontime" | "late";
     private maybeAwardStreakBonus;
     /**
      * ดึง Leaderboard ของกลุ่ม (สูตรรวม 60/30/10)
      */
-    getGroupLeaderboard(groupId: string, period?: 'weekly' | 'monthly' | 'all'): Promise<Leaderboard[]>;
+    getGroupLeaderboard(groupId: string, period?: "weekly" | "monthly" | "all"): Promise<Leaderboard[]>;
     /**
      * สร้างข้อมูล KPI ตัวอย่างสำหรับทดสอบ
      */
@@ -76,7 +76,7 @@ export declare class KPIService {
     /**
      * คำนวณค่าเฉลี่ยคะแนนของผู้ใช้
      */
-    getUserAverageScore(userId: string, groupId: string, period?: 'weekly' | 'monthly' | 'all'): Promise<number>;
+    getUserAverageScore(userId: string, groupId: string, period?: "weekly" | "monthly" | "all"): Promise<number>;
     /**
      * ดึงสถิติคะแนนรายสัปดาห์ของผู้ใช้
      */
@@ -88,7 +88,7 @@ export declare class KPIService {
     /**
      * ดึงสถิติตามช่วงเวลา
      */
-    getStatsByPeriod(groupId: string, period?: 'this_week' | 'last_week' | 'all'): Promise<{
+    getStatsByPeriod(groupId: string, period?: "this_week" | "last_week" | "all"): Promise<{
         totalTasks: number;
         completedTasks: number;
         pendingTasks: number;
@@ -111,7 +111,7 @@ export declare class KPIService {
     /**
      * ดึงสถิติส่วนบุคคล
      */
-    getUserStats(userId: string, groupId: string, period?: 'weekly' | 'monthly' | 'all'): Promise<{
+    getUserStats(userId: string, groupId: string, period?: "weekly" | "monthly" | "all"): Promise<{
         totalPoints: number;
         rank: number;
         tasksCompleted: number;
@@ -165,11 +165,11 @@ export declare class KPIService {
     /**
      * อัปเดต Leaderboard ของกลุ่ม
      */
-    updateGroupLeaderboard(groupId: string, period: 'weekly' | 'monthly'): Promise<void>;
+    updateGroupLeaderboard(groupId: string, period: "weekly" | "monthly"): Promise<void>;
     /**
      * ซิงค์และคำนวณคะแนน leaderboard ใหม่จากงานทั้งหมด
      */
-    syncLeaderboardScores(groupId: string, period: 'weekly' | 'monthly' | 'all'): Promise<{
+    syncLeaderboardScores(groupId: string, period: "weekly" | "monthly" | "all"): Promise<{
         processedTasks: number;
         updatedUsers: number;
         details: {
@@ -184,6 +184,6 @@ export declare class KPIService {
     /**
      * ดึงข้อมูล KPI raw data สำหรับ debug
      */
-    getDebugKPIData(groupId: string, period: 'weekly' | 'monthly' | 'all'): Promise<any>;
+    getDebugKPIData(groupId: string, period: "weekly" | "monthly" | "all"): Promise<any>;
 }
 //# sourceMappingURL=KPIService.d.ts.map

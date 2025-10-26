@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="th">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/x-icon" href="/dashboard-new/favicon.ico" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+    <!-- PWA Meta Tags -->
+    <meta name="theme-color" content="#3b82f6" />
+    <meta name="description" content="ระบบจัดการงานและสมาชิกสำหรับ Leka Bot" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="Leka Bot" />
+
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/dashboard-new/manifest.json" />
+
+    <title>Leka Bot Dashboard</title>
+    <script type="module" crossorigin src="/dashboard-new/assets/index-Bi9Acd-d.js"></script>
+    <link rel="stylesheet" crossorigin href="/dashboard-new/assets/index-CgH9Z1jH.css">
+  </head>
+  <body>
+    <div id="root"></div>
+
+    <!-- Service Worker Registration -->
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          // Fix: Use correct path for deployed app (relative to base path)
+          const swPath = document.querySelector('base')?.href
+            ? new URL('sw.js', document.querySelector('base').href).pathname
+            : './sw.js';
+
+          navigator.serviceWorker
+            .register(swPath)
+            .then((registration) => {
+              console.log('[PWA] Service Worker registered:', registration.scope);
+
+              // Check for updates
+              registration.addEventListener('updatefound', () => {
+                const newWorker = registration.installing;
+                console.log('[PWA] New Service Worker installing...');
+
+                newWorker.addEventListener('statechange', () => {
+                  if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                    console.log('[PWA] New content available, please refresh');
+                    // You can show a notification to user here
+                    if (confirm('มีเวอร์ชันใหม่พร้อมใช้งาน คุณต้องการรีเฟรชหน้าเพจหรือไม่?')) {
+                      newWorker.postMessage({ command: 'skipWaiting' });
+                      window.location.reload();
+                    }
+                  }
+                });
+              });
+            })
+            .catch((error) => {
+              console.error('[PWA] Service Worker registration failed:', error);
+            });
+
+          // Handle controller change
+          navigator.serviceWorker.addEventListener('controllerchange', () => {
+            console.log('[PWA] Service Worker controller changed, reloading page...');
+            window.location.reload();
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -128,6 +128,57 @@ class Server {
       });
     });
 
+    // Dashboard Redirects - ต้องมาก่อน static files
+    this.app.use('/dashboard', (req, res, next) => {
+      console.log('🔍 Dashboard middleware:', req.path, req.url);
+      
+      // Redirect .html files to new dashboard
+      if (req.path === '/index.html') {
+        const { userId, groupId, action, taskId } = req.query;
+        const params = new URLSearchParams();
+        if (userId) params.set('userId', userId as string);
+        if (groupId) params.set('groupId', groupId as string);
+        if (action) params.set('action', action as string);
+        if (taskId) params.set('taskId', taskId as string);
+        
+        const queryString = params.toString();
+        const newUrl = `/dashboard-new${queryString ? '?' + queryString : ''}`;
+        console.log(`📍 Redirecting: ${req.url} → ${newUrl}`);
+        return res.redirect(301, newUrl);
+      }
+      
+      if (req.path === '/members.html') {
+        const params = new URLSearchParams(req.query as Record<string, string>);
+        params.set('view', 'team');
+        console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+        return res.redirect(301, `/dashboard-new?${params.toString()}`);
+      }
+      
+      if (req.path === '/profile.html') {
+        const params = new URLSearchParams(req.query as Record<string, string>);
+        params.set('view', 'profile');
+        console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+        return res.redirect(301, `/dashboard-new?${params.toString()}`);
+      }
+      
+      if (req.path === '/recurring-tasks.html') {
+        const params = new URLSearchParams(req.query as Record<string, string>);
+        params.set('view', 'recurring');
+        console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+        return res.redirect(301, `/dashboard-new?${params.toString()}`);
+      }
+      
+      if (req.path === '/submit-tasks.html') {
+        const params = new URLSearchParams(req.query as Record<string, string>);
+        params.set('view', 'submit');
+        console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+        return res.redirect(301, `/dashboard-new?${params.toString()}`);
+      }
+      
+      // ถ้าไม่ใช่ .html files ให้ผ่านไป static files
+      next();
+    });
+
     // Static files สำหรับ dashboard และ uploads
     const uploadsCandidates = [
       path.join(__dirname, "uploads"),
@@ -137,7 +188,7 @@ class Server {
       uploadsCandidates.find((p) => fs.existsSync(p)) || uploadsCandidates[0];
     this.app.use("/uploads", express.static(uploadsDir));
 
-    // Legacy Dashboard static assets (CSS, JS, images)
+    // Legacy Dashboard static assets (CSS, JS, images) - มาหลัง redirects
     const dashboardCandidates = [
       path.join(__dirname, "dashboard"),
       path.join(__dirname, "../dashboard"),
