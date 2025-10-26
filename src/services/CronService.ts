@@ -528,7 +528,7 @@ export class CronService {
       FlexMessageDesignSystem.createButton(
         'ดูรายละเอียดทั้งหมด',
         'uri',
-        `${config.baseUrl}/dashboard?groupId=${groupData[0].group.id}#manager-reports`, // สามารถปรับเป็นลิงก์ที่ต้องการได้
+        `${config.baseUrl}/dashboard-new?groupId=${groupData[0].group.id}#manager-reports`, // สามารถปรับเป็นลิงก์ที่ต้องการได้
         'primary'
       )
     ];
@@ -601,7 +601,7 @@ export class CronService {
       FlexMessageDesignSystem.createButton(
         'ดู Dashboard',
         'uri',
-        `${config.baseUrl}/dashboard?groupId=${group.id}`,
+        `${config.baseUrl}/dashboard-new?groupId=${group.id}`,
         'primary'
       )
     ];
@@ -651,7 +651,7 @@ export class CronService {
       FlexMessageDesignSystem.createButton(
         'ดู Dashboard',
         'uri',
-        `${config.baseUrl}/dashboard?groupId=${group.id}`,
+        `${config.baseUrl}/dashboard-new?groupId=${group.id}`,
         'primary'
       )
     ];
@@ -952,7 +952,7 @@ ${result.errors.length > 0 ? `⚠️ ข้อผิดพลาด: ${result.er
       FlexMessageDesignSystem.createButton(
         'ดู Leaderboard ฉบับเต็ม',
         'uri',
-        `${config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`,
+        `${config.baseUrl}/dashboard-new?groupId=${group.lineGroupId}&view=leaderboard`,
         'primary'
       )
     ];

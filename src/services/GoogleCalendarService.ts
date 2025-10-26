@@ -438,8 +438,8 @@ export class GoogleCalendarService {
     const groupId = (task as any)?.groupId;
     const taskId = (task as any)?.id;
     const detailUrl = groupId && taskId
-      ? `${config.baseUrl}/dashboard?groupId=${encodeURIComponent(groupId)}&taskId=${encodeURIComponent(taskId)}&action=view`
-      : `${config.baseUrl}/dashboard`;
+      ? `${config.baseUrl}/dashboard-new?groupId=${encodeURIComponent(groupId)}&taskId=${encodeURIComponent(taskId)}&action=view`
+      : `${config.baseUrl}/dashboard-new`;
 
     description += `\n🔗 เปิดรายละเอียด: ${detailUrl}`;
 

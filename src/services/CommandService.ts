@@ -491,7 +491,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.createButton(
           'ดูรายละเอียดทั้งหมด',
           'uri',
-          `${config.baseUrl}/dashboard?groupId=${groupId}&view=leaderboard`,
+          `${config.baseUrl}/dashboard-new?groupId=${groupId}&view=leaderboard`,
           'primary'
         ),
         FlexMessageDesignSystem.createButton(
@@ -585,7 +585,7 @@ ${supervisorNames}
         FlexMessageDesignSystem.createButton(
           'ดูรายละเอียดทั้งหมด',
           'uri',
-          `${config.baseUrl}/dashboard?groupId=${groupId}&view=reports`,
+          `${config.baseUrl}/dashboard-new?groupId=${groupId}&view=reports`,
           'primary'
         ),
         FlexMessageDesignSystem.createButton(
