@@ -11,6 +11,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }) {
     <DayPicker
       showOutsideDays={showOutsideDays}
       locale={th}
+      weekStartsOn={0}
       className={cn("p-4", className)}
       style={{ pointerEvents: "auto" }}
       classNames={{
@@ -27,9 +28,8 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }) {
         nav_button_previous: "absolute left-2",
         nav_button_next: "absolute right-2",
         table: "w-full border-collapse",
-        head_row: "flex mb-1 w-full",
-        head_cell:
-          "text-muted-foreground rounded-md w-10 font-semibold text-xs uppercase tracking-wide flex-1 flex items-center justify-center",
+        head_row: "hidden",
+        head_cell: "hidden",
         row: "flex w-full mt-1",
         cell: cn(
           "relative p-0 text-center text-sm focus-within:relative focus-within:z-20",
@@ -52,7 +52,7 @@ function Calendar({ className, classNames, showOutsideDays = true, ...props }) {
           "bg-accent text-accent-foreground font-bold border-2 border-primary/40",
         day_outside:
           "day-outside text-muted-foreground/40 aria-selected:text-muted-foreground/60",
-        day_disabled: "text-muted-foreground/30 opacity-40 cursor-not-allowed",
+        day_disabled: "text-muted-foreground/30 opacity-40 cursor-not-allowed bg-gray-100",
         day_range_middle:
           "aria-selected:bg-accent aria-selected:text-accent-foreground",
         day_hidden: "invisible",

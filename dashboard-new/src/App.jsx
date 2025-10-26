@@ -466,50 +466,9 @@ function AppContent() {
         response.data || response.tasks || response,
       );
 
-      if (personalMode && userId) {
-        console.log("🔍 Filtering tasks for user:", userId);
-        console.log("📋 Total tasks before filter:", normalizedTasks.length);
-
-        normalizedTasks = normalizedTasks.filter((task) => {
-          // Check if user is assigned
-          const isAssigned = task.assignedUsers?.some(
-            (u) => u.lineUserId === userId || u.id === userId,
-          );
-
-          // Check if user is assignee (legacy field)
-          const isAssignee =
-            task.assignee?.lineUserId === userId ||
-            task.assignee?.id === userId;
-
-          // Check if user is creator (by lineUserId or id)
-          const isCreator =
-            task.createdBy === userId ||
-            task.createdByUser?.lineUserId === userId ||
-            task.createdByUser?.id === userId;
-
-          const shouldShow = isAssigned || isAssignee || isCreator;
-
-          // Debug log for first few tasks
-          if (normalizedTasks.indexOf(task) < 3) {
-            console.log(`Task "${task.title}":`, {
-              isAssigned,
-              isAssignee,
-              isCreator,
-              shouldShow,
-              assignedUsers: task.assignedUsers?.map(
-                (u) => u.lineUserId || u.id,
-              ),
-              assignee: task.assignee?.lineUserId || task.assignee?.id,
-              createdBy: task.createdBy,
-              createdByUser:
-                task.createdByUser?.lineUserId || task.createdByUser?.id,
-            });
-          }
-
-          return shouldShow;
-        });
-        console.log("✅ Filtered tasks:", normalizedTasks.length);
-      }
+      // ไม่กรองงานใน Personal Mode - แสดงงานทั้งหมดของกลุ่ม
+      // เพราะเมื่อเข้าผ่าน LINE ควรเห็นงานทั้งหมดที่เกี่ยวข้องกับกลุ่ม
+      console.log("📋 Total tasks loaded:", normalizedTasks.length);
 
       setTasks(normalizedTasks);
 
