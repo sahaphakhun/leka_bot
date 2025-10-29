@@ -191,6 +191,11 @@ export default function AddTaskModal({ onTaskCreated }) {
         return;
       }
 
+      if (!userId) {
+        showError("ไม่พบข้อมูลผู้ใช้สำหรับสร้างงาน");
+        return;
+      }
+
       setLoading(true);
 
       try {
@@ -211,10 +216,12 @@ export default function AddTaskModal({ onTaskCreated }) {
             priority: normalTask.priority,
             // category: normalTask.category, // ❌ Backend ไม่รองรับ field นี้
             assigneeIds: [...new Set(normalTask.assignedUsers)], // Backend expects assigneeIds
-            reviewerUserId: normalTask.reviewer || null,
             requireAttachment: false,
             createdBy: userId, // Required by backend
           };
+          if (normalTask.reviewer) {
+            payload.reviewerUserId = normalTask.reviewer;
+          }
           await createTask(groupId, payload);
         } else {
           const payload = {
