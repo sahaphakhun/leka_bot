@@ -273,7 +273,10 @@ const buildEndpointWithUserId = (endpoint, userId) => {
 };
 
 export const submitTask = async (groupId, taskId, submitData = {}, userId) => {
-  const baseEndpoint = `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`;
+  // ถ้าไม่มี groupId ให้ใช้ endpoint ที่ไม่ต้องมี groupId
+  const baseEndpoint = groupId 
+    ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`
+    : `${API_BASE_URL}/tasks/${taskId}/submit`;
   const endpoint = buildEndpointWithUserId(baseEndpoint, userId);
 
   if (submitData instanceof FormData) {
@@ -310,7 +313,10 @@ export const submitTaskWithProgress = (
 ) => {
   return new Promise((resolve, reject) => {
     try {
-      const baseEndpoint = `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`;
+      // ถ้าไม่มี groupId ให้ใช้ endpoint ที่ไม่ต้องมี groupId
+      const baseEndpoint = groupId 
+        ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/submit`
+        : `${API_BASE_URL}/tasks/${taskId}/submit`;
       const endpoint = buildEndpointWithUserId(baseEndpoint, userId);
 
       const xhr = new XMLHttpRequest();

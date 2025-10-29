@@ -113,7 +113,9 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
       return;
     }
 
-    if (!groupId) {
+    // สำหรับการส่งงานผ่านแชทส่วนตัว ไม่จำเป็นต้องมี groupId
+    // เพราะสามารถดึงจากงานได้
+    if (!groupId && !selectedTask?.groupId) {
       showError("ไม่พบข้อมูลกลุ่ม");
       return;
     }
@@ -142,7 +144,7 @@ export default function SubmitTaskModal({ onTaskSubmitted }) {
       });
 
       await submitTaskWithProgress(
-        groupId,
+        groupId || selectedTask?.groupId,
         selectedTask.id,
         formData,
         userId,
