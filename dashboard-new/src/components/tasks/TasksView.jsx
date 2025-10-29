@@ -3,6 +3,9 @@ import { Plus, Table, LayoutGrid, RotateCcw, Filter } from "lucide-react";
 import TableView from "./TableView";
 import KanbanView from "./KanbanView";
 import { useModal } from "../../context/ModalContext";
+import { useAuth } from "../../context/AuthContext";
+import { showWarning } from "../../lib/toast";
+import { cn } from "../../lib/utils";
 
 const TasksView = ({ tasks = [], onTaskUpdate }) => {
   const completedStatuses = useMemo(
@@ -34,8 +37,14 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
     search: "",
   });
   const { openAddTask, openTaskDetail } = useModal();
+  const { canModify } = useAuth();
+  const allowTaskCreation = canModify();
 
   const handleAddTask = () => {
+    if (!allowTaskCreation) {
+      showWarning("โหมดดูอย่างเดียว - กรุณาเข้าผ่าน LINE ส่วนตัวเพื่อสร้างงาน");
+      return;
+    }
     openAddTask("normal");
   };
 
@@ -227,11 +236,26 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
             <button
               type="button"
               onClick={handleAddTask}
-              className="btn-bordio flex items-center gap-2"
+              disabled={!allowTaskCreation}
+              className={cn(
+                "btn-bordio flex items-center gap-2",
+                !allowTaskCreation &&
+                  "cursor-not-allowed bg-gray-200 text-gray-500 hover:bg-gray-200 dark:bg-gray-300 dark:text-gray-600",
+              )}
+              title={
+                allowTaskCreation
+                  ? "สร้างงานใหม่"
+                  : "โหมดดูอย่างเดียว - ต้องมี userId ถึงจะสร้างงานได้"
+              }
             >
               <Plus size={16} />
               เพิ่มงาน
             </button>
+            {!allowTaskCreation && (
+              <span className="text-xs text-red-500 font-medium">
+                🔒 เข้าผ่าน LINE ส่วนตัวเพื่อสร้างงานได้
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-2 w-full sm:w-auto">
