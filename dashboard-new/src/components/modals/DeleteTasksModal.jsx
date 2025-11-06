@@ -4,8 +4,6 @@ import { useModal } from "../../context/ModalContext";
 import {
   createTaskDeletionRequest,
   getTaskDeletionRequest,
-  fetchTasks,
-  normalizeTasks,
 } from "../../services/api";
 import { showError, showSuccess, showWarning } from "../../lib/toast";
 import {
@@ -50,8 +48,6 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [pendingRequest, setPendingRequest] = useState(null);
-  const [loadingTasks, setLoadingTasks] = useState(false);
-  const [tasksError, setTasksError] = useState(null);
   const [availableTasks, setAvailableTasks] = useState(tasks);
 
   const canDelete = hasPermission?.("delete_task");
@@ -70,8 +66,8 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     setSelectedTaskIds(new Set());
     setSearchQuery("");
     setPendingRequest(null);
-    setTasksError(null);
-  }, [deleteTasksContext]);
+    setAvailableTasks(tasks);
+  }, [deleteTasksContext, tasks]);
 
   const loadPendingRequest = useCallback(async () => {
     if (!groupId) return;
@@ -88,41 +84,11 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     }
   }, [groupId]);
 
-  const loadTasksForDeletion = useCallback(
-    async (mode) => {
-      if (!groupId) return;
-      const effectiveMode = mode ?? filterMode;
-      setLoadingTasks(true);
-      setTasksError(null);
-
-      try {
-        const params = {};
-        if (effectiveMode === "incomplete") {
-          params.status = "pending,in_progress,overdue";
-        }
-
-        const response = await fetchTasks(groupId, params);
-        const list = response?.data || response?.tasks || response || [];
-        const normalized = normalizeTasks(Array.isArray(list) ? list : []);
-        setAvailableTasks(normalized);
-      } catch (error) {
-        console.error("Failed to load tasks for deletion:", error);
-        setAvailableTasks([]);
-        setTasksError(
-          error?.message || "ไม่สามารถโหลดรายการงานได้ กรุณาลองใหม่",
-        );
-      } finally {
-        setLoadingTasks(false);
-      }
-    },
-    [groupId, filterMode],
-  );
-
   useEffect(() => {
     if (isDeleteTasksOpen) {
       resetState();
       loadPendingRequest();
-      loadTasksForDeletion(deleteTasksContext?.filter);
+      setAvailableTasks(tasks);
     } else {
       resetState();
     }
@@ -130,8 +96,8 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     isDeleteTasksOpen,
     resetState,
     loadPendingRequest,
-    loadTasksForDeletion,
     deleteTasksContext,
+    tasks,
   ]);
 
   useEffect(() => {
@@ -417,7 +383,6 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
                 onClick={() => {
                   setFilterMode(option.value);
                   setSelectedTaskIds(new Set());
-                  loadTasksForDeletion(option.value);
                 }}
                 className={cn(
                   "rounded-full px-3 py-1 transition",
@@ -432,21 +397,6 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => loadTasksForDeletion()}
-              disabled={loadingTasks}
-            >
-              {loadingTasks ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  กำลังโหลด...
-                </>
-              ) : (
-                "โหลดรายการงาน"
-              )}
-            </Button>
             <Input
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
@@ -464,20 +414,7 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
           </div>
         </div>
 
-        {tasksError && (
-          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-            {tasksError}
-          </div>
-        )}
-
-        {loadingTasks ? (
-          <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-muted p-6 text-sm text-muted-foreground">
-            <Loader2 className="h-4 w-4 animate-spin" />
-            กำลังโหลดรายการงาน...
-          </div>
-        ) : (
-          renderTaskList()
-        )}
+        {renderTaskList()}
 
                 <div className="flex flex-col gap-2 rounded-md border border-muted-foreground/20 bg-muted/40 p-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">

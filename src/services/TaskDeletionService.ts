@@ -63,7 +63,52 @@ export class TaskDeletionService {
   ): Promise<PendingDeletionRequest | null> {
     const group = await this.resolveGroup(groupIdOrLineId);
     if (!group) return null;
-    return group.settings?.pendingDeletionRequest ?? null;
+    const request = group.settings?.pendingDeletionRequest ?? null;
+    if (!request) return null;
+
+    if (!Array.isArray(request.tasks) || request.tasks.length === 0) {
+      group.settings = {
+        ...(group.settings || {}),
+        pendingDeletionRequest: undefined,
+      };
+      await this.groupRepository.save(group);
+      return null;
+    }
+
+    const memberCount = await this.groupMemberRepository.count({
+      where: { groupId: group.id },
+    });
+    const totalMembers = Math.max(memberCount, 1);
+    const requiredApprovals = Math.max(
+      1,
+      Math.ceil(totalMembers / 3),
+    );
+
+    let updated = false;
+    if (request.totalMembers !== totalMembers) {
+      request.totalMembers = totalMembers;
+      updated = true;
+    }
+
+    if (request.requiredApprovals !== requiredApprovals) {
+      request.requiredApprovals = requiredApprovals;
+      updated = true;
+    }
+
+    if (!Array.isArray(request.approvals)) {
+      request.approvals = [];
+      updated = true;
+    }
+
+    if (updated) {
+      group.settings = {
+        ...(group.settings || {}),
+        pendingDeletionRequest: request,
+      };
+      await this.groupRepository.save(group);
+    }
+
+    return request;
   }
 
   /**
@@ -136,12 +181,13 @@ export class TaskDeletionService {
     }
 
     // นับจำนวนสมาชิกในกลุ่ม
-    const totalMembers = await this.groupMemberRepository.count({
+    const memberCount = await this.groupMemberRepository.count({
       where: { groupId: group.id },
     });
+    const totalMembers = Math.max(memberCount, 1);
     const requiredApprovals = Math.max(
       1,
-      Math.ceil(Math.max(totalMembers, 1) / 3),
+      Math.ceil(totalMembers / 3),
     );
 
     const taskSummaries = tasks.map((task) => ({
