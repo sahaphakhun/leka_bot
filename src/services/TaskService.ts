@@ -1071,7 +1071,7 @@ export class TaskService {
   public async getGroupTasks(
     groupId: string, 
     options: {
-      status?: TaskType['status'];
+      status?: TaskType['status'][] | TaskType['status'];
       assigneeId?: string;
       requireAttachmentOnly?: boolean;
       tags?: string[];
@@ -1098,7 +1098,15 @@ export class TaskService {
         .where('task.groupId = :groupId', { groupId: group.id });
 
       if (options.status) {
-        queryBuilder.andWhere('task.status = :status', { status: options.status });
+        const statuses = Array.isArray(options.status)
+          ? options.status.filter(Boolean)
+          : [options.status];
+
+        if (statuses.length === 1) {
+          queryBuilder.andWhere('task.status = :status', { status: statuses[0] });
+        } else if (statuses.length > 1) {
+          queryBuilder.andWhere('task.status IN (:...statuses)', { statuses });
+        }
       }
 
       if (options.assigneeId) {

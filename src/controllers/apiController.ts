@@ -358,8 +358,18 @@ class ApiController {
         limit = 20,
       } = req.query;
 
+      let statusFilter: string[] | undefined;
+      if (Array.isArray(status)) {
+        statusFilter = status.map((s) => s.trim()).filter(Boolean);
+      } else if (typeof status === "string") {
+        statusFilter = status.split(",").map((s) => s.trim()).filter(Boolean);
+      }
+      if (statusFilter && statusFilter.length === 0) {
+        statusFilter = undefined;
+      }
+
       const options = {
-        status: status as any,
+        status: statusFilter,
         assigneeId: assignee as string,
         tags: tags ? (tags as string).split(",") : undefined,
         startDate: startDate ? new Date(startDate as string) : undefined,
