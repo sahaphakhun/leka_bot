@@ -66,14 +66,46 @@ export class TaskDeletionService {
     const request = group.settings?.pendingDeletionRequest ?? null;
     if (!request) return null;
 
-    if (!Array.isArray(request.tasks) || request.tasks.length === 0) {
+    const clearRequest = async () => {
       group.settings = {
         ...(group.settings || {}),
         pendingDeletionRequest: undefined,
       };
       await this.groupRepository.save(group);
       return null;
+    };
+
+    if (!Array.isArray(request.tasks) || request.tasks.length === 0) {
+      return clearRequest();
     }
+
+    const taskIds = request.tasks
+      .map((task) => task?.id)
+      .filter((id): id is string => typeof id === 'string' && id.length > 0);
+
+    if (taskIds.length === 0) {
+      return clearRequest();
+    }
+
+    const tasks = await this.taskRepository.find({
+      where: { id: In(taskIds) },
+      relations: ['assignedUsers'],
+    });
+
+    if (tasks.length === 0) {
+      return clearRequest();
+    }
+
+    const normalizedTasks = tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      status: task.status,
+      assignees: Array.isArray(task.assignedUsers)
+        ? task.assignedUsers.map(
+            (member) => member.displayName || member.lineUserId,
+          )
+        : [],
+    }));
 
     const memberCount = await this.groupMemberRepository.count({
       where: { groupId: group.id },
@@ -84,31 +116,33 @@ export class TaskDeletionService {
       Math.ceil(totalMembers / 3),
     );
 
-    let updated = false;
-    if (request.totalMembers !== totalMembers) {
-      request.totalMembers = totalMembers;
-      updated = true;
-    }
+    let approvals = Array.isArray(request.approvals)
+      ? request.approvals.filter(
+          (approval) => approval && typeof approval.lineUserId === 'string',
+        )
+      : [];
 
-    if (request.requiredApprovals !== requiredApprovals) {
-      request.requiredApprovals = requiredApprovals;
-      updated = true;
-    }
+    const uniqueApprovals = new Map<string, typeof approvals[number]>();
+    approvals.forEach((approval) => {
+      uniqueApprovals.set(approval.lineUserId, approval);
+    });
+    approvals = Array.from(uniqueApprovals.values());
 
-    if (!Array.isArray(request.approvals)) {
-      request.approvals = [];
-      updated = true;
-    }
+    const updatedRequest: PendingDeletionRequest = {
+      ...request,
+      tasks: normalizedTasks,
+      totalMembers,
+      requiredApprovals,
+      approvals,
+    };
 
-    if (updated) {
-      group.settings = {
-        ...(group.settings || {}),
-        pendingDeletionRequest: request,
-      };
-      await this.groupRepository.save(group);
-    }
+    group.settings = {
+      ...(group.settings || {}),
+      pendingDeletionRequest: updatedRequest,
+    };
+    await this.groupRepository.save(group);
 
-    return request;
+    return updatedRequest;
   }
 
   /**
