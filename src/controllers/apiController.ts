@@ -358,7 +358,42 @@ class ApiController {
         limit = 20,
       } = req.query;
 
-      let statusFilter: string[] | undefined;
+      const parseStatus = (): ("pending" | "in_progress" | "submitted" | "reviewed" | "approved" | "completed" | "rejected" | "cancelled" | "overdue")[] | undefined => {
+        const raw = req.query.status;
+        const normalize = (value: unknown): string[] => {
+          if (!value) return [];
+          if (Array.isArray(value)) {
+            return value.flatMap((item) => normalize(item));
+          }
+          if (typeof value === "string") {
+            return value
+              .split(",")
+              .map((entry) => entry.trim())
+              .filter(Boolean);
+          }
+          return [];
+        };
+
+        const rawStatuses = normalize(raw);
+        const validStatuses = [
+          "pending",
+          "in_progress",
+          "submitted",
+          "reviewed",
+          "approved",
+          "completed",
+          "rejected",
+          "cancelled",
+          "overdue",
+        ] as const;
+        const validSet = new Set(validStatuses);
+        const parsed = rawStatuses.filter((status): status is typeof validStatuses[number] =>
+          validSet.has(status as typeof validStatuses[number]),
+        );
+        return parsed.length > 0 ? parsed : undefined;
+      };
+
+      const statusFilter = parseStatus();
       if (Array.isArray(status)) {
         statusFilter = status.map((s) => s.trim()).filter(Boolean);
       } else if (typeof status === "string") {
