@@ -4,6 +4,8 @@ import { useModal } from "../../context/ModalContext";
 import {
   createTaskDeletionRequest,
   getTaskDeletionRequest,
+  fetchTasks,
+  normalizeTasks,
 } from "../../services/api";
 import { showError, showSuccess, showWarning } from "../../lib/toast";
 import {
@@ -48,8 +50,15 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
   const [submitting, setSubmitting] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
   const [pendingRequest, setPendingRequest] = useState(null);
+  const [loadingTasks, setLoadingTasks] = useState(false);
+  const [tasksError, setTasksError] = useState(null);
+  const [availableTasks, setAvailableTasks] = useState(tasks);
 
   const canDelete = hasPermission?.("delete_task");
+
+  useEffect(() => {
+    setAvailableTasks(tasks);
+  }, [tasks]);
 
   const resetState = useCallback(() => {
     setFilterMode(
@@ -61,6 +70,7 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     setSelectedTaskIds(new Set());
     setSearchQuery("");
     setPendingRequest(null);
+    setTasksError(null);
   }, [deleteTasksContext]);
 
   const loadPendingRequest = useCallback(async () => {
@@ -78,18 +88,66 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     }
   }, [groupId]);
 
+  const loadTasksForDeletion = useCallback(
+    async (mode) => {
+      if (!groupId) return;
+      const effectiveMode = mode ?? filterMode;
+      setLoadingTasks(true);
+      setTasksError(null);
+
+      try {
+        const params = {};
+        if (effectiveMode === "incomplete") {
+          params.status = "pending,in_progress,overdue";
+        }
+
+        const response = await fetchTasks(groupId, params);
+        const list = response?.data || response?.tasks || response || [];
+        const normalized = normalizeTasks(Array.isArray(list) ? list : []);
+        setAvailableTasks(normalized);
+      } catch (error) {
+        console.error("Failed to load tasks for deletion:", error);
+        setAvailableTasks([]);
+        setTasksError(
+          error?.message || "ไม่สามารถโหลดรายการงานได้ กรุณาลองใหม่",
+        );
+      } finally {
+        setLoadingTasks(false);
+      }
+    },
+    [groupId, filterMode],
+  );
+
   useEffect(() => {
     if (isDeleteTasksOpen) {
       resetState();
       loadPendingRequest();
+      loadTasksForDeletion(deleteTasksContext?.filter);
     } else {
       resetState();
     }
-  }, [isDeleteTasksOpen, resetState, loadPendingRequest]);
+  }, [
+    isDeleteTasksOpen,
+    resetState,
+    loadPendingRequest,
+    loadTasksForDeletion,
+    deleteTasksContext,
+  ]);
+
+  useEffect(() => {
+    setSelectedTaskIds((prev) => {
+      if (!prev.size) return prev;
+      const allowed = new Set(availableTasks.map((task) => task.id));
+      const next = new Set(
+        Array.from(prev).filter((taskId) => allowed.has(taskId)),
+      );
+      return next.size === prev.size ? prev : next;
+    });
+  }, [availableTasks]);
 
   const filteredTasks = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
-    return tasks.filter((task) => {
+    return availableTasks.filter((task) => {
       if (!task) return false;
       const status = (task.status || "").toLowerCase();
       if (filterMode === "incomplete" && COMPLETED_STATUSES.has(status)) {
@@ -101,7 +159,7 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
       const description = (task.description || "").toLowerCase();
       return title.includes(query) || description.includes(query);
     });
-  }, [tasks, filterMode, searchQuery]);
+  }, [availableTasks, filterMode, searchQuery]);
 
   const selectedCount = selectedTaskIds.size;
   const allVisibleSelected =
@@ -258,7 +316,11 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     if (!filteredTasks.length) {
       return (
         <p className="rounded-md border border-dashed border-muted p-4 text-center text-sm text-muted-foreground">
-          ไม่พบงานในกลุ่มตามเงื่อนไขที่เลือก
+          {!availableTasks.length
+            ? "ไม่พบงานในกลุ่ม กรุณาโหลดข้อมูลหรือเปลี่ยนตัวกรอง"
+            : filterMode === "incomplete"
+              ? "ไม่มีงานที่ยังไม่เสร็จในตอนนี้ ลองดูงานทั้งหมดได้เลย"
+              : "ไม่พบงานในกลุ่มตามเงื่อนไขที่เลือก"}
         </p>
       );
     }
@@ -348,45 +410,74 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
               <>
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex gap-2 rounded-full bg-muted/70 p-1 text-sm">
-                    {FILTER_OPTIONS.map((option) => (
-                      <button
-                        key={option.value}
-                        type="button"
-                        onClick={() => {
-                          setFilterMode(option.value);
-                          setSelectedTaskIds(new Set());
-                        }}
-                        className={cn(
-                          "rounded-full px-3 py-1 transition",
-                          filterMode === option.value
-                            ? "bg-background font-medium shadow-sm"
-                            : "text-muted-foreground hover:text-foreground",
-                        )}
-                      >
-                        {option.label}
-                      </button>
-                    ))}
-                  </div>
+            {FILTER_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                type="button"
+                onClick={() => {
+                  setFilterMode(option.value);
+                  setSelectedTaskIds(new Set());
+                  loadTasksForDeletion(option.value);
+                }}
+                className={cn(
+                  "rounded-full px-3 py-1 transition",
+                  filterMode === option.value
+                    ? "bg-background font-medium shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
 
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={searchQuery}
-                      onChange={(event) => setSearchQuery(event.target.value)}
-                      placeholder="ค้นหาชื่องานหรือคำอธิบาย..."
-                      className="h-9 w-full sm:w-64"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={handleToggleAll}
-                      disabled={!filteredTasks.length}
-                    >
-                      {allVisibleSelected ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
-                    </Button>
-                  </div>
-                </div>
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => loadTasksForDeletion()}
+              disabled={loadingTasks}
+            >
+              {loadingTasks ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  กำลังโหลด...
+                </>
+              ) : (
+                "โหลดรายการงาน"
+              )}
+            </Button>
+            <Input
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="ค้นหาชื่องานหรือคำอธิบาย..."
+              className="h-9 w-full sm:w-64"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleToggleAll}
+              disabled={!filteredTasks.length}
+            >
+              {allVisibleSelected ? "ยกเลิกทั้งหมด" : "เลือกทั้งหมด"}
+            </Button>
+          </div>
+        </div>
 
-                {renderTaskList()}
+        {tasksError && (
+          <div className="rounded-md border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {tasksError}
+          </div>
+        )}
+
+        {loadingTasks ? (
+          <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-muted p-6 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" />
+            กำลังโหลดรายการงาน...
+          </div>
+        ) : (
+          renderTaskList()
+        )}
 
                 <div className="flex flex-col gap-2 rounded-md border border-muted-foreground/20 bg-muted/40 p-3 text-sm text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-center gap-2">
