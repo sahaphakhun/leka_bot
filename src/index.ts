@@ -132,6 +132,13 @@ class Server {
     this.app.use('/dashboard', (req, res, next) => {
       console.log('🔍 Dashboard middleware:', req.path, req.url);
       
+      if (req.path === '/') {
+        const params = new URLSearchParams(req.query as Record<string, string>);
+        const newUrl = `/dashboard-new${params.toString() ? `?${params.toString()}` : ''}`;
+        console.log(`📍 Redirecting dashboard root: ${req.url} → ${newUrl}`);
+        return res.redirect(302, newUrl);
+      }
+      
       // Redirect .html files to new dashboard
       if (req.path === '/index.html') {
         const { userId, groupId, action, taskId } = req.query;

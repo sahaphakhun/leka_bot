@@ -49,10 +49,11 @@ export class UrlBuilder {
    * สร้าง URL สำหรับลบงานที่เลือก
    */
   static getDeleteTasksUrl(groupId: string, userId: string): string {
-    return this.getDashboardUrl(groupId, {
-      action: 'delete-task',
-      userId,
-    });
+    const url = new URL(`${config.baseUrl}/dashboard-new`);
+    url.searchParams.set('groupId', groupId);
+    url.searchParams.set('userId', userId);
+    url.searchParams.set('action', 'delete-task');
+    return url.toString();
   }
 
   /**
