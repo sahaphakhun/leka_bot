@@ -215,7 +215,8 @@ export class LineService {
       'เสร็จงาน', 'งานเสร็จ', 'ปิดงาน',
       'ดูไฟล์', 'รายการไฟล์', 'ไฟล์ทั้งหมด',
       'ตั้งค่า', 'setup', 'config',
-      'ช่วยเหลือ', 'help', 'คำสั่ง'
+      'ช่วยเหลือ', 'help', 'คำสั่ง',
+      'ยอมรับ'
     ];
     
     return thaiCommands.some(cmd => trimmedText.startsWith(cmd));

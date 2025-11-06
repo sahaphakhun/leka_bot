@@ -19,6 +19,7 @@ import { ProjectMemoryService } from '@/services/ProjectMemoryService';
 import { ProjectWorkflowService } from '@/services/ProjectWorkflowService';
 import { ProjectChecklistService } from '@/services/ProjectChecklistService';
 import { RecurringTaskService } from '@/services/RecurringTaskService';
+import { TaskDeletionService } from '@/services/TaskDeletionService';
 
 export class ServiceContainer {
   private static instance: ServiceContainer;
@@ -104,6 +105,9 @@ export class ServiceContainer {
       
       case 'RecurringTaskService':
         return new RecurringTaskService();
+
+      case 'TaskDeletionService':
+        return new TaskDeletionService();
       
       default:
         throw new Error(`Service not found: ${serviceName}`);

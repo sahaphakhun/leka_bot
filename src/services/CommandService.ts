@@ -11,18 +11,21 @@ import { logger } from '@/utils/logger';
 import { formatFileSize } from '@/utils/common';
 import { UrlBuilder } from '@/utils/urlBuilder';
 import { KPIService } from './KPIService';
+import { TaskDeletionService } from './TaskDeletionService';
 
 export class CommandService {
   private taskService: TaskService;
   private userService: UserService;
   private fileService: FileService;
   private kpiService: KPIService;
+  private taskDeletionService: TaskDeletionService;
 
   constructor() {
     this.taskService = serviceContainer.get<TaskService>('TaskService');
     this.userService = serviceContainer.get<UserService>('UserService');
     this.fileService = serviceContainer.get<FileService>('FileService');
     this.kpiService = serviceContainer.get<KPIService>('KPIService');
+    this.taskDeletionService = serviceContainer.get<TaskDeletionService>('TaskDeletionService');
   }
 
   /**
@@ -59,6 +62,14 @@ export class CommandService {
         case 'เพิ่มงาน':
         case 'add':
           return await this.handleAddTaskCommand(command);
+
+        case 'ลบงาน':
+        case 'เอางานออก':
+        case 'ยกเลิกงาน':
+          return await this.handleDeleteTasksCommand(command);
+
+        case 'ยอมรับ':
+          return await this.handleApproveDeletionCommand(command);
 
         case '/delete':
           return await this.handleDeleteAllTasksCommand(command);
@@ -249,6 +260,79 @@ ${supervisorNames}
     } catch (error) {
       logger.error('Error generating add task card:', error);
       return 'เกิดข้อผิดพลาดในการสร้างการ์ดเพิ่มงาน กรุณาลองใหม่';
+    }
+  }
+
+  /**
+   * ลบงาน - แสดงการ์ดเพื่อเปิดหน้าเว็บลบงานที่เลือก
+   */
+  private async handleDeleteTasksCommand(command: BotCommand): Promise<string | any> {
+    try {
+      const deleteUrl = UrlBuilder.getDeleteTasksUrl(command.groupId, command.userId);
+      const pendingRequest = await this.taskDeletionService.getPendingRequest(command.groupId);
+
+      const descriptionLines = [
+        'เลือกงานที่ต้องการลบจากเว็บไซต์ แล้วกดยืนยัน',
+        'ระบบจะแจ้งรายการงานในกลุ่มเพื่อรอการยืนยัน',
+        'ต้องมีสมาชิกอย่างน้อย 1 ใน 3 พิมพ์ "ยอมรับ" เพื่อดำเนินการลบ',
+      ];
+
+      if (pendingRequest) {
+        descriptionLines.unshift(
+          `⚠️ ขณะนี้มีคำขอลบงาน ${pendingRequest.tasks.length} รายการที่รอการยืนยันอยู่`
+        );
+      }
+
+      const content = descriptionLines.map(line =>
+        FlexMessageDesignSystem.createText(
+          line,
+          'sm',
+          FlexMessageDesignSystem.colors.textSecondary,
+          undefined,
+          true
+        )
+      );
+
+      const buttons = [
+        FlexMessageDesignSystem.createButton('เลือกงานที่ต้องการลบ', 'uri', deleteUrl, 'primary'),
+        FlexMessageDesignSystem.createButton(
+          'เปิด Dashboard กลุ่ม',
+          'uri',
+          UrlBuilder.getDashboardUrl(command.groupId, { userId: command.userId }),
+          'secondary'
+        ),
+      ];
+
+      const flexMessage = FlexMessageDesignSystem.createStandardTaskCard(
+        'ลบงานที่เลือก',
+        '🗑️',
+        FlexMessageDesignSystem.colors.danger,
+        content,
+        buttons,
+        'extraLarge'
+      );
+
+      return flexMessage;
+    } catch (error) {
+      logger.error('Error generating delete task card:', error);
+      return 'เกิดข้อผิดพลาดในการสร้างการ์ดลบงาน กรุณาลองใหม่';
+    }
+  }
+
+  /**
+   * รับคำว่า "ยอมรับ" เพื่ออนุมัติการลบงาน
+   */
+  private async handleApproveDeletionCommand(command: BotCommand): Promise<string> {
+    try {
+      const result = await this.taskDeletionService.registerApproval(
+        command.groupId,
+        command.userId
+      );
+
+      return result.message;
+    } catch (error) {
+      logger.error('Error approving deletion request:', error);
+      return 'เกิดข้อผิดพลาดในการยืนยันการลบงาน กรุณาลองใหม่อีกครั้ง';
     }
   }
 

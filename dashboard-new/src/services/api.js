@@ -247,6 +247,24 @@ export const deleteTask = async (groupIdOrTaskId, maybeTaskId) => {
   return apiCall(endpoint, { method: "DELETE" });
 };
 
+export const getTaskDeletionRequest = async (groupId) => {
+  return apiCall(
+    `${API_BASE_URL}/groups/${groupId}/tasks/deletion-request`,
+  );
+};
+
+export const createTaskDeletionRequest = async (
+  groupId,
+  taskIds = [],
+  userId,
+  filter = "custom",
+) => {
+  return apiCall(`${API_BASE_URL}/groups/${groupId}/tasks/deletion-request`, {
+    method: "POST",
+    body: JSON.stringify({ userId, taskIds, filter }),
+  });
+};
+
 export const completeTask = async (groupIdOrTaskId, maybeTaskId) => {
   const hasGroup = typeof maybeTaskId !== "undefined";
   const groupId = hasGroup ? groupIdOrTaskId : null;

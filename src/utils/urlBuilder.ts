@@ -46,6 +46,16 @@ export class UrlBuilder {
   }
 
   /**
+   * สร้าง URL สำหรับลบงานที่เลือก
+   */
+  static getDeleteTasksUrl(groupId: string, userId: string): string {
+    return this.getDashboardUrl(groupId, {
+      action: 'delete-task',
+      userId,
+    });
+  }
+
+  /**
    * สร้าง URL สำหรับ API endpoint
    */
   static getApiUrl(endpoint: string): string {

@@ -11,6 +11,7 @@ import { RecurringTaskService } from "@/services/RecurringTaskService";
 import { LineService } from "@/services/LineService";
 import { NotificationCardService } from "@/services/NotificationCardService";
 import { ActivityLogService } from "@/services/ActivityLogService";
+import { TaskDeletionService } from "@/services/TaskDeletionService";
 import {
   logActivity,
   ActivityActions,
@@ -70,6 +71,7 @@ class ApiController {
   private lineService: LineService;
   private notificationCardService: NotificationCardService;
   private activityLogService: ActivityLogService;
+  private taskDeletionService: TaskDeletionService;
 
   constructor() {
     this.taskService = serviceContainer.get<TaskService>("TaskService");
@@ -83,6 +85,8 @@ class ApiController {
     this.notificationCardService =
       serviceContainer.get<NotificationCardService>("NotificationCardService");
     this.activityLogService = new ActivityLogService();
+    this.taskDeletionService =
+      serviceContainer.get<TaskDeletionService>("TaskDeletionService");
   }
 
   // Task Endpoints
@@ -5161,6 +5165,76 @@ class ApiController {
       });
     }
   }
+
+  /**
+   * GET /api/groups/:groupId/tasks/deletion-request
+   * คืนสถานะคำขอลบงานที่รอการยืนยันสำหรับกลุ่ม
+   */
+  public async getTaskDeletionRequest(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const request =
+        await this.taskDeletionService.getPendingRequest(groupId);
+      res.json({ success: true, data: request });
+    } catch (error) {
+      logger.error("❌ Error getting task deletion request:", error);
+      res.status(500).json({
+        success: false,
+        error: "ไม่สามารถดึงข้อมูลคำขอลบงานได้",
+      });
+    }
+  }
+
+  /**
+   * POST /api/groups/:groupId/tasks/deletion-request
+   * สร้างคำขอลบงานใหม่จากรายการที่เลือก
+   */
+  public async createTaskDeletionRequest(
+    req: Request,
+    res: Response,
+  ): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const { userId, taskIds, filter } = req.body || {};
+
+      if (!userId || typeof userId !== "string") {
+        res.status(400).json({
+          success: false,
+          error: "กรุณาระบุผู้ที่ร้องขอลบงาน (userId)",
+        });
+        return;
+      }
+
+      if (!Array.isArray(taskIds) || taskIds.length === 0) {
+        res.status(400).json({
+          success: false,
+          error: "กรุณาเลือกงานที่ต้องการลบอย่างน้อย 1 งาน",
+        });
+        return;
+      }
+
+      const request =
+        await this.taskDeletionService.initiateDeletionRequest({
+          groupId,
+          requesterLineUserId: userId,
+          taskIds,
+          filter,
+        });
+
+      res.json({ success: true, data: request });
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "ไม่สามารถสร้างคำขอลบงานได้";
+
+      logger.error("❌ Error creating task deletion request:", error);
+      res.status(400).json({ success: false, error: errorMessage });
+    }
+  }
 }
 
 const apiController = new ApiController();
@@ -5186,6 +5260,14 @@ apiRouter.post(
   "/groups/:groupId/tasks",
   validateRequest(taskSchemas.create),
   apiController.createTask.bind(apiController),
+);
+apiRouter.get(
+  "/groups/:groupId/tasks/deletion-request",
+  apiController.getTaskDeletionRequest.bind(apiController),
+);
+apiRouter.post(
+  "/groups/:groupId/tasks/deletion-request",
+  apiController.createTaskDeletionRequest.bind(apiController),
 );
 apiRouter.get(
   "/groups/:groupId/calendar",

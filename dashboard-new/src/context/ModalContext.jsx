@@ -22,6 +22,7 @@ export const ModalProvider = ({ children }) => {
   const [isRecurringTaskOpen, setIsRecurringTaskOpen] = useState(false);
   const [isRecurringHistoryOpen, setIsRecurringHistoryOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
+  const [isDeleteTasksOpen, setIsDeleteTasksOpen] = useState(false);
   const [addTaskDefaultTab, setAddTaskDefaultTab] = useState("normal");
 
   // Modal data
@@ -30,6 +31,7 @@ export const ModalProvider = ({ children }) => {
   const [selectedMember, setSelectedMember] = useState(null);
   const [selectedRecurring, setSelectedRecurring] = useState(null);
   const [confirmDialogData, setConfirmDialogData] = useState(null);
+  const [deleteTasksContext, setDeleteTasksContext] = useState(null);
 
   // Add Task Modal
   const openAddTask = (defaultTab = "normal") => {
@@ -105,6 +107,16 @@ export const ModalProvider = ({ children }) => {
     setIsMemberActionsOpen(false);
     setSelectedMember(null);
   };
+  // Delete Tasks Modal
+  const openDeleteTasks = (context = null) => {
+    setDeleteTasksContext(context);
+    setIsDeleteTasksOpen(true);
+  };
+
+  const closeDeleteTasks = () => {
+    setIsDeleteTasksOpen(false);
+    setDeleteTasksContext(null);
+  };
 
   // Recurring Task Modal
   const openRecurringTask = (recurring = null) => {
@@ -151,12 +163,14 @@ export const ModalProvider = ({ children }) => {
     setIsRecurringTaskOpen(false);
     setIsRecurringHistoryOpen(false);
     setIsConfirmDialogOpen(false);
+    setIsDeleteTasksOpen(false);
     setSelectedTask(null);
     setSelectedFile(null);
     setSelectedMember(null);
     setSelectedRecurring(null);
     setConfirmDialogData(null);
     setAddTaskDefaultTab("normal");
+    setDeleteTasksContext(null);
   };
 
   const value = {
@@ -171,6 +185,7 @@ export const ModalProvider = ({ children }) => {
     isRecurringTaskOpen,
     isRecurringHistoryOpen,
     isConfirmDialogOpen,
+    isDeleteTasksOpen,
 
     // Data
     selectedTask,
@@ -179,6 +194,7 @@ export const ModalProvider = ({ children }) => {
     selectedRecurring,
     confirmDialogData,
     addTaskDefaultTab,
+    deleteTasksContext,
 
     // Actions
     openAddTask,
@@ -201,6 +217,8 @@ export const ModalProvider = ({ children }) => {
     closeRecurringHistory,
     openConfirmDialog,
     closeConfirmDialog,
+    openDeleteTasks,
+    closeDeleteTasks,
     closeAllModals,
   };
 

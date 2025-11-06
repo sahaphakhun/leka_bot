@@ -12,3 +12,4 @@ export { KPIService } from './KPIService';
 export { CronService } from './CronService';
 export { GoogleCalendarService } from './GoogleCalendarService';
 export { GoogleService } from './GoogleService';
+export { TaskDeletionService } from './TaskDeletionService';

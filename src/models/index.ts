@@ -42,6 +42,31 @@ export class Group {
     reportRecipients?: string[];
     // ผู้บังคับบัญชาที่จะได้รับสรุปงานของผู้ใต้บังคับบัญชา (LINE User IDs)
     supervisors?: string[];
+    // คำขอลบงานที่รอดำเนินการ
+    pendingDeletionRequest?: {
+      id: string;
+      filter?: "all" | "incomplete" | "custom";
+      requestedBy: {
+        userId: string;
+        lineUserId: string;
+        displayName?: string;
+      };
+      createdAt: string;
+      tasks: Array<{
+        id: string;
+        title: string;
+        status: string;
+        assignees?: string[];
+      }>;
+      totalMembers: number;
+      requiredApprovals: number;
+      approvals: Array<{
+        userId: string;
+        lineUserId: string;
+        displayName?: string;
+        approvedAt: string;
+      }>;
+    };
   };
 
   @CreateDateColumn()

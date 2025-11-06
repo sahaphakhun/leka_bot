@@ -43,6 +43,7 @@ import AddTaskModal from "./components/modals/AddTaskModal";
 import EditTaskModal from "./components/modals/EditTaskModal";
 import TaskDetailModal from "./components/modals/TaskDetailModal";
 import ConfirmDialog from "./components/modals/ConfirmDialog";
+import DeleteTasksModal from "./components/modals/DeleteTasksModal";
 
 // Lazy load - Less critical modals (loaded on demand)
 const SubmitTaskModal = lazy(
@@ -93,6 +94,7 @@ function AppContent() {
     openEditTask,
     openSubmitTask,
     openRecurringTask,
+    openDeleteTasks,
   } = useModal();
   const [activeView, setActiveView] = useState("dashboard");
   const [tasks, setTasks] = useState([]);
@@ -118,6 +120,7 @@ function AppContent() {
   const openTaskDetailRef = useRef(openTaskDetail);
   const openSubmitTaskRef = useRef(openSubmitTask);
   const openRecurringTaskRef = useRef(openRecurringTask);
+  const openDeleteTasksRef = useRef(openDeleteTasks);
 
   // Update refs whenever modal functions change
   useEffect(() => {
@@ -126,6 +129,7 @@ function AppContent() {
     openTaskDetailRef.current = openTaskDetail;
     openSubmitTaskRef.current = openSubmitTask;
     openRecurringTaskRef.current = openRecurringTask;
+    openDeleteTasksRef.current = openDeleteTasks;
   }, [
     openAddTask,
     openEditTask,
@@ -303,6 +307,7 @@ function AppContent() {
         "submit-task",
         "edit",
         "new-recurring-task",
+        "delete-task",
       ];
 
       if (requiresUserId.includes(action) && !userCanModify) {
@@ -365,6 +370,12 @@ function AppContent() {
           handled = true;
           break;
 
+        case "delete-task":
+          console.log("🗑️ Opening DeleteTasks modal...");
+          openDeleteTasks();
+          handled = true;
+          break;
+
         default:
           console.log("❓ Unknown action:", action);
       }
@@ -393,6 +404,7 @@ function AppContent() {
     openTaskDetail,
     openEditTask,
     openSubmitTask,
+    openDeleteTasks,
   ]);
 
   const loadSampleData = useCallback(async () => {
@@ -784,6 +796,10 @@ function AppContent() {
               onTaskDeleted={handleTasksReload}
             />
             <SubmitTaskModal onTaskSubmitted={handleTasksReload} />
+            <DeleteTasksModal
+              tasks={tasks}
+              onDeletionCompleted={handleTasksReload}
+            />
             <FilePreviewModal />
             <ConfirmDialog />
             <RecurringTaskModal
