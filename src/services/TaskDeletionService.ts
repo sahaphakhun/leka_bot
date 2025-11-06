@@ -34,6 +34,49 @@ export class TaskDeletionService {
   private lineService = serviceContainer.get<LineService>('LineService');
   private userService = serviceContainer.get<UserService>('UserService');
 
+  private ensurePositiveInteger(value: unknown, fallback: number = 1): number {
+    const parsed =
+      typeof value === 'number'
+        ? value
+        : typeof value === 'string'
+          ? Number(value)
+          : Number.NaN;
+
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.max(Math.floor(parsed), 1);
+    }
+
+    const parsedFallback =
+      typeof fallback === 'number'
+        ? fallback
+        : typeof fallback === 'string'
+          ? Number(fallback)
+          : Number.NaN;
+
+    if (Number.isFinite(parsedFallback) && parsedFallback > 0) {
+      return Math.max(Math.floor(parsedFallback), 1);
+    }
+
+    return 1;
+  }
+
+  private calculateApprovalThreshold(
+    memberCount: unknown,
+    fallbackTotal: number,
+    fallbackRequired: number,
+  ): { totalMembers: number; requiredApprovals: number } {
+    const totalMembers = this.ensurePositiveInteger(memberCount, fallbackTotal);
+    const requiredApprovals = this.ensurePositiveInteger(
+      Math.ceil(totalMembers / 3),
+      fallbackRequired,
+    );
+
+    return {
+      totalMembers,
+      requiredApprovals,
+    };
+  }
+
   /**
    * ค้นหา Group entity จาก internal UUID หรือ LINE Group ID
    */
@@ -107,15 +150,6 @@ export class TaskDeletionService {
         : [],
     }));
 
-    const memberCount = await this.groupMemberRepository.count({
-      where: { groupId: group.id },
-    });
-    const totalMembers = Math.max(memberCount, 1);
-    const requiredApprovals = Math.max(
-      1,
-      Math.ceil(totalMembers / 3),
-    );
-
     let approvals = Array.isArray(request.approvals)
       ? request.approvals.filter(
           (approval) => approval && typeof approval.lineUserId === 'string',
@@ -127,6 +161,27 @@ export class TaskDeletionService {
       uniqueApprovals.set(approval.lineUserId, approval);
     });
     approvals = Array.from(uniqueApprovals.values());
+
+    const memberCount = await this.groupMemberRepository.count({
+      where: { groupId: group.id },
+    });
+    const fallbackTotal = Math.max(
+      this.ensurePositiveInteger(request.totalMembers, approvals.length || 1),
+      approvals.length || 1,
+      1,
+    );
+    const fallbackRequired = Math.max(
+      this.ensurePositiveInteger(
+        request.requiredApprovals,
+        Math.ceil(fallbackTotal / 3) || approvals.length || 1,
+      ),
+      1,
+    );
+    const { totalMembers, requiredApprovals } = this.calculateApprovalThreshold(
+      memberCount,
+      fallbackTotal,
+      fallbackRequired,
+    );
 
     const updatedRequest: PendingDeletionRequest = {
       ...request,
@@ -218,10 +273,12 @@ export class TaskDeletionService {
     const memberCount = await this.groupMemberRepository.count({
       where: { groupId: group.id },
     });
-    const totalMembers = Math.max(memberCount, 1);
-    const requiredApprovals = Math.max(
-      1,
-      Math.ceil(totalMembers / 3),
+    const fallbackTotal = Math.max(tasks.length, 1);
+    const fallbackRequired = Math.max(Math.ceil(fallbackTotal / 3), 1);
+    const { totalMembers, requiredApprovals } = this.calculateApprovalThreshold(
+      memberCount,
+      fallbackTotal,
+      fallbackRequired,
     );
 
     const taskSummaries = tasks.map((task) => ({
@@ -330,6 +387,29 @@ export class TaskDeletionService {
 
     request.approvals = approvals;
 
+    const memberCount = await this.groupMemberRepository.count({
+      where: { groupId: group.id },
+    });
+    const fallbackTotal = Math.max(
+      this.ensurePositiveInteger(request.totalMembers, approvals.length || 1),
+      approvals.length || 1,
+      1,
+    );
+    const fallbackRequired = Math.max(
+      this.ensurePositiveInteger(
+        request.requiredApprovals,
+        Math.ceil(fallbackTotal / 3),
+      ),
+      1,
+    );
+    const { totalMembers, requiredApprovals } = this.calculateApprovalThreshold(
+      memberCount,
+      fallbackTotal,
+      fallbackRequired,
+    );
+    request.totalMembers = totalMembers;
+    request.requiredApprovals = requiredApprovals;
+
     group.settings = {
       ...(group.settings || {}),
       pendingDeletionRequest: request,
@@ -403,7 +483,12 @@ export class TaskDeletionService {
       summaryLines.push(`…และอีก ${deletedTasks.length - 10} งาน`);
     }
 
-    const approvalSummary = `${request.approvals.length}/${request.requiredApprovals}`;
+    const safeRequiredApprovals = this.ensurePositiveInteger(
+      request.requiredApprovals,
+      Math.max(request.approvals?.length || 0, 1),
+    );
+    request.requiredApprovals = safeRequiredApprovals;
+    const approvalSummary = `${request.approvals.length}/${safeRequiredApprovals}`;
 
     const finalMessage = [
       '🗑️ ลบงานสำเร็จ',

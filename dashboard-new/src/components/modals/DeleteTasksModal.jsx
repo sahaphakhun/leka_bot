@@ -4,6 +4,8 @@ import { useModal } from "../../context/ModalContext";
 import {
   createTaskDeletionRequest,
   getTaskDeletionRequest,
+  fetchTasks,
+  normalizeTasks,
 } from "../../services/api";
 import { showError, showSuccess, showWarning } from "../../lib/toast";
 import {
@@ -18,6 +20,32 @@ import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
 import { cn } from "../../lib/utils";
 import { Loader2, CheckCircle2, AlertTriangle } from "lucide-react";
+
+const parsePositiveInt = (value, fallback = 0) => {
+  const numeric =
+    typeof value === "number"
+      ? value
+      : typeof value === "string"
+        ? Number(value)
+        : Number.NaN;
+
+  if (Number.isFinite(numeric) && numeric > 0) {
+    return Math.floor(numeric);
+  }
+
+  const fallbackNumeric =
+    typeof fallback === "number"
+      ? fallback
+      : typeof fallback === "string"
+        ? Number(fallback)
+        : Number.NaN;
+
+  if (Number.isFinite(fallbackNumeric) && fallbackNumeric > 0) {
+    return Math.floor(fallbackNumeric);
+  }
+
+  return 0;
+};
 
 const COMPLETED_STATUSES = new Set([
   "completed",
@@ -47,13 +75,16 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [loadingStatus, setLoadingStatus] = useState(false);
+  const [tasksLoading, setTasksLoading] = useState(false);
   const [pendingRequest, setPendingRequest] = useState(null);
   const [availableTasks, setAvailableTasks] = useState(tasks);
 
   const canDelete = hasPermission?.("delete_task");
 
   useEffect(() => {
-    setAvailableTasks(tasks);
+    if (Array.isArray(tasks) && tasks.length > 0) {
+      setAvailableTasks(tasks);
+    }
   }, [tasks]);
 
   const resetState = useCallback(() => {
@@ -65,9 +96,43 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     );
     setSelectedTaskIds(new Set());
     setSearchQuery("");
+    setTasksLoading(false);
     setPendingRequest(null);
-    setAvailableTasks(tasks);
+    setAvailableTasks(Array.isArray(tasks) ? tasks : []);
   }, [deleteTasksContext, tasks]);
+
+  const sanitizePendingRequest = useCallback((raw) => {
+    if (!raw || !Array.isArray(raw.tasks) || raw.tasks.length === 0) {
+      return null;
+    }
+
+    const approvals = Array.isArray(raw.approvals)
+      ? raw.approvals.filter((item) => item && item.lineUserId)
+      : [];
+
+    const totalMembers = Math.max(
+      parsePositiveInt(raw.totalMembers, approvals.length || 1),
+      approvals.length || 1,
+      1,
+    );
+
+    const requiredBaseline = Math.max(
+      Math.ceil(totalMembers / 3),
+      approvals.length ? 1 : 1,
+    );
+
+    const requiredApprovals = Math.max(
+      parsePositiveInt(raw.requiredApprovals, requiredBaseline),
+      1,
+    );
+
+    return {
+      ...raw,
+      approvals,
+      totalMembers,
+      requiredApprovals,
+    };
+  }, []);
 
   const loadPendingRequest = useCallback(async () => {
     if (!groupId) return;
@@ -75,20 +140,43 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
       setLoadingStatus(true);
       const response = await getTaskDeletionRequest(groupId);
       const data = response?.data ?? response;
-      setPendingRequest(data || null);
+      const normalized = sanitizePendingRequest(data);
+      setPendingRequest(normalized);
     } catch (error) {
       console.warn("⚠️ Failed to load pending deletion request:", error);
       setPendingRequest(null);
     } finally {
       setLoadingStatus(false);
     }
-  }, [groupId]);
+  }, [groupId, sanitizePendingRequest]);
+
+  const loadTasksForDeletion = useCallback(async () => {
+    if (!groupId) return;
+
+    try {
+      setTasksLoading(true);
+      const response = await fetchTasks(groupId, { limit: 200, page: 1 });
+      const normalizedList = normalizeTasks(response);
+      if (normalizedList.length > 0) {
+        setAvailableTasks(normalizedList);
+      } else if (!Array.isArray(tasks) || tasks.length === 0) {
+        setAvailableTasks([]);
+      }
+    } catch (error) {
+      console.error("⚠️ Failed to load tasks for deletion:", error);
+      if (Array.isArray(tasks)) {
+        setAvailableTasks(tasks);
+      }
+    } finally {
+      setTasksLoading(false);
+    }
+  }, [groupId, tasks]);
 
   useEffect(() => {
     if (isDeleteTasksOpen) {
       resetState();
       loadPendingRequest();
-      setAvailableTasks(tasks);
+      loadTasksForDeletion();
     } else {
       resetState();
     }
@@ -96,8 +184,7 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     isDeleteTasksOpen,
     resetState,
     loadPendingRequest,
-    deleteTasksContext,
-    tasks,
+    loadTasksForDeletion,
   ]);
 
   useEffect(() => {
@@ -228,8 +315,26 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
     if (!pendingRequest) return null;
 
     const approvals = pendingRequest.approvals || [];
-    const required = pendingRequest.requiredApprovals || 0;
+    const totalMembers = Math.max(
+      parsePositiveInt(pendingRequest.totalMembers, approvals.length || 1),
+      approvals.length || 1,
+      1,
+    );
+    const required = Math.max(
+      parsePositiveInt(
+        pendingRequest.requiredApprovals,
+        Math.ceil(totalMembers / 3),
+      ),
+      1,
+    );
     const remaining = Math.max(required - approvals.length, 0);
+    const taskCount = Array.isArray(pendingRequest.tasks)
+      ? pendingRequest.tasks.length
+      : 0;
+
+    if (taskCount === 0) {
+      return null;
+    }
 
     return (
       <div className="space-y-3 rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-amber-900">
@@ -238,23 +343,21 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
           <div>
             <p className="font-semibold">มีคำขอลบงานที่รอการยืนยัน</p>
             <p className="text-sm">
-              ต้องการการยืนยันอีก {remaining} คนจาก {required} คน เพื่อดำเนินการลบงาน {pendingRequest.tasks?.length || 0} รายการ
+              ต้องการการยืนยันอีก {remaining} คนจาก {required} คน เพื่อดำเนินการลบงาน {taskCount} รายการ
             </p>
           </div>
         </div>
-        {Array.isArray(pendingRequest.tasks) && pendingRequest.tasks.length > 0 && (
+        {taskCount > 0 && (
           <div className="rounded-md bg-white/70 p-3 text-sm text-amber-900">
             <p className="mb-2 font-medium">
-              รายการงาน ({pendingRequest.tasks.length})
+              รายการงาน ({taskCount})
             </p>
             <ul className="list-disc space-y-1 pl-5">
               {pendingRequest.tasks.slice(0, 10).map((task) => (
                 <li key={task.id}>{task.title}</li>
               ))}
-              {pendingRequest.tasks.length > 10 && (
-                <li className="italic">
-                  …และอีก {pendingRequest.tasks.length - 10} งาน
-                </li>
+              {taskCount > 10 && (
+                <li className="italic">…และอีก {taskCount - 10} งาน</li>
               )}
             </ul>
           </div>
@@ -276,6 +379,15 @@ export default function DeleteTasksModal({ tasks = [], onDeletionCompleted }) {
         <p className="text-sm text-muted-foreground">
           เมื่อคำขอเดิมเสร็จสิ้นแล้ว สามารถกลับมาเลือกลบงานใหม่ได้อีกครั้ง
         </p>
+      );
+    }
+
+    if (tasksLoading) {
+      return (
+        <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-muted p-4 text-sm text-muted-foreground">
+          <Loader2 className="h-4 w-4 animate-spin" />
+          กำลังโหลดรายการงาน...
+        </div>
       );
     }
 
