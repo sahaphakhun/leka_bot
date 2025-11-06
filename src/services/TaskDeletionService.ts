@@ -335,7 +335,7 @@ export class TaskDeletionService {
       .join('\n');
 
     this.lineService
-      .pushMessage(lineGroupId, { type: 'text', text: finalMessage })
+      .pushMessage(lineGroupId, finalMessage)
       .catch((error) => {
         logger.error('❌ Failed to push deletion completion message:', error);
       });
@@ -389,9 +389,6 @@ export class TaskDeletionService {
       'พิมพ์ "ยอมรับ" ในกลุ่มนี้เพื่อยืนยันการลบงาน',
     ].join('\n');
 
-    await this.lineService.pushMessage(lineGroupId, {
-      type: 'text',
-      text: summary,
-    });
+    await this.lineService.pushMessage(lineGroupId, summary);
   }
 }
