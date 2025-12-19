@@ -415,6 +415,7 @@ export default function AddTaskModal({
 
   const titleRef = useRef(null);
   const fileInputRef = useRef(null);
+  const openSessionRef = useRef(false);
 
   const [activeTab, setActiveTab] = useState("normal");
   const [submitting, setSubmitting] = useState(false);
@@ -462,19 +463,29 @@ export default function AddTaskModal({
     setIsDragging(false);
   }, []);
 
-  const closeAndReset = useCallback(() => {
+  const requestClose = useCallback(() => {
     closeAddTask();
-    resetAll();
-    setMembersError(null);
-  }, [closeAddTask, resetAll]);
+  }, [closeAddTask]);
 
   useEffect(() => {
-    if (!isAddTaskOpen) return;
+    if (isAddTaskOpen) {
+      if (openSessionRef.current) return;
+      openSessionRef.current = true;
 
+      resetAll();
+      setMembersError(null);
+      setActiveTab(addTaskDefaultTab === "recurring" ? "recurring" : "normal");
+      loadMembers();
+      requestAnimationFrame(() => titleRef.current?.focus());
+      return;
+    }
+
+    if (!openSessionRef.current) return;
+    openSessionRef.current = false;
+    setSubmitting(false);
+    setLoadingMembers(false);
+    setMembersError(null);
     resetAll();
-    setActiveTab(addTaskDefaultTab === "recurring" ? "recurring" : "normal");
-    loadMembers();
-    requestAnimationFrame(() => titleRef.current?.focus());
   }, [addTaskDefaultTab, isAddTaskOpen, loadMembers, resetAll]);
 
   useEffect(() => {
@@ -626,7 +637,7 @@ export default function AddTaskModal({
 
       showSuccess("สร้างงานสำเร็จ");
       onTaskCreated?.();
-      closeAndReset();
+      requestClose();
     } catch (error) {
       console.error("Failed to create task:", error);
       showError(error?.message || "ไม่สามารถสร้างงานได้", error);
@@ -678,7 +689,7 @@ export default function AddTaskModal({
 
       showSuccess("สร้างงานประจำสำเร็จ");
       onRecurringTaskCreated?.();
-      closeAndReset();
+      requestClose();
     } catch (error) {
       console.error("Failed to create recurring task:", error);
       showError(error?.message || "ไม่สามารถสร้างงานประจำได้", error);
@@ -697,15 +708,22 @@ export default function AddTaskModal({
     }
   };
 
-  const handleOpenChange = (open) => {
-    if (!open) {
-      closeAndReset();
-    }
-  };
+  const handleOpenChange = useCallback(
+    (open) => {
+      if (!open) requestClose();
+    },
+    [requestClose],
+  );
 
   return (
     <Dialog open={isAddTaskOpen} onOpenChange={handleOpenChange}>
       <DialogContent
+        onEscapeKeyDown={(e) => {
+          if (submitting) e.preventDefault();
+        }}
+        onPointerDownOutside={(e) => {
+          if (submitting) e.preventDefault();
+        }}
         className={cn(
           "p-0 gap-0 overflow-hidden flex flex-col w-full max-w-none",
           "top-auto bottom-0 left-0 right-0 translate-x-0 translate-y-0 rounded-t-2xl",
@@ -1529,7 +1547,7 @@ export default function AddTaskModal({
                 type="button"
                 variant="outline"
                 className="flex-1 h-12 text-base"
-                onClick={closeAndReset}
+                onClick={requestClose}
                 disabled={submitting}
               >
                 ยกเลิก
