@@ -333,8 +333,8 @@ function AppContent() {
           break;
 
         case "new-recurring-task":
-          console.log("🔄 Opening RecurringTask modal...");
-          openRecurringTask();
+          console.log("🔄 Opening AddTask modal (recurring tab)...");
+          openAddTask("recurring");
           handled = true;
           break;
 
@@ -789,7 +789,10 @@ function AppContent() {
         <MainLayout>
           {renderView()}
           <Suspense fallback={null}>
-            <AddTaskModal onTaskCreated={handleTasksReload} />
+            <AddTaskModal
+              onTaskCreated={handleTasksReload}
+              onRecurringTaskCreated={handleRecurringRefresh}
+            />
             <EditTaskModal onTaskUpdated={handleTasksReload} />
             <TaskDetailModal
               onTaskUpdated={handleTasksReload}

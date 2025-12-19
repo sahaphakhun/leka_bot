@@ -30,7 +30,7 @@ import { showSuccess, showError, showWarning } from "../../lib/toast";
 
 export default function RecurringTasksView({ refreshKey = 0 }) {
   const { groupId, canModify } = useAuth();
-  const { openRecurringTask, openRecurringHistory, openConfirmDialog } =
+  const { openAddTask, openRecurringTask, openRecurringHistory, openConfirmDialog } =
     useModal();
   const [recurringTasks, setRecurringTasks] = useState([]);
   const [members, setMembers] = useState([]);
@@ -359,7 +359,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
               รีเฟรช
             </Button>
             {canModify() ? (
-              <Button onClick={() => openRecurringTask(null)}>
+              <Button onClick={() => openAddTask("recurring")}>
                 <Plus className="w-4 h-4 mr-2" />
                 สร้างงานประจำ
               </Button>
@@ -383,7 +383,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
               หรือรายเดือน
             </p>
             {canModify() ? (
-              <Button onClick={() => openRecurringTask(null)}>
+              <Button onClick={() => openAddTask("recurring")}>
                 <Plus className="w-4 h-4 mr-2" />
                 สร้างงานประจำแรก
               </Button>
@@ -411,7 +411,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช
           </Button>
-          <Button onClick={() => openRecurringTask(null)}>
+          <Button onClick={() => openAddTask("recurring")}>
             <Plus className="w-4 h-4 mr-2" />
             สร้างงานประจำ
           </Button>

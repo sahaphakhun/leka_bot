@@ -1,94 +1,436 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { useModal } from "../../context/ModalContext";
 import { showError, showSuccess, showWarning } from "../../lib/toast";
+import { cn } from "../../lib/utils";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from "../ui/dialog";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
+import { Alert, AlertDescription } from "../ui/alert";
 import { Button } from "../ui/button";
+import { Checkbox } from "../ui/checkbox";
 import { Input } from "../ui/input";
 import { Label } from "../ui/label";
 import { Textarea } from "../ui/textarea";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../ui/select";
-import { Calendar } from "../ui/calendar";
-import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
-import { ScrollArea } from "../ui/scroll-area";
-import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { Badge } from "../ui/badge";
-import {
-  CalendarIcon,
+  CalendarDays,
+  Check,
+  ChevronsUpDown,
   Clock,
-  User,
+  Loader2,
+  Paperclip,
+  RefreshCw,
+  Search,
+  UploadCloud,
   Users,
-  FileText,
-  AlertCircle,
-  CheckCircle2,
-  X
+  X,
 } from "lucide-react";
-import { format } from "date-fns";
-import { th } from "date-fns/locale";
-import { cn } from "../../lib/utils";
-import CustomRecurrenceUI from "./CustomRecurrenceUI";
+import { uploadFiles } from "../../services/api";
 
-export default function AddTaskModal({ onTaskCreated }) {
-  const { groupId, userId } = useAuth();
+const THAI_TIMEZONE = "Asia/Bangkok";
+
+const isLineUserId = (value) => /^[U][a-zA-Z0-9]+$/.test(value || "");
+
+const toYYYYMMDD = (date) => {
+  const yyyy = date.getFullYear();
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}`;
+};
+
+const formatThaiDate = (yyyyMmDd) => {
+  if (!yyyyMmDd) return "—";
+  try {
+    const [y, m, d] = yyyyMmDd.split("-").map((v) => parseInt(v, 10));
+    const date = new Date(y, (m || 1) - 1, d || 1);
+    return date.toLocaleDateString("th-TH", {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    });
+  } catch {
+    return yyyyMmDd;
+  }
+};
+
+const parseTags = (raw) => {
+  if (!raw) return [];
+  return raw
+    .split(",")
+    .map((t) => t.trim())
+    .filter(Boolean);
+};
+
+const uniqueKeepOrder = (items) => {
+  const seen = new Set();
+  const out = [];
+  for (const item of items) {
+    if (!item || seen.has(item)) continue;
+    seen.add(item);
+    out.push(item);
+  }
+  return out;
+};
+
+const buildDueTimeIso = (dueDate, dueTime) => {
+  if (!dueDate) return null;
+  const timePart = dueTime && dueTime.trim() ? dueTime.trim() : "23:59";
+  return `${dueDate}T${timePart}:00.000+07:00`;
+};
+
+const buildInitialDueIso = (dueDate, dueTime) => {
+  if (!dueDate) return null;
+  const timePart = dueTime && dueTime.trim() ? dueTime.trim() : "23:59";
+  return `${dueDate}T${timePart}:00`;
+};
+
+const formatFileSize = (bytes) => {
+  if (!bytes) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return `${Math.round((bytes / Math.pow(k, i)) * 100) / 100} ${sizes[i]}`;
+};
+
+const normalizeMembers = (membersList) => {
+  const normalized = [];
+  const seen = new Set();
+
+  for (const member of membersList || []) {
+    const lineId = member?.lineUserId || member?.userId || member?.id;
+    if (!lineId || seen.has(lineId)) continue;
+    seen.add(lineId);
+
+    normalized.push({
+      id: lineId,
+      name:
+        member?.displayName ||
+        member?.realName ||
+        member?.name ||
+        member?.userId ||
+        lineId,
+      pictureUrl: member?.pictureUrl,
+      selectable: isLineUserId(lineId),
+    });
+  }
+
+  return normalized;
+};
+
+const CATEGORY_OPTIONS = [
+  { value: "general", label: "ทั่วไป" },
+  { value: "meeting", label: "การประชุม" },
+  { value: "report", label: "รายงาน" },
+  { value: "project", label: "โครงการ" },
+  { value: "maintenance", label: "บำรุงรักษา" },
+  { value: "other", label: "อื่นๆ" },
+];
+
+const PRIORITY_NORMAL = [
+  { value: "low", label: "ต่ำ", className: "border-blue-200 bg-blue-50 text-blue-700" },
+  { value: "medium", label: "ปานกลาง", className: "border-amber-200 bg-amber-50 text-amber-800" },
+  { value: "high", label: "สูง", className: "border-orange-200 bg-orange-50 text-orange-800" },
+  { value: "urgent", label: "ด่วน", className: "border-red-200 bg-red-50 text-red-700" },
+];
+
+const PRIORITY_RECURRING = [
+  { value: "low", label: "ต่ำ", className: "border-blue-200 bg-blue-50 text-blue-700" },
+  { value: "medium", label: "ปานกลาง", className: "border-amber-200 bg-amber-50 text-amber-800" },
+  { value: "high", label: "สูง", className: "border-orange-200 bg-orange-50 text-orange-800" },
+];
+
+const RECURRENCE_OPTIONS = [
+  {
+    value: "weekly",
+    title: "รายสัปดาห์",
+    description: "สร้างงานใหม่เมื่อเลยกำหนดส่งของรอบล่าสุด • ทุกสัปดาห์",
+    icon: "📅",
+  },
+  {
+    value: "monthly",
+    title: "รายเดือน",
+    description: "สร้างงานใหม่เมื่อเลยกำหนดส่งของรอบล่าสุด • ทุกเดือน",
+    icon: "📆",
+  },
+  {
+    value: "quarterly",
+    title: "รายไตรมาส",
+    description: "สร้างงานใหม่เมื่อเลยกำหนดส่งของรอบล่าสุด • ทุก 3 เดือน",
+    icon: "📈",
+  },
+];
+
+const makeEmptyNormalForm = () => ({
+  title: "",
+  description: "",
+  dueDate: "",
+  dueTime: "23:59",
+  priority: "medium",
+  category: "general",
+  assigneeIds: [],
+  tagsText: "",
+  reviewerUserId: "",
+  notes: "",
+  files: [],
+});
+
+const makeEmptyRecurringForm = () => ({
+  title: "",
+  description: "",
+  assigneeLineUserIds: [],
+  reviewerLineUserId: "",
+  priority: "medium",
+  tagsText: "",
+  requireAttachment: false,
+  recurrence: "weekly",
+  initialDueDate: "",
+  initialDueTime: "23:59",
+});
+
+function SegmentedTabs({ value, onChange, disabled }) {
+  return (
+    <div className="grid grid-cols-2 rounded-xl border bg-muted/30 p-1">
+      <button
+        type="button"
+        onClick={() => onChange("normal")}
+        disabled={disabled}
+        className={cn(
+          "h-10 rounded-lg text-sm font-semibold transition-colors",
+          value === "normal"
+            ? "bg-background shadow-sm"
+            : "text-muted-foreground hover:bg-background/60",
+        )}
+      >
+        งานครั้งเดียว
+      </button>
+      <button
+        type="button"
+        onClick={() => onChange("recurring")}
+        disabled={disabled}
+        className={cn(
+          "h-10 rounded-lg text-sm font-semibold transition-colors",
+          value === "recurring"
+            ? "bg-background shadow-sm"
+            : "text-muted-foreground hover:bg-background/60",
+        )}
+      >
+        งานประจำ
+      </button>
+    </div>
+  );
+}
+
+function MemberPicker({
+  title,
+  members,
+  selectedIds,
+  onChange,
+  query,
+  onQueryChange,
+  disabled,
+  errorsText,
+}) {
+  const memberNameById = useMemo(() => {
+    const map = new Map();
+    for (const m of members) {
+      map.set(m.id, m.name);
+    }
+    return map;
+  }, [members]);
+
+  const selectableMembers = useMemo(
+    () => members.filter((m) => m.selectable),
+    [members],
+  );
+
+  const filtered = useMemo(() => {
+    const q = (query || "").trim().toLowerCase();
+    const base = selectableMembers;
+    if (!q) return base;
+    return base.filter((m) => (m.name || "").toLowerCase().includes(q));
+  }, [query, selectableMembers]);
+
+  const isAllSelected =
+    selectableMembers.length > 0 &&
+    selectedIds.length === selectableMembers.length;
+
+  const toggleAll = () => {
+    if (disabled) return;
+    onChange(isAllSelected ? [] : selectableMembers.map((m) => m.id));
+  };
+
+  const clearAll = () => {
+    if (disabled) return;
+    onChange([]);
+  };
+
+  const selectVisible = () => {
+    if (disabled) return;
+    onChange(uniqueKeepOrder([...selectedIds, ...filtered.map((m) => m.id)]));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Users className="w-4 h-4 text-primary" />
+          <Label className="text-sm font-semibold">
+            {title} <span className="text-destructive">*</span>
+          </Label>
+        </div>
+        <span className="text-xs text-muted-foreground">
+          เลือกแล้ว {selectedIds.length} คน
+        </span>
+      </div>
+
+      {errorsText && <p className="text-xs text-destructive">{errorsText}</p>}
+
+      <div className="rounded-2xl border bg-card overflow-hidden">
+        <div className="p-3 border-b bg-muted/30 space-y-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              value={query}
+              onChange={(e) => onQueryChange(e.target.value)}
+              placeholder="ค้นหาสมาชิก..."
+              className="pl-9 h-10"
+              disabled={disabled}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={toggleAll}
+              disabled={disabled || selectableMembers.length === 0}
+            >
+              {isAllSelected ? "ยกเลิกทีมทั้งหมด" : "ทีมทั้งหมด"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={clearAll}
+              disabled={disabled || selectedIds.length === 0}
+            >
+              ล้างทั้งหมด
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={selectVisible}
+              disabled={disabled || filtered.length === 0}
+              className="col-span-2"
+            >
+              เลือกทั้งหมด (ที่ค้นเจอ)
+            </Button>
+          </div>
+        </div>
+
+        <div className="max-h-[40vh] overflow-y-auto p-2">
+          {selectableMembers.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              ไม่พบรายชื่อสมาชิกสำหรับเลือก
+            </div>
+          ) : filtered.length === 0 ? (
+            <div className="py-10 text-center text-sm text-muted-foreground">
+              ไม่พบสมาชิกที่ตรงกับคำค้นหา
+            </div>
+          ) : (
+            <div className="space-y-1">
+              {filtered.map((member) => {
+                const checked = selectedIds.includes(member.id);
+                return (
+                  <button
+                    key={member.id}
+                    type="button"
+                    onClick={() =>
+                      onChange(
+                        checked
+                          ? selectedIds.filter((id) => id !== member.id)
+                          : [...selectedIds, member.id],
+                      )
+                    }
+                    disabled={disabled}
+                    className={cn(
+                      "w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors",
+                      checked ? "bg-primary/10" : "hover:bg-accent/40",
+                    )}
+                  >
+                    <Checkbox checked={checked} />
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium truncate">
+                        {member.name}
+                      </p>
+                    </div>
+                    {checked && <Check className="w-4 h-4 text-primary" />}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {selectedIds.length === 0 ? (
+          <p className="text-sm text-muted-foreground">ยังไม่ได้เลือกผู้รับผิดชอบ</p>
+        ) : (
+          selectedIds.map((id) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => onChange(selectedIds.filter((x) => x !== id))}
+              disabled={disabled}
+              className="inline-flex items-center gap-1 rounded-full border bg-background px-3 py-1 text-sm hover:bg-accent/40"
+              title="แตะเพื่อลบออก"
+            >
+              <span className="truncate max-w-[10rem]">
+                {memberNameById.get(id) || id}
+              </span>
+              <X className="w-3.5 h-3.5 opacity-70" />
+            </button>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}
+
+export default function AddTaskModal({
+  onTaskCreated,
+  onRecurringTaskCreated,
+}) {
+  const { groupId, userId, canModify } = useAuth();
   const { isAddTaskOpen, closeAddTask, addTaskDefaultTab } = useModal();
+
+  const canCreate = canModify?.() && !!groupId && !!userId;
+
+  const titleRef = useRef(null);
+  const fileInputRef = useRef(null);
+
   const [activeTab, setActiveTab] = useState("normal");
-  const [loading, setLoading] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [errors, setErrors] = useState({ normal: {}, recurring: {} });
 
-  // Normal task form
-  const [normalTask, setNormalTask] = useState({
-    title: "",
-    description: "",
-    dueDate: null,
-    dueTime: "",
-    priority: "medium",
-    assignedUsers: [],
-    reviewer: "",
-  });
-
-  // Recurring task form
-  const [recurringTask, setRecurringTask] = useState({
-    title: "",
-    description: "",
-    recurrence: "weekly",
-    startDate: null,
-    time: "",
-    priority: "medium",
-    assignedUsers: [],
-    reviewer: "",
-    customRecurrence: {
-      type: "weekly",
-      interval: 1,
-      daysOfWeek: [],
-      dayOfMonth: 1,
-    },
-  });
-
-  // Members list
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState(null);
-  const [memberSearchQuery, setMemberSearchQuery] = useState("");
+  const [memberQueryNormal, setMemberQueryNormal] = useState("");
+  const [memberQueryRecurring, setMemberQueryRecurring] = useState("");
 
-  // Set default tab
-  useEffect(() => {
-    if (isAddTaskOpen) {
-      setActiveTab(addTaskDefaultTab || "normal");
-    }
-  }, [isAddTaskOpen, addTaskDefaultTab]);
+  const [normal, setNormal] = useState(makeEmptyNormalForm);
+  const [recurring, setRecurring] = useState(makeEmptyRecurringForm);
 
-  // Load members from API
+  const [isDragging, setIsDragging] = useState(false);
+
   const loadMembers = useCallback(async () => {
     if (!groupId) return;
 
@@ -98,748 +440,1129 @@ export default function AddTaskModal({ onTaskCreated }) {
     try {
       const { getGroupMembers } = await import("../../services/api");
       const response = await getGroupMembers(groupId);
-      const membersList = response.members || response || [];
-      setMembers(Array.isArray(membersList) ? membersList : []);
+      const list = Array.isArray(response)
+        ? response
+        : response?.members || response?.data || [];
+      setMembers(normalizeMembers(list));
     } catch (error) {
       console.error("Failed to load members:", error);
-      setMembersError(error.message || "ไม่สามารถโหลดรายชื่อสมาชิกได้");
+      setMembersError(error?.message || "ไม่สามารถโหลดรายชื่อสมาชิกได้");
       setMembers([]);
     } finally {
       setLoadingMembers(false);
     }
   }, [groupId]);
 
+  const resetAll = useCallback(() => {
+    setErrors({ normal: {}, recurring: {} });
+    setMemberQueryNormal("");
+    setMemberQueryRecurring("");
+    setNormal(makeEmptyNormalForm());
+    setRecurring(makeEmptyRecurringForm());
+    setIsDragging(false);
+  }, []);
+
+  const closeAndReset = useCallback(() => {
+    closeAddTask();
+    resetAll();
+    setMembersError(null);
+  }, [closeAddTask, resetAll]);
+
   useEffect(() => {
-    if (isAddTaskOpen) {
-      loadMembers();
-    }
-  }, [isAddTaskOpen, loadMembers]);
+    if (!isAddTaskOpen) return;
 
-  // Filter members based on search query
-  const filteredMembers = useMemo(() => {
-    if (!memberSearchQuery.trim()) return members;
-    const query = memberSearchQuery.toLowerCase();
-    return members.filter((member) => {
-      const name = member.displayName || member.name || "";
-      return name.toLowerCase().includes(query);
-    });
-  }, [members, memberSearchQuery]);
+    resetAll();
+    setActiveTab(addTaskDefaultTab === "recurring" ? "recurring" : "normal");
+    loadMembers();
+    requestAnimationFrame(() => titleRef.current?.focus());
+  }, [addTaskDefaultTab, isAddTaskOpen, loadMembers, resetAll]);
 
-  const resetForms = useCallback(() => {
-    setNormalTask({
-      title: "",
-      description: "",
-      dueDate: null,
-      dueTime: "",
-      priority: "medium",
-      assignedUsers: [],
-      reviewer: "",
-    });
-    setRecurringTask({
-      title: "",
-      description: "",
-      recurrence: "weekly",
-      startDate: null,
-      time: "",
-      priority: "medium",
-      assignedUsers: [],
-      reviewer: "",
-      customRecurrence: {
-        type: "weekly",
-        interval: 1,
-        daysOfWeek: [],
-        dayOfMonth: 1,
-      },
-    });
-    setMemberSearchQuery("");
-  }, []);
+  useEffect(() => {
+    if (!isAddTaskOpen) return;
+    if (!canCreate) return;
+    if (!isLineUserId(userId)) return;
 
-  const formatDateForApi = useCallback((date) => {
-    if (!date) return null;
-    try {
-      return format(date, "yyyy-MM-dd");
-    } catch (err) {
-      console.warn("Failed to format date", err);
-      return null;
-    }
-  }, []);
+    const hasMember = members.some((m) => m.id === userId && m.selectable);
+    if (!hasMember) return;
 
-  const handleSubmit = useCallback(
-    async (e) => {
-      e.preventDefault();
+    setNormal((prev) =>
+      prev.reviewerUserId ? prev : { ...prev, reviewerUserId: userId },
+    );
+  }, [canCreate, isAddTaskOpen, members, userId]);
 
-      const currentTask = activeTab === "normal" ? normalTask : recurringTask;
+  const validateNormal = () => {
+    const next = {};
+    if (!normal.title.trim()) next.title = "กรุณาระบุชื่องาน";
+    if (!normal.description.trim()) next.description = "กรุณาระบุรายละเอียด";
+    if (!normal.dueDate) next.dueDate = "กรุณาเลือกวันที่ครบกำหนด";
+    if (!normal.priority) next.priority = "กรุณาเลือกความสำคัญ";
+    if (normal.assigneeIds.length === 0)
+      next.assignees = "กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน";
 
-      if (!currentTask.title?.trim()) {
-        showWarning("กรุณาระบุชื่องาน");
-        return;
-      }
+    setErrors((prev) => ({ ...prev, normal: next }));
+    return Object.keys(next).length === 0;
+  };
 
-      if (currentTask.assignedUsers.length === 0) {
-        showWarning("กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน");
-        return;
-      }
+  const validateRecurring = () => {
+    const next = {};
+    if (!recurring.title.trim()) next.title = "กรุณาระบุชื่องานประจำ";
+    if (!recurring.initialDueDate)
+      next.initialDueDate = "กรุณาเลือกวันกำหนดส่งครั้งแรก";
+    if (!recurring.recurrence) next.recurrence = "กรุณาเลือกรอบการทำงาน";
+    if (recurring.assigneeLineUserIds.length === 0)
+      next.assignees = "กรุณาเลือกผู้รับผิดชอบอย่างน้อย 1 คน";
 
-      if (activeTab === "normal" && !normalTask.dueDate) {
-        showWarning("กรุณาเลือกวันที่ครบกำหนด");
-        return;
-      }
+    setErrors((prev) => ({ ...prev, recurring: next }));
+    return Object.keys(next).length === 0;
+  };
 
-      if (activeTab === "recurring" && !recurringTask.startDate) {
-        showWarning("กรุณาเลือกวันที่เริ่มต้น");
-        return;
-      }
+  const addFiles = (incoming) => {
+    const nextFiles = Array.isArray(incoming) ? incoming : [];
+    if (nextFiles.length === 0) return;
 
-      if (!userId) {
-        showError("ไม่พบข้อมูลผู้ใช้สำหรับสร้างงาน");
-        return;
-      }
-
-      setLoading(true);
-
-      try {
-        const { createTask, createRecurringTask } = await import(
-          "../../services/api"
-        );
-
-        if (activeTab === "normal") {
-          const dueDate = formatDateForApi(normalTask.dueDate);
-          const dueTimeStr = normalTask.dueTime || "23:59";
-          const combinedDueTime = `${dueDate}T${dueTimeStr}:00.000+07:00`;
-
-          const payload = {
-            title: normalTask.title,
-            description: normalTask.description || "",
-            dueTime: combinedDueTime,
-            priority: normalTask.priority,
-            assigneeIds: [...new Set(normalTask.assignedUsers)],
-            requireAttachment: false,
-            createdBy: userId,
-          };
-          if (normalTask.reviewer) {
-            payload.reviewerUserId = normalTask.reviewer;
-          }
-          await createTask(groupId, payload);
-        } else {
-          const payload = {
-            ...recurringTask,
-            startDate: formatDateForApi(recurringTask.startDate),
-            time: recurringTask.time || null,
-            reviewer: recurringTask.reviewer || null,
-            assignedUsers: [...new Set(recurringTask.assignedUsers)],
-            customRecurrence: {
-              ...recurringTask.customRecurrence,
-              daysOfWeek:
-                recurringTask.customRecurrence?.daysOfWeek?.slice() || [],
-            },
-          };
-          delete payload.category;
-          await createRecurringTask(groupId, payload);
+    setNormal((prev) => {
+      const existingKeys = new Set(
+        (prev.files || []).map(
+          (f) => `${f.name}:${f.size}:${f.lastModified || 0}`,
+        ),
+      );
+      const merged = [...(prev.files || [])];
+      for (const f of nextFiles) {
+        const key = `${f.name}:${f.size}:${f.lastModified || 0}`;
+        if (!existingKeys.has(key)) {
+          existingKeys.add(key);
+          merged.push(f);
         }
-
-        showSuccess(
-          activeTab === "normal" ? "สร้างงานสำเร็จ" : "สร้างงานประจำสำเร็จ"
-        );
-        if (onTaskCreated) onTaskCreated();
-        closeAddTask();
-        resetForms();
-      } catch (error) {
-        console.error("Failed to create task:", error);
-        showError(error?.message || "ไม่สามารถสร้างงานได้", error);
-      } finally {
-        setLoading(false);
       }
-    },
-    [
-      activeTab,
-      normalTask,
-      recurringTask,
-      groupId,
-      userId,
-      onTaskCreated,
-      closeAddTask,
-      resetForms,
-      formatDateForApi,
-    ]
+      return { ...prev, files: merged };
+    });
+  };
+
+  const removeFileAt = (index) => {
+    setNormal((prev) => ({
+      ...prev,
+      files: prev.files.filter((_, i) => i !== index),
+    }));
+  };
+
+  const totalFileSize = useMemo(
+    () => (normal.files || []).reduce((sum, f) => sum + (f?.size || 0), 0),
+    [normal.files],
   );
 
-  const handleAssigneeToggle = (userId, isNormal = true) => {
-    const task = isNormal ? normalTask : recurringTask;
-    const setTask = isNormal ? setNormalTask : setRecurringTask;
+  const normalPreviewChips = useMemo(() => {
+    const due = normal.dueDate
+      ? `${formatThaiDate(normal.dueDate)} ${normal.dueTime || "23:59"}`
+      : "—";
+    const assignees = normal.assigneeIds.length || 0;
+    const files = normal.files.length || 0;
+    return { due, assignees, files };
+  }, [normal.assigneeIds.length, normal.dueDate, normal.dueTime, normal.files.length]);
 
-    const assignedUsers = task.assignedUsers.includes(userId)
-      ? task.assignedUsers.filter((id) => id !== userId)
-      : [...task.assignedUsers, userId];
+  const recurringPreviewText = useMemo(() => {
+    const opt = RECURRENCE_OPTIONS.find((o) => o.value === recurring.recurrence);
+    const label = opt ? opt.title : "ที่เลือก";
+    const dateText = formatThaiDate(recurring.initialDueDate);
+    const timeText = recurring.initialDueTime || "23:59";
+    return `เริ่มด้วยกำหนดส่งครั้งแรก: ${dateText} ${timeText} • เมื่อเลยกำหนดส่ง ระบบจะสร้างงานรอบถัดไปแบบ${label}ทันที`;
+  }, [recurring.initialDueDate, recurring.initialDueTime, recurring.recurrence]);
 
-    setTask({ ...task, assignedUsers });
-  };
-
-  const handleSelectAll = (isNormal = true) => {
-    const setTask = isNormal ? setNormalTask : setRecurringTask;
-    const task = isNormal ? normalTask : recurringTask;
-    setTask({ ...task, assignedUsers: members.map((m) => m.lineUserId) });
-  };
-
-  const handleClearAll = (isNormal = true) => {
-    const setTask = isNormal ? setNormalTask : setRecurringTask;
-    const task = isNormal ? normalTask : recurringTask;
-    setTask({ ...task, assignedUsers: [] });
-  };
-
-  const getInitials = (name) => {
-    if (!name) return "??";
-    return name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  const getAvatarColor = (name) => {
-    const colors = [
-      "bg-blue-500",
-      "bg-green-500",
-      "bg-yellow-500",
-      "bg-purple-500",
-      "bg-pink-500",
-      "bg-indigo-500",
-      "bg-red-500",
-      "bg-orange-500",
-    ];
-    let hash = 0;
-    for (let i = 0; i < name.length; i++) {
-      hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  const submitNormal = async () => {
+    if (!canCreate) {
+      showWarning("โหมดดูอย่างเดียว: ต้องมี userId เพื่อสร้างงาน");
+      return;
     }
-    return colors[Math.abs(hash) % colors.length];
-  };
+    if (!validateNormal()) return;
 
-  const getPriorityIcon = (priority) => {
-    switch (priority) {
-      case "urgent":
-        return <AlertCircle className="w-4 h-4 text-red-500" />;
-      case "high":
-        return <AlertCircle className="w-4 h-4 text-orange-500" />;
-      case "medium":
-        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
-      default:
-        return <AlertCircle className="w-4 h-4 text-blue-500" />;
+    const dueTimeIso = buildDueTimeIso(normal.dueDate, normal.dueTime);
+    if (!dueTimeIso) {
+      showWarning("กรุณาเลือกวันที่ครบกำหนด");
+      return;
+    }
+
+    const priorityApi = normal.priority === "urgent" ? "high" : normal.priority;
+    const tags = parseTags(normal.tagsText);
+    const categoryTag =
+      normal.category && normal.category !== "general"
+        ? `category:${normal.category}`
+        : null;
+    const finalTags = uniqueKeepOrder(
+      categoryTag ? [...tags, categoryTag] : tags,
+    );
+
+    const descriptionBase = normal.description.trim();
+    const notes = normal.notes.trim();
+    const description = notes
+      ? `${descriptionBase}\n\nหมายเหตุ: ${notes}`
+      : descriptionBase;
+
+    setSubmitting(true);
+    try {
+      let fileIds = [];
+      if (normal.files.length > 0) {
+        const uploadRes = await uploadFiles(groupId, normal.files, {
+          userId,
+          attachmentType: "initial",
+        });
+        const uploaded = Array.isArray(uploadRes?.data) ? uploadRes.data : [];
+        fileIds = uploaded.map((f) => f?.id).filter(Boolean);
+      }
+
+      const { createTask } = await import("../../services/api");
+      const payload = {
+        title: normal.title.trim(),
+        description,
+        dueTime: dueTimeIso,
+        priority: priorityApi,
+        tags: finalTags.length > 0 ? finalTags : undefined,
+        assigneeIds: uniqueKeepOrder(normal.assigneeIds).filter(isLineUserId),
+        reviewerUserId: normal.reviewerUserId || undefined,
+        createdBy: userId,
+        requireAttachment: false,
+        ...(fileIds.length > 0 ? { fileIds } : {}),
+      };
+
+      await createTask(groupId, payload);
+
+      showSuccess("สร้างงานสำเร็จ");
+      onTaskCreated?.();
+      closeAndReset();
+    } catch (error) {
+      console.error("Failed to create task:", error);
+      showError(error?.message || "ไม่สามารถสร้างงานได้", error);
+    } finally {
+      setSubmitting(false);
     }
   };
 
-  const getPriorityLabel = (priority) => {
-    const labels = {
-      urgent: "ด่วนมาก",
-      high: "สูง",
-      medium: "ปานกลาง",
-      low: "ต่ำ",
-    };
-    return labels[priority] || priority;
+  const submitRecurring = async () => {
+    if (!canCreate) {
+      showWarning("โหมดดูอย่างเดียว: ต้องมี userId เพื่อสร้างงานประจำ");
+      return;
+    }
+    if (!validateRecurring()) return;
+
+    const initialDueIso = buildInitialDueIso(
+      recurring.initialDueDate,
+      recurring.initialDueTime,
+    );
+    if (!initialDueIso) {
+      showWarning("กรุณาเลือกวันกำหนดส่งครั้งแรก");
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const { createRecurringTask } = await import("../../services/api");
+
+      const payload = {
+        title: recurring.title.trim(),
+        description: recurring.description?.trim() || "",
+        recurrence: recurring.recurrence,
+        initialDueTime: initialDueIso,
+        timezone: THAI_TIMEZONE,
+        assigneeLineUserIds: uniqueKeepOrder(recurring.assigneeLineUserIds),
+        reviewerLineUserId: recurring.reviewerLineUserId || null,
+        priority: recurring.priority || "medium",
+        requireAttachment: !!recurring.requireAttachment,
+        createdBy: userId,
+        createdByLineUserId: userId,
+      };
+
+      const tags = parseTags(recurring.tagsText);
+      if (tags.length > 0) {
+        payload.tags = tags;
+      }
+
+      await createRecurringTask(groupId, payload);
+
+      showSuccess("สร้างงานประจำสำเร็จ");
+      onRecurringTaskCreated?.();
+      closeAndReset();
+    } catch (error) {
+      console.error("Failed to create recurring task:", error);
+      showError(error?.message || "ไม่สามารถสร้างงานประจำได้", error);
+    } finally {
+      setSubmitting(false);
+    }
   };
 
-  const renderMemberSelector = (isNormal = true) => {
-    const task = isNormal ? normalTask : recurringTask;
-    const selectedCount = task.assignedUsers.length;
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (submitting) return;
+    if (activeTab === "recurring") {
+      await submitRecurring();
+    } else {
+      await submitNormal();
+    }
+  };
 
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <Users className="w-4 h-4 text-primary" />
-            ผู้รับผิดชอบ
-            <span className="text-destructive">*</span>
-          </Label>
-          {selectedCount > 0 && (
-            <Badge variant="secondary" className="text-xs">
-              เลือกแล้ว {selectedCount} คน
-            </Badge>
-          )}
-        </div>
+  const handleOpenChange = (open) => {
+    if (!open) {
+      closeAndReset();
+    }
+  };
 
-        <div className="border-2 border-border rounded-xl overflow-hidden bg-card">
-          {loadingMembers ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="text-center space-y-2">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
-                <p className="text-sm text-muted-foreground">กำลังโหลด...</p>
-              </div>
+  return (
+    <Dialog open={isAddTaskOpen} onOpenChange={handleOpenChange}>
+      <DialogContent
+        className={cn(
+          "p-0 gap-0 overflow-hidden flex flex-col w-full max-w-none",
+          "top-auto bottom-0 left-0 right-0 translate-x-0 translate-y-0 rounded-t-2xl",
+          "border-x-0 border-b-0 border-t",
+          "max-h-[92dvh]",
+          "sm:top-[50%] sm:left-[50%] sm:bottom-auto sm:right-auto sm:translate-x-[-50%] sm:translate-y-[-50%] sm:rounded-2xl sm:border sm:border-border sm:max-w-2xl sm:max-h-[90vh]",
+        )}
+      >
+        <form onSubmit={handleSubmit} className="flex flex-col min-h-0">
+          <div className="px-4 pt-4 pb-3 pr-12 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shrink-0 space-y-3">
+            <DialogHeader className="text-left">
+              <DialogTitle className="text-xl sm:text-2xl font-bold tracking-tight">
+                เพิ่มงานใหม่
+              </DialogTitle>
+              <DialogDescription className="text-sm">
+                เลือกประเภทงาน แล้วกรอกข้อมูลให้ครบ
+              </DialogDescription>
+            </DialogHeader>
+
+            <SegmentedTabs
+              value={activeTab}
+              onChange={setActiveTab}
+              disabled={submitting}
+            />
+
+            <div className="flex flex-wrap gap-2 text-xs">
+              {activeTab === "normal" ? (
+                <>
+                  <span className="inline-flex items-center rounded-full border px-2 py-1 text-muted-foreground">
+                    <CalendarDays className="w-3.5 h-3.5 mr-1" />
+                    {normalPreviewChips.due}
+                  </span>
+                  <span className="inline-flex items-center rounded-full border px-2 py-1 text-muted-foreground">
+                    <Users className="w-3.5 h-3.5 mr-1" />
+                    {normalPreviewChips.assignees} คน
+                  </span>
+                  <span className="inline-flex items-center rounded-full border px-2 py-1 text-muted-foreground">
+                    <Paperclip className="w-3.5 h-3.5 mr-1" />
+                    {normalPreviewChips.files} ไฟล์
+                  </span>
+                </>
+              ) : (
+                <span className="inline-flex items-center rounded-full border px-2 py-1 text-muted-foreground">
+                  <ChevronsUpDown className="w-3.5 h-3.5 mr-1" />
+                  {recurringPreviewText}
+                </span>
+              )}
             </div>
-          ) : membersError ? (
-            <div className="py-8 text-center space-y-3">
-              <AlertCircle className="w-12 h-12 text-destructive mx-auto opacity-50" />
-              <p className="text-sm text-destructive">{membersError}</p>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={loadMembers}
-              >
-                ลองอีกครั้ง
-              </Button>
-            </div>
-          ) : members.length === 0 ? (
-            <div className="py-12 text-center">
-              <Users className="w-12 h-12 text-muted-foreground mx-auto opacity-20 mb-2" />
-              <p className="text-sm text-muted-foreground">
-                ไม่พบสมาชิกในกลุ่ม
-              </p>
-            </div>
-          ) : (
-            <>
-              {/* Header with search and actions */}
-              <div className="p-4 bg-muted/30 border-b space-y-3">
-                <div className="relative">
-                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input
-                    type="text"
-                    placeholder="ค้นหาสมาชิก..."
-                    value={memberSearchQuery}
-                    onChange={(e) => setMemberSearchQuery(e.target.value)}
-                    className="pl-10 h-10 bg-background"
-                  />
-                </div>
-                <div className="flex gap-2">
+          </div>
+
+          <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4 space-y-6">
+            {!canCreate && (
+              <Alert>
+                <AlertDescription>
+                  โหมดดูอย่างเดียว: ต้องเข้าผ่านลิงก์ที่มี{" "}
+                  <span className="font-medium">userId</span> เพื่อสร้างงาน
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {membersError && (
+              <Alert>
+                <AlertDescription className="flex items-center justify-between gap-3">
+                  <span className="text-sm text-muted-foreground">
+                    {membersError}
+                  </span>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    onClick={() => handleSelectAll(isNormal)}
-                    className="flex-1 h-8 text-xs"
+                    onClick={loadMembers}
+                    disabled={loadingMembers || submitting}
                   >
-                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                    เลือกทั้งหมด
+                    <RefreshCw className="w-4 h-4 mr-2" />
+                    โหลดใหม่
                   </Button>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => handleClearAll(isNormal)}
-                    className="flex-1 h-8 text-xs"
-                  >
-                    <X className="w-3 h-3 mr-1" />
-                    ล้างทั้งหมด
-                  </Button>
-                </div>
-              </div>
+                </AlertDescription>
+              </Alert>
+            )}
 
-              {/* Members list */}
-              <ScrollArea className="h-[280px]">
-                <div className="p-2">
-                  {filteredMembers.length === 0 ? (
-                    <div className="py-12 text-center">
-                      <Users className="w-12 h-12 text-muted-foreground mx-auto opacity-20 mb-2" />
-                      <p className="text-sm text-muted-foreground">
-                        ไม่พบสมาชิก "{memberSearchQuery}"
+            {loadingMembers && (
+              <div className="rounded-xl border bg-card p-4 text-sm text-muted-foreground flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                กำลังโหลดรายชื่อสมาชิก...
+              </div>
+            )}
+
+            {activeTab === "normal" ? (
+              <>
+                <section className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="taskTitle" className="text-sm font-semibold">
+                      ชื่องาน <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="taskTitle"
+                      ref={titleRef}
+                      value={normal.title}
+                      onChange={(e) =>
+                        setNormal((prev) => ({ ...prev, title: e.target.value }))
+                      }
+                      placeholder="เช่น: สรุปรายงานประจำสัปดาห์"
+                      className={cn(
+                        "h-11 text-base",
+                        errors.normal.title &&
+                          "border-destructive focus-visible:ring-destructive/40",
+                      )}
+                      disabled={submitting || !canCreate}
+                    />
+                    {errors.normal.title && (
+                      <p className="text-xs text-destructive">
+                        {errors.normal.title}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="taskDescription"
+                      className="text-sm font-semibold"
+                    >
+                      รายละเอียด <span className="text-destructive">*</span>
+                    </Label>
+                    <Textarea
+                      id="taskDescription"
+                      value={normal.description}
+                      onChange={(e) =>
+                        setNormal((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      placeholder="อธิบายรายละเอียดงาน..."
+                      rows={4}
+                      className={cn(
+                        "text-base resize-none",
+                        errors.normal.description &&
+                          "border-destructive focus-visible:ring-destructive/40",
+                      )}
+                      disabled={submitting || !canCreate}
+                    />
+                    {errors.normal.description && (
+                      <p className="text-xs text-destructive">
+                        {errors.normal.description}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="taskNotes" className="text-sm font-semibold">
+                      หมายเหตุเพิ่มเติม
+                    </Label>
+                    <Textarea
+                      id="taskNotes"
+                      value={normal.notes}
+                      onChange={(e) =>
+                        setNormal((prev) => ({ ...prev, notes: e.target.value }))
+                      }
+                      placeholder="หมายเหตุหรือข้อมูลเพิ่มเติม..."
+                      rows={2}
+                      className="text-base resize-none"
+                      disabled={submitting || !canCreate}
+                    />
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <CalendarDays className="w-4 h-4 text-primary" />
+                      <Label
+                        htmlFor="taskDueDate"
+                        className="text-sm font-semibold"
+                      >
+                        วันที่ครบกำหนด <span className="text-destructive">*</span>
+                      </Label>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() =>
+                          setNormal((prev) => ({
+                            ...prev,
+                            dueDate: toYYYYMMDD(new Date()),
+                          }))
+                        }
+                        disabled={submitting || !canCreate}
+                      >
+                        วันนี้
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          const d = new Date();
+                          d.setDate(d.getDate() + 1);
+                          setNormal((prev) => ({
+                            ...prev,
+                            dueDate: toYYYYMMDD(d),
+                          }));
+                        }}
+                        disabled={submitting || !canCreate}
+                      >
+                        พรุ่งนี้
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="space-y-1">
+                      <Input
+                        id="taskDueDate"
+                        type="date"
+                        value={normal.dueDate}
+                        onChange={(e) =>
+                          setNormal((prev) => ({
+                            ...prev,
+                            dueDate: e.target.value,
+                          }))
+                        }
+                        className={cn(
+                          "h-11",
+                          errors.normal.dueDate &&
+                            "border-destructive focus-visible:ring-destructive/40",
+                        )}
+                        disabled={submitting || !canCreate}
+                      />
+                      {errors.normal.dueDate && (
+                        <p className="text-xs text-destructive">
+                          {errors.normal.dueDate}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        <Clock className="w-4 h-4 text-muted-foreground" />
+                        <Input
+                          type="time"
+                          value={normal.dueTime}
+                          onChange={(e) =>
+                            setNormal((prev) => ({
+                              ...prev,
+                              dueTime: e.target.value,
+                            }))
+                          }
+                          className="h-11"
+                          disabled={submitting || !canCreate}
+                        />
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        ค่าเริ่มต้น 23:59
                       </p>
                     </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {filteredMembers.map((member) => {
-                        const isSelected = task.assignedUsers.includes(
-                          member.lineUserId
-                        );
+                  </div>
+                </section>
+
+                <section className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">
+                      ความสำคัญ <span className="text-destructive">*</span>
+                    </Label>
+                    {errors.normal.priority && (
+                      <p className="text-xs text-destructive">
+                        {errors.normal.priority}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                      {PRIORITY_NORMAL.map((opt) => {
+                        const selected = normal.priority === opt.value;
                         return (
                           <button
-                            key={member.lineUserId}
+                            key={opt.value}
                             type="button"
                             onClick={() =>
-                              handleAssigneeToggle(member.lineUserId, isNormal)
+                              setNormal((prev) => ({
+                                ...prev,
+                                priority: opt.value,
+                              }))
                             }
+                            disabled={submitting || !canCreate}
                             className={cn(
-                              "w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200",
-                              "hover:bg-accent/50 active:scale-[0.98]",
-                              isSelected
-                                ? "bg-primary/10 border-2 border-primary/30"
-                                : "border-2 border-transparent"
+                              "h-11 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                              selected
+                                ? opt.className
+                                : "border-border bg-background text-foreground hover:bg-accent/40",
                             )}
                           >
-                            <div className="relative">
-                              <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
-                                <AvatarImage src={member.pictureUrl} />
-                                <AvatarFallback
-                                  className={cn(
-                                    "text-xs font-bold text-white",
-                                    getAvatarColor(
-                                      member.displayName || member.name
-                                    )
-                                  )}
-                                >
-                                  {getInitials(
-                                    member.displayName || member.name
-                                  )}
-                                </AvatarFallback>
-                              </Avatar>
-                              {isSelected && (
-                                <div className="absolute -bottom-0.5 -right-0.5 bg-primary text-primary-foreground rounded-full p-0.5 shadow-md border-2 border-background">
-                                  <CheckCircle2 className="w-3 h-3" />
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex-1 text-left min-w-0">
-                              <p
-                                className={cn(
-                                  "text-sm font-medium truncate",
-                                  isSelected
-                                    ? "text-primary"
-                                    : "text-foreground"
-                                )}
-                              >
-                                {member.displayName || member.name}
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="taskCategory" className="text-sm font-semibold">
+                      หมวดหมู่
+                    </Label>
+                    <select
+                      id="taskCategory"
+                      value={normal.category}
+                      onChange={(e) =>
+                        setNormal((prev) => ({
+                          ...prev,
+                          category: e.target.value,
+                        }))
+                      }
+                      disabled={submitting || !canCreate}
+                      className={cn(
+                        "h-11 w-full rounded-md border bg-background px-3 text-sm",
+                        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+                      )}
+                    >
+                      {CATEGORY_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                </section>
+
+                <MemberPicker
+                  title="ผู้รับผิดชอบ"
+                  members={members}
+                  selectedIds={normal.assigneeIds}
+                  onChange={(assigneeIds) =>
+                    setNormal((prev) => ({ ...prev, assigneeIds }))
+                  }
+                  query={memberQueryNormal}
+                  onQueryChange={setMemberQueryNormal}
+                  disabled={submitting || !canCreate || loadingMembers}
+                  errorsText={errors.normal.assignees}
+                />
+
+                <section className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="taskTags" className="text-sm font-semibold">
+                      แท็ก (คั่นด้วยจุลภาค)
+                    </Label>
+                    <Input
+                      id="taskTags"
+                      value={normal.tagsText}
+                      onChange={(e) =>
+                        setNormal((prev) => ({
+                          ...prev,
+                          tagsText: e.target.value,
+                        }))
+                      }
+                      placeholder="เช่น: สำคัญ, ด่วน, รายงาน"
+                      className="h-11"
+                      disabled={submitting || !canCreate}
+                    />
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="taskReviewer"
+                      className="text-sm font-semibold"
+                    >
+                      ผู้ตรวจงาน
+                    </Label>
+                    <select
+                      id="taskReviewer"
+                      value={normal.reviewerUserId}
+                      onChange={(e) =>
+                        setNormal((prev) => ({
+                          ...prev,
+                          reviewerUserId: e.target.value,
+                        }))
+                      }
+                      disabled={submitting || !canCreate}
+                      className={cn(
+                        "h-11 w-full rounded-md border bg-background px-3 text-sm",
+                        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+                      )}
+                    >
+                      <option value="">(ไม่ระบุ)</option>
+                      {members
+                        .filter((m) => m.selectable)
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+                </section>
+
+                <section className="space-y-3">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <Paperclip className="w-4 h-4 text-primary" />
+                      <Label className="text-sm font-semibold">ไฟล์แนบ</Label>
+                    </div>
+                    {normal.files.length > 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        {normal.files.length} ไฟล์ • {formatFileSize(totalFileSize)}
+                      </span>
+                    )}
+                  </div>
+
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => fileInputRef.current?.click()}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                      }
+                    }}
+                    onDragOver={(e) => {
+                      if (submitting || !canCreate) return;
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={(e) => {
+                      if (submitting || !canCreate) return;
+                      e.preventDefault();
+                      setIsDragging(false);
+                    }}
+                    onDrop={(e) => {
+                      if (submitting || !canCreate) return;
+                      e.preventDefault();
+                      setIsDragging(false);
+                      addFiles(Array.from(e.dataTransfer.files || []));
+                    }}
+                    className={cn(
+                      "rounded-2xl border-2 border-dashed p-4 transition-colors",
+                      "bg-card hover:bg-accent/20",
+                      isDragging
+                        ? "border-primary bg-primary/5"
+                        : "border-border",
+                      (submitting || !canCreate) && "opacity-60 cursor-not-allowed",
+                    )}
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
+                        <UploadCloud className="w-5 h-5 text-primary" />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-semibold">
+                          ลากไฟล์มาวาง หรือแตะเพื่อเลือกไฟล์
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          รองรับไฟล์หลายประเภท • ไม่จำกัดขนาด (ตามข้อจำกัดเซิร์ฟเวอร์)
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    className="hidden"
+                    onChange={(e) => {
+                      addFiles(Array.from(e.target.files || []));
+                      e.target.value = "";
+                    }}
+                    disabled={submitting || !canCreate}
+                    accept=".jpg,.jpeg,.png,.gif,.webp,.svg,.pdf,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx,.txt,.zip,.rar,.7z,.mp4,.mov,.avi,.mp3,.wav"
+                  />
+
+                  {normal.files.length > 0 && (
+                    <div className="rounded-2xl border bg-card overflow-hidden">
+                      <div className="p-3 border-b bg-muted/30 text-xs text-muted-foreground">
+                        แตะปุ่ม ✕ เพื่อเอาไฟล์ออก
+                      </div>
+                      <div className="divide-y">
+                        {normal.files.map((file, index) => (
+                          <div
+                            key={`${file.name}:${file.size}:${file.lastModified || 0}`}
+                            className="flex items-center justify-between gap-3 p-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="text-sm font-medium truncate">
+                                {file.name}
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                {formatFileSize(file.size)}
                               </p>
                             </div>
-                            <div
-                              className={cn(
-                                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
-                                isSelected
-                                  ? "bg-primary border-primary"
-                                  : "border-muted-foreground/30"
-                              )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => removeFileAt(index)}
+                              disabled={submitting || !canCreate}
                             >
-                              {isSelected && (
-                                <CheckCircle2 className="w-3 h-3 text-primary-foreground" />
-                              )}
+                              <X className="w-4 h-4" />
+                            </Button>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </section>
+              </>
+            ) : (
+              <>
+                <section className="space-y-4">
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="recurringTitle"
+                      className="text-sm font-semibold"
+                    >
+                      ชื่องานประจำ <span className="text-destructive">*</span>
+                    </Label>
+                    <Input
+                      id="recurringTitle"
+                      ref={titleRef}
+                      value={recurring.title}
+                      onChange={(e) =>
+                        setRecurring((prev) => ({
+                          ...prev,
+                          title: e.target.value,
+                        }))
+                      }
+                      placeholder="เช่น: รายงานยอดขายประจำสัปดาห์"
+                      className={cn(
+                        "h-11 text-base",
+                        errors.recurring.title &&
+                          "border-destructive focus-visible:ring-destructive/40",
+                      )}
+                      disabled={submitting || !canCreate}
+                    />
+                    {errors.recurring.title && (
+                      <p className="text-xs text-destructive">
+                        {errors.recurring.title}
+                      </p>
+                    )}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="recurringDescription"
+                      className="text-sm font-semibold"
+                    >
+                      รายละเอียด
+                    </Label>
+                    <Textarea
+                      id="recurringDescription"
+                      value={recurring.description}
+                      onChange={(e) =>
+                        setRecurring((prev) => ({
+                          ...prev,
+                          description: e.target.value,
+                        }))
+                      }
+                      placeholder="อธิบายรายละเอียดงาน..."
+                      rows={3}
+                      className="text-base resize-none"
+                      disabled={submitting || !canCreate}
+                    />
+                  </div>
+                </section>
+
+                <MemberPicker
+                  title="ผู้รับผิดชอบ"
+                  members={members}
+                  selectedIds={recurring.assigneeLineUserIds}
+                  onChange={(assigneeLineUserIds) =>
+                    setRecurring((prev) => ({ ...prev, assigneeLineUserIds }))
+                  }
+                  query={memberQueryRecurring}
+                  onQueryChange={setMemberQueryRecurring}
+                  disabled={submitting || !canCreate || loadingMembers}
+                  errorsText={errors.recurring.assignees}
+                />
+
+                <section className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">ความสำคัญ</Label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {PRIORITY_RECURRING.map((opt) => {
+                        const selected = recurring.priority === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() =>
+                              setRecurring((prev) => ({
+                                ...prev,
+                                priority: opt.value,
+                              }))
+                            }
+                            disabled={submitting || !canCreate}
+                            className={cn(
+                              "h-11 rounded-xl border px-3 text-sm font-semibold transition-colors",
+                              selected
+                                ? opt.className
+                                : "border-border bg-background text-foreground hover:bg-accent/40",
+                            )}
+                          >
+                            {opt.label}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="recurringReviewer"
+                      className="text-sm font-semibold"
+                    >
+                      ผู้ตรวจงาน
+                    </Label>
+                    <select
+                      id="recurringReviewer"
+                      value={recurring.reviewerLineUserId}
+                      onChange={(e) =>
+                        setRecurring((prev) => ({
+                          ...prev,
+                          reviewerLineUserId: e.target.value,
+                        }))
+                      }
+                      disabled={submitting || !canCreate}
+                      className={cn(
+                        "h-11 w-full rounded-md border bg-background px-3 text-sm",
+                        "focus-visible:ring-ring focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-hidden",
+                      )}
+                    >
+                      <option value="">(ไม่ระบุ)</option>
+                      {members
+                        .filter((m) => m.selectable)
+                        .map((m) => (
+                          <option key={m.id} value={m.id}>
+                            {m.name}
+                          </option>
+                        ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="recurringTags" className="text-sm font-semibold">
+                      แท็ก (คั่นด้วยจุลภาค)
+                    </Label>
+                    <Input
+                      id="recurringTags"
+                      value={recurring.tagsText}
+                      onChange={(e) =>
+                        setRecurring((prev) => ({
+                          ...prev,
+                          tagsText: e.target.value,
+                        }))
+                      }
+                      placeholder="เช่น: รายงาน, ประจำ, ขาย"
+                      className="h-11"
+                      disabled={submitting || !canCreate}
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2 text-sm">
+                    <Checkbox
+                      checked={recurring.requireAttachment}
+                      onCheckedChange={(checked) =>
+                        setRecurring((prev) => ({
+                          ...prev,
+                          requireAttachment: Boolean(checked),
+                        }))
+                      }
+                      disabled={submitting || !canCreate}
+                    />
+                    ต้องแนบไฟล์เมื่อส่งงาน
+                  </label>
+                </section>
+
+                <section className="space-y-3">
+                  <div className="space-y-2">
+                    <Label className="text-sm font-semibold">
+                      รอบการทำงาน <span className="text-destructive">*</span>
+                    </Label>
+                    {errors.recurring.recurrence && (
+                      <p className="text-xs text-destructive">
+                        {errors.recurring.recurrence}
+                      </p>
+                    )}
+                    <div className="space-y-2">
+                      {RECURRENCE_OPTIONS.map((opt) => {
+                        const selected = recurring.recurrence === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() =>
+                              setRecurring((prev) => ({
+                                ...prev,
+                                recurrence: opt.value,
+                              }))
+                            }
+                            disabled={submitting || !canCreate}
+                            className={cn(
+                              "w-full rounded-2xl border p-3 text-left transition-colors",
+                              selected
+                                ? "border-primary bg-primary/5"
+                                : "border-border bg-card hover:bg-accent/30",
+                            )}
+                          >
+                            <div className="flex items-start gap-3">
+                              <div className="text-xl leading-none">{opt.icon}</div>
+                              <div className="min-w-0">
+                                <p className="text-sm font-semibold">
+                                  {opt.title}
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  {opt.description}
+                                </p>
+                              </div>
                             </div>
                           </button>
                         );
                       })}
                     </div>
-                  )}
-                </div>
-              </ScrollArea>
-            </>
-          )}
-        </div>
-      </div>
-    );
-  };
-
-  const renderTaskForm = (isNormal = true) => {
-    const task = isNormal ? normalTask : recurringTask;
-    const setTask = isNormal ? setNormalTask : setRecurringTask;
-
-    return (
-      <form onSubmit={handleSubmit} className="space-y-6">
-        {/* Title */}
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            ชื่องาน
-            <span className="text-destructive">*</span>
-          </Label>
-          <Input
-            value={task.title}
-            onChange={(e) => setTask({ ...task, title: e.target.value })}
-            placeholder="ระบุชื่องาน..."
-            className="h-11 text-base"
-            required
-          />
-        </div>
-
-        {/* Description */}
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <FileText className="w-4 h-4 text-primary" />
-            รายละเอียด
-          </Label>
-          <Textarea
-            value={task.description}
-            onChange={(e) => setTask({ ...task, description: e.target.value })}
-            placeholder="ระบุรายละเอียดงาน..."
-            rows={3}
-            className="text-base resize-none"
-          />
-        </div>
-
-        {/* Date & Time */}
-        {isNormal ? (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold flex items-center gap-2">
-                <CalendarIcon className="w-4 h-4 text-primary" />
-                วันที่ครบกำหนด
-                <span className="text-destructive">*</span>
-              </Label>
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className={cn(
-                      "w-full justify-start text-left h-11 font-normal",
-                      !task.dueDate && "text-muted-foreground"
-                    )}
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4" />
-                    {task.dueDate
-                      ? format(task.dueDate, "d MMMM yyyy", { locale: th })
-                      : "เลือกวันที่"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={task.dueDate}
-                    onSelect={(date) => setTask({ ...task, dueDate: date })}
-                    initialFocus
-                    fromDate={new Date()}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold flex items-center gap-2">
-                <Clock className="w-4 h-4 text-primary" />
-                เวลา
-                <span className="text-xs text-muted-foreground font-normal">
-                  (ค่าเริ่มต้น 23:59)
-                </span>
-              </Label>
-              <Input
-                type="time"
-                value={task.dueTime}
-                onChange={(e) => setTask({ ...task, dueTime: e.target.value })}
-                className="h-11"
-              />
-            </div>
-          </div>
-        ) : (
-          <>
-            {/* Recurrence Type */}
-            <div className="space-y-2">
-              <Label className="text-sm font-semibold">รอบการทำซ้ำ *</Label>
-              <Select
-                value={task.recurrence}
-                onValueChange={(value) =>
-                  setTask({ ...task, recurrence: value })
-                }
-              >
-                <SelectTrigger className="h-11">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="daily">รายวัน</SelectItem>
-                  <SelectItem value="weekly">รายสัปดาห์</SelectItem>
-                  <SelectItem value="monthly">รายเดือน</SelectItem>
-                  <SelectItem value="quarterly">รายไตรมาส</SelectItem>
-                  <SelectItem value="custom">กำหนดเอง</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Custom Recurrence */}
-            {task.recurrence === "custom" && (
-              <CustomRecurrenceUI
-                value={task.customRecurrence}
-                onChange={(value) =>
-                  setTask({ ...task, customRecurrence: value })
-                }
-              />
-            )}
-
-            {/* Start Date & Time */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <CalendarIcon className="w-4 h-4 text-primary" />
-                  วันที่เริ่มต้น
-                  <span className="text-destructive">*</span>
-                </Label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      className={cn(
-                        "w-full justify-start text-left h-11 font-normal",
-                        !task.startDate && "text-muted-foreground"
-                      )}
-                    >
-                      <CalendarIcon className="mr-2 h-4 w-4" />
-                      {task.startDate
-                        ? format(task.startDate, "d MMMM yyyy", { locale: th })
-                        : "เลือกวันที่"}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent className="w-auto p-0" align="start">
-                    <Calendar
-                      mode="single"
-                      selected={task.startDate}
-                      onSelect={(date) => setTask({ ...task, startDate: date })}
-                      initialFocus
-                      fromDate={new Date()}
-                    />
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm font-semibold flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-primary" />
-                  เวลา
-                  <span className="text-xs text-muted-foreground font-normal">
-                    (ค่าเริ่มต้น 09:00)
-                  </span>
-                </Label>
-                <Input
-                  type="time"
-                  value={task.time}
-                  onChange={(e) => setTask({ ...task, time: e.target.value })}
-                  className="h-11"
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Priority */}
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            {getPriorityIcon(task.priority)}
-            ความสำคัญ
-          </Label>
-          <Select
-            value={task.priority}
-            onValueChange={(value) => setTask({ ...task, priority: value })}
-          >
-            <SelectTrigger className="h-11">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="low">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-blue-500" />
-                  ต่ำ
-                </div>
-              </SelectItem>
-              <SelectItem value="medium">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-yellow-500" />
-                  ปานกลาง
-                </div>
-              </SelectItem>
-              <SelectItem value="high">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-orange-500" />
-                  สูง
-                </div>
-              </SelectItem>
-              <SelectItem value="urgent">
-                <div className="flex items-center gap-2">
-                  <AlertCircle className="w-4 h-4 text-red-500" />
-                  ด่วนมาก
-                </div>
-              </SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        {/* Assigned Users */}
-        {renderMemberSelector(isNormal)}
-
-        {/* Reviewer */}
-        <div className="space-y-2">
-          <Label className="text-sm font-semibold flex items-center gap-2">
-            <User className="w-4 h-4 text-primary" />
-            ผู้ตรวจงาน
-          </Label>
-          <Select
-            value={task.reviewer || "__none"}
-            onValueChange={(value) =>
-              setTask({ ...task, reviewer: value === "__none" ? "" : value })
-            }
-          >
-            <SelectTrigger className="h-11">
-              <SelectValue placeholder="(ไม่ระบุ)" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="__none">(ไม่ระบุ)</SelectItem>
-              {members.map((member) => (
-                <SelectItem key={member.lineUserId} value={member.lineUserId}>
-                  <div className="flex items-center gap-2">
-                    <Avatar className="h-5 w-5">
-                      <AvatarImage src={member.pictureUrl} />
-                      <AvatarFallback className="text-[10px]">
-                        {getInitials(member.displayName || member.name)}
-                      </AvatarFallback>
-                    </Avatar>
-                    {member.displayName || member.name}
                   </div>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
 
-        {/* Actions */}
-        <div className="flex gap-3 pt-4 sticky bottom-0 bg-background pb-2 -mx-6 px-6 border-t mt-6">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={closeAddTask}
-            className="flex-1 h-12 text-base"
-            disabled={loading}
-          >
-            ยกเลิก
-          </Button>
-          <Button
-            type="submit"
-            disabled={loading}
-            className="flex-1 h-12 text-base font-semibold shadow-lg"
-          >
-            {loading ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
-                กำลังสร้าง...
-              </>
-            ) : (
-              <>
-                <CheckCircle2 className="w-4 h-4 mr-2" />
-                {isNormal ? "สร้างงาน" : "สร้างงานประจำ"}
+                  <div className="rounded-2xl border bg-card p-4 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <Label className="text-sm font-semibold">
+                        วันกำหนดส่งครั้งแรก <span className="text-destructive">*</span>
+                      </Label>
+                      <div className="flex items-center gap-2">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() =>
+                            setRecurring((prev) => ({
+                              ...prev,
+                              initialDueDate: toYYYYMMDD(new Date()),
+                            }))
+                          }
+                          disabled={submitting || !canCreate}
+                        >
+                          วันนี้
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          size="sm"
+                          onClick={() => {
+                            const d = new Date();
+                            d.setDate(d.getDate() + 1);
+                            setRecurring((prev) => ({
+                              ...prev,
+                              initialDueDate: toYYYYMMDD(d),
+                            }));
+                          }}
+                          disabled={submitting || !canCreate}
+                        >
+                          พรุ่งนี้
+                        </Button>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div className="space-y-1">
+                        <Input
+                          type="date"
+                          value={recurring.initialDueDate}
+                          onChange={(e) =>
+                            setRecurring((prev) => ({
+                              ...prev,
+                              initialDueDate: e.target.value,
+                            }))
+                          }
+                          className={cn(
+                            "h-11",
+                            errors.recurring.initialDueDate &&
+                              "border-destructive focus-visible:ring-destructive/40",
+                          )}
+                          disabled={submitting || !canCreate}
+                        />
+                        {errors.recurring.initialDueDate && (
+                          <p className="text-xs text-destructive">
+                            {errors.recurring.initialDueDate}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <Input
+                          type="time"
+                          value={recurring.initialDueTime}
+                          onChange={(e) =>
+                            setRecurring((prev) => ({
+                              ...prev,
+                              initialDueTime: e.target.value,
+                            }))
+                          }
+                          className="h-11"
+                          disabled={submitting || !canCreate}
+                        />
+                        <p className="text-xs text-muted-foreground">
+                          ค่าเริ่มต้น 23:59
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl bg-blue-50 border border-blue-100 p-3">
+                      <p className="text-xs text-blue-700 font-semibold mb-1">
+                        💡 ตัวอย่าง
+                      </p>
+                      <p className="text-xs text-blue-700">{recurringPreviewText}</p>
+                    </div>
+                  </div>
+                </section>
               </>
             )}
-          </Button>
-        </div>
-      </form>
-    );
-  };
-
-  return (
-    <Dialog open={isAddTaskOpen} onOpenChange={closeAddTask}>
-      <DialogContent className="max-w-2xl max-h-[95vh] w-[95vw] p-0 gap-0 overflow-hidden flex flex-col">
-        <DialogHeader className="px-6 py-5 border-b bg-gradient-to-r from-primary/5 to-primary/10 shrink-0">
-          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
-            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
-              <FileText className="w-5 h-5 text-primary" />
-            </div>
-            เพิ่มงานใหม่
-          </DialogTitle>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1">
-          <div className="p-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2 h-12 mb-6">
-                <TabsTrigger value="normal" className="text-base font-medium">
-                  <FileText className="w-4 h-4 mr-2" />
-                  งานทั่วไป
-                </TabsTrigger>
-                <TabsTrigger value="recurring" className="text-base font-medium">
-                  <CalendarIcon className="w-4 h-4 mr-2" />
-                  งานประจำ
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="normal" className="mt-0">
-                {renderTaskForm(true)}
-              </TabsContent>
-
-              <TabsContent value="recurring" className="mt-0">
-                {renderTaskForm(false)}
-              </TabsContent>
-            </Tabs>
           </div>
-        </ScrollArea>
+
+          <div className="px-4 py-3 border-t bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80 shrink-0">
+            <div className="flex gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 h-12 text-base"
+                onClick={closeAndReset}
+                disabled={submitting}
+              >
+                ยกเลิก
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="h-12 px-4"
+                onClick={resetAll}
+                disabled={submitting}
+                title="ล้างข้อมูลทั้งหมด"
+              >
+                ล้าง
+              </Button>
+              <Button
+                type="submit"
+                className="flex-1 h-12 text-base font-semibold"
+                disabled={submitting || !canCreate}
+              >
+                {submitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                    กำลังสร้าง...
+                  </>
+                ) : activeTab === "recurring" ? (
+                  "สร้างงานประจำ"
+                ) : (
+                  "เพิ่มงาน"
+                )}
+              </Button>
+            </div>
+          </div>
+        </form>
       </DialogContent>
     </Dialog>
   );
