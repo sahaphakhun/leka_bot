@@ -7,7 +7,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogDescription,
 } from "../ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
 import { Button } from "../ui/button";
@@ -21,12 +20,21 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
-import { Checkbox } from "../ui/checkbox";
 import { Calendar } from "../ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { ScrollArea } from "../ui/scroll-area";
 import { Avatar, AvatarFallback, AvatarImage } from "../ui/avatar";
-import { CalendarIcon, X, Search, Check, Users } from "lucide-react";
+import { Badge } from "../ui/badge";
+import {
+  CalendarIcon,
+  Clock,
+  User,
+  Users,
+  FileText,
+  AlertCircle,
+  CheckCircle2,
+  X
+} from "lucide-react";
 import { format } from "date-fns";
 import { th } from "date-fns/locale";
 import { cn } from "../../lib/utils";
@@ -37,8 +45,6 @@ export default function AddTaskModal({ onTaskCreated }) {
   const { isAddTaskOpen, closeAddTask, addTaskDefaultTab } = useModal();
   const [activeTab, setActiveTab] = useState("normal");
   const [loading, setLoading] = useState(false);
-  const [isNormalDateOpen, setIsNormalDateOpen] = useState(false);
-  const [isRecurringDateOpen, setIsRecurringDateOpen] = useState(false);
 
   // Normal task form
   const [normalTask, setNormalTask] = useState({
@@ -69,12 +75,10 @@ export default function AddTaskModal({ onTaskCreated }) {
     },
   });
 
-  // Members list - loaded from API
+  // Members list
   const [members, setMembers] = useState([]);
   const [loadingMembers, setLoadingMembers] = useState(false);
   const [membersError, setMembersError] = useState(null);
-
-  // Search for members
   const [memberSearchQuery, setMemberSearchQuery] = useState("");
 
   // Set default tab
@@ -83,11 +87,6 @@ export default function AddTaskModal({ onTaskCreated }) {
       setActiveTab(addTaskDefaultTab || "normal");
     }
   }, [isAddTaskOpen, addTaskDefaultTab]);
-
-  useEffect(() => {
-    setIsNormalDateOpen(false);
-    setIsRecurringDateOpen(false);
-  }, [activeTab]);
 
   // Load members from API
   const loadMembers = useCallback(async () => {
@@ -152,8 +151,6 @@ export default function AddTaskModal({ onTaskCreated }) {
         dayOfMonth: 1,
       },
     });
-    setIsNormalDateOpen(false);
-    setIsRecurringDateOpen(false);
     setMemberSearchQuery("");
   }, []);
 
@@ -206,7 +203,6 @@ export default function AddTaskModal({ onTaskCreated }) {
         );
 
         if (activeTab === "normal") {
-          // Combine date and time into a single DateTime string
           const dueDate = formatDateForApi(normalTask.dueDate);
           const dueTimeStr = normalTask.dueTime || "23:59";
           const combinedDueTime = `${dueDate}T${dueTimeStr}:00.000+07:00`;
@@ -216,10 +212,9 @@ export default function AddTaskModal({ onTaskCreated }) {
             description: normalTask.description || "",
             dueTime: combinedDueTime,
             priority: normalTask.priority,
-            // category: normalTask.category, // ❌ Backend ไม่รองรับ field นี้
-            assigneeIds: [...new Set(normalTask.assignedUsers)], // Backend expects assigneeIds
+            assigneeIds: [...new Set(normalTask.assignedUsers)],
             requireAttachment: false,
-            createdBy: userId, // Required by backend
+            createdBy: userId,
           };
           if (normalTask.reviewer) {
             payload.reviewerUserId = normalTask.reviewer;
@@ -238,13 +233,12 @@ export default function AddTaskModal({ onTaskCreated }) {
                 recurringTask.customRecurrence?.daysOfWeek?.slice() || [],
             },
           };
-          // ลบ category ออกเพราะ backend ไม่รองรับ
           delete payload.category;
           await createRecurringTask(groupId, payload);
         }
 
         showSuccess(
-          activeTab === "normal" ? "สร้างงานสำเร็จ" : "สร้างงานประจำสำเร็จ",
+          activeTab === "normal" ? "สร้างงานสำเร็จ" : "สร้างงานประจำสำเร็จ"
         );
         if (onTaskCreated) onTaskCreated();
         closeAddTask();
@@ -266,7 +260,7 @@ export default function AddTaskModal({ onTaskCreated }) {
       closeAddTask,
       resetForms,
       formatDateForApi,
-    ],
+    ]
   );
 
   const handleAssigneeToggle = (userId, isNormal = true) => {
@@ -281,25 +275,15 @@ export default function AddTaskModal({ onTaskCreated }) {
   };
 
   const handleSelectAll = (isNormal = true) => {
-    const task = isNormal ? normalTask : recurringTask;
     const setTask = isNormal ? setNormalTask : setRecurringTask;
-
+    const task = isNormal ? normalTask : recurringTask;
     setTask({ ...task, assignedUsers: members.map((m) => m.lineUserId) });
   };
 
   const handleClearAll = (isNormal = true) => {
-    const task = isNormal ? normalTask : recurringTask;
     const setTask = isNormal ? setNormalTask : setRecurringTask;
-
+    const task = isNormal ? normalTask : recurringTask;
     setTask({ ...task, assignedUsers: [] });
-  };
-
-  const handleOpenChange = (open) => {
-    if (!open) {
-      closeAddTask();
-      setIsNormalDateOpen(false);
-      setIsRecurringDateOpen(false);
-    }
   };
 
   const getInitials = (name) => {
@@ -314,14 +298,14 @@ export default function AddTaskModal({ onTaskCreated }) {
 
   const getAvatarColor = (name) => {
     const colors = [
-      "bg-red-100 text-red-600",
-      "bg-blue-100 text-blue-600",
-      "bg-green-100 text-green-600",
-      "bg-yellow-100 text-yellow-600",
-      "bg-purple-100 text-purple-600",
-      "bg-pink-100 text-pink-600",
-      "bg-indigo-100 text-indigo-600",
-      "bg-orange-100 text-orange-600",
+      "bg-blue-500",
+      "bg-green-500",
+      "bg-yellow-500",
+      "bg-purple-500",
+      "bg-pink-500",
+      "bg-indigo-500",
+      "bg-red-500",
+      "bg-orange-500",
     ];
     let hash = 0;
     for (let i = 0; i < name.length; i++) {
@@ -330,684 +314,528 @@ export default function AddTaskModal({ onTaskCreated }) {
     return colors[Math.abs(hash) % colors.length];
   };
 
-  return (
-    <Dialog open={isAddTaskOpen} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-xl max-h-[95vh] w-[95vw] sm:w-full p-0 gap-0 overflow-hidden flex flex-col rounded-xl sm:rounded-2xl">
-        <DialogHeader className="px-6 py-4 border-b shrink-0 bg-background/95 backdrop-blur z-10 sticky top-0">
-          <DialogTitle className="text-xl font-bold text-foreground">เพิ่มงานใหม่</DialogTitle>
-          <DialogDescription className="text-muted-foreground/80">สร้างงานใหม่หรืองานประจำ</DialogDescription>
-        </DialogHeader>
+  const getPriorityIcon = (priority) => {
+    switch (priority) {
+      case "urgent":
+        return <AlertCircle className="w-4 h-4 text-red-500" />;
+      case "high":
+        return <AlertCircle className="w-4 h-4 text-orange-500" />;
+      case "medium":
+        return <AlertCircle className="w-4 h-4 text-yellow-500" />;
+      default:
+        return <AlertCircle className="w-4 h-4 text-blue-500" />;
+    }
+  };
 
-        <ScrollArea className="flex-1 overflow-y-auto">
-          <div className="p-6">
+  const getPriorityLabel = (priority) => {
+    const labels = {
+      urgent: "ด่วนมาก",
+      high: "สูง",
+      medium: "ปานกลาง",
+      low: "ต่ำ",
+    };
+    return labels[priority] || priority;
+  };
 
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="normal">📄 งานทั่วไป</TabsTrigger>
-                <TabsTrigger value="recurring">🔄 งานประจำ</TabsTrigger>
-              </TabsList>
+  const renderMemberSelector = (isNormal = true) => {
+    const task = isNormal ? normalTask : recurringTask;
+    const selectedCount = task.assignedUsers.length;
 
-              {/* Normal Task Form */}
-              <TabsContent value="normal">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Title */}
-                  <div className="space-y-2">
-                    <Label htmlFor="title">ชื่องาน *</Label>
-                    <Input
-                      id="title"
-                      value={normalTask.title}
-                      onChange={(e) =>
-                        setNormalTask({ ...normalTask, title: e.target.value })
-                      }
-                      placeholder="ระบุชื่องาน"
-                      required
-                    />
-                  </div>
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <Users className="w-4 h-4 text-primary" />
+            ผู้รับผิดชอบ
+            <span className="text-destructive">*</span>
+          </Label>
+          {selectedCount > 0 && (
+            <Badge variant="secondary" className="text-xs">
+              เลือกแล้ว {selectedCount} คน
+            </Badge>
+          )}
+        </div>
 
-                  {/* Description */}
-                  <div className="space-y-2">
-                    <Label htmlFor="description">รายละเอียด</Label>
-                    <Textarea
-                      id="description"
-                      value={normalTask.description}
-                      onChange={(e) =>
-                        setNormalTask({
-                          ...normalTask,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="ระบุรายละเอียด"
-                      rows={3}
-                    />
-                  </div>
+        <div className="border-2 border-border rounded-xl overflow-hidden bg-card">
+          {loadingMembers ? (
+            <div className="flex items-center justify-center py-12">
+              <div className="text-center space-y-2">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+                <p className="text-sm text-muted-foreground">กำลังโหลด...</p>
+              </div>
+            </div>
+          ) : membersError ? (
+            <div className="py-8 text-center space-y-3">
+              <AlertCircle className="w-12 h-12 text-destructive mx-auto opacity-50" />
+              <p className="text-sm text-destructive">{membersError}</p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={loadMembers}
+              >
+                ลองอีกครั้ง
+              </Button>
+            </div>
+          ) : members.length === 0 ? (
+            <div className="py-12 text-center">
+              <Users className="w-12 h-12 text-muted-foreground mx-auto opacity-20 mb-2" />
+              <p className="text-sm text-muted-foreground">
+                ไม่พบสมาชิกในกลุ่ม
+              </p>
+            </div>
+          ) : (
+            <>
+              {/* Header with search and actions */}
+              <div className="p-4 bg-muted/30 border-b space-y-3">
+                <div className="relative">
+                  <Users className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="ค้นหาสมาชิก..."
+                    value={memberSearchQuery}
+                    onChange={(e) => setMemberSearchQuery(e.target.value)}
+                    className="pl-10 h-10 bg-background"
+                  />
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleSelectAll(isNormal)}
+                    className="flex-1 h-8 text-xs"
+                  >
+                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                    เลือกทั้งหมด
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => handleClearAll(isNormal)}
+                    className="flex-1 h-8 text-xs"
+                  >
+                    <X className="w-3 h-3 mr-1" />
+                    ล้างทั้งหมด
+                  </Button>
+                </div>
+              </div>
 
-                  {/* Due Date & Time */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1">
-                        วันที่ครบกำหนด <span className="text-red-500">*</span>
-                      </Label>
-                      <Popover
-                        modal={false}
-                        open={isNormalDateOpen}
-                        onOpenChange={setIsNormalDateOpen}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
+              {/* Members list */}
+              <ScrollArea className="h-[280px]">
+                <div className="p-2">
+                  {filteredMembers.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <Users className="w-12 h-12 text-muted-foreground mx-auto opacity-20 mb-2" />
+                      <p className="text-sm text-muted-foreground">
+                        ไม่พบสมาชิก "{memberSearchQuery}"
+                      </p>
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {filteredMembers.map((member) => {
+                        const isSelected = task.assignedUsers.includes(
+                          member.lineUserId
+                        );
+                        return (
+                          <button
+                            key={member.lineUserId}
                             type="button"
-                            variant="outline"
+                            onClick={() =>
+                              handleAssigneeToggle(member.lineUserId, isNormal)
+                            }
                             className={cn(
-                              "w-full justify-start text-left font-normal h-10 hover:bg-accent transition-colors",
-                              !normalTask.dueDate && "text-muted-foreground",
+                              "w-full flex items-center gap-3 p-3 rounded-lg transition-all duration-200",
+                              "hover:bg-accent/50 active:scale-[0.98]",
+                              isSelected
+                                ? "bg-primary/10 border-2 border-primary/30"
+                                : "border-2 border-transparent"
                             )}
                           >
-                            <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                            {normalTask.dueDate
-                              ? format(normalTask.dueDate, "d MMMM yyyy", {
-                                locale: th,
-                              })
-                              : "เลือกวันที่"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          align="start"
-                          sideOffset={12}
-                          side="bottom"
-                          className="w-auto p-0 shadow-xl border-2"
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={normalTask.dueDate}
-                            onSelect={(date) => {
-                              if (!date) {
-                                setNormalTask((prev) => ({
-                                  ...prev,
-                                  dueDate: null,
-                                }));
-                                return;
-                              }
-                              setNormalTask((prev) => ({ ...prev, dueDate: date }));
-                              setIsNormalDateOpen(false);
-                            }}
-                            initialFocus
-                            fromDate={new Date()}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="dueTime" className="flex items-center gap-1">
-                        เวลา{" "}
-                        <span className="text-muted-foreground text-xs">
-                          (เริ่มต้น 23:59)
-                        </span>
-                      </Label>
-                      <Input
-                        id="dueTime"
-                        type="time"
-                        value={normalTask.dueTime}
-                        onChange={(e) =>
-                          setNormalTask({ ...normalTask, dueTime: e.target.value })
-                        }
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Priority */}
-                  <div className="space-y-2">
-                    <Label>ความสำคัญ</Label>
-                    <Select
-                      value={normalTask.priority}
-                      onValueChange={(value) =>
-                        setNormalTask({ ...normalTask, priority: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">ต่ำ</SelectItem>
-                        <SelectItem value="medium">ปานกลาง</SelectItem>
-                        <SelectItem value="high">สูง</SelectItem>
-                        <SelectItem value="urgent">ด่วน</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Assigned Users */}
-                  <div className="space-y-2">
-                    <Label>ผู้รับผิดชอบ *</Label>
-                    <div className="border rounded-lg p-4 space-y-3">
-                      {loadingMembers ? (
-                        <div className="flex items-center justify-center py-8 text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-                            <span className="text-sm">
-                              กำลังโหลดรายชื่อสมาชิก...
-                            </span>
-                          </div>
-                        </div>
-                      ) : membersError ? (
-                        <div className="py-4 text-center space-y-2">
-                          <p className="text-sm text-destructive">{membersError}</p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={loadMembers}
-                          >
-                            ลองอีกครั้ง
-                          </Button>
-                        </div>
-                      ) : members.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          ไม่พบสมาชิกในกลุ่ม
-                        </p>
-                      ) : (
-                        <>
-                          <>
-                            {/* Search & Actions Header */}
-                            <div className="p-3 border-b bg-muted/20 space-y-3">
-                              <div className="relative">
-                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                <Input
-                                  type="text"
-                                  placeholder="ค้นหาชื่อสมาชิก..."
-                                  value={memberSearchQuery}
-                                  onChange={(e) => setMemberSearchQuery(e.target.value)}
-                                  className="pl-9 h-10 bg-background border-muted-foreground/20 focus-visible:ring-offset-0 focus-visible:ring-1"
-                                />
-                              </div>
-                              <div className="flex gap-2 justify-end">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="xs"
-                                  onClick={() => handleSelectAll(true)}
-                                  className="text-xs h-7 px-2 text-primary hover:text-primary/80 hover:bg-primary/10"
-                                >
-                                  เลือกทั้งหมด
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="xs"
-                                  onClick={() => handleClearAll(true)}
-                                  className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                                >
-                                  ล้างทั้งหมด
-                                </Button>
-                              </div>
-                            </div>
-
-                            {/* Members List */}
-                            <ScrollArea className="h-[240px]">
-                              <div className="p-2 space-y-1">
-                                {filteredMembers.length === 0 ? (
-                                  <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm">
-                                    <Search className="w-8 h-8 mb-2 opacity-20" />
-                                    <p>ไม่พบสมาชิกที่ชื่อ "{memberSearchQuery}"</p>
-                                  </div>
-                                ) : (
-                                  filteredMembers.map((member) => {
-                                    const isSelected = normalTask.assignedUsers.includes(member.lineUserId);
-                                    return (
-                                      <div
-                                        key={member.lineUserId}
-                                        onClick={() => handleAssigneeToggle(member.lineUserId, true)}
-                                        className={cn(
-                                          "flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-all duration-200 border border-transparent",
-                                          isSelected
-                                            ? "bg-primary/5 border-primary/20 shadow-sm"
-                                            : "hover:bg-accent hover:border-accent"
-                                        )}
-                                      >
-                                        <div className="relative">
-                                          <Avatar className="h-9 w-9 ring-2 ring-background shadow-sm">
-                                            <AvatarImage src={member.pictureUrl} />
-                                            <AvatarFallback className={cn("text-xs font-semibold", getAvatarColor(member.displayName || member.name))}>
-                                              {getInitials(member.displayName || member.name)}
-                                            </AvatarFallback>
-                                          </Avatar>
-                                          {isSelected && (
-                                            <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-[2px] shadow-sm ring-2 ring-background">
-                                              <Check className="w-2.5 h-2.5" />
-                                            </div>
-                                          )}
-                                        </div>
-
-                                        <div className="flex-1 min-w-0">
-                                          <p className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
-                                            {member.displayName || member.name}
-                                          </p>
-                                        </div>
-
-                                        <Checkbox
-                                          id={`assignee-${member.lineUserId}`}
-                                          checked={isSelected}
-                                          onCheckedChange={() => handleAssigneeToggle(member.lineUserId, true)}
-                                          className={cn("data-[state=checked]:bg-primary data-[state=checked]:border-primary", !isSelected && "border-muted-foreground/30")}
-                                        />
-                                      </div>
-                                    )
-                                  })
-                                )}
-                              </div>
-                            </ScrollArea>
-                          </>
-                        </>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Reviewer */}
-                  <div className="space-y-2">
-                    <Label>ผู้ตรวจงาน</Label>
-                    <Select
-                      value={normalTask.reviewer || "__none"}
-                      onValueChange={(value) =>
-                        setNormalTask({
-                          ...normalTask,
-                          reviewer: value === "__none" ? "" : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-11">
-                        <SelectValue placeholder="(ไม่ระบุ)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">(ไม่ระบุ)</SelectItem>
-                        {members.map((member) => (
-                          <SelectItem
-                            key={member.lineUserId}
-                            value={member.lineUserId}
-                          >
-                            <div className="flex items-center gap-2">
-                              <Avatar className="h-5 w-5">
+                            <div className="relative">
+                              <Avatar className="h-10 w-10 border-2 border-background shadow-sm">
                                 <AvatarImage src={member.pictureUrl} />
-                                <AvatarFallback className="text-[10px]">
-                                  {getInitials(member.displayName || member.name)}
+                                <AvatarFallback
+                                  className={cn(
+                                    "text-xs font-bold text-white",
+                                    getAvatarColor(
+                                      member.displayName || member.name
+                                    )
+                                  )}
+                                >
+                                  {getInitials(
+                                    member.displayName || member.name
+                                  )}
                                 </AvatarFallback>
                               </Avatar>
-                              <span>{member.displayName || member.name}</span>
-                            </div>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Actions */}
-                  <div className="flex justify-end gap-3 pt-6 sticky bottom-0 bg-background pb-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={closeAddTask}
-                      className="h-11 px-6 rounded-lg hover:bg-muted/50"
-                    >
-                      ยกเลิก
-                    </Button>
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      className="h-11 px-8 rounded-lg shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      {loading ? "กำลังสร้าง..." : "สร้างงาน"}
-                    </Button>
-                  </div>
-                </form>
-              </TabsContent>
-
-              {/* Recurring Task Form */}
-              <TabsContent value="recurring">
-                <form onSubmit={handleSubmit} className="space-y-4">
-                  {/* Title */}
-                  <div className="space-y-2">
-                    <Label htmlFor="recurring-title">ชื่องาน *</Label>
-                    <Input
-                      id="recurring-title"
-                      value={recurringTask.title}
-                      onChange={(e) =>
-                        setRecurringTask({
-                          ...recurringTask,
-                          title: e.target.value,
-                        })
-                      }
-                      placeholder="ระบุชื่องาน"
-                      required
-                    />
-                  </div>
-
-                  {/* Description */}
-                  <div className="space-y-2">
-                    <Label htmlFor="recurring-description">รายละเอียด</Label>
-                    <Textarea
-                      id="recurring-description"
-                      value={recurringTask.description}
-                      onChange={(e) =>
-                        setRecurringTask({
-                          ...recurringTask,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="ระบุรายละเอียด"
-                      rows={3}
-                    />
-                  </div>
-
-                  {/* Recurrence */}
-                  <div className="space-y-2">
-                    <Label>รอบการทำซ้ำ *</Label>
-                    <Select
-                      value={recurringTask.recurrence}
-                      onValueChange={(value) =>
-                        setRecurringTask({ ...recurringTask, recurrence: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="daily">รายวัน</SelectItem>
-                        <SelectItem value="weekly">รายสัปดาห์</SelectItem>
-                        <SelectItem value="monthly">รายเดือน</SelectItem>
-                        <SelectItem value="quarterly">รายไตรมาส</SelectItem>
-                        <SelectItem value="custom">กำหนดเอง</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Custom Recurrence UI */}
-                  {recurringTask.recurrence === "custom" && (
-                    <CustomRecurrenceUI
-                      value={recurringTask.customRecurrence}
-                      onChange={(value) =>
-                        setRecurringTask({
-                          ...recurringTask,
-                          customRecurrence: value,
-                        })
-                      }
-                    />
-                  )}
-
-                  {/* Start Date & Time */}
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label className="flex items-center gap-1">
-                        วันที่เริ่ม <span className="text-red-500">*</span>
-                      </Label>
-                      <Popover
-                        modal={false}
-                        open={isRecurringDateOpen}
-                        onOpenChange={setIsRecurringDateOpen}
-                      >
-                        <PopoverTrigger asChild>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            className={cn(
-                              "w-full justify-start text-left font-normal h-10 hover:bg-accent transition-colors",
-                              !recurringTask.startDate && "text-muted-foreground",
-                            )}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4 text-primary" />
-                            {recurringTask.startDate
-                              ? format(recurringTask.startDate, "d MMMM yyyy", {
-                                locale: th,
-                              })
-                              : "เลือกวันที่"}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent
-                          align="start"
-                          sideOffset={12}
-                          side="bottom"
-                          className="w-auto p-0 shadow-xl border-2"
-                        >
-                          <Calendar
-                            mode="single"
-                            selected={recurringTask.startDate}
-                            onSelect={(date) => {
-                              if (!date) {
-                                setRecurringTask((prev) => ({
-                                  ...prev,
-                                  startDate: null,
-                                }));
-                                return;
-                              }
-                              setRecurringTask((prev) => ({
-                                ...prev,
-                                startDate: date,
-                              }));
-                              setIsRecurringDateOpen(false);
-                            }}
-                            initialFocus
-                            fromDate={new Date()}
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label
-                        htmlFor="recurring-time"
-                        className="flex items-center gap-1"
-                      >
-                        เวลา{" "}
-                        <span className="text-muted-foreground text-xs">
-                          (เริ่มต้น 09:00)
-                        </span>
-                      </Label>
-                      <Input
-                        id="recurring-time"
-                        type="time"
-                        value={recurringTask.time}
-                        onChange={(e) =>
-                          setRecurringTask({
-                            ...recurringTask,
-                            time: e.target.value,
-                          })
-                        }
-                        className="h-10"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Priority */}
-                  <div className="space-y-2">
-                    <Label>ความสำคัญ</Label>
-                    <Select
-                      value={recurringTask.priority}
-                      onValueChange={(value) =>
-                        setRecurringTask({ ...recurringTask, priority: value })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="low">ต่ำ</SelectItem>
-                        <SelectItem value="medium">ปานกลาง</SelectItem>
-                        <SelectItem value="high">สูง</SelectItem>
-                        <SelectItem value="urgent">ด่วน</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* Assigned Users */}
-                  <div className="space-y-2">
-                    <Label>ผู้รับผิดชอบ *</Label>
-                    <div className="border rounded-lg p-4 space-y-3">
-                      {loadingMembers ? (
-                        <div className="flex items-center justify-center py-8 text-muted-foreground">
-                          <div className="flex items-center gap-2">
-                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current" />
-                            <span className="text-sm">
-                              กำลังโหลดรายชื่อสมาชิก...
-                            </span>
-                          </div>
-                        </div>
-                      ) : membersError ? (
-                        <div className="py-4 text-center space-y-2">
-                          <p className="text-sm text-destructive">{membersError}</p>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={loadMembers}
-                          >
-                            ลองอีกครั้ง
-                          </Button>
-                        </div>
-                      ) : members.length === 0 ? (
-                        <p className="text-sm text-muted-foreground text-center py-4">
-                          ไม่พบสมาชิกในกลุ่ม
-                        </p>
-                      ) : (
-                        <>
-                          {/* Search & Actions Header */}
-                          <div className="p-3 border-b bg-muted/20 space-y-3">
-                            <div className="relative">
-                              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                              <Input
-                                type="text"
-                                placeholder="ค้นหาชื่อสมาชิก..."
-                                value={memberSearchQuery}
-                                onChange={(e) => setMemberSearchQuery(e.target.value)}
-                                className="pl-9 h-10 bg-background border-muted-foreground/20 focus-visible:ring-offset-0 focus-visible:ring-1"
-                              />
-                            </div>
-                            <div className="flex gap-2 justify-end">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="xs"
-                                onClick={() => handleSelectAll(false)}
-                                className="text-xs h-7 px-2 text-primary hover:text-primary/80 hover:bg-primary/10"
-                              >
-                                เลือกทั้งหมด
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="xs"
-                                onClick={() => handleClearAll(false)}
-                                className="text-xs h-7 px-2 text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                              >
-                                ล้างทั้งหมด
-                              </Button>
-                            </div>
-                          </div>
-
-                          {/* Members List */}
-                          <ScrollArea className="h-[240px]">
-                            <div className="p-2 space-y-1">
-                              {filteredMembers.length === 0 ? (
-                                <div className="flex flex-col items-center justify-center h-40 text-muted-foreground text-sm">
-                                  <Search className="w-8 h-8 mb-2 opacity-20" />
-                                  <p>ไม่พบสมาชิกที่ชื่อ "{memberSearchQuery}"</p>
+                              {isSelected && (
+                                <div className="absolute -bottom-0.5 -right-0.5 bg-primary text-primary-foreground rounded-full p-0.5 shadow-md border-2 border-background">
+                                  <CheckCircle2 className="w-3 h-3" />
                                 </div>
-                              ) : (
-                                filteredMembers.map((member) => {
-                                  const isSelected = recurringTask.assignedUsers.includes(member.lineUserId);
-                                  return (
-                                    <div
-                                      key={member.lineUserId}
-                                      onClick={() => handleAssigneeToggle(member.lineUserId, false)}
-                                      className={cn(
-                                        "flex items-center space-x-3 p-2 rounded-lg cursor-pointer transition-all duration-200 border border-transparent",
-                                        isSelected
-                                          ? "bg-primary/5 border-primary/20 shadow-sm"
-                                          : "hover:bg-accent hover:border-accent"
-                                      )}
-                                    >
-                                      <div className="relative">
-                                        <Avatar className="h-9 w-9 ring-2 ring-background shadow-sm">
-                                          <AvatarImage src={member.pictureUrl} />
-                                          <AvatarFallback className={cn("text-xs font-semibold", getAvatarColor(member.displayName || member.name))}>
-                                            {getInitials(member.displayName || member.name)}
-                                          </AvatarFallback>
-                                        </Avatar>
-                                        {isSelected && (
-                                          <div className="absolute -bottom-1 -right-1 bg-primary text-primary-foreground rounded-full p-[2px] shadow-sm ring-2 ring-background">
-                                            <Check className="w-2.5 h-2.5" />
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      <div className="flex-1 min-w-0">
-                                        <p className={cn("text-sm font-medium truncate", isSelected ? "text-primary" : "text-foreground")}>
-                                          {member.displayName || member.name}
-                                        </p>
-                                      </div>
-
-                                      <Checkbox
-                                        id={`recurring-assignee-${member.lineUserId}`}
-                                        checked={isSelected}
-                                        onCheckedChange={() => handleAssigneeToggle(member.lineUserId, false)}
-                                        className={cn("data-[state=checked]:bg-primary data-[state=checked]:border-primary", !isSelected && "border-muted-foreground/30")}
-                                      />
-                                    </div>
-                                  )
-                                })
                               )}
                             </div>
-                          </ScrollArea>
-                        </>
-                      )}
+                            <div className="flex-1 text-left min-w-0">
+                              <p
+                                className={cn(
+                                  "text-sm font-medium truncate",
+                                  isSelected
+                                    ? "text-primary"
+                                    : "text-foreground"
+                                )}
+                              >
+                                {member.displayName || member.name}
+                              </p>
+                            </div>
+                            <div
+                              className={cn(
+                                "w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all",
+                                isSelected
+                                  ? "bg-primary border-primary"
+                                  : "border-muted-foreground/30"
+                              )}
+                            >
+                              {isSelected && (
+                                <CheckCircle2 className="w-3 h-3 text-primary-foreground" />
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
                     </div>
-                  </div>
+                  )}
+                </div>
+              </ScrollArea>
+            </>
+          )}
+        </div>
+      </div>
+    );
+  };
 
-                  {/* Reviewer */}
-                  <div className="space-y-2">
-                    <Label>ผู้ตรวจงาน</Label>
-                    <Select
-                      value={recurringTask.reviewer || "__none"}
-                      onValueChange={(value) =>
-                        setRecurringTask({
-                          ...recurringTask,
-                          reviewer: value === "__none" ? "" : value,
-                        })
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="(ไม่ระบุ)" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="__none">(ไม่ระบุ)</SelectItem>
-                        {members.map((member) => (
-                          <SelectItem
-                            key={member.lineUserId}
-                            value={member.lineUserId}
-                          >
-                            {member.displayName || member.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
+  const renderTaskForm = (isNormal = true) => {
+    const task = isNormal ? normalTask : recurringTask;
+    const setTask = isNormal ? setNormalTask : setRecurringTask;
 
-                  {/* Actions */}
-                  <div className="flex justify-end gap-3 pt-6 sticky bottom-0 bg-background pb-2">
+    return (
+      <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Title */}
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" />
+            ชื่องาน
+            <span className="text-destructive">*</span>
+          </Label>
+          <Input
+            value={task.title}
+            onChange={(e) => setTask({ ...task, title: e.target.value })}
+            placeholder="ระบุชื่องาน..."
+            className="h-11 text-base"
+            required
+          />
+        </div>
+
+        {/* Description */}
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <FileText className="w-4 h-4 text-primary" />
+            รายละเอียด
+          </Label>
+          <Textarea
+            value={task.description}
+            onChange={(e) => setTask({ ...task, description: e.target.value })}
+            placeholder="ระบุรายละเอียดงาน..."
+            rows={3}
+            className="text-base resize-none"
+          />
+        </div>
+
+        {/* Date & Time */}
+        {isNormal ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <CalendarIcon className="w-4 h-4 text-primary" />
+                วันที่ครบกำหนด
+                <span className="text-destructive">*</span>
+              </Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left h-11 font-normal",
+                      !task.dueDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {task.dueDate
+                      ? format(task.dueDate, "d MMMM yyyy", { locale: th })
+                      : "เลือกวันที่"}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={task.dueDate}
+                    onSelect={(date) => setTask({ ...task, dueDate: date })}
+                    initialFocus
+                    fromDate={new Date()}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold flex items-center gap-2">
+                <Clock className="w-4 h-4 text-primary" />
+                เวลา
+                <span className="text-xs text-muted-foreground font-normal">
+                  (ค่าเริ่มต้น 23:59)
+                </span>
+              </Label>
+              <Input
+                type="time"
+                value={task.dueTime}
+                onChange={(e) => setTask({ ...task, dueTime: e.target.value })}
+                className="h-11"
+              />
+            </div>
+          </div>
+        ) : (
+          <>
+            {/* Recurrence Type */}
+            <div className="space-y-2">
+              <Label className="text-sm font-semibold">รอบการทำซ้ำ *</Label>
+              <Select
+                value={task.recurrence}
+                onValueChange={(value) =>
+                  setTask({ ...task, recurrence: value })
+                }
+              >
+                <SelectTrigger className="h-11">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="daily">รายวัน</SelectItem>
+                  <SelectItem value="weekly">รายสัปดาห์</SelectItem>
+                  <SelectItem value="monthly">รายเดือน</SelectItem>
+                  <SelectItem value="quarterly">รายไตรมาส</SelectItem>
+                  <SelectItem value="custom">กำหนดเอง</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Custom Recurrence */}
+            {task.recurrence === "custom" && (
+              <CustomRecurrenceUI
+                value={task.customRecurrence}
+                onChange={(value) =>
+                  setTask({ ...task, customRecurrence: value })
+                }
+              />
+            )}
+
+            {/* Start Date & Time */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <CalendarIcon className="w-4 h-4 text-primary" />
+                  วันที่เริ่มต้น
+                  <span className="text-destructive">*</span>
+                </Label>
+                <Popover>
+                  <PopoverTrigger asChild>
                     <Button
                       type="button"
                       variant="outline"
-                      onClick={closeAddTask}
-                      className="h-11 px-6 rounded-lg hover:bg-muted/50"
+                      className={cn(
+                        "w-full justify-start text-left h-11 font-normal",
+                        !task.startDate && "text-muted-foreground"
+                      )}
                     >
-                      ยกเลิก
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {task.startDate
+                        ? format(task.startDate, "d MMMM yyyy", { locale: th })
+                        : "เลือกวันที่"}
                     </Button>
-                    <Button
-                      type="submit"
-                      disabled={loading}
-                      className="h-11 px-8 rounded-lg shadow-md transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    >
-                      {loading ? "กำลังสร้าง..." : "สร้างงานประจำ"}
-                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={task.startDate}
+                      onSelect={(date) => setTask({ ...task, startDate: date })}
+                      initialFocus
+                      fromDate={new Date()}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-sm font-semibold flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-primary" />
+                  เวลา
+                  <span className="text-xs text-muted-foreground font-normal">
+                    (ค่าเริ่มต้น 09:00)
+                  </span>
+                </Label>
+                <Input
+                  type="time"
+                  value={task.time}
+                  onChange={(e) => setTask({ ...task, time: e.target.value })}
+                  className="h-11"
+                />
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* Priority */}
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            {getPriorityIcon(task.priority)}
+            ความสำคัญ
+          </Label>
+          <Select
+            value={task.priority}
+            onValueChange={(value) => setTask({ ...task, priority: value })}
+          >
+            <SelectTrigger className="h-11">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="low">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-blue-500" />
+                  ต่ำ
+                </div>
+              </SelectItem>
+              <SelectItem value="medium">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-yellow-500" />
+                  ปานกลาง
+                </div>
+              </SelectItem>
+              <SelectItem value="high">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-orange-500" />
+                  สูง
+                </div>
+              </SelectItem>
+              <SelectItem value="urgent">
+                <div className="flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4 text-red-500" />
+                  ด่วนมาก
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Assigned Users */}
+        {renderMemberSelector(isNormal)}
+
+        {/* Reviewer */}
+        <div className="space-y-2">
+          <Label className="text-sm font-semibold flex items-center gap-2">
+            <User className="w-4 h-4 text-primary" />
+            ผู้ตรวจงาน
+          </Label>
+          <Select
+            value={task.reviewer || "__none"}
+            onValueChange={(value) =>
+              setTask({ ...task, reviewer: value === "__none" ? "" : value })
+            }
+          >
+            <SelectTrigger className="h-11">
+              <SelectValue placeholder="(ไม่ระบุ)" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__none">(ไม่ระบุ)</SelectItem>
+              {members.map((member) => (
+                <SelectItem key={member.lineUserId} value={member.lineUserId}>
+                  <div className="flex items-center gap-2">
+                    <Avatar className="h-5 w-5">
+                      <AvatarImage src={member.pictureUrl} />
+                      <AvatarFallback className="text-[10px]">
+                        {getInitials(member.displayName || member.name)}
+                      </AvatarFallback>
+                    </Avatar>
+                    {member.displayName || member.name}
                   </div>
-                </form>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        {/* Actions */}
+        <div className="flex gap-3 pt-4 sticky bottom-0 bg-background pb-2 -mx-6 px-6 border-t mt-6">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={closeAddTask}
+            className="flex-1 h-12 text-base"
+            disabled={loading}
+          >
+            ยกเลิก
+          </Button>
+          <Button
+            type="submit"
+            disabled={loading}
+            className="flex-1 h-12 text-base font-semibold shadow-lg"
+          >
+            {loading ? (
+              <>
+                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current mr-2" />
+                กำลังสร้าง...
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                {isNormal ? "สร้างงาน" : "สร้างงานประจำ"}
+              </>
+            )}
+          </Button>
+        </div>
+      </form>
+    );
+  };
+
+  return (
+    <Dialog open={isAddTaskOpen} onOpenChange={closeAddTask}>
+      <DialogContent className="max-w-2xl max-h-[95vh] w-[95vw] p-0 gap-0 overflow-hidden flex flex-col">
+        <DialogHeader className="px-6 py-5 border-b bg-gradient-to-r from-primary/5 to-primary/10 shrink-0">
+          <DialogTitle className="text-2xl font-bold flex items-center gap-2">
+            <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <FileText className="w-5 h-5 text-primary" />
+            </div>
+            เพิ่มงานใหม่
+          </DialogTitle>
+        </DialogHeader>
+
+        <ScrollArea className="flex-1">
+          <div className="p-6">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid w-full grid-cols-2 h-12 mb-6">
+                <TabsTrigger value="normal" className="text-base font-medium">
+                  <FileText className="w-4 h-4 mr-2" />
+                  งานทั่วไป
+                </TabsTrigger>
+                <TabsTrigger value="recurring" className="text-base font-medium">
+                  <CalendarIcon className="w-4 h-4 mr-2" />
+                  งานประจำ
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="normal" className="mt-0">
+                {renderTaskForm(true)}
+              </TabsContent>
+
+              <TabsContent value="recurring" className="mt-0">
+                {renderTaskForm(false)}
               </TabsContent>
             </Tabs>
           </div>
