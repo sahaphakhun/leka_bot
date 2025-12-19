@@ -321,7 +321,7 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   // Error State
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-3 md:p-6">
         <div className="flex items-center justify-center h-96">
           <div className="text-center max-w-md">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -347,13 +347,13 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   // Empty State (when no error but also no tasks)
   if (!loading && !error && normalizedTasks.length === 0) {
     return (
-      <div className="p-6">
-        <div className="flex items-center justify-between mb-6">
+      <div className="p-3 md:p-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-bold">งานประจำ</h1>
             <p className="text-muted-foreground">จัดการงานที่ทำซ้ำอัตโนมัติ</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={loadRecurringTasks}>
               <RefreshCw className="w-4 h-4 mr-2" />
               รีเฟรช
@@ -399,14 +399,14 @@ export default function RecurringTasksView({ refreshKey = 0 }) {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">งานประจำ</h1>
           <p className="text-muted-foreground">จัดการงานที่ทำซ้ำอัตโนมัติ</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={loadRecurringTasks}>
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช

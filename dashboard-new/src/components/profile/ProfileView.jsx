@@ -37,7 +37,7 @@ export default function ProfileView() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-6">
       <div>
         <h1 className="text-2xl font-bold">โปรไฟล์และการตั้งค่า</h1>
         <p className="text-muted-foreground">จัดการข้อมูลส่วนตัวและการตั้งค่า</p>

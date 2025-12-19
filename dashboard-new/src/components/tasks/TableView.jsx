@@ -150,31 +150,69 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
             onClick && onClick(task);
           }
         }}
-        className="grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-3 border-b border-border hover:bg-gray-100 transition-colors cursor-pointer"
+        className="border-b border-border hover:bg-gray-100 transition-colors cursor-pointer"
       >
-        <div className="font-medium text-sm">{task.title}</div>
-        <div>
-          <span
-            className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.class}`}
-          >
-            {statusBadge.label}
-          </span>
+        {/* Mobile: card layout */}
+        <div className="px-4 py-3 md:hidden">
+          <div className="flex items-start justify-between gap-3">
+            <div className="font-medium text-sm leading-snug line-clamp-2">
+              {task.title}
+            </div>
+            <span
+              className={`shrink-0 inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.class}`}
+            >
+              {statusBadge.label}
+            </span>
+          </div>
+
+          <div className="mt-2 flex flex-col gap-1 text-xs text-gray-600">
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-400">ประเภท</span>
+              <span className="font-medium">{formatTaskType(task.type)}</span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-400">กำหนดส่ง</span>
+              <span className="font-medium">
+                {formatDueDate(task.dueDate || task.scheduledDate)}
+              </span>
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-gray-400">ผู้รับผิดชอบ</span>
+              <span className="font-medium truncate max-w-[70%]">
+                {getAssigneeNames(task)}
+              </span>
+            </div>
+          </div>
         </div>
-        <div className="text-sm text-gray-600">{formatTaskType(task.type)}</div>
-        <div className="text-sm text-gray-600">
-          {formatDueDate(task.dueDate || task.scheduledDate)}
-        </div>
-        <div className="flex justify-end">
-          <span className="text-sm text-gray-600 truncate max-w-[120px]">
-            {getAssigneeNames(task)}
-          </span>
+
+        {/* Desktop: table/grid layout */}
+        <div className="hidden md:grid md:grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] md:gap-4 px-4 py-3">
+          <div className="font-medium text-sm">{task.title}</div>
+          <div>
+            <span
+              className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${statusBadge.class}`}
+            >
+              {statusBadge.label}
+            </span>
+          </div>
+          <div className="text-sm text-gray-600">
+            {formatTaskType(task.type)}
+          </div>
+          <div className="text-sm text-gray-600">
+            {formatDueDate(task.dueDate || task.scheduledDate)}
+          </div>
+          <div className="flex justify-end">
+            <span className="text-sm text-gray-600 truncate max-w-[120px]">
+              {getAssigneeNames(task)}
+            </span>
+          </div>
         </div>
       </div>
     );
   };
 
   return (
-    <div className="p-6">
+    <div className="p-3 md:p-6">
       {/* Active Tasks Section */}
       <div className="bg-white rounded-lg shadow-sm mb-4">
         <div
@@ -192,7 +230,7 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
 
         {expandedSections.active && (
           <>
-            <div className="grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-2 bg-gray-50 text-sm font-medium text-gray-600">
+            <div className="hidden md:grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-2 bg-gray-50 text-sm font-medium text-gray-600">
               <div>ชื่องาน</div>
               <div>สถานะ</div>
               <div>ประเภท</div>
@@ -261,7 +299,7 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
 
         {expandedSections.completed && (
           <>
-            <div className="grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-2 bg-gray-50 text-sm font-medium text-gray-600">
+            <div className="hidden md:grid grid-cols-[3fr_1.5fr_1fr_1fr_0.5fr] gap-4 px-4 py-2 bg-gray-50 text-sm font-medium text-gray-600">
               <div>ชื่องาน</div>
               <div>สถานะ</div>
               <div>ประเภท</div>

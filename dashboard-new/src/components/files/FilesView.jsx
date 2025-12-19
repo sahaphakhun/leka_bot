@@ -344,7 +344,7 @@ export default function FilesView({ refreshKey = 0 }) {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-3 md:p-6">
         <div className="flex items-center justify-center h-96">
           <div className="text-center max-w-md">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
@@ -369,13 +369,13 @@ export default function FilesView({ refreshKey = 0 }) {
 
   if (!loading && !error && files.length === 0) {
     return (
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
+      <div className="p-3 md:p-6 space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-bold">คลังไฟล์</h1>
             <p className="text-muted-foreground">จัดการไฟล์และเอกสารทั้งหมด</p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-wrap gap-2">
             <Button variant="outline" onClick={loadFiles}>
               <RefreshCw className="w-4 h-4 mr-2" />
               รีเฟรช
@@ -433,13 +433,13 @@ export default function FilesView({ refreshKey = 0 }) {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-3 md:p-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">คลังไฟล์</h1>
           <p className="text-muted-foreground">จัดการไฟล์และเอกสารทั้งหมด</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={loadFiles}>
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช

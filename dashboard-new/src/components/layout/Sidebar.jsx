@@ -81,7 +81,7 @@ const Sidebar = ({
       {isMobile && (
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="fixed top-4 left-4 z-50 p-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 lg:hidden border-2 border-white/20"
+          className="fixed top-[calc(env(safe-area-inset-top)+1rem)] left-[calc(env(safe-area-inset-left)+1rem)] z-50 p-3 bg-gradient-to-br from-blue-600 to-blue-700 text-white rounded-lg shadow-xl hover:shadow-2xl hover:scale-105 active:scale-95 transition-all duration-200 lg:hidden border-2 border-white/20"
           aria-label="Toggle menu"
         >
           {isOpen ? (

@@ -334,7 +334,7 @@ export default function LeaderboardView() {
   }
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
@@ -343,7 +343,7 @@ export default function LeaderboardView() {
             ดูอันดับสมาชิกในกลุ่มตามช่วงเวลาที่เลือก
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button variant="outline" onClick={loadLeaderboard}>
             <RefreshCw className="w-4 h-4 mr-2" />
             รีเฟรช

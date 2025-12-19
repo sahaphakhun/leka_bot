@@ -336,7 +336,7 @@ const CalendarView = ({ tasks = [] }) => {
   }, [filteredTasks, today]);
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 md:p-6 space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">ปฏิทินงาน</h1>
@@ -372,7 +372,7 @@ const CalendarView = ({ tasks = [] }) => {
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <div className="bg-white rounded-xl border border-gray-100 shadow-sm px-3 md:px-6 py-3 md:py-4 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <button
             type="button"

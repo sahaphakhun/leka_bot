@@ -140,7 +140,7 @@ export default function MembersView({ refreshKey = 0 }) {
 
   if (error) {
     return (
-      <div className="p-6">
+      <div className="p-3 md:p-6">
         <div className="flex items-center justify-center h-96">
           <div className="text-center max-w-md">
             <h3 className="text-lg font-semibold text-gray-900 mb-2">
@@ -162,13 +162,13 @@ export default function MembersView({ refreshKey = 0 }) {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="p-3 md:p-6 space-y-6">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-bold">สมาชิก</h1>
           <p className="text-muted-foreground">ภาพรวมสมาชิกในกลุ่มของคุณ</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             onClick={() => setReloadKey((prev) => prev + 1)}
