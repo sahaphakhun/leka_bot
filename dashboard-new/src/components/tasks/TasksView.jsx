@@ -45,7 +45,7 @@ const TasksView = ({ tasks = [], onTaskUpdate }) => {
       showWarning("โหมดดูอย่างเดียว - กรุณาเข้าผ่าน LINE ส่วนตัวเพื่อสร้างงาน");
       return;
     }
-    openAddTask("normal");
+    openAddTask();
   };
 
   const handleTaskClick = (task) => {

@@ -363,7 +363,7 @@ const CalendarView = ({ tasks = [] }) => {
           </button>
           <button
             type="button"
-            onClick={() => openAddTask && openAddTask("normal")}
+            onClick={() => openAddTask && openAddTask()}
             className="inline-flex items-center gap-2 rounded-md bg-blue-500 px-3 py-2 text-sm font-medium text-white hover:bg-blue-600 transition"
           >
             <CalendarDays className="w-4 h-4" />

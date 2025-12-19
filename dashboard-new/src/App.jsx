@@ -328,7 +328,7 @@ function AppContent() {
         case "new-task":
         case "create-task":
           console.log("📝 Opening AddTask modal...");
-          openAddTask("normal");
+          openAddTask();
           handled = true;
           break;
 
