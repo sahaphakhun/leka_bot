@@ -23,6 +23,7 @@ export const ModalProvider = ({ children }) => {
   const [isRecurringHistoryOpen, setIsRecurringHistoryOpen] = useState(false);
   const [isConfirmDialogOpen, setIsConfirmDialogOpen] = useState(false);
   const [isDeleteTasksOpen, setIsDeleteTasksOpen] = useState(false);
+  const [addTaskDefaultTab, setAddTaskDefaultTab] = useState("normal");
 
   // Modal data
   const [selectedTask, setSelectedTask] = useState(null);
@@ -33,12 +34,14 @@ export const ModalProvider = ({ children }) => {
   const [deleteTasksContext, setDeleteTasksContext] = useState(null);
 
   // Add Task Modal
-  const openAddTask = () => {
+  const openAddTask = (defaultTab = "normal") => {
+    setAddTaskDefaultTab(defaultTab);
     setIsAddTaskOpen(true);
   };
 
   const closeAddTask = () => {
     setIsAddTaskOpen(false);
+    setAddTaskDefaultTab("normal");
   };
 
   // Edit Task Modal
@@ -166,6 +169,7 @@ export const ModalProvider = ({ children }) => {
     setSelectedMember(null);
     setSelectedRecurring(null);
     setConfirmDialogData(null);
+    setAddTaskDefaultTab("normal");
     setDeleteTasksContext(null);
   };
 
@@ -189,6 +193,7 @@ export const ModalProvider = ({ children }) => {
     selectedMember,
     selectedRecurring,
     confirmDialogData,
+    addTaskDefaultTab,
     deleteTasksContext,
 
     // Actions
