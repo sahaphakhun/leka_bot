@@ -106,8 +106,8 @@ export const getCacheStats = () => {
 
   return {
     total: cache.size,
-    expired: entries.filter(([_, { expiresAt }]) => now > expiresAt).length,
-    valid: entries.filter(([_, { expiresAt }]) => now <= expiresAt).length,
+    expired: entries.filter(([, { expiresAt }]) => now > expiresAt).length,
+    valid: entries.filter(([, { expiresAt }]) => now <= expiresAt).length,
     keys: entries.map(([key]) => key),
   };
 };

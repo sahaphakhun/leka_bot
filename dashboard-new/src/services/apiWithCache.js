@@ -289,7 +289,7 @@ export const uploadFile = (groupId, formData, onProgress) => {
             const data = JSON.parse(xhr.responseText);
             invalidateCache(`/groups/${groupId}/files`);
             resolve(data);
-          } catch (e) {
+          } catch {
             reject(new Error("Invalid JSON response"));
           }
         } else {

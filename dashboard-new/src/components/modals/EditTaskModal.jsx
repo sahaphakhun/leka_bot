@@ -29,7 +29,7 @@ import { cn } from "../../lib/utils";
 import { showSuccess, showError, showWarning } from "../../lib/toast";
 
 export default function EditTaskModal({ onTaskUpdated }) {
-  const { groupId, userId, canModify, hasPermission } = useAuth();
+  const { groupId, canModify, hasPermission } = useAuth();
   const { isEditTaskOpen, closeEditTask, selectedTask } = useModal();
   const [loading, setLoading] = useState(false);
   const [members, setMembers] = useState([]);

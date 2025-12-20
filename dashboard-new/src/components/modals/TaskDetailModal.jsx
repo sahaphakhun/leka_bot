@@ -32,15 +32,8 @@ import { format, formatDistanceToNow } from "date-fns";
 import { th } from "date-fns/locale";
 
 export default function TaskDetailModal({ onTaskUpdated, onTaskDeleted }) {
-  const { groupId, userId } = useAuth();
-  const {
-    canEditTask,
-    canDeleteTask,
-    canSubmitTask,
-    canReviewTask,
-    canReopenTask,
-    getTaskPermissions,
-  } = usePermissions();
+  const { groupId } = useAuth();
+  const { getTaskPermissions } = usePermissions();
   const {
     isTaskDetailOpen,
     closeTaskDetail,

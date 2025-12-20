@@ -11,11 +11,6 @@ import {
   Eye,
   Download,
   Trash2,
-  FileIcon,
-  Image,
-  FileText,
-  Film,
-  Music,
   Folder,
   File,
 } from "lucide-react";
@@ -37,21 +32,6 @@ export default function FileFolderView({
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
-  const getFileIcon = (type) => {
-    switch (type) {
-      case "image":
-        return <Image className="w-5 h-5 text-blue-500" />;
-      case "document":
-        return <FileText className="w-5 h-5 text-green-500" />;
-      case "video":
-        return <Film className="w-5 h-5 text-purple-500" />;
-      case "audio":
-        return <Music className="w-5 h-5 text-pink-500" />;
-      default:
-        return <FileIcon className="w-5 h-5 text-gray-500" />;
-    }
   };
 
   const getTypeLabel = (type) => {

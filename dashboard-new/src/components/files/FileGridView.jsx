@@ -5,11 +5,6 @@ import {
   Eye,
   Download,
   Trash2,
-  FileIcon,
-  Image,
-  FileText,
-  Film,
-  Music,
   File,
 } from "lucide-react";
 import { format } from "date-fns";
@@ -30,21 +25,6 @@ export default function FileGridView({
     const sizes = ["Bytes", "KB", "MB", "GB"];
     const i = Math.floor(Math.log(bytes) / Math.log(k));
     return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + " " + sizes[i];
-  };
-
-  const getFileIcon = (type) => {
-    switch (type) {
-      case "image":
-        return <Image className="w-16 h-16 text-blue-500" />;
-      case "document":
-        return <FileText className="w-16 h-16 text-green-500" />;
-      case "video":
-        return <Film className="w-16 h-16 text-purple-500" />;
-      case "audio":
-        return <Music className="w-16 h-16 text-pink-500" />;
-      default:
-        return <FileIcon className="w-16 h-16 text-gray-500" />;
-    }
   };
 
   const getTypeLabel = (type) => {

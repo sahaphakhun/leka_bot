@@ -160,7 +160,7 @@ export const PermissionProvider = ({ children }) => {
    * สามารถดูรายละเอียดงานได้หรือไม่
    * - ทั้ง Personal และ Group Mode สามารถดูได้
    */
-  const canViewTask = (task) => {
+  const canViewTask = () => {
     return !!groupId;
   };
 

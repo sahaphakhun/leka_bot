@@ -143,7 +143,7 @@ ToastContainer.propTypes = {
 };
 
 // Individual Toast Component
-const Toast = ({ id, type, title, message, duration, action, onDismiss }) => {
+const Toast = ({ type, title, message, duration, action, onDismiss }) => {
   const [progress, setProgress] = useState(100);
   const [isVisible, setIsVisible] = useState(false);
 

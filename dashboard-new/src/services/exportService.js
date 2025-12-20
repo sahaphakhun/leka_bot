@@ -27,17 +27,17 @@ export async function exportReport(reportData, filters, format) {
   // Fallback to client-side export
   switch (format) {
     case "pdf":
-      return exportToPDF(reportData, filters);
+      return exportToPDF(reportData);
     case "excel":
-      return exportToExcel(reportData, filters);
+      return exportToExcel(reportData);
     case "csv":
-      return exportToCSV(reportData, filters);
+      return exportToCSV(reportData);
     default:
       throw new Error(`Unsupported format: ${format}`);
   }
 }
 
-function exportToPDF(reportData, filters) {
+function exportToPDF(reportData) {
   // Implement PDF export
   // Could use jsPDF or call backend API
   console.log("Exporting to PDF...", reportData);
@@ -47,7 +47,7 @@ function exportToPDF(reportData, filters) {
   downloadBlob(blob, "report.pdf");
 }
 
-function exportToExcel(reportData, filters) {
+function exportToExcel(reportData) {
   // Implement Excel export
   // Could use xlsx library or call backend API
   console.log("Exporting to Excel...", reportData);
@@ -59,7 +59,7 @@ function exportToExcel(reportData, filters) {
   downloadBlob(blob, "report.xlsx");
 }
 
-function exportToCSV(reportData, filters) {
+function exportToCSV(reportData) {
   // Implement CSV export
   const { byMember } = reportData;
 

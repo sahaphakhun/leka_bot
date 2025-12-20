@@ -3,7 +3,6 @@ import {
   useEffect,
   useCallback,
   useRef,
-  useMemo,
   lazy,
   Suspense,
 } from "react";
@@ -136,6 +135,7 @@ function AppContent() {
     openTaskDetail,
     openSubmitTask,
     openRecurringTask,
+    openDeleteTasks,
   ]);
 
   const personalMode = isPersonalMode();
@@ -787,6 +787,23 @@ function AppContent() {
           onGroupChange={handleGroupChange}
         />
         <MainLayout>
+          {authenticated && error && (
+            <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="font-semibold">⚠️ โหลดข้อมูลไม่สำเร็จ</p>
+                  <p className="mt-1 text-xs break-words">{String(error)}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleTasksReload}
+                  className="shrink-0 rounded-md border border-red-300 bg-white px-3 py-1 text-xs font-medium text-red-700 hover:bg-red-100"
+                >
+                  ลองใหม่
+                </button>
+              </div>
+            </div>
+          )}
           {renderView()}
           <Suspense fallback={null}>
             <AddTaskModal

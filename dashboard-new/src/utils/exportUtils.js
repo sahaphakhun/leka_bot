@@ -133,16 +133,17 @@ export const exportLeaderboard = (data, columns, format = "csv") => {
   const filename = getTimestampedFilename("leaderboard", format);
 
   switch (format) {
-    case "csv":
+    case "csv": {
       const csvContent = convertToCSV(data, visibleColumns);
       downloadCSV(csvContent, filename);
       break;
+    }
 
     case "excel":
       downloadExcel(data, visibleColumns, filename);
       break;
 
-    case "json":
+    case "json": {
       // Export only visible column data
       const exportData = data.map((item) => {
         const filtered = {};
@@ -153,6 +154,7 @@ export const exportLeaderboard = (data, columns, format = "csv") => {
       });
       downloadJSON(exportData, filename);
       break;
+    }
 
     default:
       throw new Error(`Unsupported export format: ${format}`);

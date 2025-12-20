@@ -30,8 +30,6 @@ import { Button } from '../ui/button';
 const PDFViewer = ({ url, fileName, onClose }) => {
   const [scale, setScale] = useState(1.0);
   const [rotation, setRotation] = useState(0);
-  const [currentPage, setCurrentPage] = useState(1);
-  const [totalPages, setTotalPages] = useState(1);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isPanning, setIsPanning] = useState(false);
   const [panPosition, setPanPosition] = useState({ x: 0, y: 0 });

@@ -39,7 +39,7 @@ export function parseRecurrencePattern(pattern) {
   switch (type) {
     case "DAILY":
       return { type: "daily", description: "ทุกวัน" };
-    case "WEEKLY":
+    case "WEEKLY": {
       const days = value ? value.split(",").map((d) => parseInt(d)) : [];
       const dayNames = ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"];
       return {
@@ -47,13 +47,15 @@ export function parseRecurrencePattern(pattern) {
         days,
         description: `ทุก ${days.map((d) => dayNames[d]).join(", ")}`,
       };
-    case "MONTHLY":
+    }
+    case "MONTHLY": {
       const dates = value ? value.split(",").map((d) => parseInt(d)) : [];
       return {
         type: "monthly",
         dates,
         description: `ทุกวันที่ ${dates.join(", ")} ของเดือน`,
       };
+    }
     case "QUARTERLY":
       return { type: "quarterly", description: "ทุก 3 เดือน" };
     case "CUSTOM":

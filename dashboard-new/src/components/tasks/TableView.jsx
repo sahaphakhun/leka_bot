@@ -112,7 +112,7 @@ const TableView = ({ tasks = [], onTaskClick, onCreateTask }) => {
       return new Date(date).toLocaleDateString("th-TH", {
         dateStyle: "medium",
       });
-    } catch (error) {
+    } catch {
       return date;
     }
   };
