@@ -12,7 +12,15 @@ export const usePermissions = () => {
 };
 
 export const PermissionProvider = ({ children }) => {
-  const { userId, groupId, viewMode, isPersonalMode, isGroupMode, canModify } = useAuth();
+  const {
+    userId,
+    groupId,
+    viewMode,
+    currentUser,
+    isPersonalMode,
+    isGroupMode,
+    canModify,
+  } = useAuth();
 
   /**
    * ตรวจสอบว่า user เป็นผู้สร้างงานหรือไม่
@@ -56,14 +64,25 @@ export const PermissionProvider = ({ children }) => {
   const isTaskReviewer = (task) => {
     if (!userId || !task) return false;
 
-    // ตรวจจาก reviewer field (string - lineUserId)
-    if (task.reviewer === userId) return true;
+    const userCandidates = new Set(
+      [userId, currentUser?.id, currentUser?.lineUserId]
+        .map((v) => (typeof v === "string" ? v.trim() : ""))
+        .filter(Boolean),
+    );
 
-    // ตรวจจาก reviewerUser object
-    if (task.reviewerUser?.lineUserId === userId) return true;
-    if (task.reviewerUser?.id === userId) return true;
+    const reviewerCandidates = [
+      task.reviewer,
+      task.reviewerUserId,
+      task.reviewerLineUserId,
+      task.reviewerUser?.id,
+      task.reviewerUser?.lineUserId,
+      task.workflow?.review?.reviewerUserId,
+      task.workflow?.review?.reviewerLineUserId,
+    ]
+      .map((v) => (typeof v === "string" ? v.trim() : ""))
+      .filter(Boolean);
 
-    return false;
+    return reviewerCandidates.some((reviewerId) => userCandidates.has(reviewerId));
   };
 
   /**
@@ -128,7 +147,7 @@ export const PermissionProvider = ({ children }) => {
 
     // Personal mode: ต้องมี userId และเป็นผู้ตรวจ
     if (isPersonalMode()) {
-      return canModify() && isTaskReviewer(task);
+      return canModify() && (isTaskReviewer(task) || isTaskCreator(task));
     }
 
     return false;

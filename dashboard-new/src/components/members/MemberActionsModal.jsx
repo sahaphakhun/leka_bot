@@ -68,7 +68,7 @@ export default function MemberActionsModal({ onUpdated }) {
       const { updateMemberRole } = await import("../../services/api");
       await updateMemberRole(groupId, memberIdentifier, role);
       showSuccess(
-        `เปลี่ยนบทบาทเป็น ${role === "admin" ? "ผู้ดูแล" : role === "moderator" ? "ผู้ควบคุม" : "สมาชิก"} สำเร็จ`,
+        `เปลี่ยนบทบาทเป็น ${role === "admin" ? "ผู้ดูแล" : "สมาชิก"} สำเร็จ`,
       );
       console.log("✅ Updated member role:", selectedMember.lineUserId, role);
       if (onUpdated) onUpdated();
@@ -185,9 +185,7 @@ export default function MemberActionsModal({ onUpdated }) {
                 <span className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-800">
                   {selectedMember.role === "admin"
                     ? "ผู้ดูแล"
-                    : selectedMember.role === "moderator"
-                      ? "ผู้ควบคุม"
-                      : "สมาชิก"}
+                    : "สมาชิก"}
                 </span>
               </div>
             </div>
@@ -206,13 +204,11 @@ export default function MemberActionsModal({ onUpdated }) {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="member">สมาชิก</SelectItem>
-                <SelectItem value="moderator">ผู้ควบคุม</SelectItem>
                 <SelectItem value="admin">ผู้ดูแล</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-gray-500">
               • <strong>ผู้ดูแล</strong>: จัดการทุกอย่างได้
-              <br />• <strong>ผู้ควบคุม</strong>: จัดการงานและอนุมัติได้
               <br />• <strong>สมาชิก</strong>: ดูและทำงานที่ได้รับมอบหมาย
             </p>
           </div>

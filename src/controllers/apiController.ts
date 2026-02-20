@@ -55,7 +55,7 @@ import {
   NotificationCardResponse,
 } from "@/types";
 import { taskEntityToInterface } from "@/types/adapters";
-import { config } from "@/utils/config";
+import { config, features } from "@/utils/config";
 import { autoMigration } from "@/utils/autoMigration";
 
 export const apiRouter = Router();
@@ -1265,9 +1265,16 @@ class ApiController {
   public async completeTask(req: Request, res: Response): Promise<void> {
     try {
       const { taskId } = req.params;
-      const { userId } = req.body;
+      const actingUserId = this.resolveActingUserId(req);
+      if (!actingUserId) {
+        res.status(400).json({
+          success: false,
+          error: "userId is required to complete task",
+        });
+        return;
+      }
 
-      const taskEntity = await this.taskService.completeTask(taskId, userId);
+      const taskEntity = await this.taskService.completeTask(taskId, actingUserId);
 
       // บันทึก KPI ใช้ entity โดยตรง
       const completionType =
@@ -1289,6 +1296,73 @@ class ApiController {
       res.status(500).json({
         success: false,
         error: "Failed to complete task",
+      });
+    }
+  }
+
+  /**
+   * POST /api/tasks/:taskId/approve - อนุมัติงาน (ตรวจงาน)
+   */
+  public async approveTask(req: Request, res: Response): Promise<void> {
+    try {
+      const { taskId } = req.params;
+      const actingUserId = this.resolveActingUserId(req);
+
+      if (!actingUserId) {
+        res.status(400).json({
+          success: false,
+          error: "userId is required to approve task",
+        });
+        return;
+      }
+
+      const approvedTask = await this.taskService.approveReview(
+        taskId,
+        actingUserId,
+      );
+
+      res.json({
+        success: true,
+        data: taskEntityToInterface(approvedTask),
+        message: "Task approved successfully",
+      });
+    } catch (error) {
+      logger.error("❌ Error approving task:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to approve task",
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/tasks/:taskId - ลบงาน
+   */
+  public async deleteTask(req: Request, res: Response): Promise<void> {
+    try {
+      const { taskId } = req.params;
+
+      const task = await this.taskService.getTaskById(taskId);
+      if (!task) {
+        res.status(404).json({
+          success: false,
+          error: "Task not found",
+        });
+        return;
+      }
+
+      await this.taskService.deleteTask(taskId);
+
+      res.json({
+        success: true,
+        message: "Task deleted successfully",
+      });
+    } catch (error) {
+      logger.error("❌ Error deleting task:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to delete task",
       });
     }
   }
@@ -3928,8 +4002,7 @@ class ApiController {
 
       logger.info(`Updating user: ${userId}`, updates);
 
-      // ตรวจสอบว่าผู้ใช้มีอยู่จริง
-      const user = await this.userService.findByLineUserId(userId);
+      const user = await this.resolveUserFromIdentifier(userId);
       if (!user) {
         res.status(404).json({
           success: false,
@@ -3954,6 +4027,284 @@ class ApiController {
         success: false,
         error:
           error instanceof Error ? error.message : "Unknown error occurred",
+      });
+    }
+  }
+
+  /**
+   * GET /api/users/:userId/profile - ดึงโปรไฟล์ผู้ใช้
+   * GET /api/groups/:groupId/users/:userId/profile - รองรับรูปแบบ group scoped
+   */
+  public async getUserProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const user = await this.resolveUserFromIdentifier(userId);
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: "User not found",
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: user,
+      });
+    } catch (error) {
+      logger.error("❌ Error getting user profile:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to get user profile",
+      });
+    }
+  }
+
+  /**
+   * PUT /api/users/:userId/profile - อัปเดตโปรไฟล์ผู้ใช้
+   * PUT /api/groups/:groupId/users/:userId/profile - รองรับรูปแบบ group scoped
+   */
+  public async updateUserProfile(req: Request, res: Response): Promise<void> {
+    try {
+      const { userId } = req.params;
+      const updates = req.body || {};
+      const user = await this.resolveUserFromIdentifier(userId);
+
+      if (!user) {
+        res.status(404).json({
+          success: false,
+          error: "User not found",
+        });
+        return;
+      }
+
+      const normalizedUpdates = { ...updates };
+      if (
+        normalizedUpdates.notifications &&
+        typeof normalizedUpdates.notifications === "object"
+      ) {
+        normalizedUpdates.settings = {
+          ...(user.settings || {}),
+          notifications: normalizedUpdates.notifications,
+        };
+        delete normalizedUpdates.notifications;
+      }
+
+      const updatedUser = await this.userService.updateUser(
+        user.id,
+        normalizedUpdates,
+      );
+
+      res.json({
+        success: true,
+        data: updatedUser,
+        message: "User profile updated successfully",
+      });
+    } catch (error) {
+      logger.error("❌ Error updating user profile:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to update user profile",
+      });
+    }
+  }
+
+  /**
+   * PUT /api/groups/:groupId/members/:memberId/role - อัปเดตบทบาทสมาชิกรายคน
+   */
+  public async updateMemberRole(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId, memberId } = req.params;
+      const roleRaw = String(req.body?.role || "").toLowerCase();
+      const role = roleRaw === "admin" ? "admin" : "member";
+
+      const result = await this.userService.bulkUpdateMemberRole(
+        groupId,
+        [memberId],
+        role,
+      );
+
+      if (result.successCount === 0) {
+        const firstError = result.errors[0]?.error || "Failed to update member";
+        res.status(400).json({
+          success: false,
+          error: firstError,
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: {
+          memberId,
+          role,
+        },
+        message: "Member role updated successfully",
+      });
+    } catch (error) {
+      logger.error("❌ Error updating member role:", error);
+      res.status(500).json({
+        success: false,
+        error:
+          error instanceof Error ? error.message : "Failed to update member role",
+      });
+    }
+  }
+
+  /**
+   * DELETE /api/groups/:groupId/members/:memberId - ลบสมาชิกรายคน
+   */
+  public async removeMember(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId, memberId } = req.params;
+      const result = await this.userService.bulkRemoveMembers(groupId, [memberId]);
+
+      if (result.successCount === 0) {
+        const firstError = result.errors[0]?.error || "Failed to remove member";
+        res.status(400).json({
+          success: false,
+          error: firstError,
+        });
+        return;
+      }
+
+      res.json({
+        success: true,
+        data: { memberId },
+        message: "Member removed successfully",
+      });
+    } catch (error) {
+      logger.error("❌ Error removing member:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to remove member",
+      });
+    }
+  }
+
+  /**
+   * POST /api/groups/:groupId/invites - สร้างลิงก์เชิญ
+   */
+  public async createInviteLink(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const inviteUrl = await this.generateInviteUrl(groupId);
+      const expiresAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+
+      res.json({
+        success: true,
+        data: {
+          link: inviteUrl,
+          inviteUrl,
+          expiresAt: expiresAt.toISOString(),
+        },
+      });
+    } catch (error) {
+      logger.error("❌ Error creating invite link:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to create invite link",
+      });
+    }
+  }
+
+  /**
+   * POST /api/groups/:groupId/invites/email - ส่งอีเมลเชิญ
+   */
+  public async sendInviteEmail(req: Request, res: Response): Promise<void> {
+    try {
+      const { groupId } = req.params;
+      const email = String(req.body?.email || "").trim();
+      const message = String(req.body?.message || "").trim();
+
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(email)) {
+        res.status(400).json({
+          success: false,
+          error: "Invalid email address",
+        });
+        return;
+      }
+
+      const group = await this.resolveGroupFromIdentifier(groupId);
+      if (!group) {
+        res.status(404).json({
+          success: false,
+          error: "Group not found",
+        });
+        return;
+      }
+
+      const inviteUrl = this.buildDashboardInviteUrl(group);
+      const subject = `คำเชิญเข้าร่วมกลุ่ม ${group.name || "Leka Bot"}`;
+      const body = [
+        message || "คุณได้รับคำเชิญให้เข้าร่วมกลุ่มใน Leka Bot",
+        "",
+        `ลิงก์เข้าร่วม: ${inviteUrl}`,
+      ].join("\n");
+
+      let delivered = false;
+      let deliveryError: string | null = null;
+
+      if (features.emailNotifications) {
+        try {
+          const nodemailer = await import("nodemailer");
+          const createTransport =
+            (nodemailer as any).createTransport ||
+            (nodemailer as any).default?.createTransport;
+          if (!createTransport) {
+            throw new Error("nodemailer createTransport is unavailable");
+          }
+          const transporter = createTransport({
+            host: config.email.smtpHost,
+            port: config.email.smtpPort,
+            secure: config.email.smtpPort === 465,
+            auth: {
+              user: config.email.smtpUser,
+              pass: config.email.smtpPass,
+            },
+          });
+
+          await transporter.sendMail({
+            from: `"เลขาบอท" <${config.email.smtpUser}>`,
+            to: email,
+            subject,
+            text: body,
+            html: `<p>${body.replace(/\n/g, "<br/>")}</p>`,
+          });
+          delivered = true;
+        } catch (mailError) {
+          deliveryError =
+            mailError instanceof Error ? mailError.message : "SMTP delivery failed";
+          logger.warn("⚠️ Invite email delivery failed, returning manual fallback", {
+            email,
+            groupId,
+            error: deliveryError,
+          });
+        }
+      }
+
+      const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      res.json({
+        success: true,
+        data: {
+          email,
+          inviteUrl,
+          delivered,
+          mailtoUrl,
+          ...(deliveryError ? { warning: deliveryError } : {}),
+        },
+        message: delivered
+          ? "Invite email sent successfully"
+          : "Invite prepared (SMTP unavailable, use mail app fallback)",
+      });
+    } catch (error) {
+      logger.error("❌ Error sending invite email:", error);
+      res.status(500).json({
+        success: false,
+        error: error instanceof Error ? error.message : "Failed to send invite email",
       });
     }
   }
@@ -5280,6 +5631,73 @@ class ApiController {
     }
   }
 
+  private isUuid(value: string): boolean {
+    return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+      value,
+    );
+  }
+
+  private resolveActingUserId(req: Request): string | null {
+    const authenticatedUser = (req as any).user as
+      | { id?: string; lineUserId?: string }
+      | undefined;
+    if (authenticatedUser?.id) {
+      return authenticatedUser.id;
+    }
+
+    const queryUserId = (req.query.userId as string | undefined)?.trim();
+    if (queryUserId) {
+      return queryUserId;
+    }
+
+    const bodyUserId = (req.body?.userId as string | undefined)?.trim();
+    if (bodyUserId) {
+      return bodyUserId;
+    }
+
+    if (authenticatedUser?.lineUserId) {
+      return authenticatedUser.lineUserId;
+    }
+
+    return null;
+  }
+
+  private async resolveUserFromIdentifier(userId: string) {
+    if (!userId) {
+      return null;
+    }
+
+    return this.isUuid(userId)
+      ? this.userService.findById(userId)
+      : this.userService.findByLineUserId(userId);
+  }
+
+  private async resolveGroupFromIdentifier(groupId: string) {
+    if (!groupId) {
+      return null;
+    }
+
+    return this.isUuid(groupId)
+      ? this.userService.findGroupById(groupId)
+      : this.userService.findGroupByLineId(groupId);
+  }
+
+  private buildDashboardInviteUrl(group: {
+    id: string;
+    lineGroupId?: string | null;
+  }): string {
+    const inviteGroupId = group.lineGroupId || group.id;
+    return `${config.baseUrl}/dashboard-new?groupId=${encodeURIComponent(inviteGroupId)}`;
+  }
+
+  private async generateInviteUrl(groupId: string): Promise<string> {
+    const group = await this.resolveGroupFromIdentifier(groupId);
+    if (!group) {
+      throw new Error("Group not found");
+    }
+    return this.buildDashboardInviteUrl(group);
+  }
+
   /**
    * POST /api/groups/:groupId/tasks/deletion-request
    * สร้างคำขอลบงานใหม่จากรายการที่เลือก
@@ -5342,6 +5760,14 @@ apiRouter.get(
 apiRouter.get(
   "/groups/:groupId/stats",
   apiController.getGroupStats.bind(apiController),
+);
+apiRouter.post(
+  "/groups/:groupId/invites",
+  apiController.createInviteLink.bind(apiController),
+);
+apiRouter.post(
+  "/groups/:groupId/invites/email",
+  apiController.sendInviteEmail.bind(apiController),
 );
 apiRouter.get(
   "/groups/:groupId/tasks",
@@ -5417,11 +5843,41 @@ apiRouter.put(
   requireTaskEdit,
   apiController.updateTask.bind(apiController),
 );
+apiRouter.delete(
+  "/tasks/:taskId",
+  authenticate,
+  requireTaskEdit,
+  apiController.deleteTask.bind(apiController),
+);
+apiRouter.delete(
+  "/groups/:groupId/tasks/:taskId",
+  authenticate,
+  requireTaskEdit,
+  apiController.deleteTask.bind(apiController),
+);
 apiRouter.post(
   "/tasks/:taskId/complete",
   authenticate,
   requireTaskApprove,
   apiController.completeTask.bind(apiController),
+);
+apiRouter.post(
+  "/groups/:groupId/tasks/:taskId/complete",
+  authenticate,
+  requireTaskApprove,
+  apiController.completeTask.bind(apiController),
+);
+apiRouter.post(
+  "/tasks/:taskId/approve",
+  authenticate,
+  requireTaskApprove,
+  apiController.approveTask.bind(apiController),
+);
+apiRouter.post(
+  "/groups/:groupId/tasks/:taskId/approve",
+  authenticate,
+  requireTaskApprove,
+  apiController.approveTask.bind(apiController),
 );
 apiRouter.post(
   "/groups/:groupId/tasks/:taskId/approve-extension",
@@ -5765,6 +6221,14 @@ apiRouter.post(
 // User routes
 apiRouter.get("/users/:userId", apiController.getUser.bind(apiController));
 apiRouter.get(
+  "/users/:userId/profile",
+  apiController.getUserProfile.bind(apiController),
+);
+apiRouter.get(
+  "/groups/:groupId/users/:userId/profile",
+  apiController.getUserProfile.bind(apiController),
+);
+apiRouter.get(
   "/users/:userId/tasks",
   apiController.getUserTasks.bind(apiController),
 );
@@ -5826,6 +6290,14 @@ apiRouter.post(
 
 // User management routes
 apiRouter.put("/users/:userId", apiController.updateUser.bind(apiController));
+apiRouter.put(
+  "/users/:userId/profile",
+  apiController.updateUserProfile.bind(apiController),
+);
+apiRouter.put(
+  "/groups/:groupId/users/:userId/profile",
+  apiController.updateUserProfile.bind(apiController),
+);
 apiRouter.post(
   "/users/:userId/calendar-invite",
   apiController.sendCalendarInvitesForUser.bind(apiController),
@@ -5836,6 +6308,14 @@ apiRouter.get(
 );
 
 // Bulk member operations
+apiRouter.put(
+  "/groups/:groupId/members/:memberId/role",
+  apiController.updateMemberRole.bind(apiController),
+);
+apiRouter.delete(
+  "/groups/:groupId/members/:memberId",
+  apiController.removeMember.bind(apiController),
+);
 apiRouter.post(
   "/groups/:groupId/members/bulk-delete",
   apiController.bulkDeleteMembers.bind(apiController),

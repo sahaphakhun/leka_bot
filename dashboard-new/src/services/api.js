@@ -230,7 +230,10 @@ export const createTask = async (groupId, taskData) => {
 };
 
 export const updateTask = async (groupId, taskId, updates) => {
-  return apiCall(`${API_BASE_URL}/groups/${groupId}/tasks/${taskId}`, {
+  const endpoint = buildEndpointWithUserId(
+    `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}`,
+  );
+  return apiCall(endpoint, {
     method: "PUT",
     body: JSON.stringify(updates),
   });
@@ -244,7 +247,7 @@ export const deleteTask = async (groupIdOrTaskId, maybeTaskId) => {
     ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}`
     : `${API_BASE_URL}/tasks/${taskId}`;
 
-  return apiCall(endpoint, { method: "DELETE" });
+  return apiCall(buildEndpointWithUserId(endpoint), { method: "DELETE" });
 };
 
 export const getTaskDeletionRequest = async (groupId) => {
@@ -273,7 +276,7 @@ export const completeTask = async (groupIdOrTaskId, maybeTaskId) => {
     ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/complete`
     : `${API_BASE_URL}/tasks/${taskId}/complete`;
 
-  return apiCall(endpoint, { method: "POST" });
+  return apiCall(buildEndpointWithUserId(endpoint), { method: "POST" });
 };
 
 const resolveStoredUserId = () => {
@@ -385,7 +388,7 @@ export const approveTask = async (
 
   const hasPayload = payload && Object.keys(payload).length > 0;
 
-  return apiCall(endpoint, {
+  return apiCall(buildEndpointWithUserId(endpoint), {
     method: "POST",
     ...(hasPayload ? { body: JSON.stringify(payload) } : {}),
   });
@@ -403,7 +406,7 @@ export const reopenTask = async (
     ? `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}`
     : `${API_BASE_URL}/tasks/${taskId}`;
 
-  return apiCall(endpoint, {
+  return apiCall(buildEndpointWithUserId(endpoint), {
     method: "PUT",
     body: JSON.stringify(updates),
   });
@@ -417,12 +420,12 @@ export const createMultipleTasks = async (groupId, tasks = []) => {
 };
 
 export const approveExtension = async (groupId, taskId) => {
-  return apiCall(
+  const endpoint = buildEndpointWithUserId(
     `${API_BASE_URL}/groups/${groupId}/tasks/${taskId}/approve-extension`,
-    {
-      method: "POST",
-    },
   );
+  return apiCall(endpoint, {
+    method: "POST",
+  });
 };
 
 // ==================== Calendar APIs ====================
@@ -722,17 +725,19 @@ export const getUserAverageScore = async (userId, groupId) => {
 };
 
 export const getUserProfile = async (userId, groupId) => {
-  const endpoint = groupId
-    ? `${API_BASE_URL}/groups/${groupId}/users/${userId}/profile`
-    : `${API_BASE_URL}/users/${userId}/profile`;
+  const endpoint =
+    groupId && groupId !== "default"
+      ? `${API_BASE_URL}/groups/${groupId}/users/${userId}/profile`
+      : `${API_BASE_URL}/users/${userId}/profile`;
   const res = await apiCall(endpoint);
   return res?.data ?? res;
 };
 
 export const updateUserProfile = async (userId, groupId, profileData = {}) => {
-  const endpoint = groupId
-    ? `${API_BASE_URL}/groups/${groupId}/users/${userId}/profile`
-    : `${API_BASE_URL}/users/${userId}/profile`;
+  const endpoint =
+    groupId && groupId !== "default"
+      ? `${API_BASE_URL}/groups/${groupId}/users/${userId}/profile`
+      : `${API_BASE_URL}/users/${userId}/profile`;
 
   return apiCall(endpoint, {
     method: "PUT",

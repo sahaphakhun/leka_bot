@@ -1,7 +1,16 @@
 // Database Connection และ Configuration
 
 import { DataSource, QueryRunner } from 'typeorm';
-import { Group, User, GroupMember, Task, File, KPIRecord, RecurringTask } from '@/models';
+import {
+  Group,
+  User,
+  GroupMember,
+  Task,
+  File,
+  KPIRecord,
+  RecurringTask,
+  ActivityLog,
+} from '@/models';
 
 // สำหรับ Railway หรือ production environment
 const getDatabaseConfig = () => {
@@ -26,7 +35,16 @@ const getDatabaseConfig = () => {
 export const AppDataSource = new DataSource({
   type: 'postgres',
   ...getDatabaseConfig(),
-  entities: [Group, User, GroupMember, Task, File, KPIRecord, RecurringTask],
+  entities: [
+    Group,
+    User,
+    GroupMember,
+    Task,
+    File,
+    KPIRecord,
+    RecurringTask,
+    ActivityLog,
+  ],
   migrations: ['src/migrations/*.ts'],
   subscribers: ['src/subscribers/*.ts'],
   synchronize: process.env.NODE_ENV === 'development', // ใช้เฉพาะ development
@@ -69,7 +87,8 @@ export const initializeDatabase = async (): Promise<void> => {
         'task_files',
         'files',
         'kpi_records',
-        'recurring_tasks'
+        'recurring_tasks',
+        'activity_logs',
       ];
 
       const hasAllRequired = requiredTables.every(t => existingTableNames.includes(t));

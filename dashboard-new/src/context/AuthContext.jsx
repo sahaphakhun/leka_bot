@@ -130,6 +130,37 @@ export const AuthProvider = ({ children }) => {
     setLoading(false);
   }, []);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadCurrentUser = async () => {
+      if (!userId) {
+        setCurrentUser(null);
+        return;
+      }
+
+      try {
+        const { getUserProfile } = await import("../services/api");
+        const profile = await getUserProfile(userId, groupId);
+        if (!cancelled) {
+          setCurrentUser(profile?.data || profile || null);
+        }
+      } catch (error) {
+        console.warn("⚠️ Failed to load current user profile:", error);
+        if (!cancelled) {
+          // เก็บ LINE userId อย่างน้อยไว้ใช้เทียบสิทธิ์ในหน้า UI
+          setCurrentUser({ lineUserId: userId });
+        }
+      }
+    };
+
+    loadCurrentUser();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, groupId]);
+
   // Update URL when userId or groupId changes
   const updateUrl = (newUserId, newGroupId) => {
     const params = new URLSearchParams(window.location.search);
