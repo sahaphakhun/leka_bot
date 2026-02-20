@@ -20,7 +20,6 @@ const apiController_1 = require("./controllers/apiController");
 const dashboardController_1 = require("./controllers/dashboardController");
 const projectController_1 = require("./controllers/projectController");
 const fileBackupRoutes_1 = __importDefault(require("./routes/fileBackupRoutes"));
-const dashboardRedirects_1 = __importDefault(require("./routes/dashboardRedirects"));
 const LineService_1 = require("./services/LineService");
 const CronService_1 = require("./services/CronService");
 const logger_1 = require("./utils/logger");
@@ -112,8 +111,59 @@ class Server {
                 return express_1.default.urlencoded({ extended: true })(req, res, next);
             });
         });
-        // Dashboard Redirects (ต้องมาก่อน static files)
-        this.app.use('/dashboard', dashboardRedirects_1.default);
+        // Dashboard Redirects - ต้องมาก่อน static files
+        this.app.use('/dashboard', (req, res, next) => {
+            console.log('🔍 Dashboard middleware:', req.path, req.url);
+            if (req.path === '/') {
+                const params = new URLSearchParams(req.query);
+                const newUrl = `/dashboard-new${params.toString() ? `?${params.toString()}` : ''}`;
+                console.log(`📍 Redirecting dashboard root: ${req.url} → ${newUrl}`);
+                return res.redirect(302, newUrl);
+            }
+            // Redirect .html files to new dashboard
+            if (req.path === '/index.html') {
+                const { userId, groupId, action, taskId } = req.query;
+                const params = new URLSearchParams();
+                if (userId)
+                    params.set('userId', userId);
+                if (groupId)
+                    params.set('groupId', groupId);
+                if (action)
+                    params.set('action', action);
+                if (taskId)
+                    params.set('taskId', taskId);
+                const queryString = params.toString();
+                const newUrl = `/dashboard-new${queryString ? '?' + queryString : ''}`;
+                console.log(`📍 Redirecting: ${req.url} → ${newUrl}`);
+                return res.redirect(301, newUrl);
+            }
+            if (req.path === '/members.html') {
+                const params = new URLSearchParams(req.query);
+                params.set('view', 'team');
+                console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+                return res.redirect(301, `/dashboard-new?${params.toString()}`);
+            }
+            if (req.path === '/profile.html') {
+                const params = new URLSearchParams(req.query);
+                params.set('view', 'profile');
+                console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+                return res.redirect(301, `/dashboard-new?${params.toString()}`);
+            }
+            if (req.path === '/recurring-tasks.html') {
+                const params = new URLSearchParams(req.query);
+                params.set('view', 'recurring');
+                console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+                return res.redirect(301, `/dashboard-new?${params.toString()}`);
+            }
+            if (req.path === '/submit-tasks.html') {
+                const params = new URLSearchParams(req.query);
+                params.set('view', 'submit');
+                console.log(`📍 Redirecting: ${req.url} → /dashboard-new?${params.toString()}`);
+                return res.redirect(301, `/dashboard-new?${params.toString()}`);
+            }
+            // ถ้าไม่ใช่ .html files ให้ผ่านไป static files
+            next();
+        });
         // Static files สำหรับ dashboard และ uploads
         const uploadsCandidates = [
             path_1.default.join(__dirname, "uploads"),
@@ -121,7 +171,7 @@ class Server {
         ];
         const uploadsDir = uploadsCandidates.find((p) => fs_1.default.existsSync(p)) || uploadsCandidates[0];
         this.app.use("/uploads", express_1.default.static(uploadsDir));
-        // Legacy Dashboard static assets (CSS, JS, images)
+        // Legacy Dashboard static assets (CSS, JS, images) - มาหลัง redirects
         const dashboardCandidates = [
             path_1.default.join(__dirname, "dashboard"),
             path_1.default.join(__dirname, "../dashboard"),

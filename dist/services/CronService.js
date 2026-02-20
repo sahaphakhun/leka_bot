@@ -458,7 +458,7 @@ class CronService {
             }), 'small')
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียดทั้งหมด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${groupData[0].group.id}#manager-reports`, // สามารถปรับเป็นลิงก์ที่ต้องการได้
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียดทั้งหมด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${groupData[0].group.id}#manager-reports`, // สามารถปรับเป็นลิงก์ที่ต้องการได้
             'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('📊 สรุปรายงานผู้จัดการรวม', '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.info, content, buttons, 'extraLarge');
@@ -513,7 +513,7 @@ class CronService {
             ], 'small')
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('📊 รายงานหัวหน้างาน', '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.neutral, content, buttons, 'extraLarge');
     }
@@ -547,7 +547,7 @@ class CronService {
             ])
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('📊 รายงานผู้จัดการ', '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.info, content, buttons, 'extraLarge');
     }
@@ -803,7 +803,7 @@ ${result.errors.length > 0 ? `⚠️ ข้อผิดพลาด: ${result.er
             }), 'small')
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Leaderboard ฉบับเต็ม', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Leaderboard ฉบับเต็ม', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.lineGroupId}&view=leaderboard`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('🏆 Leaderboard', '🏆', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.warning, content, buttons, 'extraLarge');
     }

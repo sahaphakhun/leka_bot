@@ -17,6 +17,30 @@ export interface GroupSettings {
         start: string;
         end: string;
     };
+    pendingDeletionRequest?: {
+        id: string;
+        filter?: 'all' | 'incomplete' | 'custom';
+        requestedBy: {
+            userId: string;
+            lineUserId: string;
+            displayName?: string;
+        };
+        createdAt: string;
+        tasks: Array<{
+            id: string;
+            title: string;
+            status: string;
+            assignees?: string[];
+        }>;
+        totalMembers: number;
+        requiredApprovals: number;
+        approvals: Array<{
+            userId: string;
+            lineUserId: string;
+            displayName?: string;
+            approvedAt: string;
+        }>;
+    };
 }
 export interface User {
     id: string;

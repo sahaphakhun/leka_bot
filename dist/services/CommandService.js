@@ -14,6 +14,7 @@ class CommandService {
         this.userService = serviceContainer_1.serviceContainer.get('UserService');
         this.fileService = serviceContainer_1.serviceContainer.get('FileService');
         this.kpiService = serviceContainer_1.serviceContainer.get('KPIService');
+        this.taskDeletionService = serviceContainer_1.serviceContainer.get('TaskDeletionService');
     }
     /**
      * ประมวลผลคำสั่งหลัก
@@ -42,6 +43,12 @@ class CommandService {
                 case 'เพิ่มงาน':
                 case 'add':
                     return await this.handleAddTaskCommand(command);
+                case 'ลบงาน':
+                case 'เอางานออก':
+                case 'ยกเลิกงาน':
+                    return await this.handleDeleteTasksCommand(command);
+                case 'ยอมรับ':
+                    return await this.handleApproveDeletionCommand(command);
                 case '/delete':
                     return await this.handleDeleteAllTasksCommand(command);
                 default:
@@ -178,6 +185,47 @@ ${supervisorNames}
         catch (error) {
             logger_1.logger.error('Error generating add task card:', error);
             return 'เกิดข้อผิดพลาดในการสร้างการ์ดเพิ่มงาน กรุณาลองใหม่';
+        }
+    }
+    /**
+     * ลบงาน - แสดงการ์ดเพื่อเปิดหน้าเว็บลบงานที่เลือก
+     */
+    async handleDeleteTasksCommand(command) {
+        try {
+            const deleteUrl = urlBuilder_1.UrlBuilder.getDeleteTasksUrl(command.groupId, command.userId);
+            const pendingRequest = await this.taskDeletionService.getPendingRequest(command.groupId);
+            const descriptionLines = [
+                'เลือกงานที่ต้องการลบจากเว็บไซต์ แล้วกดยืนยัน',
+                'ระบบจะแจ้งรายการงานในกลุ่มเพื่อรอการยืนยัน',
+                'ต้องมีสมาชิกอย่างน้อย 1 ใน 3 พิมพ์ "ยอมรับ" เพื่อดำเนินการลบ',
+            ];
+            if (pendingRequest) {
+                descriptionLines.unshift(`⚠️ ขณะนี้มีคำขอลบงาน ${pendingRequest.tasks.length} รายการที่รอการยืนยันอยู่`);
+            }
+            const content = descriptionLines.map(line => FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText(line, 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary, undefined, true));
+            const buttons = [
+                FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('เลือกงานที่ต้องการลบ', 'uri', deleteUrl, 'primary'),
+                FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('เปิด Dashboard กลุ่ม', 'uri', urlBuilder_1.UrlBuilder.getDashboardUrl(command.groupId, { userId: command.userId }), 'secondary'),
+            ];
+            const flexMessage = FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('ลบงานที่เลือก', '🗑️', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.danger, content, buttons, 'extraLarge');
+            return flexMessage;
+        }
+        catch (error) {
+            logger_1.logger.error('Error generating delete task card:', error);
+            return 'เกิดข้อผิดพลาดในการสร้างการ์ดลบงาน กรุณาลองใหม่';
+        }
+    }
+    /**
+     * รับคำว่า "ยอมรับ" เพื่ออนุมัติการลบงาน
+     */
+    async handleApproveDeletionCommand(command) {
+        try {
+            const result = await this.taskDeletionService.registerApproval(command.groupId, command.userId);
+            return result.message;
+        }
+        catch (error) {
+            logger_1.logger.error('Error approving deletion request:', error);
+            return 'เกิดข้อผิดพลาดในการยืนยันการลบงาน กรุณาลองใหม่อีกครั้ง';
         }
     }
     /**
@@ -354,7 +402,7 @@ ${supervisorNames}
                 content.push(FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText('', 'xs', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary), FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText('👤 คุณยังไม่มีคะแนน KPI', 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary));
             }
             const buttons = [
-                FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียดทั้งหมด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${groupId}&view=leaderboard`, 'primary'),
+                FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียดทั้งหมด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${groupId}&view=leaderboard`, 'primary'),
                 FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูสถิติรายสัปดาห์', 'postback', `action=view_weekly_stats&groupId=${groupId}`, 'secondary')
             ];
             const flexMessage = FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('🏆 อันดับ KPI สัปดาห์นี้', '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.success, content, buttons, 'extraLarge');
@@ -410,7 +458,7 @@ ${supervisorNames}
                 ]));
             }
             const buttons = [
-                FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียดทั้งหมด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${groupId}&view=reports`, 'primary'),
+                FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียดทั้งหมด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${groupId}&view=reports`, 'primary'),
                 FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูอันดับ KPI', 'postback', `action=view_leaderboard&groupId=${groupId}`, 'secondary')
             ];
             const flexMessage = FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('📊 สถิติรายสัปดาห์', '📈', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.info, content, buttons, 'extraLarge');

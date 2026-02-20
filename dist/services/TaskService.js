@@ -49,7 +49,49 @@ const FileService_1 = require("./FileService");
 const LineService_1 = require("./LineService");
 const UserService_1 = require("./UserService");
 const FileBackupService_1 = require("./FileBackupService");
+const USER_ID_PATTERN = /^[U][a-zA-Z0-9]+$/;
+const USER_UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 class TaskService {
+    isLineUserId(userId) {
+        return USER_ID_PATTERN.test(userId || "");
+    }
+    isUuid(userId) {
+        return USER_UUID_PATTERN.test(userId || "");
+    }
+    normalizeUserIds(userIds) {
+        return Array.from(new Set(userIds.map((id) => (id || "").trim()).filter(Boolean)));
+    }
+    async resolveUserByIdentifier(identifier) {
+        const targetId = (identifier || "").trim();
+        if (!targetId)
+            return null;
+        const byLine = await this.userRepository.findOneBy({ lineUserId: targetId });
+        if (byLine)
+            return byLine;
+        if (!this.isUuid(targetId))
+            return null;
+        return this.userRepository.findOneBy({ id: targetId });
+    }
+    async resolveUsersByIdentifiers(identifiers) {
+        const uniqueIds = this.normalizeUserIds(identifiers);
+        if (uniqueIds.length === 0) {
+            return { users: [], missingIds: [] };
+        }
+        const lineUserIds = uniqueIds.filter((id) => this.isLineUserId(id));
+        const dbIds = uniqueIds.filter((id) => !this.isLineUserId(id));
+        const lineUsers = lineUserIds.length > 0
+            ? await this.userRepository.find({
+                where: { lineUserId: (0, typeorm_1.In)(lineUserIds) },
+            })
+            : [];
+        const dbUsers = dbIds.length > 0
+            ? await this.userRepository.find({ where: { id: (0, typeorm_1.In)(dbIds) } })
+            : [];
+        const users = Array.from(new Map([...lineUsers, ...dbUsers].map((user) => [user.id, user])).values());
+        const foundIds = new Set(users.flatMap((u) => [u.lineUserId, u.id]).filter(Boolean));
+        const missingIds = uniqueIds.filter((id) => !foundIds.has(id));
+        return { users, missingIds };
+    }
     constructor() {
         this.taskRepository = database_1.AppDataSource.getRepository(models_1.Task);
         this.groupRepository = database_1.AppDataSource.getRepository(models_1.Group);
@@ -106,6 +148,10 @@ class TaskService {
             if (!data.dueTime) {
                 throw new Error('ต้องระบุวันที่กำหนดส่ง');
             }
+            const assigneeIds = this.normalizeUserIds(data.assigneeIds);
+            if (assigneeIds.length === 0) {
+                throw new Error('ต้องระบุผู้รับผิดชอบอย่างน้อย 1 คน');
+            }
             // ค้นหา Group entity จาก LINE Group ID หรือ internal UUID
             const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.groupId);
             const group = isUuid
@@ -115,15 +161,15 @@ class TaskService {
                 throw new Error(`Group not found for LINE ID: ${data.groupId}`);
             }
             // ค้นหา Creator User entity จาก LINE User ID
-            let creator = await this.userRepository.findOneBy({ lineUserId: data.createdBy });
+            let creator = await this.resolveUserByIdentifier(data.createdBy);
             if (!creator) {
-                console.error(`❌ Creator user not found for LINE ID: ${data.createdBy}`);
+                console.error(`❌ Creator user not found for ID: ${data.createdBy}`);
                 // ลองใช้ assignee แรกแทน
-                if (data.assigneeIds && data.assigneeIds.length > 0) {
-                    creator = await this.userRepository.findOneBy({ lineUserId: data.assigneeIds[0] });
+                if (assigneeIds.length > 0) {
+                    creator = await this.resolveUserByIdentifier(assigneeIds[0]);
                     if (creator) {
-                        console.log(`✅ Using fallback creator: ${creator.displayName} (${data.assigneeIds[0]})`);
-                        data.createdBy = data.assigneeIds[0];
+                        console.log(`✅ Using fallback creator: ${creator.displayName} (${assigneeIds[0]})`);
+                        data.createdBy = assigneeIds[0];
                     }
                     else {
                         throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
@@ -162,11 +208,11 @@ class TaskService {
                     throw new Error('งานนี้ถูกสร้างไปแล้ว กรุณารอสักครู่ก่อนสร้างงานใหม่');
                 }
             }
-            // แปลง reviewerUserId จาก LINE → internal ID ถ้าจำเป็น
+            // แปลง reviewerUserId → internal ID
             let reviewerInternalId = data.reviewerUserId;
-            if (reviewerInternalId && reviewerInternalId.startsWith('U')) {
-                const reviewer = await this.userRepository.findOneBy({ lineUserId: reviewerInternalId });
-                reviewerInternalId = reviewer ? reviewer.id : undefined;
+            if (reviewerInternalId) {
+                const reviewer = await this.resolveUserByIdentifier(reviewerInternalId);
+                reviewerInternalId = reviewer?.id;
             }
             // ถ้าไม่ระบุผู้ตรวจ ให้ผู้สร้างงานเป็นผู้อนุมัติ
             if (!reviewerInternalId) {
@@ -198,33 +244,13 @@ class TaskService {
             // บันทึกงาน
             const savedTask = await this.taskRepository.save(task);
             // เพิ่มผู้รับผิดชอบ
-            if (data.assigneeIds.length > 0) {
-                // ตรวจสอบว่า assigneeIds เป็น database user IDs หรือ LINE user IDs
-                let assignees;
-                // ถ้า ID ขึ้นต้นด้วย 'U' จะเป็น LINE user ID, ถ้าไม่ใช่จะเป็น database user ID
-                const isLineUserIds = data.assigneeIds.some(id => id.startsWith('U'));
-                if (isLineUserIds) {
-                    // ค้นหาจาก LINE user IDs
-                    assignees = await this.userRepository.find({
-                        where: {
-                            lineUserId: (0, typeorm_1.In)(data.assigneeIds)
-                        }
-                    });
-                }
-                else {
-                    // ค้นหาจาก database user IDs
-                    assignees = await this.userRepository.find({
-                        where: {
-                            id: (0, typeorm_1.In)(data.assigneeIds)
-                        }
-                    });
-                }
-                if (assignees.length !== data.assigneeIds.length) {
-                    const foundIds = isLineUserIds
-                        ? assignees.map(u => u.lineUserId)
-                        : assignees.map(u => u.id);
-                    const missingIds = data.assigneeIds.filter(id => !foundIds.includes(id));
+            if (assigneeIds.length > 0) {
+                const { users: assignees, missingIds } = await this.resolveUsersByIdentifiers(assigneeIds);
+                if (assignees.length !== assigneeIds.length) {
                     console.warn(`⚠️ Some assignees not found: ${missingIds.join(', ')}`);
+                    if (assignees.length === 0) {
+                        throw new Error('ไม่พบผู้รับผิดชอบที่ตรงกับระบบ');
+                    }
                 }
                 savedTask.assignedUsers = assignees;
                 await this.taskRepository.save(savedTask);
@@ -386,30 +412,8 @@ class TaskService {
             // จัดการผู้รับผิดชอบถ้ามีการอัปเดต
             const assigneeUpdates = updates;
             if (assigneeUpdates.assigneeIds && Array.isArray(assigneeUpdates.assigneeIds)) {
-                // ตรวจสอบว่า assigneeIds เป็น database user IDs หรือ LINE user IDs
-                let assignees;
-                const isLineUserIds = assigneeUpdates.assigneeIds.some((id) => id.startsWith('U'));
-                if (isLineUserIds) {
-                    // ค้นหาจาก LINE user IDs
-                    assignees = await this.userRepository.find({
-                        where: {
-                            lineUserId: (0, typeorm_1.In)(assigneeUpdates.assigneeIds)
-                        }
-                    });
-                }
-                else {
-                    // ค้นหาจาก database user IDs
-                    assignees = await this.userRepository.find({
-                        where: {
-                            id: (0, typeorm_1.In)(assigneeUpdates.assigneeIds)
-                        }
-                    });
-                }
+                const { users: assignees, missingIds } = await this.resolveUsersByIdentifiers(assigneeUpdates.assigneeIds);
                 if (assignees.length !== assigneeUpdates.assigneeIds.length) {
-                    const foundIds = isLineUserIds
-                        ? assignees.map(u => u.lineUserId)
-                        : assignees.map(u => u.id);
-                    const missingIds = assigneeUpdates.assigneeIds.filter((id) => !foundIds.includes(id));
                     console.warn(`⚠️ Some assignees not found during update: ${missingIds.join(', ')}`);
                 }
                 task.assignedUsers = assignees;
@@ -1012,7 +1016,15 @@ class TaskService {
                 .leftJoinAndSelect('task.attachedFiles', 'file')
                 .where('task.groupId = :groupId', { groupId: group.id });
             if (options.status) {
-                queryBuilder.andWhere('task.status = :status', { status: options.status });
+                const statuses = Array.isArray(options.status)
+                    ? options.status.filter(Boolean)
+                    : [options.status];
+                if (statuses.length === 1) {
+                    queryBuilder.andWhere('task.status = :status', { status: statuses[0] });
+                }
+                else if (statuses.length > 1) {
+                    queryBuilder.andWhere('task.status IN (:...statuses)', { statuses });
+                }
             }
             if (options.assigneeId) {
                 // แปลง LINE User ID เป็น internal UUID

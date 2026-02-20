@@ -21,6 +21,7 @@ const ProjectMemoryService_1 = require("@/services/ProjectMemoryService");
 const ProjectWorkflowService_1 = require("@/services/ProjectWorkflowService");
 const ProjectChecklistService_1 = require("@/services/ProjectChecklistService");
 const RecurringTaskService_1 = require("@/services/RecurringTaskService");
+const TaskDeletionService_1 = require("@/services/TaskDeletionService");
 class ServiceContainer {
     constructor() {
         this.services = new Map();
@@ -83,6 +84,8 @@ class ServiceContainer {
                 return new ProjectChecklistService_1.ProjectChecklistService();
             case 'RecurringTaskService':
                 return new RecurringTaskService_1.RecurringTaskService();
+            case 'TaskDeletionService':
+                return new TaskDeletionService_1.TaskDeletionService();
             default:
                 throw new Error(`Service not found: ${serviceName}`);
         }

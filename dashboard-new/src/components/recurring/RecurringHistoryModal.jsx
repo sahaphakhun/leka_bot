@@ -38,33 +38,7 @@ export default function RecurringHistoryModal() {
       setHistory(response.data || response);
     } catch (error) {
       console.error("Failed to load history:", error);
-      // Sample data for development
-      setHistory([
-        {
-          id: "1",
-          taskId: "T001",
-          taskTitle: "รายงานประจำสัปดาห์",
-          createdAt: "2025-10-12T09:00:00",
-          status: "completed",
-          assignedUsers: [{ lineUserId: "U001", displayName: "John Doe" }],
-        },
-        {
-          id: "2",
-          taskId: "T002",
-          taskTitle: "รายงานประจำสัปดาห์",
-          createdAt: "2025-10-05T09:00:00",
-          status: "completed",
-          assignedUsers: [{ lineUserId: "U001", displayName: "John Doe" }],
-        },
-        {
-          id: "3",
-          taskId: "T003",
-          taskTitle: "รายงานประจำสัปดาห์",
-          createdAt: "2025-09-28T09:00:00",
-          status: "in-progress",
-          assignedUsers: [{ lineUserId: "U001", displayName: "John Doe" }],
-        },
-      ]);
+      setHistory([]);
     } finally {
       setLoading(false);
     }

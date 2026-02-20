@@ -13,6 +13,15 @@ import { LineService } from './LineService';
 import { UserService } from './UserService';
 import { FileBackupService } from './FileBackupService';
 
+const USER_ID_PATTERN = /^[U][a-zA-Z0-9]+$/;
+const USER_UUID_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+
+interface ResolvedUsersResult {
+  users: User[];
+  missingIds: string[];
+}
+
 export class TaskService {
   private taskRepository: Repository<Task>;
   private groupRepository: Repository<Group>;
@@ -24,6 +33,61 @@ export class TaskService {
   private fileRepository: Repository<File>;
   private userService: UserService;
   private fileBackupService: FileBackupService;
+
+  private isLineUserId(userId: string): boolean {
+    return USER_ID_PATTERN.test(userId || "");
+  }
+
+  private isUuid(userId: string): boolean {
+    return USER_UUID_PATTERN.test(userId || "");
+  }
+
+  private normalizeUserIds(userIds: string[]): string[] {
+    return Array.from(new Set(userIds.map((id) => (id || "").trim()).filter(Boolean)));
+  }
+
+  private async resolveUserByIdentifier(identifier: string): Promise<User | null> {
+    const targetId = (identifier || "").trim();
+    if (!targetId) return null;
+
+    const byLine = await this.userRepository.findOneBy({ lineUserId: targetId });
+    if (byLine) return byLine;
+    if (!this.isUuid(targetId)) return null;
+
+    return this.userRepository.findOneBy({ id: targetId });
+  }
+
+  private async resolveUsersByIdentifiers(
+    identifiers: string[],
+  ): Promise<ResolvedUsersResult> {
+    const uniqueIds = this.normalizeUserIds(identifiers);
+    if (uniqueIds.length === 0) {
+      return { users: [], missingIds: [] };
+    }
+
+    const lineUserIds = uniqueIds.filter((id) => this.isLineUserId(id));
+    const dbIds = uniqueIds.filter((id) => !this.isLineUserId(id));
+    const lineUsers =
+      lineUserIds.length > 0
+        ? await this.userRepository.find({
+            where: { lineUserId: In(lineUserIds) },
+          })
+        : [];
+    const dbUsers =
+      dbIds.length > 0
+        ? await this.userRepository.find({ where: { id: In(dbIds) }})
+        : [];
+
+    const users = Array.from(
+      new Map([...lineUsers, ...dbUsers].map((user) => [user.id, user])).values(),
+    );
+    const foundIds = new Set(
+      users.flatMap((u) => [u.lineUserId, u.id]).filter(Boolean),
+    );
+    const missingIds = uniqueIds.filter((id) => !foundIds.has(id));
+
+    return { users, missingIds };
+  }
 
   constructor() {
     this.taskRepository = AppDataSource.getRepository(Task);
@@ -98,6 +162,11 @@ export class TaskService {
       if (!data.dueTime) {
         throw new Error('ต้องระบุวันที่กำหนดส่ง');
       }
+      const assigneeIds = this.normalizeUserIds(data.assigneeIds);
+      if (assigneeIds.length === 0) {
+        throw new Error('ต้องระบุผู้รับผิดชอบอย่างน้อย 1 คน');
+      }
+
       // ค้นหา Group entity จาก LINE Group ID หรือ internal UUID
       const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(data.groupId);
       const group = isUuid
@@ -108,15 +177,15 @@ export class TaskService {
       }
 
       // ค้นหา Creator User entity จาก LINE User ID
-      let creator = await this.userRepository.findOneBy({ lineUserId: data.createdBy });
+      let creator = await this.resolveUserByIdentifier(data.createdBy);
       if (!creator) {
-        console.error(`❌ Creator user not found for LINE ID: ${data.createdBy}`);
+        console.error(`❌ Creator user not found for ID: ${data.createdBy}`);
         // ลองใช้ assignee แรกแทน
-        if (data.assigneeIds && data.assigneeIds.length > 0) {
-          creator = await this.userRepository.findOneBy({ lineUserId: data.assigneeIds[0] });
+        if (assigneeIds.length > 0) {
+          creator = await this.resolveUserByIdentifier(assigneeIds[0]);
           if (creator) {
-            console.log(`✅ Using fallback creator: ${creator.displayName} (${data.assigneeIds[0]})`);
-            data.createdBy = data.assigneeIds[0];
+            console.log(`✅ Using fallback creator: ${creator.displayName} (${assigneeIds[0]})`);
+            data.createdBy = assigneeIds[0];
           } else {
             throw new Error(`Creator user not found for LINE ID: ${data.createdBy}`);
           }
@@ -158,11 +227,11 @@ export class TaskService {
         }
       }
 
-      // แปลง reviewerUserId จาก LINE → internal ID ถ้าจำเป็น
+      // แปลง reviewerUserId → internal ID
       let reviewerInternalId: string | undefined = data.reviewerUserId;
-      if (reviewerInternalId && reviewerInternalId.startsWith('U')) {
-        const reviewer = await this.userRepository.findOneBy({ lineUserId: reviewerInternalId });
-        reviewerInternalId = reviewer ? reviewer.id : undefined;
+      if (reviewerInternalId) {
+        const reviewer = await this.resolveUserByIdentifier(reviewerInternalId);
+        reviewerInternalId = reviewer?.id;
       }
 
       // ถ้าไม่ระบุผู้ตรวจ ให้ผู้สร้างงานเป็นผู้อนุมัติ
@@ -198,35 +267,15 @@ export class TaskService {
       const savedTask = await this.taskRepository.save(task);
 
       // เพิ่มผู้รับผิดชอบ
-      if (data.assigneeIds.length > 0) {
-        // ตรวจสอบว่า assigneeIds เป็น database user IDs หรือ LINE user IDs
-        let assignees: User[];
-        
-        // ถ้า ID ขึ้นต้นด้วย 'U' จะเป็น LINE user ID, ถ้าไม่ใช่จะเป็น database user ID
-        const isLineUserIds = data.assigneeIds.some(id => id.startsWith('U'));
-        
-        if (isLineUserIds) {
-          // ค้นหาจาก LINE user IDs
-          assignees = await this.userRepository.find({
-            where: {
-              lineUserId: In(data.assigneeIds)
-            }
-          });
-        } else {
-          // ค้นหาจาก database user IDs
-          assignees = await this.userRepository.find({
-            where: {
-              id: In(data.assigneeIds)
-            }
-          });
-        }
-        
-        if (assignees.length !== data.assigneeIds.length) {
-          const foundIds = isLineUserIds 
-            ? assignees.map(u => u.lineUserId)
-            : assignees.map(u => u.id);
-          const missingIds = data.assigneeIds.filter(id => !foundIds.includes(id));
+      if (assigneeIds.length > 0) {
+        const { users: assignees, missingIds } =
+          await this.resolveUsersByIdentifiers(assigneeIds);
+
+        if (assignees.length !== assigneeIds.length) {
           console.warn(`⚠️ Some assignees not found: ${missingIds.join(', ')}`);
+          if (assignees.length === 0) {
+            throw new Error('ไม่พบผู้รับผิดชอบที่ตรงกับระบบ');
+          }
         }
 
         savedTask.assignedUsers = assignees;
@@ -392,32 +441,9 @@ export class TaskService {
       // จัดการผู้รับผิดชอบถ้ามีการอัปเดต
       const assigneeUpdates = updates as any;
       if (assigneeUpdates.assigneeIds && Array.isArray(assigneeUpdates.assigneeIds)) {
-        // ตรวจสอบว่า assigneeIds เป็น database user IDs หรือ LINE user IDs
-        let assignees: User[];
-        
-        const isLineUserIds = assigneeUpdates.assigneeIds.some((id: string) => id.startsWith('U'));
-        
-        if (isLineUserIds) {
-          // ค้นหาจาก LINE user IDs
-          assignees = await this.userRepository.find({
-            where: {
-              lineUserId: In(assigneeUpdates.assigneeIds)
-            }
-          });
-        } else {
-          // ค้นหาจาก database user IDs
-          assignees = await this.userRepository.find({
-            where: {
-              id: In(assigneeUpdates.assigneeIds)
-            }
-          });
-        }
-        
+        const { users: assignees, missingIds } =
+          await this.resolveUsersByIdentifiers(assigneeUpdates.assigneeIds);
         if (assignees.length !== assigneeUpdates.assigneeIds.length) {
-          const foundIds = isLineUserIds 
-            ? assignees.map(u => u.lineUserId)
-            : assignees.map(u => u.id);
-          const missingIds = assigneeUpdates.assigneeIds.filter((id: string) => !foundIds.includes(id));
           console.warn(`⚠️ Some assignees not found during update: ${missingIds.join(', ')}`);
         }
 

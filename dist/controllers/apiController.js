@@ -68,6 +68,8 @@ class ApiController {
         this.notificationCardService =
             serviceContainer_1.serviceContainer.get("NotificationCardService");
         this.activityLogService = new ActivityLogService_1.ActivityLogService();
+        this.taskDeletionService =
+            serviceContainer_1.serviceContainer.get("TaskDeletionService");
     }
     // Task Endpoints
     /**
@@ -294,8 +296,41 @@ class ApiController {
         try {
             const { groupId } = req.params;
             const { status, assignee, tags, startDate, endDate, page = 1, limit = 20, } = req.query;
+            const parseStatus = () => {
+                const raw = req.query.status;
+                const normalize = (value) => {
+                    if (!value)
+                        return [];
+                    if (Array.isArray(value)) {
+                        return value.flatMap((item) => normalize(item));
+                    }
+                    if (typeof value === "string") {
+                        return value
+                            .split(",")
+                            .map((entry) => entry.trim())
+                            .filter(Boolean);
+                    }
+                    return [];
+                };
+                const rawStatuses = normalize(raw);
+                const validStatuses = [
+                    "pending",
+                    "in_progress",
+                    "submitted",
+                    "reviewed",
+                    "approved",
+                    "completed",
+                    "rejected",
+                    "cancelled",
+                    "overdue",
+                ];
+                const validSet = new Set(validStatuses);
+                const parsed = rawStatuses.filter((status) => validSet.has(status));
+                return parsed.length > 0 ? parsed : undefined;
+            };
+            const statusFilter = parseStatus();
             const options = {
-                status: status,
+                status: statusFilter,
                 assigneeId: assignee,
                 tags: tags ? tags.split(",") : undefined,
                 startDate: startDate ? new Date(startDate) : undefined,
@@ -378,13 +413,31 @@ class ApiController {
                     return;
                 }
             }
+            const dueTime = new Date(taskData.dueTime);
+            if (Number.isNaN(dueTime.getTime())) {
+                res.status(400).json({
+                    success: false,
+                    error: "รูปแบบวันที่กำหนดส่งไม่ถูกต้อง",
+                    details: `dueTime received: ${taskData.dueTime}`,
+                });
+                return;
+            }
+            const startTime = taskData.startTime
+                ? new Date(taskData.startTime)
+                : undefined;
+            if (startTime && Number.isNaN(startTime.getTime())) {
+                res.status(400).json({
+                    success: false,
+                    error: "รูปแบบวันเริ่มไม่ถูกต้อง",
+                    details: `startTime received: ${taskData.startTime}`,
+                });
+                return;
+            }
             const task = await this.taskService.createTask({
                 ...taskData,
                 groupId,
-                dueTime: new Date(taskData.dueTime),
-                startTime: taskData.startTime
-                    ? new Date(taskData.startTime)
-                    : undefined,
+                dueTime,
+                startTime,
                 requireAttachment: !!taskData.requireAttachment,
                 reviewerUserId: taskData.reviewerUserId,
             });
@@ -2617,6 +2670,35 @@ class ApiController {
                 .json({ success: false, error: "Failed to delete recurring" });
         }
     }
+    async toggleRecurring(req, res) {
+        try {
+            const { id } = req.params;
+            const body = req.body || {};
+            const isActivePayload = typeof body.enabled === "boolean"
+                ? body.enabled
+                : typeof body.isActive === "boolean"
+                    ? body.isActive
+                    : undefined;
+            if (typeof isActivePayload !== "boolean") {
+                res.status(400).json({
+                    success: false,
+                    error: "enabled or isActive is required and must be a boolean",
+                });
+                return;
+            }
+            const recurring = await this.recurringService.update(id, {
+                active: isActivePayload,
+            });
+            res.json({ success: true, data: recurring });
+        }
+        catch (error) {
+            logger_1.logger.error("❌ Error toggling recurring:", error);
+            res.status(500).json({
+                success: false,
+                error: "Failed to toggle recurring task",
+            });
+        }
+    }
     async getRecurring(req, res) {
         try {
             const { id } = req.params;
@@ -4271,6 +4353,62 @@ class ApiController {
             });
         }
     }
+    /**
+     * GET /api/groups/:groupId/tasks/deletion-request
+     * คืนสถานะคำขอลบงานที่รอการยืนยันสำหรับกลุ่ม
+     */
+    async getTaskDeletionRequest(req, res) {
+        try {
+            const { groupId } = req.params;
+            const request = await this.taskDeletionService.getPendingRequest(groupId);
+            res.json({ success: true, data: request });
+        }
+        catch (error) {
+            logger_1.logger.error("❌ Error getting task deletion request:", error);
+            res.status(500).json({
+                success: false,
+                error: "ไม่สามารถดึงข้อมูลคำขอลบงานได้",
+            });
+        }
+    }
+    /**
+     * POST /api/groups/:groupId/tasks/deletion-request
+     * สร้างคำขอลบงานใหม่จากรายการที่เลือก
+     */
+    async createTaskDeletionRequest(req, res) {
+        try {
+            const { groupId } = req.params;
+            const { userId, taskIds, filter } = req.body || {};
+            if (!userId || typeof userId !== "string") {
+                res.status(400).json({
+                    success: false,
+                    error: "กรุณาระบุผู้ที่ร้องขอลบงาน (userId)",
+                });
+                return;
+            }
+            if (!Array.isArray(taskIds) || taskIds.length === 0) {
+                res.status(400).json({
+                    success: false,
+                    error: "กรุณาเลือกงานที่ต้องการลบอย่างน้อย 1 งาน",
+                });
+                return;
+            }
+            const request = await this.taskDeletionService.initiateDeletionRequest({
+                groupId,
+                requesterLineUserId: userId,
+                taskIds,
+                filter,
+            });
+            res.json({ success: true, data: request });
+        }
+        catch (error) {
+            const errorMessage = error instanceof Error
+                ? error.message
+                : "ไม่สามารถสร้างคำขอลบงานได้";
+            logger_1.logger.error("❌ Error creating task deletion request:", error);
+            res.status(400).json({ success: false, error: errorMessage });
+        }
+    }
 }
 const apiController = new ApiController();
 // Routes setup
@@ -4280,6 +4418,8 @@ exports.apiRouter.get("/groups/:groupId/members", apiController.getGroupMembers.
 exports.apiRouter.get("/groups/:groupId/stats", apiController.getGroupStats.bind(apiController));
 exports.apiRouter.get("/groups/:groupId/tasks", (0, validation_1.validateRequest)(validation_1.taskSchemas.list), apiController.getTasks.bind(apiController));
 exports.apiRouter.post("/groups/:groupId/tasks", (0, validation_1.validateRequest)(validation_1.taskSchemas.create), apiController.createTask.bind(apiController));
+exports.apiRouter.get("/groups/:groupId/tasks/deletion-request", apiController.getTaskDeletionRequest.bind(apiController));
+exports.apiRouter.post("/groups/:groupId/tasks/deletion-request", apiController.createTaskDeletionRequest.bind(apiController));
 exports.apiRouter.get("/groups/:groupId/calendar", apiController.getCalendarEvents.bind(apiController));
 // Group file listing should respect the requested group rather than defaulting to "default"
 exports.apiRouter.get("/groups/:groupId/files", (req, res) => apiController.getGroupFiles(req, res));
@@ -4292,7 +4432,7 @@ exports.apiRouter.post("/groups/:groupId/settings/report-recipients", apiControl
 exports.apiRouter.get("/groups/:groupId/reports/summary", apiController.getReportsSummary.bind(apiController));
 exports.apiRouter.get("/groups/:groupId/reports/by-users", apiController.getReportsByUsers.bind(apiController));
 exports.apiRouter.get("/groups/:groupId/reports/export", apiController.exportReports.bind(apiController));
-// TODO: เพิ่ม endpoints สำหรับ recurring tasks ในอนาคต เช่น POST/GET /groups/:groupId/recurring
+// Recurring endpoints support both group-scoped and global route styles
 // Task-specific routes
 exports.apiRouter.put("/tasks/:taskId", auth_1.authenticate, taskAuth_1.requireTaskEdit, apiController.updateTask.bind(apiController));
 exports.apiRouter.put("/groups/:groupId/tasks/:taskId", auth_1.authenticate, taskAuth_1.requireTaskEdit, apiController.updateTask.bind(apiController));
@@ -4419,13 +4559,18 @@ exports.apiRouter.post("/groups/:groupId/recurring-no-validation", async (req, r
 // Recurring tasks routes (UI management)
 exports.apiRouter.get("/groups/:groupId/recurring", apiController.listRecurring.bind(apiController));
 exports.apiRouter.post("/groups/:groupId/recurring", (0, validation_1.validateRequest)(validation_1.recurringTaskSchemas.create), apiController.createRecurring.bind(apiController));
+exports.apiRouter.get("/groups/:groupId/recurring/stats", apiController.getGroupRecurringStats.bind(apiController));
+exports.apiRouter.get("/groups/:groupId/recurring/:id", apiController.getRecurring.bind(apiController));
+exports.apiRouter.put("/groups/:groupId/recurring/:id", (0, validation_1.validateRequest)(validation_1.recurringTaskSchemas.update), apiController.updateRecurring.bind(apiController));
+exports.apiRouter.delete("/groups/:groupId/recurring/:id", apiController.deleteRecurring.bind(apiController));
+exports.apiRouter.get("/groups/:groupId/recurring/:id/history", apiController.getRecurringHistory.bind(apiController));
+exports.apiRouter.patch("/groups/:groupId/recurring/:id/toggle", (0, validation_1.validateRequest)(validation_1.recurringTaskSchemas.toggle), apiController.toggleRecurring.bind(apiController));
 exports.apiRouter.get("/recurring/:id", apiController.getRecurring.bind(apiController));
 exports.apiRouter.put("/recurring/:id", (0, validation_1.validateRequest)(validation_1.recurringTaskSchemas.update), apiController.updateRecurring.bind(apiController));
 exports.apiRouter.delete("/recurring/:id", apiController.deleteRecurring.bind(apiController));
 // Recurring task history and statistics
 exports.apiRouter.get("/recurring/:id/history", apiController.getRecurringHistory.bind(apiController));
 exports.apiRouter.get("/recurring/:id/stats", apiController.getRecurringStats.bind(apiController));
-exports.apiRouter.get("/groups/:groupId/recurring/stats", apiController.getGroupRecurringStats.bind(apiController));
 // Task submission (UI upload)
 exports.apiRouter.post("/groups/:groupId/tasks/:taskId/submit", auth_1.authenticate, taskAuth_1.requireTaskSubmit, upload.array("attachments", 10), apiController.submitTask.bind(apiController));
 // Task submission (direct task ID - for backward compatibility)
@@ -4439,7 +4584,6 @@ exports.apiRouter.post("/groups/:groupId/files/upload", upload.array("attachment
 // General file upload (for dashboard)
 exports.apiRouter.post("/files/upload", upload.array("files", 10), apiController.uploadGeneralFiles.bind(apiController));
 // File management endpoints
-exports.apiRouter.get("/files/:fileId/download", apiController.downloadFile.bind(apiController));
 exports.apiRouter.delete("/files/:fileId", apiController.deleteFile.bind(apiController));
 exports.apiRouter.get("/files", apiController.getFiles.bind(apiController));
 // Manual migration endpoint (for Railway deployment)

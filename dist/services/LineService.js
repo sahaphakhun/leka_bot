@@ -192,7 +192,8 @@ class LineService {
             'เสร็จงาน', 'งานเสร็จ', 'ปิดงาน',
             'ดูไฟล์', 'รายการไฟล์', 'ไฟล์ทั้งหมด',
             'ตั้งค่า', 'setup', 'config',
-            'ช่วยเหลือ', 'help', 'คำสั่ง'
+            'ช่วยเหลือ', 'help', 'คำสั่ง',
+            'ยอมรับ'
         ];
         return thaiCommands.some(cmd => trimmedText.startsWith(cmd));
     }
@@ -695,7 +696,7 @@ class LineService {
             ], undefined, 'medium')
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard?taskId=${task.id}&action=view`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard-new?taskId=${task.id}&action=view`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard(task.title, FlexMessageDesignSystem_1.FlexMessageDesignSystem.emojis.task, FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.lightGray, content, buttons, 'extraLarge');
     }

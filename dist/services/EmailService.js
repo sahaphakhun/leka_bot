@@ -187,7 +187,7 @@ class EmailService {
     createTaskReminderTemplate(user, task, reminderType) {
         const dueTime = (0, moment_timezone_1.default)(task.dueTime).tz(config_1.config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
         const groupId = task.group?.lineGroupId || task.groupId;
-        const dashboardUrl = `${config_1.config.baseUrl}/dashboard?groupId=${groupId}`;
+        const dashboardUrl = `${config_1.config.baseUrl}/dashboard-new?groupId=${groupId}`;
         let reminderText = '';
         switch (reminderType) {
             case 'P1D':
@@ -281,7 +281,7 @@ ${task.description ? `รายละเอียด: ${task.description}\n` : '
     createTaskCreatedTemplate(user, task) {
         const dueTime = (0, moment_timezone_1.default)(task.dueTime).tz(config_1.config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
         const groupId = task.group?.lineGroupId || task.groupId;
-        const dashboardUrl = `${config_1.config.baseUrl}/dashboard?groupId=${groupId}`;
+        const dashboardUrl = `${config_1.config.baseUrl}/dashboard-new?groupId=${groupId}`;
         const creatorName = task.createdByUser?.displayName || 'ไม่ทราบ';
         const groupName = task.group?.displayName || task.group?.name || 'ไม่ทราบกลุ่ม';
         const priorityText = this.getPriorityText(task.priority);
@@ -399,7 +399,7 @@ ${task.tags && task.tags.length > 0 ? `แท็ก: ${task.tags.map((tag) => `#
     createOverdueTemplate(user, task, overdueHours) {
         const dueTime = (0, moment_timezone_1.default)(task.dueTime).tz(config_1.config.app.defaultTimezone).format('DD/MM/YYYY HH:mm');
         const groupId = task.group?.lineGroupId || task.groupId;
-        const dashboardUrl = `${config_1.config.baseUrl}/dashboard?groupId=${groupId}`;
+        const dashboardUrl = `${config_1.config.baseUrl}/dashboard-new?groupId=${groupId}`;
         const subject = `⚠️ งานเกินกำหนด - ${task.title}`;
         const html = `
 <!DOCTYPE html>
@@ -469,7 +469,7 @@ ${task.tags && task.tags.length > 0 ? `แท็ก: ${task.tags.map((tag) => `#
     createWeeklyReportTemplate(user, groupName, groupId, stats, tasks) {
         const weekStart = (0, moment_timezone_1.default)().tz(config_1.config.app.defaultTimezone).startOf('week').format('DD/MM');
         const weekEnd = (0, moment_timezone_1.default)().tz(config_1.config.app.defaultTimezone).endOf('week').format('DD/MM');
-        const dashboardUrl = `${config_1.config.baseUrl}/dashboard?groupId=${groupId}`;
+        const dashboardUrl = `${config_1.config.baseUrl}/dashboard-new?groupId=${groupId}`;
         const subject = `📊 รายงานประจำสัปดาห์ - ${groupName} (${weekStart}-${weekEnd})`;
         const html = `
 <!DOCTYPE html>

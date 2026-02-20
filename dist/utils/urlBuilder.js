@@ -41,6 +41,16 @@ class UrlBuilder {
         });
     }
     /**
+     * สร้าง URL สำหรับลบงานที่เลือก
+     */
+    static getDeleteTasksUrl(groupId, userId) {
+        const url = new URL(`${config_1.config.baseUrl}/dashboard-new`);
+        url.searchParams.set('groupId', groupId);
+        url.searchParams.set('userId', userId);
+        url.searchParams.set('action', 'delete-task');
+        return url.toString();
+    }
+    /**
      * สร้าง URL สำหรับ API endpoint
      */
     static getApiUrl(endpoint) {

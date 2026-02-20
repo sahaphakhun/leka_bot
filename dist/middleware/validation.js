@@ -6,6 +6,30 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.formatValidationError = exports.paramSchemas = exports.recurringTaskSchemas = exports.kpiSchemas = exports.groupSchemas = exports.userSchemas = exports.fileSchemas = exports.taskSchemas = exports.validateRequest = void 0;
 const joi_1 = __importDefault(require("joi"));
+const UUID_V4_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LINE_OR_UUID_ID_PATTERN = new RegExp(`(?:^[U][a-zA-Z0-9]+$|^${UUID_V4_PATTERN.source}$)`);
+const LINE_OR_UUID_ID = joi_1.default.string().pattern(LINE_OR_UUID_ID_PATTERN);
+const validateSegment = (req, segment, schema) => {
+    if (!schema) {
+        return { value: undefined, error: undefined };
+    }
+    const { error, value } = schema.validate(req[segment], {
+        abortEarly: false,
+    });
+    return { value, error };
+};
+const createValidationErrorResponse = (error) => {
+    const validationErrors = error.details.map((detail) => ({
+        field: detail.path.join("."),
+        message: detail.message,
+        value: detail.context?.value,
+    }));
+    return {
+        success: false,
+        error: "Validation failed",
+        details: validationErrors,
+    };
+};
 /**
  * Validation Middleware Factory
  */
@@ -18,27 +42,33 @@ const validateRequest = (schema) => {
                 query: req.query,
                 params: req.params
             });
-            // Validate body if schema exists
-            if (schema.body) {
-                const { error, value } = schema.body.validate(req.body, { abortEarly: false });
+            const segments = [
+                "body",
+                "query",
+                "params",
+            ];
+            for (const segment of segments) {
+                const schemaSegment = schema[segment];
+                if (!schemaSegment)
+                    continue;
+                const { error, value } = validateSegment(req, segment, schemaSegment);
                 if (error) {
                     console.error('❌ Validation failed:', error.details);
-                    const validationErrors = error.details.map((detail) => ({
-                        field: detail.path.join('.'),
-                        message: detail.message,
-                        value: detail.context?.value
-                    }));
-                    console.error('❌ Validation errors:', validationErrors);
-                    return res.status(400).json({
-                        success: false,
-                        error: 'Validation failed',
-                        details: validationErrors
-                    });
+                    const responseBody = createValidationErrorResponse(error);
+                    console.error('❌ Validation errors:', responseBody);
+                    return res.status(400).json(responseBody);
                 }
-                // Validation passed
-                console.log('✅ Validation passed');
-                req.body = value;
+                if (segment === "body") {
+                    req.body = value;
+                }
+                else if (segment === "query") {
+                    req.query = value;
+                }
+                else if (segment === "params") {
+                    req.params = value;
+                }
             }
+            console.log('✅ Validation passed');
             next();
         }
         catch (err) {
@@ -57,15 +87,15 @@ exports.taskSchemas = {
         body: joi_1.default.object({
             title: joi_1.default.string().required().min(1).max(200),
             description: joi_1.default.string().optional().max(1000),
-            assigneeIds: joi_1.default.array().items(joi_1.default.string().pattern(/^[U][a-zA-Z0-9]+$/)).min(1).required(),
-            createdBy: joi_1.default.string().pattern(/^[U][a-zA-Z0-9]+$|^unknown$/).required(), // Allow 'unknown' for testing
+            assigneeIds: joi_1.default.array().items(LINE_OR_UUID_ID).min(1).required(),
+            createdBy: joi_1.default.alternatives().try(LINE_OR_UUID_ID.required(), joi_1.default.string().valid("unknown")).required(),
             dueTime: joi_1.default.string().required(), // Accept string for date parsing
             startTime: joi_1.default.string().optional(), // Accept string for date parsing
             priority: joi_1.default.string().valid('low', 'medium', 'high').default('medium'),
             tags: joi_1.default.array().items(joi_1.default.string()).optional(),
             customReminders: joi_1.default.array().items(joi_1.default.string()).optional(),
             requireAttachment: joi_1.default.boolean().optional(),
-            reviewerUserId: joi_1.default.string().pattern(/^[U][a-zA-Z0-9]+$/).optional()
+            reviewerUserId: LINE_OR_UUID_ID.optional(),
         }).unknown() // Allow unknown fields
     },
     update: {
@@ -200,6 +230,13 @@ exports.recurringTaskSchemas = {
             timezone: joi_1.default.string().optional(),
             active: joi_1.default.boolean().optional()
         }).unknown() // Allow unknown fields
+    },
+    toggle: {
+        body: joi_1.default.object({
+            enabled: joi_1.default.boolean(),
+            isActive: joi_1.default.boolean()
+        }).unknown()
+            .or("enabled", "isActive")
     }
 };
 // Common parameter schemas

@@ -317,7 +317,7 @@ export const uploadFile = (groupId, formData, onProgress) => {
 
 export const listRecurringTasks = (groupId) => {
   return apiCallWithCache(
-    `/groups/${groupId}/recurring-tasks`,
+    `/groups/${groupId}/recurring`,
     {},
     {
       cache: true,
@@ -329,7 +329,7 @@ export const listRecurringTasks = (groupId) => {
 
 export const createRecurringTask = (groupId, taskData) => {
   return apiCallWithCache(
-    `/groups/${groupId}/recurring-tasks`,
+    `/groups/${groupId}/recurring`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -338,14 +338,14 @@ export const createRecurringTask = (groupId, taskData) => {
     {
       cache: false,
       breaker: breakers.tasks,
-      invalidate: [`/groups/${groupId}/recurring-tasks`],
+      invalidate: [`/groups/${groupId}/recurring`],
     }
   );
 };
 
 export const updateRecurringTask = (groupId, taskId, updates) => {
   return apiCallWithCache(
-    `/groups/${groupId}/recurring-tasks/${taskId}`,
+    `/groups/${groupId}/recurring/${taskId}`,
     {
       method: "PUT",
       headers: { "Content-Type": "application/json" },
@@ -354,21 +354,21 @@ export const updateRecurringTask = (groupId, taskId, updates) => {
     {
       cache: false,
       breaker: breakers.tasks,
-      invalidate: [`/groups/${groupId}/recurring-tasks`, `/recurring-tasks/${taskId}`],
+      invalidate: [`/groups/${groupId}/recurring`, `/recurring/${taskId}`],
     }
   );
 };
 
 export const deleteRecurringTask = (groupId, taskId) => {
   return apiCallWithCache(
-    `/groups/${groupId}/recurring-tasks/${taskId}`,
+    `/groups/${groupId}/recurring/${taskId}`,
     {
       method: "DELETE",
     },
     {
       cache: false,
       breaker: breakers.tasks,
-      invalidate: [`/groups/${groupId}/recurring-tasks`],
+      invalidate: [`/groups/${groupId}/recurring`],
     }
   );
 };

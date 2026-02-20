@@ -370,8 +370,8 @@ class GoogleCalendarService {
         const groupId = task?.groupId;
         const taskId = task?.id;
         const detailUrl = groupId && taskId
-            ? `${config_1.config.baseUrl}/dashboard?groupId=${encodeURIComponent(groupId)}&taskId=${encodeURIComponent(taskId)}&action=view`
-            : `${config_1.config.baseUrl}/dashboard`;
+            ? `${config_1.config.baseUrl}/dashboard-new?groupId=${encodeURIComponent(groupId)}&taskId=${encodeURIComponent(taskId)}&action=view`
+            : `${config_1.config.baseUrl}/dashboard-new`;
         description += `\n🔗 เปิดรายละเอียด: ${detailUrl}`;
         // เพิ่มลิงก์แบบเฉพาะบุคคล (ถ้ารู้ LINE userId ของผู้รับผิดชอบ)
         try {

@@ -16,6 +16,10 @@ export declare class UrlBuilder {
      */
     static getNewTaskUrl(groupId: string, userId: string): string;
     /**
+     * สร้าง URL สำหรับลบงานที่เลือก
+     */
+    static getDeleteTasksUrl(groupId: string, userId: string): string;
+    /**
      * สร้าง URL สำหรับ API endpoint
      */
     static getApiUrl(endpoint: string): string;

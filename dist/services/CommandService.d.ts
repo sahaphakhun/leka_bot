@@ -4,6 +4,7 @@ export declare class CommandService {
     private userService;
     private fileService;
     private kpiService;
+    private taskDeletionService;
     constructor();
     /**
      * ประมวลผลคำสั่งหลัก
@@ -25,6 +26,14 @@ export declare class CommandService {
      * เพิ่มงาน - แสดงการ์ดพร้อมปุ่มไปหน้าเว็บเพิ่มงาน
      */
     private handleAddTaskCommand;
+    /**
+     * ลบงาน - แสดงการ์ดเพื่อเปิดหน้าเว็บลบงานที่เลือก
+     */
+    private handleDeleteTasksCommand;
+    /**
+     * รับคำว่า "ยอมรับ" เพื่ออนุมัติการลบงาน
+     */
+    private handleApproveDeletionCommand;
     /**
      * คำสั่งเซฟไฟล์ - บันทึกไฟล์ทั้งหมดใน 1 ชั่วโมงล่าสุด
      */

@@ -59,6 +59,9 @@ export declare const recurringTaskSchemas: {
     update: {
         body: Joi.ObjectSchema<any>;
     };
+    toggle: {
+        body: Joi.ObjectSchema<any>;
+    };
 };
 export declare const paramSchemas: {
     uuid: {

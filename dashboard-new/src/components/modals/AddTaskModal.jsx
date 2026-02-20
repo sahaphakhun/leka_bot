@@ -33,7 +33,15 @@ import { uploadFiles } from "../../services/api";
 
 const THAI_TIMEZONE = "Asia/Bangkok";
 
-const isLineUserId = (value) => /^[U][a-zA-Z0-9]+$/.test(value || "");
+const TASK_ASSIGNEE_ID_PATTERN =
+  /^(?:[U][a-zA-Z0-9]+|[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12})$/i;
+
+const isTaskAssigneeId = (value) => TASK_ASSIGNEE_ID_PATTERN.test((value || "").trim());
+const extractValidationMessage = (error) =>
+  error?.data?.error ||
+  error?.data?.message ||
+  error?.message ||
+  "ไม่สามารถสร้างงานได้";
 
 const toYYYYMMDD = (date) => {
   const yyyy = date.getFullYear();
@@ -114,7 +122,7 @@ const normalizeMembers = (membersList) => {
         member?.userId ||
         lineId,
       pictureUrl: member?.pictureUrl,
-      selectable: isLineUserId(lineId),
+      selectable: isTaskAssigneeId(lineId),
     });
   }
 
@@ -491,7 +499,7 @@ export default function AddTaskModal({
   useEffect(() => {
     if (!isAddTaskOpen) return;
     if (!canCreate) return;
-    if (!isLineUserId(userId)) return;
+    if (!isTaskAssigneeId(userId)) return;
 
     const hasMember = members.some((m) => m.id === userId && m.selectable);
     if (!hasMember) return;
@@ -626,7 +634,7 @@ export default function AddTaskModal({
         dueTime: dueTimeIso,
         priority: priorityApi,
         tags: finalTags.length > 0 ? finalTags : undefined,
-        assigneeIds: uniqueKeepOrder(normal.assigneeIds).filter(isLineUserId),
+        assigneeIds: uniqueKeepOrder(normal.assigneeIds),
         reviewerUserId: normal.reviewerUserId || undefined,
         createdBy: userId,
         requireAttachment: false,
@@ -640,7 +648,7 @@ export default function AddTaskModal({
       requestClose();
     } catch (error) {
       console.error("Failed to create task:", error);
-      showError(error?.message || "ไม่สามารถสร้างงานได้", error);
+      showError(extractValidationMessage(error), error);
     } finally {
       setSubmitting(false);
     }
@@ -692,7 +700,7 @@ export default function AddTaskModal({
       requestClose();
     } catch (error) {
       console.error("Failed to create recurring task:", error);
-      showError(error?.message || "ไม่สามารถสร้างงานประจำได้", error);
+      showError(extractValidationMessage(error), error);
     } finally {
       setSubmitting(false);
     }

@@ -452,7 +452,7 @@ class NotificationService {
             ? files.slice(0, 2).map(file => FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton(`📥 ${file.originalName.substring(0, 8)}...`, 'uri', this.fileService.generateDownloadUrl(group.id, file.id), 'secondary'))
             : [];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}&taskId=${task.id}&action=view`, 'primary'),
             ...fileButtons
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('📤 การส่งงานใหม่', '📤', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.success, content, buttons, 'extraLarge');
@@ -479,7 +479,7 @@ class NotificationService {
             FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText('ระบบอนุมัติงานอัตโนมัติหลังจากครบกำหนดตรวจ 2 วัน', 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary)
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('🤖 งานถูกอนุมัติอัตโนมัติ', '🤖', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.success, content, buttons, 'extraLarge');
     }
@@ -522,7 +522,7 @@ class NotificationService {
             ...(task.description ? [FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}&taskId=${task.id}&action=view${viewerLineUserId ? `&userId=${viewerLineUserId}` : ''}`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard(task.title, reminderEmoji, FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.warning, content, buttons, 'extraLarge');
     }
@@ -546,8 +546,8 @@ class NotificationService {
             ...(task.description ? [FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config_1.config.baseUrl}/dashboard/submit-tasks?userId=${assignee?.lineUserId || ''}`, 'secondary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config_1.config.baseUrl}/dashboard-new?view=submit&userId=${assignee?.lineUserId || ''}`, 'secondary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard(`🔔 ${reminderText}: ${task.title}`, reminderEmoji, FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.warning, content, buttons, 'extraLarge');
     }
@@ -572,8 +572,8 @@ class NotificationService {
             ...(task.description ? [FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText(`📝 ${task.description}`, 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config_1.config.baseUrl}/dashboard/submit-tasks?userId=${assignee?.lineUserId || ''}`, 'secondary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config_1.config.baseUrl}/dashboard-new?view=submit&userId=${assignee?.lineUserId || ''}`, 'secondary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard(`🚨 งานเกินกำหนด: ${task.title}`, '🚨', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.danger, content, buttons, 'extraLarge');
     }
@@ -605,8 +605,8 @@ class NotificationService {
             ...(tagsText ? [FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText(tagsText, 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('รายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config_1.config.baseUrl}/dashboard/submit-tasks?userId=${assignee?.lineUserId || ''}`, 'secondary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('รายละเอียด', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}&taskId=${task.id}&action=view${assignee?.lineUserId ? `&userId=${assignee.lineUserId}` : ''}`, 'primary'),
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ส่งงาน', 'uri', `${config_1.config.baseUrl}/dashboard-new?view=submit&userId=${assignee?.lineUserId || ''}`, 'secondary')
         ];
         // เพิ่มปุ่มขอเลื่อนเฉพาะเมื่อยังไม่เกิน 1 วัน
         if (canRequestExtension) {
@@ -631,7 +631,7 @@ class NotificationService {
             ...(tagsText ? [FlexMessageDesignSystem_1.FlexMessageDesignSystem.createText(tagsText, 'sm', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.textSecondary, undefined, true)] : [])
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('แก้ไขงาน', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}&taskId=${task.id}&action=edit&userId=${creator.lineUserId}`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('แก้ไขงาน', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}&taskId=${task.id}&action=edit&userId=${creator.lineUserId}`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard(`📋 งานที่สร้าง: ${task.title}`, '📋', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.primary, content, buttons, 'extraLarge');
     }
@@ -1009,7 +1009,7 @@ class NotificationService {
             ], 'small')
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายงานฉบับเต็ม', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายงานฉบับเต็ม', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.lineGroupId}&view=leaderboard`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard(`📊 ${group.name}`, '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.primary, content, buttons, 'extraLarge');
     }
@@ -1046,7 +1046,7 @@ class NotificationService {
             ], 'small')
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายงานฉบับเต็ม', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.lineGroupId}#leaderboard`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดูรายงานฉบับเต็ม', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.lineGroupId}&view=leaderboard`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard(`📊 ${group.name}`, '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.info, content, buttons, 'extraLarge');
     }
@@ -1102,7 +1102,7 @@ class NotificationService {
             ])
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('📊 รายงานผู้จัดการ', '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.info, content, buttons, 'extraLarge');
     }
@@ -1124,7 +1124,7 @@ class NotificationService {
             ], 'small')
         ];
         const buttons = [
-            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard?groupId=${group.id}`, 'primary')
+            FlexMessageDesignSystem_1.FlexMessageDesignSystem.createButton('ดู Dashboard', 'uri', `${config_1.config.baseUrl}/dashboard-new?groupId=${group.id}`, 'primary')
         ];
         return FlexMessageDesignSystem_1.FlexMessageDesignSystem.createStandardTaskCard('📊 รายงานหัวหน้างาน', '📊', FlexMessageDesignSystem_1.FlexMessageDesignSystem.colors.neutral, content, buttons, 'extraLarge');
     }

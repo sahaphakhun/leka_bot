@@ -15,6 +15,30 @@ export declare class Group {
         };
         reportRecipients?: string[];
         supervisors?: string[];
+        pendingDeletionRequest?: {
+            id: string;
+            filter?: "all" | "incomplete" | "custom";
+            requestedBy: {
+                userId: string;
+                lineUserId: string;
+                displayName?: string;
+            };
+            createdAt: string;
+            tasks: Array<{
+                id: string;
+                title: string;
+                status: string;
+                assignees?: string[];
+            }>;
+            totalMembers: number;
+            requiredApprovals: number;
+            approvals: Array<{
+                userId: string;
+                lineUserId: string;
+                displayName?: string;
+                approvedAt: string;
+            }>;
+        };
     };
     createdAt: Date;
     updatedAt: Date;

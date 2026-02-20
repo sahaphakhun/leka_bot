@@ -11,6 +11,11 @@ export declare class TaskService {
     private fileRepository;
     private userService;
     private fileBackupService;
+    private isLineUserId;
+    private isUuid;
+    private normalizeUserIds;
+    private resolveUserByIdentifier;
+    private resolveUsersByIdentifiers;
     constructor();
     /** ดึงงานตาม ID พร้อม relations หลัก */
     getTaskById(taskId: string): Promise<Task | null>;
@@ -88,7 +93,7 @@ export declare class TaskService {
      * @param options.assigneeId - LINE User ID (เช่น "Uc92411a226e4d4c9866adef05068bdf1")
      */
     getGroupTasks(groupId: string, options?: {
-        status?: TaskType['status'];
+        status?: TaskType['status'][] | TaskType['status'];
         assigneeId?: string;
         requireAttachmentOnly?: boolean;
         tags?: string[];

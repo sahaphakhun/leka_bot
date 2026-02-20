@@ -492,13 +492,34 @@ class ApiController {
         }
       }
 
+      const dueTime = new Date(taskData.dueTime);
+      if (Number.isNaN(dueTime.getTime())) {
+        res.status(400).json({
+          success: false,
+          error: "รูปแบบวันที่กำหนดส่งไม่ถูกต้อง",
+          details: `dueTime received: ${taskData.dueTime}`,
+        });
+        return;
+      }
+
+      const startTime = taskData.startTime
+        ? new Date(taskData.startTime)
+        : undefined;
+
+      if (startTime && Number.isNaN(startTime.getTime())) {
+        res.status(400).json({
+          success: false,
+          error: "รูปแบบวันเริ่มไม่ถูกต้อง",
+          details: `startTime received: ${taskData.startTime}`,
+        });
+        return;
+      }
+
       const task = await this.taskService.createTask({
         ...taskData,
         groupId,
-        dueTime: new Date(taskData.dueTime),
-        startTime: taskData.startTime
-          ? new Date(taskData.startTime)
-          : undefined,
+        dueTime,
+        startTime,
         requireAttachment: !!taskData.requireAttachment,
         reviewerUserId: taskData.reviewerUserId,
       });
@@ -3129,6 +3150,40 @@ class ApiController {
     }
   }
 
+  public async toggleRecurring(req: Request, res: Response): Promise<void> {
+    try {
+      const { id } = req.params;
+      const body = req.body || {};
+      const isActivePayload =
+        typeof body.enabled === "boolean"
+          ? body.enabled
+          : typeof body.isActive === "boolean"
+            ? body.isActive
+            : typeof body.active === "boolean"
+              ? body.active
+            : undefined;
+
+      if (typeof isActivePayload !== "boolean") {
+        res.status(400).json({
+          success: false,
+          error: "enabled, isActive, or active is required and must be a boolean",
+        });
+        return;
+      }
+
+      const recurring = await this.recurringService.update(id, {
+        active: isActivePayload,
+      });
+      res.json({ success: true, data: recurring });
+    } catch (error) {
+      logger.error("❌ Error toggling recurring:", error);
+      res.status(500).json({
+        success: false,
+        error: "Failed to toggle recurring task",
+      });
+    }
+  }
+
   public async getRecurring(req: Request, res: Response): Promise<void> {
     try {
       const { id } = req.params;
@@ -5347,7 +5402,7 @@ apiRouter.get(
   "/groups/:groupId/reports/export",
   apiController.exportReports.bind(apiController),
 );
-// TODO: เพิ่ม endpoints สำหรับ recurring tasks ในอนาคต เช่น POST/GET /groups/:groupId/recurring
+// Recurring endpoints support both group-scoped and global route styles
 
 // Task-specific routes
 apiRouter.put(
@@ -5563,6 +5618,37 @@ apiRouter.post(
   validateRequest(recurringTaskSchemas.create),
   apiController.createRecurring.bind(apiController),
 );
+apiRouter.get(
+  "/groups/:groupId/recurring/stats",
+  apiController.getGroupRecurringStats.bind(apiController),
+);
+apiRouter.get(
+  "/groups/:groupId/recurring/:id",
+  apiController.getRecurring.bind(apiController),
+);
+apiRouter.put(
+  "/groups/:groupId/recurring/:id",
+  validateRequest(recurringTaskSchemas.update),
+  apiController.updateRecurring.bind(apiController),
+);
+apiRouter.delete(
+  "/groups/:groupId/recurring/:id",
+  apiController.deleteRecurring.bind(apiController),
+);
+apiRouter.get(
+  "/groups/:groupId/recurring/:id/history",
+  apiController.getRecurringHistory.bind(apiController),
+);
+apiRouter.patch(
+  "/groups/:groupId/recurring/:id/toggle",
+  validateRequest(recurringTaskSchemas.toggle),
+  apiController.toggleRecurring.bind(apiController),
+);
+apiRouter.patch(
+  "/recurring/:id/toggle",
+  validateRequest(recurringTaskSchemas.toggle),
+  apiController.toggleRecurring.bind(apiController),
+);
 apiRouter.get("/recurring/:id", apiController.getRecurring.bind(apiController));
 apiRouter.put(
   "/recurring/:id",
@@ -5582,10 +5668,6 @@ apiRouter.get(
 apiRouter.get(
   "/recurring/:id/stats",
   apiController.getRecurringStats.bind(apiController),
-);
-apiRouter.get(
-  "/groups/:groupId/recurring/stats",
-  apiController.getGroupRecurringStats.bind(apiController),
 );
 
 // Task submission (UI upload)
@@ -5634,10 +5716,6 @@ apiRouter.post(
 );
 
 // File management endpoints
-apiRouter.get(
-  "/files/:fileId/download",
-  apiController.downloadFile.bind(apiController),
-);
 apiRouter.delete(
   "/files/:fileId",
   apiController.deleteFile.bind(apiController),

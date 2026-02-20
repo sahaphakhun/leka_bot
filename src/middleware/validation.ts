@@ -16,6 +16,43 @@ interface ValidationError {
   value?: any;
 }
 
+const UUID_V4_PATTERN =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const LINE_OR_UUID_ID_PATTERN = new RegExp(
+  `(?:^[U][a-zA-Z0-9]+$|^${UUID_V4_PATTERN.source}$)`,
+);
+const LINE_OR_UUID_ID = Joi.string().pattern(LINE_OR_UUID_ID_PATTERN);
+
+const validateSegment = (
+  req: Request,
+  segment: "body" | "query" | "params",
+  schema?: Joi.AnySchema,
+) => {
+  if (!schema) {
+    return { value: undefined, error: undefined };
+  }
+
+  const { error, value } = schema.validate((req as any)[segment], {
+    abortEarly: false,
+  });
+
+  return { value, error };
+};
+
+const createValidationErrorResponse = (error: Joi.ValidationError) => {
+  const validationErrors: ValidationError[] = error.details.map((detail: any) => ({
+    field: detail.path.join("."),
+    message: detail.message,
+    value: detail.context?.value,
+  }));
+
+  return {
+    success: false,
+    error: "Validation failed",
+    details: validationErrors,
+  };
+};
+
 /**
  * Validation Middleware Factory
  */
@@ -29,32 +66,37 @@ export const validateRequest = (schema: ValidationSchema) => {
         params: req.params
       });
 
-      // Validate body if schema exists
-      if (schema.body) {
-        const { error, value } = schema.body.validate(req.body, { abortEarly: false });
-        
+      const segments: Array<"body" | "query" | "params"> = [
+        "body",
+        "query",
+        "params",
+      ];
+
+      for (const segment of segments) {
+        const schemaSegment = (schema as any)[segment] as Joi.AnySchema | undefined;
+        if (!schemaSegment) continue;
+
+        const { error, value } = validateSegment(req, segment, schemaSegment);
+
         if (error) {
           console.error('❌ Validation failed:', error.details);
-          
-          const validationErrors: ValidationError[] = error.details.map((detail: any) => ({
-            field: detail.path.join('.'),
-            message: detail.message,
-            value: detail.context?.value
-          }));
-          
-          console.error('❌ Validation errors:', validationErrors);
-          
-          return res.status(400).json({
-            success: false,
-            error: 'Validation failed',
-            details: validationErrors
-          });
+
+          const responseBody = createValidationErrorResponse(error);
+          console.error('❌ Validation errors:', responseBody);
+
+          return res.status(400).json(responseBody);
         }
 
-        // Validation passed
-        console.log('✅ Validation passed');
-        req.body = value;
+        if (segment === "body") {
+          req.body = value;
+        } else if (segment === "query") {
+          req.query = value as Record<string, any>;
+        } else if (segment === "params") {
+          req.params = value as Record<string, string>;
+        }
       }
+
+      console.log('✅ Validation passed');
 
       next();
     } catch (err) {
@@ -74,15 +116,18 @@ export const taskSchemas = {
     body: Joi.object({
       title: Joi.string().required().min(1).max(200),
       description: Joi.string().optional().max(1000),
-      assigneeIds: Joi.array().items(Joi.string().pattern(/^[U][a-zA-Z0-9]+$/)).min(1).required(),
-      createdBy: Joi.string().pattern(/^[U][a-zA-Z0-9]+$|^unknown$/).required(), // Allow 'unknown' for testing
+      assigneeIds: Joi.array().items(LINE_OR_UUID_ID).min(1).required(),
+      createdBy: Joi.alternatives().try(
+        LINE_OR_UUID_ID.required(),
+        Joi.string().valid("unknown"),
+      ).required(),
       dueTime: Joi.string().required(), // Accept string for date parsing
       startTime: Joi.string().optional(), // Accept string for date parsing
       priority: Joi.string().valid('low', 'medium', 'high').default('medium'),
       tags: Joi.array().items(Joi.string()).optional(),
       customReminders: Joi.array().items(Joi.string()).optional(),
       requireAttachment: Joi.boolean().optional(),
-      reviewerUserId: Joi.string().pattern(/^[U][a-zA-Z0-9]+$/).optional()
+      reviewerUserId: LINE_OR_UUID_ID.optional(),
     }).unknown() // Allow unknown fields
   },
   
@@ -229,6 +274,15 @@ export const recurringTaskSchemas = {
       timezone: Joi.string().optional(),
       active: Joi.boolean().optional()
     }).unknown() // Allow unknown fields
+  },
+
+  toggle: {
+    body: Joi.object({
+      enabled: Joi.boolean(),
+      isActive: Joi.boolean(),
+      active: Joi.boolean(),
+    }).unknown()
+      .or("enabled", "isActive", "active")
   }
 };
 
