@@ -328,13 +328,13 @@ function AppContent() {
         case "new-task":
         case "create-task":
           console.log("📝 Opening AddTask modal...");
-          openAddTask("normal");
+          openAddTaskRef.current?.("normal");
           handled = true;
           break;
 
         case "new-recurring-task":
           console.log("🔄 Opening AddTask modal (recurring tab)...");
-          openAddTask("recurring");
+          openAddTaskRef.current?.("recurring");
           handled = true;
           break;
 
@@ -343,7 +343,7 @@ function AppContent() {
             console.log("👁️ Opening TaskDetail modal for task:", taskId);
             const task = tasks.find((t) => t.id === taskId);
             if (task) {
-              openTaskDetail(task);
+              openTaskDetailRef.current?.(task);
               handled = true;
             } else {
               console.warn("⚠️ Task not found:", taskId);
@@ -356,7 +356,7 @@ function AppContent() {
             console.log("✏️ Opening EditTask modal for task:", taskId);
             const task = tasks.find((t) => t.id === taskId);
             if (task) {
-              openEditTask(task);
+              openEditTaskRef.current?.(task);
               handled = true;
             } else {
               console.warn("⚠️ Task not found:", taskId);
@@ -366,13 +366,13 @@ function AppContent() {
 
         case "submit-task":
           console.log("📤 Opening SubmitTask modal...");
-          openSubmitTask();
+          openSubmitTaskRef.current?.();
           handled = true;
           break;
 
         case "delete-task":
           console.log("🗑️ Opening DeleteTasks modal...");
-          openDeleteTasks();
+          openDeleteTasksRef.current?.();
           handled = true;
           break;
 
@@ -399,12 +399,6 @@ function AppContent() {
     loading,
     tasks,
     userCanModify,
-    openAddTask,
-    openRecurringTask,
-    openTaskDetail,
-    openEditTask,
-    openSubmitTask,
-    openDeleteTasks,
   ]);
 
   const loadSampleData = useCallback(async () => {

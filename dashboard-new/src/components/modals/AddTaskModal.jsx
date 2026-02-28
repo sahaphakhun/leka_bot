@@ -355,31 +355,41 @@ function MemberPicker({
             <div className="space-y-1">
               {filtered.map((member) => {
                 const checked = selectedIds.includes(member.id);
+                const nextIds = checked
+                  ? selectedIds.filter((id) => id !== member.id)
+                  : [...selectedIds, member.id];
+
                 return (
-                  <button
+                  <div
                     key={member.id}
-                    type="button"
-                    onClick={() =>
-                      onChange(
-                        checked
-                          ? selectedIds.filter((id) => id !== member.id)
-                          : [...selectedIds, member.id],
-                      )
-                    }
-                    disabled={disabled}
+                    role="button"
+                    tabIndex={disabled ? -1 : 0}
+                    aria-pressed={checked}
+                    onClick={() => {
+                      if (disabled) return;
+                      onChange(nextIds);
+                    }}
+                    onKeyDown={(e) => {
+                      if (disabled) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onChange(nextIds);
+                      }
+                    }}
                     className={cn(
                       "w-full flex items-center gap-3 rounded-xl px-3 py-2 text-left transition-colors",
                       checked ? "bg-primary/10" : "hover:bg-accent/40",
+                      disabled && "cursor-not-allowed opacity-60",
                     )}
                   >
-                    <Checkbox checked={checked} />
+                    <Checkbox checked={checked} className="pointer-events-none" />
                     <div className="min-w-0 flex-1">
                       <p className="text-sm font-medium truncate">
                         {member.name}
                       </p>
                     </div>
                     {checked && <Check className="w-4 h-4 text-primary" />}
-                  </button>
+                  </div>
                 );
               })}
             </div>
